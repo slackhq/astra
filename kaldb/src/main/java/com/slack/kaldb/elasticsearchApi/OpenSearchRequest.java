@@ -54,34 +54,30 @@ public class OpenSearchRequest {
   private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-  public static Map<String, List<Trace.Span>> parseBulkHttpRequest(String postBody) {
-
+  public static Map<String, List<Trace.Span>> parseBulkHttpRequest(String postBody)
+      throws IOException {
     BulkRequest bulkRequest = new BulkRequest();
-    // Should always be one - using it as a tuple
     Map<String, List<Trace.Span>> indexDocs = new HashMap<>();
-    try {
-      bulkRequest.add(
-          postBody.getBytes(StandardCharsets.UTF_8), 0, postBody.length(), null, XContentType.JSON);
-      List<DocWriteRequest<?>> requests = bulkRequest.requests();
-      for (DocWriteRequest<?> request : requests) {
-        if (request.opType() == DocWriteRequest.OpType.INDEX) {
 
-          // The client makes a DocWriteRequest and sends it to the server
-          // IngestService#innerExecute is where the server eventually reads when request is an
-          // IndexRequest. It then creates an IngestDocument
-          String index = ((IndexRequest) request).index();
-          IngestDocument ingestDocument = convertRequestToDocument((IndexRequest) request);
-          List<Trace.Span> docs = indexDocs.getOrDefault(index, new ArrayList<>());
-          docs.add(MurronLogFormatter.fromIngestDocument(ingestDocument));
-          indexDocs.put(index, docs);
+    bulkRequest.add(
+        postBody.getBytes(StandardCharsets.UTF_8), 0, postBody.length(), null, XContentType.JSON);
+    List<DocWriteRequest<?>> requests = bulkRequest.requests();
+    for (DocWriteRequest<?> request : requests) {
+      if (request.opType() == DocWriteRequest.OpType.INDEX) {
 
-        } else {
-          LOG.warn(
-              "request=" + request + " of type " + request.opType().toString() + "not supported");
-        }
+        // The client makes a DocWriteRequest and sends it to the server
+        // IngestService#innerExecute is where the server eventually reads when request is an
+        // IndexRequest. It then creates an IngestDocument
+        String index = ((IndexRequest) request).index();
+        IngestDocument ingestDocument = convertRequestToDocument((IndexRequest) request);
+        List<Trace.Span> docs = indexDocs.getOrDefault(index, new ArrayList<>());
+        docs.add(MurronLogFormatter.fromIngestDocument(ingestDocument));
+        indexDocs.put(index, docs);
+
+      } else {
+        LOG.warn(
+            "request=" + request + " of type " + request.opType().toString() + "not supported");
       }
-    } catch (IOException e) {
-      e.printStackTrace();
     }
     return indexDocs;
   }

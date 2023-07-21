@@ -1,45 +1,92 @@
 package com.slack.kaldb.server;
 
+import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
+import static com.slack.kaldb.preprocessor.PreprocessorService.INITIALIZE_RATE_LIMIT_WARM;
 import static com.slack.kaldb.preprocessor.PreprocessorService.filterValidDatasetMetadata;
 import static com.slack.kaldb.preprocessor.PreprocessorService.sortDatasetsOnThroughput;
 
+import com.google.common.util.concurrent.AbstractService;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.elasticsearchApi.OpenSearchRequest;
+import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.preprocessor.PreprocessorRateLimiter;
 import com.slack.kaldb.preprocessor.PreprocessorService;
-import com.slack.kaldb.preprocessor.PreprocessorValueMapper;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.streams.kstream.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ElasticsearchBulkIngestAPI {
+public class ElasticsearchBulkIngestAPI extends AbstractService {
 
   private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchBulkIngestAPI.class);
+  private final PrometheusMeterRegistry meterRegistry;
 
   private final KaldbConfigs.PreprocessorConfig preprocessorConfig;
-  private final PrometheusMeterRegistry meterRegistry;
   private final DatasetMetadataStore datasetMetadataStore;
   private final KafkaProducer<String, byte[]> kafkaProducer;
 
-  final List<DatasetMetadata> throughputSortedDatasets;
+  private List<DatasetMetadata> throughputSortedDatasets;
+
+  private final KaldbMetadataStoreChangeListener<DatasetMetadata> datasetListener =
+      (datasetMetadata) -> load();
+
+  private PreprocessorRateLimiter rateLimiter;
+  private Predicate<String, Trace.Span> rateLimiterPredicate;
+
+  @Override
+  protected void doStart() {
+    LOG.info("Starting ElasticsearchBulkIngestAPI service");
+    load();
+    datasetMetadataStore.addListener(datasetListener);
+    LOG.info("ElasticsearchBulkIngestAPI service started");
+  }
+
+  @Override
+  protected void doStop() {
+    LOG.info("Stopping ElasticsearchBulkIngestAPI service");
+    datasetMetadataStore.removeListener(datasetListener);
+    LOG.info("ElasticsearchBulkIngestAPI service closed");
+  }
+
+  public void load() {
+    List<DatasetMetadata> datasetMetadataList = datasetMetadataStore.listSync();
+    // only attempt to register stream processing on valid dataset configurations
+    List<DatasetMetadata> datasetMetadataToProcesses =
+        filterValidDatasetMetadata(datasetMetadataList);
+
+    this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataToProcesses);
+
+    this.rateLimiter =
+        new PreprocessorRateLimiter(
+            meterRegistry,
+            preprocessorConfig.getPreprocessorInstanceCount(),
+            preprocessorConfig.getRateLimiterMaxBurstSeconds(),
+            INITIALIZE_RATE_LIMIT_WARM);
+    this.rateLimiterPredicate = rateLimiter.createRateLimiter(datasetMetadataList);
+  }
+
+  record BulkIngestResponse(int totalDocs, long failedDocs, String errorMessage) {}
 
   public ElasticsearchBulkIngestAPI(
       DatasetMetadataStore datasetMetadataStore,
@@ -49,13 +96,6 @@ public class ElasticsearchBulkIngestAPI {
     this.preprocessorConfig = preprocessorConfig;
     this.meterRegistry = meterRegistry;
     this.kafkaProducer = createKafkaProducer();
-
-    // only attempt to register stream processing on valid dataset configurations
-    List<DatasetMetadata> datasetMetadataList = datasetMetadataStore.listSync();
-    List<DatasetMetadata> datasetMetadataToProcesses =
-        filterValidDatasetMetadata(datasetMetadataList);
-
-    this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataToProcesses);
   }
 
   /**
@@ -65,14 +105,27 @@ public class ElasticsearchBulkIngestAPI {
   @Blocking
   @Post("/_bulk")
   public HttpResponse addDocument(String bulkRequest) {
-
-    Map<String, List<Trace.Span>> docs = OpenSearchRequest.parseBulkHttpRequest(bulkRequest);
-    // TODO: Add rate limit
-    produceDocuments(docs);
-    return HttpResponse.ofJson(bulkRequest);
+    try {
+      Map<String, List<Trace.Span>> docs = OpenSearchRequest.parseBulkHttpRequest(bulkRequest);
+      Map<String, List<Trace.Span>> rateLimitedDocs = new HashMap<>();
+      for (Map.Entry<String, List<Trace.Span>> indexDoc : docs.entrySet()) {
+        final String index = indexDoc.getKey();
+        rateLimitedDocs.put(
+            index,
+            indexDoc.getValue().stream()
+                .filter(doc -> rateLimiterPredicate.test(index, doc))
+                .collect(Collectors.toList()));
+      }
+      BulkIngestResponse response = produceDocuments(rateLimitedDocs);
+      return HttpResponse.ofJson(response);
+    } catch (Exception e) {
+      LOG.error("Request failed ", e);
+      BulkIngestResponse response = new BulkIngestResponse(0, 0, e.getMessage());
+      return HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response);
+    }
   }
 
-  public void produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
+  public BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
     int totalDocs = indexDocs.values().stream().mapToInt(List::size).sum();
 
     final CountDownLatch completeSignal = new CountDownLatch(totalDocs);
@@ -81,7 +134,10 @@ public class ElasticsearchBulkIngestAPI {
       String index = indexDoc.getKey();
       int partition = getPartition(index);
 
+      // since there isn't a dataset provisioned for this service/index we will not index this set
+      // of docs
       if (partition < 0) {
+        LOG.warn("index=" + index + " does not have a provisioned dataset associated with it");
         continue;
       }
       for (Trace.Span doc : indexDoc.getValue()) {
@@ -97,9 +153,10 @@ public class ElasticsearchBulkIngestAPI {
       try {
         completeSignal.await();
       } catch (InterruptedException e) {
-        LOG.error("Error while waiting for all docs to be ACK'ed by kafka", e);
+        LOG.error("Failed while waiting for all documents to be ACK'ed ", e);
       }
     }
+    return new BulkIngestResponse(totalDocs, errorCount.get(), "");
   }
 
   private int getPartition(String index) {
@@ -115,17 +172,6 @@ public class ElasticsearchBulkIngestAPI {
     }
     // We don't have a provisioned service for this index
     return -1;
-  }
-
-  public int getPartition(Trace.Span span) {
-    String serviceName = PreprocessorValueMapper.getServiceName(span);
-    if (serviceName == null) {
-      // this also should not happen since we drop messages with empty service names in the rate
-      // limiter
-      throw new IllegalStateException(
-          String.format("Service name not found within the message '%s'", span));
-    }
-    return 1;
   }
 
   class KafkaBlockingCallback implements Callback {

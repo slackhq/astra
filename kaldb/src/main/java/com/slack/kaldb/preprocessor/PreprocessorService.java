@@ -52,7 +52,7 @@ public class PreprocessorService extends AbstractService {
   private static final Logger LOG = LoggerFactory.getLogger(PreprocessorService.class);
   private static final long MAX_TIME = Long.MAX_VALUE;
 
-  private static final boolean INITIALIZE_RATE_LIMIT_WARM = true;
+  public static final boolean INITIALIZE_RATE_LIMIT_WARM = true;
 
   private final DatasetMetadataStore datasetMetadataStore;
   private final PreprocessorRateLimiter rateLimiter;
