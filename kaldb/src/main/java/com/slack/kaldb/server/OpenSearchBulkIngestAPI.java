@@ -4,12 +4,12 @@ import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
 import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
+import static com.slack.kaldb.preprocessor.PreprocessorService.CONFIG_RELOAD_TIMER;
 import static com.slack.kaldb.preprocessor.PreprocessorService.INITIALIZE_RATE_LIMIT_WARM;
 import static com.slack.kaldb.preprocessor.PreprocessorService.filterValidDatasetMetadata;
 import static com.slack.kaldb.preprocessor.PreprocessorService.sortDatasetsOnThroughput;
 
 import com.google.common.util.concurrent.AbstractService;
-import com.google.common.util.concurrent.RateLimiter;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Post;
@@ -21,6 +21,7 @@ import com.slack.kaldb.preprocessor.PreprocessorRateLimiter;
 import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.streams.kstream.Predicate;
+import org.opensearch.action.index.IndexRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,47 +48,46 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
   private final DatasetMetadataStore datasetMetadataStore;
   private final KafkaProducer<String, byte[]> kafkaProducer;
 
-  private List<DatasetMetadata> throughputSortedDatasets;
-
   private final KaldbMetadataStoreChangeListener<DatasetMetadata> datasetListener =
       (datasetMetadata) -> load();
 
-  private PreprocessorRateLimiter rateLimiter;
-  private Predicate<String, Trace.Span> rateLimiterPredicate;
-  private Map<String, RateLimiter> rateLimiterMap;
+  private final PreprocessorRateLimiter rateLimiter;
+  private Predicate<String, List<Trace.Span>> rateLimiterPredicate;
+  private List<DatasetMetadata> throughputSortedDatasets;
+
+  private final Timer configReloadTimer;
 
   @Override
   protected void doStart() {
-    LOG.info("Starting ElasticsearchBulkIngestAPI service");
+    LOG.info("Starting OpenSearchBulkIngestAPI service");
     load();
     datasetMetadataStore.addListener(datasetListener);
-    LOG.info("ElasticsearchBulkIngestAPI service started");
+    LOG.info("OpenSearchBulkIngestAPI service started");
   }
 
   @Override
   protected void doStop() {
-    LOG.info("Stopping ElasticsearchBulkIngestAPI service");
+    LOG.info("Stopping OpenSearchBulkIngestAPI service");
     datasetMetadataStore.removeListener(datasetListener);
-    LOG.info("ElasticsearchBulkIngestAPI service closed");
+    kafkaProducer.close();
+    LOG.info("OpenSearchBulkIngestAPI service closed");
   }
 
   public void load() {
-    List<DatasetMetadata> datasetMetadataList = datasetMetadataStore.listSync();
-    // only attempt to register stream processing on valid dataset configurations
-    List<DatasetMetadata> datasetMetadataToProcesses =
-        filterValidDatasetMetadata(datasetMetadataList);
+    try {
+      Timer.Sample loadTimer = Timer.start(meterRegistry);
+      List<DatasetMetadata> datasetMetadataList = datasetMetadataStore.listSync();
+      // only attempt to register stream processing on valid dataset configurations
+      List<DatasetMetadata> datasetMetadataToProcesses =
+          filterValidDatasetMetadata(datasetMetadataList);
 
-    this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataToProcesses);
-
-    this.rateLimiter =
-        new PreprocessorRateLimiter(
-            meterRegistry,
-            preprocessorConfig.getPreprocessorInstanceCount(),
-            preprocessorConfig.getRateLimiterMaxBurstSeconds(),
-            INITIALIZE_RATE_LIMIT_WARM);
-    this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
-    this.rateLimiterMap = rateLimiter.getRateLimiterMap(throughputSortedDatasets);
-    this.rateLimiterPredicate = rateLimiter.createRateLimiter(datasetMetadataList);
+      this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataToProcesses);
+      this.rateLimiterPredicate =
+          rateLimiter.createBulkIngestRateLimiter(datasetMetadataToProcesses);
+      loadTimer.stop(configReloadTimer);
+    } catch (Exception e) {
+      notifyFailed(e);
+    }
   }
 
   record BulkIngestResponse(int totalDocs, long failedDocs, String errorMessage) {}
@@ -99,6 +100,14 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
     this.preprocessorConfig = preprocessorConfig;
     this.meterRegistry = meterRegistry;
     this.kafkaProducer = createKafkaProducer();
+    this.rateLimiter =
+        new PreprocessorRateLimiter(
+            meterRegistry,
+            preprocessorConfig.getPreprocessorInstanceCount(),
+            preprocessorConfig.getRateLimiterMaxBurstSeconds(),
+            INITIALIZE_RATE_LIMIT_WARM);
+
+    this.configReloadTimer = meterRegistry.timer(CONFIG_RELOAD_TIMER);
   }
 
   /**
@@ -109,7 +118,9 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
   @Post("/_bulk")
   public HttpResponse addDocument(String bulkRequest) {
     try {
-      Map<String, List<Trace.Span>> docs = OpenSearchRequest.parseBulkHttpRequest(bulkRequest);
+      List<IndexRequest> indexRequests = OpenSearchRequest.parseBulkRequest(bulkRequest);
+      Map<String, List<Trace.Span>> docs =
+          OpenSearchRequest.convertIndexRequestToTraceFormat(indexRequests);
       // our rate limiter doesn't have a way to acquire permits across multiple datasets
       // so today as a limitation we reject any request that has documents against multiple indexes
       // We think most indexing requests will be against 1 index
@@ -121,8 +132,7 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
 
       for (Map.Entry<String, List<Trace.Span>> indexDoc : docs.entrySet()) {
         final String index = indexDoc.getKey();
-        if (!rateLimiter.allowBulkRequest(
-            throughputSortedDatasets, rateLimiterMap, index, indexDoc.getValue())) {
+        if (!rateLimiterPredicate.test(index, indexDoc.getValue())) {
           BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");
           return HttpResponse.ofJson(TOO_MANY_REQUESTS, response);
         }

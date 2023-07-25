@@ -107,58 +107,62 @@ public class PreprocessorRateLimiter {
     }
   }
 
-  public boolean allowBulkRequest(
-      List<DatasetMetadata> throughputSortedDatasets,
-      Map<String, RateLimiter> rateLimiterMap,
-      String index,
-      List<Trace.Span> docs) {
-    int totalBytes = docs.stream().mapToInt(Trace.Span::getSerializedSize).sum();
-    if (index == null) {
-      // index name wasn't provided
-      LOG.debug("Message was dropped due to missing index name - '{}'", index);
-      meterRegistry
-          .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
-          .increment();
-      meterRegistry
-          .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
-          .increment(totalBytes);
-      return false;
-    }
-    for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
-      String serviceNamePattern = datasetMetadata.getServiceNamePattern();
-      // back-compat since this is a new field
-      if (serviceNamePattern == null) {
-        serviceNamePattern = datasetMetadata.getName();
-      }
-      if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
-          || serviceNamePattern.equals(MATCH_STAR_SERVICE)
-          || index.equals(serviceNamePattern)) {
-        RateLimiter rateLimiter = rateLimiterMap.get(datasetMetadata.getName());
-        if (rateLimiter.tryAcquire(totalBytes)) {
-          return true;
-        }
-        // message should be dropped due to rate limit
+  public Predicate<String, List<Trace.Span>> createBulkIngestRateLimiter(
+      List<DatasetMetadata> datasetMetadataList) {
+
+    List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
+
+    Map<String, RateLimiter> rateLimiterMap = getRateLimiterMap(throughputSortedDatasets);
+
+    return (index, docs) -> {
+      int totalBytes = docs.stream().mapToInt(Trace.Span::getSerializedSize).sum();
+      if (index == null) {
+        // index name wasn't provided
+        LOG.debug("Message was dropped due to missing index name - '{}'", index);
         meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
+            .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
             .increment();
         meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
+            .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
             .increment(totalBytes);
-        LOG.debug(
-            "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",
-            index,
-            rateLimiter.getRate());
         return false;
       }
-    }
-    // message should be dropped due to no matching service name being provisioned
-    meterRegistry
-        .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
-        .increment();
-    meterRegistry
-        .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
-        .increment(totalBytes);
-    return false;
+      for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
+        String serviceNamePattern = datasetMetadata.getServiceNamePattern();
+        // back-compat since this is a new field
+        if (serviceNamePattern == null) {
+          serviceNamePattern = datasetMetadata.getName();
+        }
+        if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
+            || serviceNamePattern.equals(MATCH_STAR_SERVICE)
+            || index.equals(serviceNamePattern)) {
+          RateLimiter rateLimiter = rateLimiterMap.get(datasetMetadata.getName());
+          if (rateLimiter.tryAcquire(totalBytes)) {
+            return true;
+          }
+          // message should be dropped due to rate limit
+          meterRegistry
+              .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
+              .increment();
+          meterRegistry
+              .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
+              .increment(totalBytes);
+          LOG.debug(
+              "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",
+              index,
+              rateLimiter.getRate());
+          return false;
+        }
+      }
+      // message should be dropped due to no matching service name being provisioned
+      meterRegistry
+          .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
+          .increment();
+      meterRegistry
+          .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
+          .increment(totalBytes);
+      return false;
+    };
   }
 
   public Map<String, RateLimiter> getRateLimiterMap(

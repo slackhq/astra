@@ -54,11 +54,25 @@ public class OpenSearchRequest {
   private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-  public static Map<String, List<Trace.Span>> parseBulkHttpRequest(String postBody)
-      throws IOException {
-    BulkRequest bulkRequest = new BulkRequest();
+  public static Map<String, List<Trace.Span>> convertIndexRequestToTraceFormat(
+      List<IndexRequest> indexRequests) {
     Map<String, List<Trace.Span>> indexDocs = new HashMap<>();
 
+    for (IndexRequest indexRequest : indexRequests) {
+      String index = indexRequest.index();
+      IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
+      List<Trace.Span> docs = indexDocs.getOrDefault(index, new ArrayList<>());
+      docs.add(MurronLogFormatter.fromIngestDocument(ingestDocument));
+      indexDocs.put(index, docs);
+    }
+    return indexDocs;
+  }
+
+  // only parse IndexRequests
+  public static List<IndexRequest> parseBulkRequest(String postBody) throws IOException {
+    List<IndexRequest> indexRequests = new ArrayList<>();
+    BulkRequest bulkRequest = new BulkRequest();
+    // calls parse under the hood
     bulkRequest.add(
         postBody.getBytes(StandardCharsets.UTF_8), 0, postBody.length(), null, XContentType.JSON);
     List<DocWriteRequest<?>> requests = bulkRequest.requests();
@@ -68,17 +82,13 @@ public class OpenSearchRequest {
         // The client makes a DocWriteRequest and sends it to the server
         // IngestService#innerExecute is where the server eventually reads when request is an
         // IndexRequest. It then creates an IngestDocument
-        String index = ((IndexRequest) request).index();
-        IngestDocument ingestDocument = convertRequestToDocument((IndexRequest) request);
-        List<Trace.Span> docs = indexDocs.getOrDefault(index, new ArrayList<>());
-        docs.add(MurronLogFormatter.fromIngestDocument(ingestDocument));
-        indexDocs.put(index, docs);
+        indexRequests.add((IndexRequest) request);
       } else {
         LOG.warn(
             "request=" + request + " of type " + request.opType().toString() + "not supported");
       }
     }
-    return indexDocs;
+    return indexRequests;
   }
 
   protected static IngestDocument convertRequestToDocument(IndexRequest indexRequest) {
