@@ -45,10 +45,6 @@ import org.slf4j.LoggerFactory;
  */
 public class KaldbPartitioningMetadataStore<T extends KaldbPartitionedMetadata>
     implements Closeable {
-
-  // Threshold after at which a warning is emitted every time a new store is added. This is intended
-  // to help troubleshoot excessive of metadata stores managed in memory.
-  private static final int STORE_COUNT_WARNING_THRESHOLD = 300;
   private static final Logger LOG = LoggerFactory.getLogger(KaldbPartitioningMetadataStore.class);
   private final Map<String, KaldbMetadataStore<T>> metadataStoreMap = new ConcurrentHashMap<>();
   private final List<KaldbMetadataStoreChangeListener<T>> listeners = new CopyOnWriteArrayList<>();
@@ -96,6 +92,11 @@ public class KaldbPartitioningMetadataStore<T extends KaldbPartitionedMetadata>
         .toCompletableFuture()
         // wait for all the stores to be initialized prior to exiting the constructor
         .join();
+
+    LOG.info(
+        "The metadata store for folder '{}' was initialized with {} partitions",
+        storeFolder,
+        metadataStoreMap.size());
   }
 
   /**
@@ -252,13 +253,6 @@ public class KaldbPartitioningMetadataStore<T extends KaldbPartitionedMetadata>
   }
 
   private KaldbMetadataStore<T> getOrCreateMetadataStore(String partition) {
-    if (metadataStoreMap.size() > STORE_COUNT_WARNING_THRESHOLD) {
-      LOG.warn(
-          "The current partitioned metadata store contains {} partitions, which is above the warning threshold of {}",
-          metadataStoreMap.size(),
-          STORE_COUNT_WARNING_THRESHOLD);
-    }
-
     return metadataStoreMap.computeIfAbsent(
         partition,
         (p1) -> {
