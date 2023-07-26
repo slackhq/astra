@@ -242,7 +242,7 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
 
   private KafkaProducer<String, byte[]> createKafkaProducer() {
     Properties props = new Properties();
-    props.put("bootstrap.servers", preprocessorConfig.getKafkaStreamConfig().getBootstrapServers());
+    props.put("bootstrap.servers", preprocessorConfig.getBootstrapServers());
     props.put("acks", "all");
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");

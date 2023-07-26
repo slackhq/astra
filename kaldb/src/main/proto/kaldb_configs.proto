@@ -242,4 +242,7 @@ message PreprocessorConfig {
   // value must be more than 0
   // more docs on PreprocessorPartitioner#getDatasetPartitionSuppliers
   int32 kafka_partition_sticky_timeout_ms = 8;
+
+  string bootstrap_servers = 9;
+  bool use_bulk_api = 10;
 }

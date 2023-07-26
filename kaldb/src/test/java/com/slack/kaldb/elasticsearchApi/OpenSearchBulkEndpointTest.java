@@ -1,13 +1,16 @@
 package com.slack.kaldb.elasticsearchApi;
 
 import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
+import static com.linecorp.armeria.common.HttpStatus.OK;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.OpenSearchBulkIngestAPI;
@@ -17,6 +20,7 @@ import com.slack.kaldb.util.JsonUtil;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
+import java.util.List;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
@@ -36,6 +40,8 @@ public class OpenSearchBulkEndpointTest {
   private TestingServer zkServer;
   private TestKafkaServer kafkaServer;
   private OpenSearchBulkIngestAPI openSearchBulkAPI;
+
+  String INDEX_NAME = "testindex";
 
   @BeforeAll
   public static void beforeClass() {
@@ -71,10 +77,15 @@ public class OpenSearchBulkEndpointTest {
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 
-    KaldbConfigs.PreprocessorConfig.KafkaStreamConfig kafkaStreamConfig =
-        KaldbConfigs.PreprocessorConfig.KafkaStreamConfig.newBuilder()
-            .setBootstrapServers(kafkaServer.getBroker().getBrokerList().get())
-            .build();
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
+            INDEX_NAME,
+            "owner",
+            100,
+            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1", "2"))),
+            INDEX_NAME);
+    datasetMetadataStore.createSync(datasetMetadata);
+
     KaldbConfigs.ServerConfig serverConfig =
         KaldbConfigs.ServerConfig.newBuilder()
             .setServerPort(8080)
@@ -82,7 +93,7 @@ public class OpenSearchBulkEndpointTest {
             .build();
     KaldbConfigs.PreprocessorConfig preprocessorConfig =
         KaldbConfigs.PreprocessorConfig.newBuilder()
-            .setKafkaStreamConfig(kafkaStreamConfig)
+            .setBootstrapServers(kafkaServer.getBroker().getBrokerList().get())
             .setServerConfig(serverConfig)
             .setPreprocessorInstanceCount(1)
             .setRateLimiterMaxBurstSeconds(1)
@@ -98,7 +109,7 @@ public class OpenSearchBulkEndpointTest {
   }
 
   @Test
-  public void testBulkApiBasic() throws IOException {
+  public void testBulkApiEmpty() throws IOException {
     AggregatedHttpResponse response = openSearchBulkAPI.addDocument("{}\n").aggregate().join();
     assertThat(response.status().isSuccess()).isEqualTo(false);
     assertThat(response.status().code()).isEqualTo(INTERNAL_SERVER_ERROR.code());
@@ -109,7 +120,7 @@ public class OpenSearchBulkEndpointTest {
 
     String request =
         """
-            { "index": {"_index": "test", "_id": "1"} }
+            { "index": {"_index": "testindex", "_id": "1"} }
             { "field1" : "value1" }
             """;
     response = openSearchBulkAPI.addDocument(request).aggregate().join();
@@ -117,6 +128,22 @@ public class OpenSearchBulkEndpointTest {
     assertThat(response.status().code()).isEqualTo(INTERNAL_SERVER_ERROR.code());
     responseObj = JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
     assertThat(responseObj.totalDocs()).isEqualTo(0);
+    assertThat(responseObj.failedDocs()).isEqualTo(0);
+  }
+
+  @Test
+  public void testBulkApiBasic() throws IOException {
+    String request =
+        """
+                { "index": {"_index": "testindex", "_id": "1"} }
+                { "field1" : "value1" }
+                """;
+    AggregatedHttpResponse response = openSearchBulkAPI.addDocument(request).aggregate().join();
+    assertThat(response.status().isSuccess()).isEqualTo(true);
+    assertThat(response.status().code()).isEqualTo(OK.code());
+    BulkIngestResponse responseObj =
+        JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
+    assertThat(responseObj.totalDocs()).isEqualTo(1);
     assertThat(responseObj.failedDocs()).isEqualTo(0);
   }
 }

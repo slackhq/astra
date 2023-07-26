@@ -361,23 +361,24 @@ public class Kaldb {
       Duration requestTimeout =
           Duration.ofMillis(
               kaldbConfig.getPreprocessorConfig().getServerConfig().getRequestTimeoutMs());
-      ArmeriaService armeriaService =
+      ArmeriaService.Builder armeriaServiceBuuilder =
           new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", meterRegistry)
               .withRequestTimeout(requestTimeout)
-              .withTracing(kaldbConfig.getTracingConfig())
-              .withAnnotatedService(
-                  new OpenSearchBulkIngestAPI(
-                      datasetMetadataStore, preprocessorConfig, meterRegistry))
-              .build();
-      services.add(armeriaService);
+              .withTracing(kaldbConfig.getTracingConfig());
 
       services.add(
           new CloseableLifecycleManager(
-              KaldbConfigs.NodeRole.RECOVERY, List.of(datasetMetadataStore)));
+              KaldbConfigs.NodeRole.PREPROCESSOR, List.of(datasetMetadataStore)));
 
-      PreprocessorService preprocessorService =
-          new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
-      services.add(preprocessorService);
+      if (preprocessorConfig.getUseBulkApi()) {
+        armeriaServiceBuuilder.withAnnotatedService(
+            new OpenSearchBulkIngestAPI(datasetMetadataStore, preprocessorConfig, meterRegistry));
+      } else {
+        PreprocessorService preprocessorService =
+            new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
+        services.add(preprocessorService);
+      }
+      services.add(armeriaServiceBuuilder.build());
     }
 
     return services;
