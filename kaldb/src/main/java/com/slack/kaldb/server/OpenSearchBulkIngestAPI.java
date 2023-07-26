@@ -13,6 +13,7 @@ import com.google.common.util.concurrent.AbstractService;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Post;
+import com.slack.kaldb.elasticsearchApi.BulkIngestResponse;
 import com.slack.kaldb.elasticsearchApi.OpenSearchRequest;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
@@ -59,14 +60,32 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
 
   @Override
   protected void doStart() {
+    try {
+      startUp();
+      notifyStarted();
+    } catch (Throwable t) {
+      notifyFailed(t);
+    }
+  }
+
+  @Override
+  protected void doStop() {
+    try {
+      shutDown();
+      notifyStopped();
+    } catch (Throwable t) {
+      notifyFailed(t);
+    }
+  }
+
+  private void startUp() {
     LOG.info("Starting OpenSearchBulkIngestAPI service");
     load();
     datasetMetadataStore.addListener(datasetListener);
     LOG.info("OpenSearchBulkIngestAPI service started");
   }
 
-  @Override
-  protected void doStop() {
+  private void shutDown() {
     LOG.info("Stopping OpenSearchBulkIngestAPI service");
     datasetMetadataStore.removeListener(datasetListener);
     kafkaProducer.close();
@@ -74,8 +93,9 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
   }
 
   public void load() {
+    Timer.Sample loadTimer = null;
     try {
-      Timer.Sample loadTimer = Timer.start(meterRegistry);
+      loadTimer = Timer.start(meterRegistry);
       List<DatasetMetadata> datasetMetadataList = datasetMetadataStore.listSync();
       // only attempt to register stream processing on valid dataset configurations
       List<DatasetMetadata> datasetMetadataToProcesses =
@@ -84,13 +104,15 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
       this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataToProcesses);
       this.rateLimiterPredicate =
           rateLimiter.createBulkIngestRateLimiter(datasetMetadataToProcesses);
-      loadTimer.stop(configReloadTimer);
+
     } catch (Exception e) {
       notifyFailed(e);
+    } finally {
+      if (loadTimer != null) {
+        loadTimer.stop(configReloadTimer);
+      }
     }
   }
-
-  record BulkIngestResponse(int totalDocs, long failedDocs, String errorMessage) {}
 
   public OpenSearchBulkIngestAPI(
       DatasetMetadataStore datasetMetadataStore,

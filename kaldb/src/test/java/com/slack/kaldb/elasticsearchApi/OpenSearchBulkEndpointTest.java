@@ -1,10 +1,11 @@
 package com.slack.kaldb.elasticsearchApi;
 
+import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
-import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.preprocessor.PreprocessorService;
@@ -12,8 +13,10 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.OpenSearchBulkIngestAPI;
 import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import com.slack.kaldb.util.JsonUtil;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
+import java.io.IOException;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
@@ -95,7 +98,25 @@ public class OpenSearchBulkEndpointTest {
   }
 
   @Test
-  public void testBulkApiBasic() {
-    HttpResponse response = openSearchBulkAPI.addDocument("{}");
+  public void testBulkApiBasic() throws IOException {
+    AggregatedHttpResponse response = openSearchBulkAPI.addDocument("{}\n").aggregate().join();
+    assertThat(response.status().isSuccess()).isEqualTo(false);
+    assertThat(response.status().code()).isEqualTo(INTERNAL_SERVER_ERROR.code());
+    BulkIngestResponse responseObj =
+        JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
+    assertThat(responseObj.totalDocs()).isEqualTo(0);
+    assertThat(responseObj.failedDocs()).isEqualTo(0);
+
+    String request =
+        """
+            { "index": {"_index": "test", "_id": "1"} }
+            { "field1" : "value1" }
+            """;
+    response = openSearchBulkAPI.addDocument(request).aggregate().join();
+    assertThat(response.status().isSuccess()).isEqualTo(false);
+    assertThat(response.status().code()).isEqualTo(INTERNAL_SERVER_ERROR.code());
+    responseObj = JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
+    assertThat(responseObj.totalDocs()).isEqualTo(0);
+    assertThat(responseObj.failedDocs()).isEqualTo(0);
   }
 }
