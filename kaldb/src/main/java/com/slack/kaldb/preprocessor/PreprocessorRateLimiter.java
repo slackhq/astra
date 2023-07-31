@@ -129,10 +129,7 @@ public class PreprocessorRateLimiter {
       }
       for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
         String serviceNamePattern = datasetMetadata.getServiceNamePattern();
-        // back-compat since this is a new field
-        if (serviceNamePattern == null) {
-          serviceNamePattern = datasetMetadata.getName();
-        }
+
         if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
             || serviceNamePattern.equals(MATCH_STAR_SERVICE)
             || index.equals(serviceNamePattern)) {

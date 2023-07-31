@@ -54,6 +54,7 @@ public class OpenSearchRequest {
   private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+  // key - index. value - list of docs to be indexed
   public static Map<String, List<Trace.Span>> convertIndexRequestToTraceFormat(
       List<IndexRequest> indexRequests) {
     Map<String, List<Trace.Span>> indexDocs = new HashMap<>();
@@ -105,7 +106,6 @@ public class OpenSearchRequest {
     // and transform it
   }
 
-  // TODO: rename this to parseMSearchHttpRequest?
   public List<KaldbSearch.SearchRequest> parseHttpPostBody(String postBody)
       throws JsonProcessingException {
     // the body contains an NDJSON format, with alternating rows as header/body

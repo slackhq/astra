@@ -61,7 +61,10 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
   @Override
   protected void doStart() {
     try {
-      startUp();
+      LOG.info("Starting OpenSearchBulkIngestAPI service");
+      load();
+      datasetMetadataStore.addListener(datasetListener);
+      LOG.info("OpenSearchBulkIngestAPI service started");
       notifyStarted();
     } catch (Throwable t) {
       notifyFailed(t);
@@ -71,25 +74,14 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
   @Override
   protected void doStop() {
     try {
-      shutDown();
+      LOG.info("Stopping OpenSearchBulkIngestAPI service");
+      datasetMetadataStore.removeListener(datasetListener);
+      kafkaProducer.close();
+      LOG.info("OpenSearchBulkIngestAPI service closed");
       notifyStopped();
     } catch (Throwable t) {
       notifyFailed(t);
     }
-  }
-
-  private void startUp() {
-    LOG.info("Starting OpenSearchBulkIngestAPI service");
-    load();
-    datasetMetadataStore.addListener(datasetListener);
-    LOG.info("OpenSearchBulkIngestAPI service started");
-  }
-
-  private void shutDown() {
-    LOG.info("Stopping OpenSearchBulkIngestAPI service");
-    datasetMetadataStore.removeListener(datasetListener);
-    kafkaProducer.close();
-    LOG.info("OpenSearchBulkIngestAPI service closed");
   }
 
   public void load() {
@@ -175,6 +167,7 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
     AtomicLong errorCount = new AtomicLong();
     for (Map.Entry<String, List<Trace.Span>> indexDoc : indexDocs.entrySet()) {
       String index = indexDoc.getKey();
+      // call once per batch and use the same partition for better batching
       int partition = getPartition(index);
 
       // since there isn't a dataset provisioned for this service/index we will not index this set
