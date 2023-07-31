@@ -27,14 +27,13 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicLong;
-import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.errors.AuthorizationException;
+import org.apache.kafka.common.errors.OutOfOrderSequenceException;
+import org.apache.kafka.common.errors.ProducerFencedException;
 import org.apache.kafka.streams.kstream.Predicate;
 import org.opensearch.action.index.IndexRequest;
 import org.slf4j.Logger;
@@ -47,7 +46,6 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
 
   private final KaldbConfigs.PreprocessorConfig preprocessorConfig;
   private final DatasetMetadataStore datasetMetadataStore;
-  private final KafkaProducer<String, byte[]> kafkaProducer;
 
   private final KaldbMetadataStoreChangeListener<DatasetMetadata> datasetListener =
       (datasetMetadata) -> load();
@@ -76,7 +74,6 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
     try {
       LOG.info("Stopping OpenSearchBulkIngestAPI service");
       datasetMetadataStore.removeListener(datasetListener);
-      kafkaProducer.close();
       LOG.info("OpenSearchBulkIngestAPI service closed");
       notifyStopped();
     } catch (Throwable t) {
@@ -113,7 +110,6 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
     this.datasetMetadataStore = datasetMetadataStore;
     this.preprocessorConfig = preprocessorConfig;
     this.meterRegistry = meterRegistry;
-    this.kafkaProducer = createKafkaProducer();
     this.rateLimiter =
         new PreprocessorRateLimiter(
             meterRegistry,
@@ -163,36 +159,49 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
   public BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
     int totalDocs = indexDocs.values().stream().mapToInt(List::size).sum();
 
-    final CountDownLatch completeSignal = new CountDownLatch(totalDocs);
-    AtomicLong errorCount = new AtomicLong();
-    for (Map.Entry<String, List<Trace.Span>> indexDoc : indexDocs.entrySet()) {
-      String index = indexDoc.getKey();
-      // call once per batch and use the same partition for better batching
-      int partition = getPartition(index);
+    String transactionId = String.join("_", indexDocs.keySet()) + "_" + System.currentTimeMillis();
+    // we cannot create a generic pool of producers because the kafka API expects the transaction ID
+    // to be a property while creating the producer object.
+    try (KafkaProducer<String, byte[]> kafkaProducer =
+        createKafkaTransactionProducer(transactionId)) {
+      for (Map.Entry<String, List<Trace.Span>> indexDoc : indexDocs.entrySet()) {
+        String index = indexDoc.getKey();
+        // call once per batch and use the same partition for better batching
+        int partition = getPartition(index);
 
-      // since there isn't a dataset provisioned for this service/index we will not index this set
-      // of docs
-      if (partition < 0) {
-        LOG.warn("index=" + index + " does not have a provisioned dataset associated with it");
-        continue;
-      }
-      for (Trace.Span doc : indexDoc.getValue()) {
-        KafkaBlockingCallback producerReturnInfo =
-            new KafkaBlockingCallback(completeSignal, errorCount);
+        // since there isn't a dataset provisioned for this service/index we will not index this set
+        // of docs
+        if (partition < 0) {
+          LOG.warn("index=" + index + " does not have a provisioned dataset associated with it");
+          continue;
+        }
+        try {
+          kafkaProducer.initTransactions();
+          kafkaProducer.beginTransaction();
+          for (Trace.Span doc : indexDoc.getValue()) {
 
-        ProducerRecord<String, byte[]> producerRecord =
-            new ProducerRecord<>(
-                preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
-        kafkaProducer.send(producerRecord, producerReturnInfo);
-      }
-      kafkaProducer.flush();
-      try {
-        completeSignal.await();
-      } catch (InterruptedException e) {
-        LOG.error("Failed while waiting for all documents to be ACK'ed ", e);
+            ProducerRecord<String, byte[]> producerRecord =
+                new ProducerRecord<>(
+                    preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
+            kafkaProducer.send(producerRecord);
+          }
+          kafkaProducer.commitTransaction();
+        } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
+          // We can't recover from these exceptions
+          return new BulkIngestResponse(totalDocs, totalDocs, e.getMessage());
+        } catch (KafkaException e) {
+          // For all other exceptions, just abort the transaction and try again.
+          try {
+            kafkaProducer.abortTransaction();
+          } catch (ProducerFencedException err) {
+            LOG.error("Could not abort transaction", err);
+          }
+          return new BulkIngestResponse(totalDocs, totalDocs, e.getMessage());
+        }
       }
     }
-    return new BulkIngestResponse(totalDocs, errorCount.get(), "");
+
+    return new BulkIngestResponse(totalDocs, 0, "");
   }
 
   private int getPartition(String index) {
@@ -210,39 +219,12 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
     return -1;
   }
 
-  class KafkaBlockingCallback implements Callback {
-
-    private final CountDownLatch complete;
-    private final AtomicLong errorCount;
-    String exceptionMessage = null;
-
-    public KafkaBlockingCallback(CountDownLatch complete, AtomicLong errorCount) {
-      this.errorCount = errorCount;
-      this.complete = complete;
-    }
-
-    @Override
-    public void onCompletion(RecordMetadata metadata, Exception e) {
-      complete.countDown();
-      if (e != null) {
-        errorCount.incrementAndGet();
-        if (exceptionMessage != null) {
-          LOG.error("Failed to write to kafka ", e);
-        }
-      }
-    }
-  }
-
-  private KafkaProducer<String, byte[]> createKafkaProducer() {
+  private KafkaProducer<String, byte[]> createKafkaTransactionProducer(String transactionId) {
     Properties props = new Properties();
     props.put("bootstrap.servers", preprocessorConfig.getBootstrapServers());
-    props.put("acks", "all");
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
-    // from the kafka producer javadocs
-    // Note that records that arrive close together in time will generally batch together even with
-    // <code>linger.ms=0</code>
-    props.put(ProducerConfig.LINGER_MS_CONFIG, "0");
+    props.put("transactional.id", transactionId);
     return new KafkaProducer<>(props);
   }
 }
