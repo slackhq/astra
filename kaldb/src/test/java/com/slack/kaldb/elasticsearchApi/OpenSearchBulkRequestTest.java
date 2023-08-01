@@ -57,6 +57,38 @@ public class OpenSearchBulkRequestTest {
   public void testBulkRequests() throws Exception {
     String rawRequest = getRawQueryString("bulk_requests");
     List<IndexRequest> indexRequests = OpenSearchRequest.parseBulkRequest(rawRequest);
-    assertThat(indexRequests.size()).isEqualTo(0);
+    assertThat(indexRequests.size()).isEqualTo(1);
+
+    Map<String, List<Trace.Span>> indexDocs =
+        OpenSearchRequest.convertIndexRequestToTraceFormat(indexRequests);
+    assertThat(indexDocs.keySet().size()).isEqualTo(1);
+    assertThat(indexDocs.get("test").size()).isEqualTo(1);
+
+    assertThat(indexDocs.get("test").get(0).getId().toStringUtf8()).isEqualTo("1");
+    assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(2);
+    assertThat(
+            indexDocs.get("test").get(0).getTagsList().stream()
+                .filter(
+                    keyValue ->
+                        keyValue.getKey().equals("service_name")
+                            && keyValue.getVStr().equals("test"))
+                .count())
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void testUpdatesAgainstTwoIndexes() throws Exception {
+    String rawRequest = getRawQueryString("two_indexes");
+    List<IndexRequest> indexRequests = OpenSearchRequest.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(2);
+
+    Map<String, List<Trace.Span>> indexDocs =
+        OpenSearchRequest.convertIndexRequestToTraceFormat(indexRequests);
+    assertThat(indexDocs.keySet().size()).isEqualTo(2);
+    assertThat(indexDocs.get("test1").size()).isEqualTo(1);
+    assertThat(indexDocs.get("test2").size()).isEqualTo(1);
+
+    // we are able to parse requests against multiple requests
+    // however we throw an exception if that happens in practice
   }
 }

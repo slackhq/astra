@@ -1,0 +1,4 @@
+{ "index" : { "_index" : "test1", "_id" : "1" } }
+{ "field1" : "value1" }
+{ "index" : { "_index" : "test2", "_id" : "1" } }
+{ "field1" : "value1" }
