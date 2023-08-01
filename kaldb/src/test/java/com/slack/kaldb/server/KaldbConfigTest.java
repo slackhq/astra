@@ -293,6 +293,8 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
+    assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(false);
+    assertThat(preprocessorConfig.getBootstrapServers()).isEqualTo("localhost:9092");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
@@ -461,6 +463,9 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
+
+    assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(true);
+    assertThat(preprocessorConfig.getBootstrapServers()).isEqualTo("localhost:9092");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);

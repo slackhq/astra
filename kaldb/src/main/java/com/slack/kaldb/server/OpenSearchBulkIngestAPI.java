@@ -188,9 +188,11 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
           kafkaProducer.commitTransaction();
         } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
           // We can't recover from these exceptions
+          // TODO: add metrics
           return new BulkIngestResponse(totalDocs, totalDocs, e.getMessage());
         } catch (KafkaException e) {
           // For all other exceptions, just abort the transaction and try again.
+          // TODO: add metrics
           try {
             kafkaProducer.abortTransaction();
           } catch (ProducerFencedException err) {
