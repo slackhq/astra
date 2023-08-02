@@ -136,13 +136,13 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
       // We think most indexing requests will be against 1 index
       if (docs.keySet().size() > 1) {
         BulkIngestResponse response =
-            new BulkIngestResponse(0, 0, "request must contain only 1 index");
+            new BulkIngestResponse(0, 0, "request must contain only 1 unique index");
         return HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response);
       }
 
-      for (Map.Entry<String, List<Trace.Span>> indexDoc : docs.entrySet()) {
-        final String index = indexDoc.getKey();
-        if (!rateLimiterPredicate.test(index, indexDoc.getValue())) {
+      for (Map.Entry<String, List<Trace.Span>> indexDocs : docs.entrySet()) {
+        final String index = indexDocs.getKey();
+        if (!rateLimiterPredicate.test(index, indexDocs.getValue())) {
           BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");
           return HttpResponse.ofJson(TOO_MANY_REQUESTS, response);
         }

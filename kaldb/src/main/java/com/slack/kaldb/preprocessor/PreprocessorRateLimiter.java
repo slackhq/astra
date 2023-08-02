@@ -107,6 +107,10 @@ public class PreprocessorRateLimiter {
     }
   }
 
+  protected static int getSpanBytes(List<Trace.Span> spans) {
+    return spans.stream().mapToInt(Trace.Span::getSerializedSize).sum();
+  }
+
   public Predicate<String, List<Trace.Span>> createBulkIngestRateLimiter(
       List<DatasetMetadata> datasetMetadataList) {
 
@@ -115,7 +119,12 @@ public class PreprocessorRateLimiter {
     Map<String, RateLimiter> rateLimiterMap = getRateLimiterMap(throughputSortedDatasets);
 
     return (index, docs) -> {
-      int totalBytes = docs.stream().mapToInt(Trace.Span::getSerializedSize).sum();
+      if (docs == null) {
+        LOG.warn("Message was dropped, was null span");
+        return false;
+      }
+
+      int totalBytes = getSpanBytes(docs);
       if (index == null) {
         // index name wasn't provided
         LOG.debug("Message was dropped due to missing index name - '{}'", index);
@@ -129,6 +138,10 @@ public class PreprocessorRateLimiter {
       }
       for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
         String serviceNamePattern = datasetMetadata.getServiceNamePattern();
+        // back-compat since this is a new field
+        if (serviceNamePattern == null) {
+          serviceNamePattern = datasetMetadata.getName();
+        }
 
         if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
             || serviceNamePattern.equals(MATCH_STAR_SERVICE)
