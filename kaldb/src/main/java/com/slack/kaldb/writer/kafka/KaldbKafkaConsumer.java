@@ -44,8 +44,7 @@ public class KaldbKafkaConsumer {
 
   private static final String[] REQUIRED_CONFIGS = {ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG};
 
-  @VisibleForTesting
-  public static final Set<String> OVERRIDABLE_CONFIGS =
+  private static final Set<String> OVERRIDABLE_CONFIGS =
       Set.of(
           ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
           ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,

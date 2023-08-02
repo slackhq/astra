@@ -107,7 +107,7 @@ public class PreprocessorRateLimiter {
     }
   }
 
-  protected static int getSpanBytes(List<Trace.Span> spans) {
+  public static int getSpanBytes(List<Trace.Span> spans) {
     return spans.stream().mapToInt(Trace.Span::getSerializedSize).sum();
   }
 

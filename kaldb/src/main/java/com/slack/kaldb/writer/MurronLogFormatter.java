@@ -61,9 +61,6 @@ public class MurronLogFormatter {
     Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
     String id = (String) sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName());
     String index = (String) sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName());
-    //    if (index == null) {
-    //      index = "_all";
-    //    }
 
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()));

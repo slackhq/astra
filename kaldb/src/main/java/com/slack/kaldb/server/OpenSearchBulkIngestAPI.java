@@ -107,6 +107,14 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
       DatasetMetadataStore datasetMetadataStore,
       KaldbConfigs.PreprocessorConfig preprocessorConfig,
       PrometheusMeterRegistry meterRegistry) {
+    this(datasetMetadataStore, preprocessorConfig, meterRegistry, INITIALIZE_RATE_LIMIT_WARM);
+  }
+
+  public OpenSearchBulkIngestAPI(
+      DatasetMetadataStore datasetMetadataStore,
+      KaldbConfigs.PreprocessorConfig preprocessorConfig,
+      PrometheusMeterRegistry meterRegistry,
+      boolean initializeRateLimitWarm) {
     this.datasetMetadataStore = datasetMetadataStore;
     this.preprocessorConfig = preprocessorConfig;
     this.meterRegistry = meterRegistry;
@@ -115,7 +123,7 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
             meterRegistry,
             preprocessorConfig.getPreprocessorInstanceCount(),
             preprocessorConfig.getRateLimiterMaxBurstSeconds(),
-            INITIALIZE_RATE_LIMIT_WARM);
+            initializeRateLimitWarm);
 
     this.configReloadTimer = meterRegistry.timer(CONFIG_RELOAD_TIMER);
   }
