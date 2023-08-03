@@ -32,15 +32,14 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(ClusterHpaMetricService.class);
 
   // todo - consider making over-provision and lock duration configurable values
-  private static final Double CACHE_OVER_PROVISION = 1.1;
-
+  protected int CACHE_SLOT_OVER_PROVISION = 1000;
   protected Duration CACHE_SCALEDOWN_LOCK = Duration.of(15, ChronoUnit.MINUTES);
-  protected static final String CACHE_HPA_METRIC_NAME = "hpa_cache_demand_factor_%s";
 
   private final ReplicaMetadataStore replicaMetadataStore;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final HpaMetricMetadataStore hpaMetricMetadataStore;
   protected final Map<String, Instant> cacheScalingLock = new ConcurrentHashMap<>();
+  protected static final String CACHE_HPA_METRIC_NAME = "hpa_cache_demand_factor_%s";
 
   public ClusterHpaMetricService(
       ReplicaMetadataStore replicaMetadataStore,
@@ -105,14 +104,14 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
               .filter(replicaMetadata -> replicaMetadata.getReplicaSet().equals(replicaSet))
               .count();
       double rawDemandFactor =
-          (totalReplicaDemand * CACHE_OVER_PROVISION + 1) / (totalCacheSlotCapacity + 1);
+          (double) (totalReplicaDemand + CACHE_SLOT_OVER_PROVISION) / (totalCacheSlotCapacity + 1);
       double demandFactor = (double) Math.round(rawDemandFactor * 100) / 100;
       LOG.info(
-          "Cache autoscaler for replicaSet '{}' calculated a demandFactor of '{}' - totalReplicaDemand: '{}', overProvision: '{}', totalCacheSlotCapacity: '{}'",
+          "Cache autoscaler for replicaSet '{}' calculated a demandFactor of '{}' - totalReplicaDemand: '{}', cacheSlotOverProvision: '{}', totalCacheSlotCapacity: '{}'",
           replicaSet,
           demandFactor,
           totalReplicaDemand,
-          CACHE_OVER_PROVISION,
+          CACHE_SLOT_OVER_PROVISION,
           totalCacheSlotCapacity);
 
       if (demandFactor >= 1.0) {
