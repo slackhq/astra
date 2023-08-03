@@ -13,7 +13,8 @@ jobs:
       pull-requests: write
     if: ${{ github.actor != 'dependabot[bot]' }}
     steps:
-      - uses: fxchen/code-review@v0.2.7-alpha
+      - uses: fxchen/code-review@v0.2.9-alpha
         with:
-          model: 'gpt-3.5-turbo-16k'
+          model: 'gpt-4-32k'
+          include-full-files: 'true'
           openai-key: ${{ secrets.OPENAI_API_KEY }}
