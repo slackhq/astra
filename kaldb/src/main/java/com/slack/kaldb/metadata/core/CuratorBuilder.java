@@ -4,6 +4,7 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.curator.RetryPolicy;
@@ -70,6 +71,7 @@ public class CuratorBuilder {
                   && curatorEvent.getWatchedEvent().getState()
                       == Watcher.Event.KeeperState.Expired) {
                 LOG.warn("The ZK session has expired {}.", curatorEvent);
+                new RuntimeHalterImpl().handleFatal(new Throwable("ZK session expired."));
               }
             });
     curator.start();

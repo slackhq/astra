@@ -26,6 +26,7 @@ import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.server.EphemeralType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -431,6 +432,7 @@ class KaldbPartitioningMetadataStoreTest {
   }
 
   @Test
+  @Disabled("ZK reconnect support currently disabled")
   void testListenersWithZkReconnect() throws Exception {
     class TestMetadataStore extends KaldbPartitioningMetadataStore<ExampleMetadata> {
       public TestMetadataStore() {

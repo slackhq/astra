@@ -19,6 +19,7 @@ import org.apache.curator.x.async.modeled.ModelSerializer;
 import org.apache.zookeeper.CreateMode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class KaldbMetadataStoreTest {
@@ -265,6 +266,7 @@ public class KaldbMetadataStoreTest {
   }
 
   @Test
+  @Disabled("ZK reconnect support currently disabled")
   public void testListenersWithZkReconnect() throws Exception {
     class TestMetadataStore extends KaldbMetadataStore<TestMetadata> {
       public TestMetadataStore() {

@@ -2,6 +2,7 @@ package com.slack.kaldb.preprocessor;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
 
 import com.google.common.util.concurrent.Service;
@@ -53,6 +54,7 @@ public class PreprocessorServiceIntegrationTest {
   }
 
   @Test
+  @Disabled("ZK reconnect support currently disabled")
   public void shouldHandleStreamError() throws Exception {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     KaldbConfigs.ZookeeperConfig zkConfig =
@@ -108,6 +110,8 @@ public class PreprocessorServiceIntegrationTest {
 
     // restarting ZK should cause a stream application error due to missing source topics
     zkServer.restart();
+
+    assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> zkServer.restart());
 
     await()
         .until(
