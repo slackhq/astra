@@ -152,6 +152,26 @@ message DatasetMetadata {
   string service_name_pattern = 5;
 }
 
+message HpaMetricMetadata {
+  enum NodeRole {
+    INDEX = 0;
+    QUERY = 1;
+    CACHE = 2;
+    MANAGER = 3;
+    RECOVERY = 4;
+    PREPROCESSOR = 5;
+  };
+
+  // Unique name for hpa metric
+  string name = 1;
+
+  // Node role this metric applies to
+  NodeRole node_role = 2;
+
+  // Value to report for this metric
+  double value = 3;
+}
+
 // Describes a set of partitions along with their effective start and end times
 message DatasetPartitionMetadata {
   // Start time this partition received traffic

@@ -8,6 +8,7 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.clusterManager.ClusterHpaMetricService;
 import com.slack.kaldb.clusterManager.ClusterMonitorService;
 import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaAssignmentService;
@@ -24,6 +25,7 @@ import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.core.CloseableLifecycleManager;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.hpa.HpaMetricMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
@@ -31,6 +33,7 @@ import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -235,6 +238,17 @@ public class Kaldb {
               kaldbConfig.getCacheConfig(),
               blobFs);
       services.add(chunkManager);
+
+      HpaMetricMetadataStore hpaMetricMetadataStore =
+          new HpaMetricMetadataStore(curatorFramework, true);
+      services.add(
+          new CloseableLifecycleManager(
+              KaldbConfigs.NodeRole.CACHE, List.of(hpaMetricMetadataStore)));
+      HpaMetricPublisherService hpaMetricPublisherService =
+          new HpaMetricPublisherService(
+              hpaMetricMetadataStore, meterRegistry, Metadata.HpaMetricMetadata.NodeRole.CACHE);
+      services.add(hpaMetricPublisherService);
+
       KaldbLocalQueryService<LogMessage> searcher =
           new KaldbLocalQueryService<>(
               chunkManager,
@@ -263,6 +277,8 @@ public class Kaldb {
           new RecoveryNodeMetadataStore(curatorFramework, true);
       CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
       DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
+      HpaMetricMetadataStore hpaMetricMetadataStore =
+          new HpaMetricMetadataStore(curatorFramework, true);
 
       Duration requestTimeout =
           Duration.ofMillis(kaldbConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs());
@@ -288,7 +304,9 @@ public class Kaldb {
                   snapshotMetadataStore,
                   recoveryTaskMetadataStore,
                   recoveryNodeMetadataStore,
-                  cacheSlotMetadataStore)));
+                  cacheSlotMetadataStore,
+                  datasetMetadataStore,
+                  hpaMetricMetadataStore)));
 
       ReplicaCreationService replicaCreationService =
           new ReplicaCreationService(
@@ -330,6 +348,11 @@ public class Kaldb {
               datasetMetadataStore,
               meterRegistry);
       services.add(clusterMonitorService);
+
+      ClusterHpaMetricService clusterHpaMetricService =
+          new ClusterHpaMetricService(
+              replicaMetadataStore, cacheSlotMetadataStore, hpaMetricMetadataStore);
+      services.add(clusterHpaMetricService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
