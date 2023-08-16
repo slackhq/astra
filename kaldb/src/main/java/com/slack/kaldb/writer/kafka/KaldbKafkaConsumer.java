@@ -28,6 +28,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -211,9 +212,32 @@ public class KaldbKafkaConsumer {
     consumeMessages(KAFKA_POLL_TIMEOUT_MS);
   }
 
+  protected ConsumerRecords<String, byte[]> pollWithRetry(final long kafkaPollTimeoutMs) {
+    ConsumerRecords<String, byte[]> records = null;
+    OffsetOutOfRangeException kafkaError = null;
+    for (int i = 0; i < 4; i++) {
+      try {
+        records = kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
+        kafkaError = null;
+        break;
+      } catch (OffsetOutOfRangeException ex) {
+        kafkaError = ex;
+        LOG.warn("Caught unexpected exception, retry number: {}, exception: {}", i, ex);
+        try {
+          Thread.sleep((i + 1) * 3000);
+        } catch (InterruptedException exex) {
+          LOG.warn("Caught unexpected exception during sleep.", exex);
+        }
+      }
+    }
+    if (kafkaError != null) {
+      throw kafkaError;
+    }
+    return records;
+  }
+
   public void consumeMessages(final long kafkaPollTimeoutMs) throws IOException {
-    ConsumerRecords<String, byte[]> records =
-        kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
+    ConsumerRecords<String, byte[]> records = pollWithRetry(kafkaPollTimeoutMs);
     int recordCount = records.count();
     LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
     if (recordCount > 0) {
@@ -289,8 +313,7 @@ public class KaldbKafkaConsumer {
     long messagesIndexed = 0;
     final AtomicLong messagesOutsideOffsetRange = new AtomicLong(0);
     while (messagesIndexed <= messagesToIndex) {
-      ConsumerRecords<String, byte[]> records =
-          kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
+      ConsumerRecords<String, byte[]> records = pollWithRetry(kafkaPollTimeoutMs);
       int recordCount = records.count();
       LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition);
       if (recordCount > 0) {
