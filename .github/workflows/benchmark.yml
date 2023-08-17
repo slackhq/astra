@@ -20,9 +20,8 @@ jobs:
           cache: 'maven'
       - name: Run benchmark
         run: |
-          cd benchmarks
-          mvn clean package -DskipTests=true --file ../pom.xml
-          java -Dlog4j.configurationFile=./log4j2.xml -Xms4g -Xmx4g $gcArgs -jar ../benchmarks/target/benchmarks.jar -wi 1 -i 3 -f 1 -rf json
+          mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
+          java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g $gcArgs -jar benchmarks/target/benchmarks.jar -wi 1 -i 3 -f 1 -rf json
       - name: Download previous benchmark data
         uses: actions/cache@v1
         with:
