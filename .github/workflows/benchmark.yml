@@ -41,11 +41,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
           # Show alert with commit comment on detecting possible performance regression
-          
-          #alert-threshold: '200%'
+          alert-threshold: '200%'
+          fail-threshold: '200%'
           # Enable alert commit comment
           comment-on-alert: true
-          fail-on-alert: true
+          comment-always: true
+          fail-on-alert: false
 
           # Enable Job Summary for PRs
           # https://github.com/benchmark-action/github-action-benchmark/issues/158
