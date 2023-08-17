@@ -25,7 +25,7 @@ jobs:
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
           java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g $gcArgs -jar benchmarks/target/benchmarks.jar -wi 1 -i 1 -f 1 -rf json
       - name: Download previous benchmark data
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ./cache
           key: ${{ runner.os }}-benchmark
@@ -35,6 +35,7 @@ jobs:
           name: JMH Benchmark
           tool: 'jmh'
           output-file-path: jmh-result.json
+          external-data-json-path: ./cache/benchmark-data.json
           # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t/github-action-not-triggering-gh-pages-upon-push/16096
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
@@ -43,7 +44,7 @@ jobs:
           # Enable alert commit comment
           comment-on-alert: true
           fail-on-alert: true
-        
+
           # Enable Job Summary for PRs
           # https://github.com/benchmark-action/github-action-benchmark/issues/158
           # summary-always: true
