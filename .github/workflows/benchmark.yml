@@ -27,7 +27,7 @@ jobs:
       - name: Download previous benchmark data
         uses: actions/cache@v3
         with:
-          path: cache
+          path: ./cache
           key: ${{ runner.os }}-benchmark
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
@@ -35,8 +35,8 @@ jobs:
           name: JMH Benchmark
           tool: 'jmh'
           output-file-path: jmh-result.json
-          benchmark-data-dir-path: cache
-          external-data-json-path: cache/benchmark-data.json
+          benchmark-data-dir-path: ./cache
+          external-data-json-path: ./cache/benchmark-data.json
           # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t/github-action-not-triggering-gh-pages-upon-push/16096
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
