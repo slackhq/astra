@@ -29,24 +29,41 @@ jobs:
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
           java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g $gcArgs -jar benchmarks/target/benchmarks.jar -wi 1 -i 3 -f 1 -rf json
-      - name: Comment benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
+      - name: Add job summary
+        run: |
+          echo "### Hello world! :rocket:" >> $GITHUB_STEP_SUMMARY
+          cat jmh-result.json >> $GITHUB_STEP_SUMMARY
+          MK=$(cat ./jmh-result.json)
+      - name: Comment on PR
         if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
         with:
-          name: JMH Benchmark
-          tool: 'jmh'
-          output-file-path: jmh-result.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          gh-pages-branch: benchmarks
-          # This is important to prevent PRs from pushing results
-          # https://github.com/benchmark-action/github-action-benchmark#run-only-on-your-branches
-          auto-push: false
-          fail-threshold: '200%'
-          #comment-on-alert: false
-          comment-always: true
-          #fail-on-alert: false
-          # https://github.com/benchmark-action/github-action-benchmark/issues/158
-          # summary-always: true
+          script: |
+            const { MK } = process.env
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `${MK}`
+            })
+#      - name: Comment benchmark result
+#        uses: benchmark-action/github-action-benchmark@v1
+#        if: github.event_name == 'pull_request'
+#        with:
+#          name: JMH Benchmark
+#          tool: 'jmh'
+#          output-file-path: jmh-result.json
+#          github-token: ${{ secrets.GITHUB_TOKEN }}
+#          gh-pages-branch: benchmarks
+#          # This is important to prevent PRs from pushing results
+#          # https://github.com/benchmark-action/github-action-benchmark#run-only-on-your-branches
+#          auto-push: false
+#          fail-threshold: '200%'
+#          #comment-on-alert: false
+#          comment-always: true
+#          #fail-on-alert: false
+#          # https://github.com/benchmark-action/github-action-benchmark/issues/158
+#          # summary-always: true
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         if: github.event_name != 'pull_request'
