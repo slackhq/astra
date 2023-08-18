@@ -10,6 +10,7 @@ on:
 # Required for comment permissions
 # https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
 permissions:
+  issues: write
   contents: write
   deployments: write
 
@@ -32,12 +33,15 @@ jobs:
       - name: Add job summary
         run: |
           echo "### Hello world! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
           cat jmh-result.json >> $GITHUB_STEP_SUMMARY
-          MK=$(cat ./jmh-result.json)
+          echo "```" >> $GITHUB_STEP_SUMMARY
+          echo "MK=$(cat ./jmh-result.json)" >> $GITHUB_ENV
       - name: Comment on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
+          #github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const { MK } = process.env
             github.rest.issues.createComment({
