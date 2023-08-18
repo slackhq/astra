@@ -4,8 +4,10 @@ on:
     branches:
       - master
 
-# permissions:
-#  contents: write
+# Required for comment permissions
+# https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
+permissions:
+  contents: write
 #  deployments: write
 
 jobs:
