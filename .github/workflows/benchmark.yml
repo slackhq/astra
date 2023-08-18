@@ -10,6 +10,7 @@ on:
 # Required for comment permissions
 # https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
 permissions:
+  pull-requests: write
   issues: write
   contents: write
   deployments: write
