@@ -222,7 +222,7 @@ public class KaldbKafkaConsumer {
         break;
       } catch (OffsetOutOfRangeException ex) {
         kafkaError = ex;
-        LOG.warn("Caught unexpected exception, retry number: {}, exception: {}", i, ex);
+        LOG.warn(String.format("Caught unexpected exception, retry number: %d", i), ex);
         try {
           Thread.sleep((i + 1) * 3000);
         } catch (InterruptedException exex) {
