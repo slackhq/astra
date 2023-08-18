@@ -8,7 +8,7 @@ on:
 # https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
 permissions:
   contents: write
-#  deployments: write
+  deployments: write
 
 jobs:
   benchmark:
@@ -26,22 +26,23 @@ jobs:
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
           java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g $gcArgs -jar benchmarks/target/benchmarks.jar -wi 1 -i 3 -f 1 -rf json
-      - name: Download previous benchmark data
-        uses: actions/cache@v3
-        with:
-          path: ./cache
-          key: ${{ runner.os }}-benchmark
+#      - name: Download previous benchmark data
+#        uses: actions/cache@v3
+#        with:
+#          path: ./cache
+#          key: ${{ runner.os }}-benchmark
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: JMH Benchmark
           tool: 'jmh'
           output-file-path: jmh-result.json
-          benchmark-data-dir-path: ./cache
-          external-data-json-path: ./cache/benchmark-data.json
+#          benchmark-data-dir-path: ./cache
+#          external-data-json-path: ./cache/benchmark-data.json
           # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t/github-action-not-triggering-gh-pages-upon-push/16096
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: false
+          gh-pages-branch: benchmarks
+          auto-push: true
           # Show alert with commit comment on detecting possible performance regression
           alert-threshold: '200%'
           fail-threshold: '200%'
