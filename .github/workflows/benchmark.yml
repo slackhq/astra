@@ -45,7 +45,8 @@ jobs:
           #comment-on-alert: false
           comment-always: true
           #fail-on-alert: false
-          summary-always: true
+          # https://github.com/benchmark-action/github-action-benchmark/issues/158
+          # summary-always: true
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         if: github.event_name != 'pull_request'
@@ -67,3 +68,4 @@ jobs:
           # Enable Job Summary for PRs
           # https://github.com/benchmark-action/github-action-benchmark/issues/158
           # summary-always: true
+
