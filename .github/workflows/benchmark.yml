@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - "**"
 
 # Required for comment permissions
 # https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
@@ -26,20 +29,30 @@ jobs:
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
           java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g $gcArgs -jar benchmarks/target/benchmarks.jar -wi 1 -i 3 -f 1 -rf json
-#      - name: Download previous benchmark data
-#        uses: actions/cache@v3
-#        with:
-#          path: ./cache
-#          key: ${{ runner.os }}-benchmark
-      - name: Store benchmark result
+      - name: Comment benchmark result
         uses: benchmark-action/github-action-benchmark@v1
+        if: github.event_name == 'pull_request'
         with:
           name: JMH Benchmark
           tool: 'jmh'
           output-file-path: jmh-result.json
-#          benchmark-data-dir-path: ./cache
-#          external-data-json-path: ./cache/benchmark-data.json
-          # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t/github-action-not-triggering-gh-pages-upon-push/16096
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: benchmarks
+          # This is important to prevent PRs from pushing results
+          # https://github.com/benchmark-action/github-action-benchmark#run-only-on-your-branches
+          auto-push: false
+          fail-threshold: '200%'
+          #comment-on-alert: false
+          comment-always: true
+          #fail-on-alert: false
+          summary-always: true
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        if: github.event_name != 'pull_request'
+        with:
+          name: JMH Benchmark
+          tool: 'jmh'
+          output-file-path: jmh-result.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           gh-pages-branch: benchmarks
           auto-push: true
@@ -54,19 +67,3 @@ jobs:
           # Enable Job Summary for PRs
           # https://github.com/benchmark-action/github-action-benchmark/issues/158
           # summary-always: true
-
-#      - name: Store benchmark result - separate results repo
-#        uses: benchmark-action/github-action-benchmark@v1
-#        with:
-#          name: JMH Benchmark
-#          tool: 'jmh'
-#          output-file-path: examples/java/jmh-result.json
-#          # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t/github-action-not-triggering-gh-pages-upon-push/16096
-#          github-token: ${{ secrets.BENCHMARK_ACTION_BOT_TOKEN }}
-#          auto-push: true
-#          # Show alert with commit comment on detecting possible performance regression
-#          alert-threshold: '200%'
-#          comment-on-alert: true
-#          fail-on-alert: true
-#          alert-comment-cc-users: '@michaelmior'
-#          gh-repository: 'github.com/benchmark-action/github-action-benchmark-results'
