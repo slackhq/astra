@@ -36,7 +36,11 @@ jobs:
           echo "```" >> $GITHUB_STEP_SUMMARY
           cat jmh-result.json >> $GITHUB_STEP_SUMMARY
           echo "```" >> $GITHUB_STEP_SUMMARY
-          echo "MK=$(cat ./jmh-result.json)" >> $GITHUB_ENV
+          {
+            echo 'MK<<EOF'
+            cat ./jmh-result.json
+            echo EOF
+          } >> "$GITHUB_ENV"
       - name: Comment on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
