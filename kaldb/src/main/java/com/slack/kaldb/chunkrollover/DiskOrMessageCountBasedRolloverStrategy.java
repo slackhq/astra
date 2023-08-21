@@ -6,13 +6,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.commons.io.FileUtils;
+import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +41,7 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
       Executors.newScheduledThreadPool(
           1, new ThreadFactoryBuilder().setNameFormat("directory-size-%d").build());
 
-  private final AtomicReference<File> activeChunkDirectory = new AtomicReference<>();
+  private final AtomicReference<FSDirectory> activeChunkDirectory = new AtomicReference<>();
   private final AtomicLong approximateDirectoryBytes = new AtomicLong(0);
 
   public static DiskOrMessageCountBasedRolloverStrategy fromConfig(
@@ -86,16 +87,31 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
   }
 
   @Override
-  public void setActiveChunkDirectory(File activeChunkDirectory) {
-    this.activeChunkDirectory.set(activeChunkDirectory);
+  public void setActiveChunkDirectory(FSDirectory directory) {
+    this.activeChunkDirectory.set(directory);
     this.approximateDirectoryBytes.set(0);
   }
 
   public void calculateDirectorySize() {
     try {
-      File activeChunkDir = activeChunkDirectory.get();
-      if (activeChunkDir != null && activeChunkDir.exists()) {
-        approximateDirectoryBytes.set(FileUtils.sizeOf(activeChunkDir));
+      FSDirectory activeChunkDir = activeChunkDirectory.get();
+      if (activeChunkDir != null && activeChunkDir.listAll().length > 0) {
+
+        long directorySize =
+            Arrays.stream(activeChunkDir.listAll())
+                .mapToLong(
+                    file -> {
+                      try {
+                        return activeChunkDir.fileLength(file);
+                      } catch (IOException e) {
+                        // There can be a race condition b/w the listAll which filters
+                        // pendingDeletes and then fileLength method which will throw
+                        // NoSuchFileException if the file has now become a pending delete
+                        return 0;
+                      }
+                    })
+                .sum();
+        approximateDirectoryBytes.set(directorySize);
       }
     } catch (Exception e) {
       LOG.error("Error calculating the directory size", e);

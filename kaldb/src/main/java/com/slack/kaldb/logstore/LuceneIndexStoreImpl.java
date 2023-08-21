@@ -8,7 +8,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -220,8 +219,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   }
 
   @Override
-  public Path getDirectory() {
-    return indexDirectory.getDirectory();
+  public FSDirectory getDirectory() {
+    return indexDirectory;
   }
 
   private void handleNonFatal(Throwable ex) {
@@ -289,7 +288,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         + id
         + '\''
         + ", at="
-        + getDirectory().toAbsolutePath()
+        + getDirectory().getDirectory().toAbsolutePath()
         + '}';
   }
 

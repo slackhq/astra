@@ -3,11 +3,11 @@ package com.slack.kaldb.logstore;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.io.Closeable;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.SearcherManager;
+import org.apache.lucene.store.FSDirectory;
 
 /* An interface that implements a read and write interface for the LogStore */
 public interface LogStore<T> extends Closeable {
@@ -24,7 +24,7 @@ public interface LogStore<T> extends Closeable {
 
   void cleanup() throws IOException;
 
-  Path getDirectory();
+  FSDirectory getDirectory();
 
   /**
    * After a commit, lucene may merge multiple segments into one in the background. So, getting a
