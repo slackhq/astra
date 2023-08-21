@@ -14,6 +14,7 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
@@ -189,22 +190,36 @@ public class SnapshotDeletionService extends AbstractScheduledService {
                               // metadata and try again on the next run.
                               URI snapshotUri = URI.create(snapshotMetadata.snapshotPath);
                               LOG.info("Starting delete of snapshot {}", snapshotMetadata);
-                              if (s3BlobFs.exists(snapshotUri)) {
-                                // Ensure that the file exists before attempting to delete, in case
-                                // the previous run successfully deleted the object but failed the
-                                // metadata delete. Otherwise, this would be expected to perpetually
-                                // fail deleting a non-existing file.
-                                if (s3BlobFs.delete(snapshotUri, true)) {
-                                  snapshotMetadataStore.deleteSync(snapshotMetadata);
-                                } else {
-                                  throw new IOException(
-                                      String.format(
-                                          "Failed to delete '%s' from object store",
-                                          snapshotMetadata.snapshotPath));
-                                }
-                              } else {
+
+                              // There can be scenarios where the indexer just gets killed by kube
+                              // (say a healthcheck fail)
+                              // In that case the indexer doesn't remove live chunks and the
+                              // snapshot remains in the /LIVE znode parent path
+                              // Since it's a live snapshot, we don't have a URL associated with it
+                              // and the pod is dead anyways
+                              if (SnapshotMetadata.isLive(snapshotMetadata)) {
                                 snapshotMetadataStore.deleteSync(snapshotMetadata);
+                              } else {
+                                if (s3BlobFs.exists(snapshotUri)) {
+                                  // Ensure that the file exists before attempting to delete, in
+                                  // case
+                                  // the previous run successfully deleted the object but failed the
+                                  // metadata delete. Otherwise, this would be expected to
+                                  // perpetually
+                                  // fail deleting a non-existing file.
+                                  if (s3BlobFs.delete(snapshotUri, true)) {
+                                    snapshotMetadataStore.deleteSync(snapshotMetadata);
+                                  } else {
+                                    throw new IOException(
+                                        String.format(
+                                            "Failed to delete '%s' from object store",
+                                            snapshotMetadata.snapshotPath));
+                                  }
+                                } else {
+                                  snapshotMetadataStore.deleteSync(snapshotMetadata);
+                                }
                               }
+
                             } catch (Exception e) {
                               LOG.error("Exception deleting snapshot", e);
                               throw e;
