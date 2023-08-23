@@ -151,6 +151,7 @@ public class RecoveryTaskCreator {
     }
 
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    LOG.info("There are {} snapshots", snapshots.size());
     List<SnapshotMetadata> snapshotsForPartition =
         snapshots.stream()
             .filter(
@@ -165,15 +166,18 @@ public class RecoveryTaskCreator {
                       && snapshotMetadata.partitionId.equals(partitionId);
                 })
             .collect(Collectors.toUnmodifiableList());
+    LOG.info("There are {} snapshots for partition {}", snapshotsForPartition.size(), partitionId);
     List<SnapshotMetadata> deletedSnapshots = deleteStaleLiveSnapshots(snapshotsForPartition);
 
     List<SnapshotMetadata> nonLiveSnapshotsForPartition =
         snapshotsForPartition.stream()
             .filter(s -> !deletedSnapshots.contains(s))
             .collect(Collectors.toUnmodifiableList());
+    LOG.info("There are {} nonLive snapshots.", nonLiveSnapshotsForPartition.size());
 
     // Get the highest offset that is indexed in durable store.
     List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSync();
+    LOG.info("There are {} recoveryTasks", recoveryTasks.size());
     long highestDurableOffsetForPartition =
         getHighestDurableOffsetForPartition(
             nonLiveSnapshotsForPartition, recoveryTasks, partitionId);

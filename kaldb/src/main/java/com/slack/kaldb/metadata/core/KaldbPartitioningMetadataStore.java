@@ -234,8 +234,9 @@ public class KaldbPartitioningMetadataStore<T extends KaldbPartitionedMetadata>
         metadataStoreMap.entrySet()) {
       completionStages.add(metadataStoreEntry.getValue().listAsync().toCompletableFuture());
     }
+    LOG.info("There are {} async completion stages.", completionStages.size());
 
-    return CompletableFuture.allOf(completionStages.toArray(new CompletableFuture[0]))
+    return CompletableFuture.allOf(completionStages.toArray(new CompletableFuture[completionStages.size()]))
         .thenApply(
             (unused) ->
                 completionStages.stream()
@@ -245,11 +246,26 @@ public class KaldbPartitioningMetadataStore<T extends KaldbPartitionedMetadata>
   }
 
   public List<T> listSync() {
+    /*
+     * For some reason, the async call didn't retrieve all the snapshots.
+     *
     try {
-      return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      List<T> asyncList = listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      LOG.info("There are {} from async list.", asyncList.size());
+      return syncList;
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error listing nodes", e);
     }
+    */
+    List<List<T>> completionStages = new ArrayList<>();
+    for (Map.Entry<String, KaldbMetadataStore<T>> metadataStoreEntry :
+        metadataStoreMap.entrySet()) {
+      completionStages.add(metadataStoreEntry.getValue().listSync());
+    }
+    LOG.info("There are {} sync completion stages.", completionStages.size());
+    List<T> syncList = completionStages.stream().flatMap(List::stream).collect(Collectors.toList());
+    LOG.info("There are {} sync list.", syncList.size());
+    return syncList;
   }
 
   private KaldbMetadataStore<T> getOrCreateMetadataStore(String partition) {
