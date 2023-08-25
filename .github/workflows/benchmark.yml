@@ -33,7 +33,7 @@ jobs:
           java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g -jar benchmarks/target/benchmarks.jar -wi 1 -i 1 -f 1 -rf json
       - name: Write summary data
         run: |
-          echo "{\"sha\":\"${github.sha}\",\"timestamp\":$(date +%s),\"data\":$(cat jmh-result.json)}" >> jmh-summary.json
+          echo "{\"sha\":\"${GITHUB_SHA}\",\"timestamp\":$(date +%s),\"data\":$(cat jmh-result.json)}" >> jmh-summary.json
       - name: Add job summary
         run: |
           echo '```' >> $GITHUB_STEP_SUMMARY
