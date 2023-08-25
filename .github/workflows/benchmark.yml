@@ -55,6 +55,23 @@ jobs:
               repo: context.repo.repo,
               body: `${MK}`
             })
+      - name: Download all benchmark previous results
+        uses: actions/download-artifact@v3
+        with:
+          name: benchmark-results
+      - name: Archive benchmark results
+        # if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results/${{ github.job }}-jmh-result.json
+          #name: benchmark-results
+          path: jmh-result.json
+          #path: ${{ github.workspace }}
+      - name: List benchmark results
+        run: |
+          ls benchmark-results
+
+
 #      - name: Comment benchmark result
 #        uses: benchmark-action/github-action-benchmark@v1
 #        if: github.event_name == 'pull_request'
