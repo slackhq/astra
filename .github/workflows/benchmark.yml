@@ -30,7 +30,7 @@ jobs:
       - name: Run benchmark
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
-          java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g $gcArgs -jar benchmarks/target/benchmarks.jar -wi 1 -i 3 -f 1 -rf json
+          java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g $gcArgs -jar benchmarks/target/benchmarks.jar -wi 1 -i 1 -f 1 -rf json
       - name: Add job summary
         run: |
           echo '### Hello world! :rocket:' >> $GITHUB_STEP_SUMMARY
@@ -59,7 +59,7 @@ jobs:
         # if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v3
         with:
-          name: benchmark-results/${{ github.job }}-jmh-result.json
+          name: jmh-result-${{ github.run_id }}.json
           #name: benchmark-results
           path: jmh-result.json
           #path: ${{ github.workspace }}
