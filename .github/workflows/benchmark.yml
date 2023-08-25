@@ -31,17 +31,17 @@ jobs:
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
           java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g -jar benchmarks/target/benchmarks.jar -wi 1 -i 1 -f 1 -rf json
-      - name: Write summary data
-        run: |
-          echo "{\"sha\":\"${GITHUB_SHA}\",\"timestamp\":$(date +%s),\"data\":$(cat jmh-result.json)}" >> jmh-summary.json
+      #- name: Write summary data
+      #  run: |
+      #    echo "{\"sha\":\"${GITHUB_SHA}\",\"timestamp\":$(date +%s),\"data\":$(cat jmh-result.json)}" >> jmh-summary.json
       - name: Add job summary
         run: |
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat jmh-summary.json >> $GITHUB_STEP_SUMMARY
+          cat jmh-result.json >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           {
             echo 'MK<<EOF'
-            cat ./jmh-summary.json
+            cat ./jmh-result.json
             echo EOF
           } >> "$GITHUB_ENV"
       - name: Comment on PR
@@ -61,19 +61,26 @@ jobs:
         # if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v3
         with:
-          name: jmh-summary-${{ github.run_id }}.json
+          #name: jmh-result-${{ github.run_id }}.json
+          name: jmh-summary.json
           #name: benchmark-results
           path: jmh-summary.json
+          retention-days: 5
           #path: ${{ github.workspace }}
-      - name: Download all benchmark previous results
-        uses: actions/download-artifact@v3
+      #- name: Download all benchmark previous results
+      #  uses: actions/download-artifact@v3
+      #  with:
+      #    path: benchmark-results
+      - name: List artifacts
+        uses: actions/github-script@v6
         with:
-          path: benchmark-results
-      - name: List benchmark results
-        run: |
-          ls -R benchmark-results
+          script: |
+            github.rest.actions.listArtifactsForRepo({
+              context.repo.owner,
+              context.repo.repo,
+            })
 
- 
+
 #      - name: Comment benchmark result
 #        uses: benchmark-action/github-action-benchmark@v1
 #        if: github.event_name == 'pull_request'
