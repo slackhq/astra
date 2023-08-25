@@ -66,7 +66,7 @@ jobs:
       - name: Download all benchmark previous results
         uses: actions/download-artifact@v3
         with:
-          name: benchmark-results
+          path: benchmark-results
       - name: List benchmark results
         run: |
           ls -R benchmark-results
