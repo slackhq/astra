@@ -68,7 +68,7 @@ jobs:
               }
             });
               
-            const header =    "|   |master|${context.sha}|delta|"
+            const header =    `|   |master|${context.sha}|delta|`
             const subheader = "|---|------|------|-----|"
             let rows = "";
             
