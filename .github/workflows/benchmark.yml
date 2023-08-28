@@ -87,7 +87,7 @@ jobs:
               const thisRunValue = thisRun?.data.primaryMetric.score;
               const mostRecentOtherRunVal = mostRecentOtherRun?.data.primaryMetric.score;
               const delta = (thisRunValue - mostRecentOtherRunVal) / mostRecentOtherRunVal * 100;
-              rows = rows + `|${key}|${mostRecentOtherRunVal?.toFixed(1)} (${mostRecentOtherRun?.sha})|${thisRunValue?.toFixed(1)} (${thisRun.sha})|${delta > 0 ? "+" : "-"}${delta?.toFixed(1)}%|\n`
+              rows = rows + `|${key}|${mostRecentOtherRunVal?.toFixed(1)} ( ${mostRecentOtherRun?.sha} )|${thisRunValue?.toFixed(1)} ( ${thisRun.sha} )|${delta > 0 ? "+" : "-"}${delta?.toFixed(1)}%|\n`
             });
               
             const op = `${header}\n${subheader}\n${rows}`;
