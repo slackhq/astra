@@ -105,12 +105,36 @@ jobs:
         with:
           script: |
             const { JMH_OP } = process.env
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            
+            // Get the existing comments.
+            const {data: comments} = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `${JMH_OP}`
-            })
+              issue_number: context.payload.number,
+            });
+            
+            console.log(comments);
+
+            // Find any comment already made by the bot.                                                                                                    
+            const botComment = comments.find(comment => comment.body.includes("<!-- jmhBenchmark -->"))     
+            
+            console.log(botComment);
+            
+            if (botComment) {
+              github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `${JMH_OP} <!-- jmhBenchmark -->`
+                comment_id: botComment.id
+              });
+            } else {
+             github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `${JMH_OP} <!-- jmhBenchmark -->`
+              });
+            }
       - name: Add benchmark artifact
         # if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v3
