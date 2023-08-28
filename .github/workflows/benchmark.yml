@@ -31,6 +31,11 @@ jobs:
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
           java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g -jar benchmarks/target/benchmarks.jar -wi 1 -i 1 -f 1 -rf json
+      - name: Restore cache
+        uses: actions/cache/restore@v3
+        with:
+          path: jmh-result-cache.json
+          key: jmh-result-cache
       - name: Build output
         uses: actions/github-script@v6
         with:
@@ -38,7 +43,7 @@ jobs:
             const fs = require('fs');
   
             const rawThisRun = fs.readFileSync('jmh-result.json', 'utf8');
-            const rawLastRun = fs.readFileSync('jmh-result.json', 'utf8');
+            const rawLastRun = fs.existsSync('jmh-result-cache.json') ? fs.readFileSync('jmh-result-cache.json', 'utf8') : null;
             
             console.log(rawThisRun);
             console.log(rawLastRun);
@@ -47,7 +52,7 @@ jobs:
             const parsedLastRun = JSON.parse(rawLastRun);
                     
             const map = new Map();
-            parsedThisRun.forEach(run => {
+            parsedThisRun?.forEach(run => {
               if (map.has(run.benchmark)) {
                 map.get(run.benchmark).push(run);
               } else {
@@ -55,7 +60,7 @@ jobs:
               }
             });
               
-            parsedLastRun.forEach(run => {
+            parsedLastRun?.forEach(run => {
               if (map.has(run.benchmark)) {
                 map.get(run.benchmark).push(run);
               } else {
@@ -63,15 +68,15 @@ jobs:
               }
             });
               
-            const header =    "|   |master|thisPr|delta|"
+            const header =    "|   |master|${context.sha}|delta|"
             const subheader = "|---|------|------|-----|"
             let rows = "";
             
             map.forEach((data, key) => {
-              const lastRunVal = data[0].primaryMetric.score;
-              const thisRunVal = data[1].primaryMetric.score;
+              const lastRunVal = data[0]?.primaryMetric.score;
+              const thisRunVal = data[1]?.primaryMetric.score;
               const delta = (thisRunVal - lastRunVal) / lastRunVal * 100;
-              rows = rows + `|${key}|${lastRunVal.toFixed(1)}|${thisRunVal.toFixed(1)}|${delta > 0 ? "+" : "-"}${delta.toFixed(1)}%|\n`
+              rows = rows + `|${key}|${lastRunVal?.toFixed(1)}|${thisRunVal?.toFixed(1)}|${delta > 0 ? "+" : "-"}${delta?.toFixed(1)}%|\n`
               // todo - if too much regression, fail
             });
             
@@ -97,9 +102,16 @@ jobs:
         # if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v3
         with:
-          name: jmh-summary.json
-          path: jmh-summary.json
+          name: jmh-result.json
+          path: jmh-result.json
           retention-days: 5
+      - name: Cache run result
+        if: github.event_name != 'pull_request'
+        uses: actions/cache/save@v3
+        with:
+          path: jmh-result.json
+          key: jmh-result-cache
+          #retention-days: 5
           #path: ${{ github.workspace }}
       #- name: Download all benchmark previous results
       #  uses: actions/download-artifact@v3
