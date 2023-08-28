@@ -110,9 +110,9 @@ jobs:
             
             // Get the existing comments.
             const {data: comments} = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
               issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo
             });
             
             console.log(comments);
@@ -124,10 +124,10 @@ jobs:
             
             if (botComment) {
               await github.rest.issues.updateComment({
+                comment_id: botComment.id,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: `${JMH_OP} <!-- jmhBenchmark -->`
-                comment_id: botComment.id
               });
             } else {
              await github.rest.issues.createComment({
