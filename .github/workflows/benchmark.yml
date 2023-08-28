@@ -10,10 +10,7 @@ on:
 # Required for comment permissions
 # https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
 permissions:
-  pull-requests: write
   issues: write
-  contents: write
-  deployments: write
 
 jobs:
   benchmark:
@@ -150,59 +147,3 @@ jobs:
         with:
           path: jmh-data.json
           key: jmh-result-data-${{ hashFiles('jmh-data.json') }}
-          #retention-days: 5
-          #path: ${{ github.workspace }}
-      #- name: Download all benchmark previous results
-      #  uses: actions/download-artifact@v3
-      #  with:
-      #    path: benchmark-results
-#      - name: List artifacts
-#        uses: actions/github-script@v6
-#        with:
-#          script: |
-#            github.rest.actions.listArtifactsForRepo({
-#              context.repo.owner,
-#              context.repo.repo,
-#            })
-
-
-#      - name: Comment benchmark result
-#        uses: benchmark-action/github-action-benchmark@v1
-#        if: github.event_name == 'pull_request'
-#        with:
-#          name: JMH Benchmark
-#          tool: 'jmh'
-#          output-file-path: jmh-result.json
-#          github-token: ${{ secrets.GITHUB_TOKEN }}
-#          gh-pages-branch: benchmarks
-#          # This is important to prevent PRs from pushing results
-#          # https://github.com/benchmark-action/github-action-benchmark#run-only-on-your-branches
-#          auto-push: false
-#          fail-threshold: '200%'
-#          #comment-on-alert: false
-#          comment-always: true
-#          #fail-on-alert: false
-#          # https://github.com/benchmark-action/github-action-benchmark/issues/158
-#          # summary-always: true
-#      - name: Store benchmark result
-#        uses: benchmark-action/github-action-benchmark@v1
-#        if: github.event_name != 'pull_request'
-#        with:
-#          name: JMH Benchmark
-#          tool: 'jmh'
-#          output-file-path: jmh-result.json
-#          github-token: ${{ secrets.GITHUB_TOKEN }}
-#          gh-pages-branch: benchmarks
-#          auto-push: true
-#          # Show alert with commit comment on detecting possible performance regression
-#          alert-threshold: '200%'
-#          fail-threshold: '200%'
-#          # Enable alert commit comment
-#          comment-on-alert: true
-#          comment-always: true
-#          fail-on-alert: false
-
-          # Enable Job Summary for PRs
-          # https://github.com/benchmark-action/github-action-benchmark/issues/158
-          # summary-always: true
-
