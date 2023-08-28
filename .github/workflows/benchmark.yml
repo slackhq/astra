@@ -34,8 +34,8 @@ jobs:
       - name: Restore cache
         uses: actions/cache/restore@v3
         with:
-          path: jmh-result-cache.json
-          key: jmh-result-cache
+          path: jmh-data.json
+          key: jmh-result-data
       - name: Build output
         uses: actions/github-script@v6
         with:
@@ -43,45 +43,58 @@ jobs:
             const fs = require('fs');
   
             const rawThisRun = fs.readFileSync('jmh-result.json', 'utf8');
-            const rawLastRun = fs.existsSync('jmh-result-cache.json') ? fs.readFileSync('jmh-result-cache.json', 'utf8') : null;
-            
+            const rawPreviousResults = fs.existsSync('jmh-data.json') ? fs.readFileSync('jmh-data.json', 'utf8') : null;
+              
             console.log(rawThisRun);
-            console.log(rawLastRun);
+            console.log(rawPreviousResults);
             
             const parsedThisRun = JSON.parse(rawThisRun);
-            const parsedLastRun = JSON.parse(rawLastRun);
-                    
+            const parsedPreviousResults = JSON.parse(rawPreviousResults);
+            
             const map = new Map();
             parsedThisRun?.forEach(run => {
+              const runData = {
+                sha: context.sha,
+                timestamp: Date.now(),
+                data: run
+              }
               if (map.has(run.benchmark)) {
-                map.get(run.benchmark).push(run);
+                map.get(run.benchmark).push(runData);
               } else {
-                map.set(run.benchmark, [run])
+                map.set(run.benchmark, [runData])
               }
             });
               
-            parsedLastRun?.forEach(run => {
-              if (map.has(run.benchmark)) {
-                map.get(run.benchmark).push(run);
-              } else {
-                map.set(run.benchmark, [run])
-              }
-            });
+            if (parsedPreviousResults != null) {
+              Object.keys(parsedPreviousResults).forEach(key => {
+                if (map.has(key)) {
+                  map.set(key, parsedPreviousResults[key].concat(map.get(key)));
+                } else {
+                  map.set(key, parsedPreviousResults[key])
+                }
+              });
+            }
               
-            const header =    `|   |master|${context.sha}|delta|`
-            const subheader = "|---|------|------|-----|"
+            const header =    `|Test|Last Run|This Run|Delta|`
+            const subheader = "|----|--------|--------|-----|"
             let rows = "";
             
             map.forEach((data, key) => {
-              const lastRunVal = data[0]?.primaryMetric.score;
-              const thisRunVal = data[1]?.primaryMetric.score;
-              const delta = (thisRunVal - lastRunVal) / lastRunVal * 100;
-              rows = rows + `|${key}|${lastRunVal?.toFixed(1)}|${thisRunVal?.toFixed(1)}|${delta > 0 ? "+" : "-"}${delta?.toFixed(1)}%|\n`
-              // todo - if too much regression, fail
+              data.sort((a, b) => { return a.timestamp > b.timestamp; });
+              const thisRun = data.find(run => run.sha === context.sha);
+              const mostRecentOtherRun = data.find(run => run.sha !== context.sha);
+              
+              const thisRunValue = thisRun?.data.primaryMetric.score;
+              const mostRecentOtherRunVal = mostRecentOtherRun?.data.primaryMetric.score;
+              const delta = (thisRunValue - mostRecentOtherRunVal) / mostRecentOtherRunVal * 100;
+              rows = rows + `|${key}|${mostRecentOtherRunVal?.toFixed(1)} (${mostRecentOtherRun?.sha})|${thisRunValue?.toFixed(1)} (${thisRun.sha})|${delta > 0 ? "+" : "-"}${delta?.toFixed(1)}%|\n`
             });
-            
+              
             const op = `${header}\n${subheader}\n${rows}`;
             console.log(op);
+            console.log(map);
+            
+            fs.writeFileSync("jmh-data.json", JSON.stringify(Object.fromEntries(map)));
             core.exportVariable('JMH_OP', op);
       - name: Add job summary
         run: |
@@ -109,8 +122,8 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/cache/save@v3
         with:
-          path: jmh-result.json
-          key: jmh-result-cache
+          path: jmh-data.json
+          key: jmh-result-data
           #retention-days: 5
           #path: ${{ github.workspace }}
       #- name: Download all benchmark previous results
