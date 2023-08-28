@@ -34,6 +34,8 @@ jobs:
       - name: Restore cache
         uses: actions/cache/restore@v3
         with:
+          restore-keys: |
+            jmh-result-data-
           path: jmh-data.json
           key: jmh-result-data
       - name: Build output
@@ -110,7 +112,7 @@ jobs:
             const {data: comments} = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.number,
+              issue_number: context.issue.number,
             });
             
             console.log(comments);
@@ -121,14 +123,14 @@ jobs:
             console.log(botComment);
             
             if (botComment) {
-              github.rest.issues.updateComment({
+              await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: `${JMH_OP} <!-- jmhBenchmark -->`
                 comment_id: botComment.id
               });
             } else {
-             github.rest.issues.createComment({
+             await github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -147,7 +149,7 @@ jobs:
         uses: actions/cache/save@v3
         with:
           path: jmh-data.json
-          key: jmh-result-data
+          key: jmh-result-data-${{ hashFiles('jmh-data.json') }}
           #retention-days: 5
           #path: ${{ github.workspace }}
       #- name: Download all benchmark previous results
