@@ -95,7 +95,7 @@ jobs:
               
               map.forEach((data, key) => {
               const thisRun = data.find(run => run.sha === context.sha);
-              const mostRecentOtherRun = data.find(run => run.sha === lastRun.sha);
+              const mostRecentOtherRun = data.find(run => run.sha === lastRun?.sha);
               
               const thisRunMetric = thisRun?.data.primaryMetric;
               const mostRecentOtherRunMetric = mostRecentOtherRun?.data.primaryMetric;
