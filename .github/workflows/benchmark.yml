@@ -24,6 +24,14 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
+      - name: Download benchmark data
+        run: |
+          aws s3 help
+        # aws s3 sync ./build s3://test-bucket
+        env:
+          #AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          #AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          #AWS_DEFAULT_REGION: 'us-east-1'
       - name: Run benchmark
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
@@ -72,7 +80,7 @@ jobs:
             let lastRun = null;
             if (parsedPreviousResults != null) {
               Object.keys(parsedPreviousResults).forEach(key => {
-                parsedPreviousResults[key].sort((a, b) => { return a.timestamp > b.timestamp; });
+                parsedPreviousResults[key].sort((a, b) => { return b.timestamp - a.timestamp; });
                 if (lastRun == null || lastRun.timestamp < parsedPreviousResults[key][0].timestamp) {
                   lastRun = {
                     sha: parsedPreviousResults[key][0].sha,
@@ -99,7 +107,7 @@ jobs:
               const thisRunMetric = thisRun?.data.primaryMetric;
               const mostRecentOtherRunMetric = mostRecentOtherRun?.data.primaryMetric;
               const delta = (thisRunMetric.score - mostRecentOtherRunMetric.score) / mostRecentOtherRunMetric.score * 100;
-              rows = rows + `|${key}|${mostRecentOtherRunMetric?.score.toFixed(1)} <sup>±${mostRecentOtherRunMetric?.scoreError.toFixed(1)}</sup>|${thisRunMetric?.score.toFixed(1)} <sup>±${thisRunMetric?.scoreError.toFixed(1)}</sup>|${delta?.toFixed(1)}%|\n`
+              rows = rows + `|${key.replace("com.slack.kaldb.","")}|${mostRecentOtherRunMetric?.score.toFixed(1)} <sup>±${mostRecentOtherRunMetric?.scoreError.toFixed(1)}</sup>|${thisRunMetric?.score.toFixed(1)} <sup>±${thisRunMetric?.scoreError.toFixed(1)}</sup>|${delta?.toFixed(1)}%|\n`
             });
               
             const op = `${header}\n${subheader}\n${rows}`;
