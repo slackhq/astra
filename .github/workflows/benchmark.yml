@@ -7,7 +7,7 @@ on:
     branches:
       - "**"
 
-# Required for comment permissions
+# Required for PR comment permissions
 # https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
 permissions:
   issues: write
@@ -24,11 +24,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
-      - name: Download benchmark data
-        # AWS cli can be used if we want to host separate data - https://stackoverflow.com/questions/59166099/github-action-aws-cli
-        run: |
-          # https://github.com/opensearch-project/opensearch-benchmark-workloads
-          curl -o documents-1k.json.bz2 https://opensearch-benchmark-workloads.s3.amazonaws.com/corpora/geopoint/documents-1k.json.bz2
+      #- name: Download benchmark data
+      #  # AWS cli can be used if we want to host separate data - https://stackoverflow.com/questions/59166099/github-action-aws-cli
+      #  run: |
+      #    # https://github.com/opensearch-project/opensearch-benchmark-workloads
+      #    curl -o documents-1k.json.bz2 https://opensearch-benchmark-workloads.s3.amazonaws.com/corpora/geopoint/documents-1k.json.bz2
       - name: Run benchmark
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
@@ -53,10 +53,6 @@ jobs:
   
             const rawThisRun = fs.readFileSync('jmh-result.json', 'utf8');
             const rawPreviousResults = fs.existsSync('jmh-data.json') ? fs.readFileSync('jmh-data.json', 'utf8') : null;
-              
-            console.log(rawThisRun);
-            console.log(rawPreviousResults);
-            
             const parsedThisRun = JSON.parse(rawThisRun);
             const parsedPreviousResults = JSON.parse(rawPreviousResults);
             
@@ -109,7 +105,6 @@ jobs:
               
             const op = `${header}\n${subheader}\n${rows}`;
             console.log(op);
-            console.log(map);
             
             fs.writeFileSync("jmh-data.json", JSON.stringify(Object.fromEntries(map)));
             core.exportVariable('JMH_OP', op);
@@ -136,12 +131,8 @@ jobs:
               repo: context.repo.repo
             });
             
-            console.log(comments);
-
             // Find any comment already made by the bot.                                                                                                    
             const botComment = comments.find(comment => comment.body.includes("<!-- jmhBenchmark -->"))     
-            
-            console.log(botComment);
             
             if (botComment) {
               await github.rest.issues.updateComment({
