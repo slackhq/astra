@@ -27,15 +27,20 @@ jobs:
       - name: Run benchmark
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
-          java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g -jar benchmarks/target/benchmarks.jar -wi 3 -i 3 -f 1 -rf json
-      - name: Restore cache
+          java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g -jar benchmarks/target/benchmarks.jar -wi 5 -i 5 -f 1 -rf json
+      - name: Upload JHM results
+        uses: actions/upload-artifact@v3
+        with:
+          name: jmh-result.json
+          path: jmh-result.json
+      - name: Download previous benchmark data
         uses: actions/cache/restore@v3
         with:
           restore-keys: |
             jmh-result-data-
           path: jmh-data.json
           key: jmh-result-data
-      - name: Build output
+      - name: Compile output results
         uses: actions/github-script@v6
         with:
           script: |
@@ -94,7 +99,7 @@ jobs:
               const thisRunMetric = thisRun?.data.primaryMetric;
               const mostRecentOtherRunMetric = mostRecentOtherRun?.data.primaryMetric;
               const delta = (thisRunMetric.score - mostRecentOtherRunMetric.score) / mostRecentOtherRunMetric.score * 100;
-              rows = rows + `|${key}|${mostRecentOtherRunMetric?.score.toFixed(1)} <sup>±${mostRecentOtherRunMetric?.scoreError}</sup>|${thisRunMetric?.score.toFixed(1)} <sup>±${thisRunMetric?.scoreError}</sup>|${delta?.toFixed(1)}%|\n`
+              rows = rows + `|${key}|${mostRecentOtherRunMetric?.score.toFixed(1)} <sup>±${mostRecentOtherRunMetric?.scoreError.toFixed(1)}</sup>|${thisRunMetric?.score.toFixed(1)} <sup>±${thisRunMetric?.scoreError.toFixed(1)}</sup>|${delta?.toFixed(1)}%|\n`
             });
               
             const op = `${header}\n${subheader}\n${rows}`;
@@ -103,10 +108,16 @@ jobs:
             
             fs.writeFileSync("jmh-data.json", JSON.stringify(Object.fromEntries(map)));
             core.exportVariable('JMH_OP', op);
-      - name: Add job summary
+      - name: Upload previous benchmark data
+        if: github.event_name != 'pull_request'
+        uses: actions/cache/save@v3
+        with:
+          path: jmh-data.json
+          key: jmh-result-data-${{ hashFiles('jmh-data.json') }}
+      - name: Append job summary
         run: |
           echo "${JMH_OP}" >> $GITHUB_STEP_SUMMARY
-      - name: Comment on PR
+      - name: Update comment on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
@@ -142,16 +153,3 @@ jobs:
                 body: `${JMH_OP} <!-- jmhBenchmark -->`
               });
             }
-      - name: Add benchmark artifact
-        # if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v3
-        with:
-          name: jmh-result.json
-          path: jmh-result.json
-          retention-days: 5
-      - name: Cache run result
-        if: github.event_name != 'pull_request'
-        uses: actions/cache/save@v3
-        with:
-          path: jmh-data.json
-          key: jmh-result-data-${{ hashFiles('jmh-data.json') }}
