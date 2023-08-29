@@ -89,7 +89,7 @@ jobs:
               });
             }
             
-            const header =    `|Test|Previous ${lastRun?.sha}|Current ${context.sha}|Delta|`
+            const header = `|Test|Previous ${lastRun?.sha}|Current ${context.sha}|Delta|`
             const subheader = "|----|--------|--------|-----|"
               let rows = "";
               
