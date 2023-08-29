@@ -29,7 +29,6 @@ import org.apache.zookeeper.data.Stat;
  * performing batch operations and a sync if you are performing a synchronous operation on a node.
  */
 public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
-
   protected final String storeFolder;
 
   private final ZPath zPath;
