@@ -25,13 +25,10 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: Download benchmark data
+        # AWS cli can be used if we want to host separate data - https://stackoverflow.com/questions/59166099/github-action-aws-cli
         run: |
-          aws s3 help
-        # aws s3 sync ./build s3://test-bucket
-        env:
-          #AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          #AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: 'us-east-1'
+          # https://github.com/opensearch-project/opensearch-benchmark-workloads
+          curl -o documents-1k.json.bz2 https://opensearch-benchmark-workloads.s3.amazonaws.com/corpora/geopoint/documents-1k.json.bz2
       - name: Run benchmark
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
