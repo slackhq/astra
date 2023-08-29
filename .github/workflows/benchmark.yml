@@ -63,9 +63,18 @@ jobs:
                 map.set(run.benchmark, [runData])
               }
             });
-              
+            
+            let lastRun = null;
             if (parsedPreviousResults != null) {
               Object.keys(parsedPreviousResults).forEach(key => {
+                parsedPreviousResults[key].sort((a, b) => { return a.timestamp > b.timestamp; });
+                if (lastRun == null || lastRun.timestamp < parsedPreviousResults[key][0].timestamp) {
+                  lastRun = {
+                    sha: parsedPreviousResults[key][0].sha,
+                    timestamp: parsedPreviousResults[key][0].timestamp
+                  }
+                }
+            
                 if (map.has(key)) {
                   map.set(key, parsedPreviousResults[key].concat(map.get(key)));
                 } else {
@@ -73,20 +82,19 @@ jobs:
                 }
               });
             }
-              
-            const header =    `|Test|Last Run|This Run|Delta|`
-            const subheader = "|----|--------|--------|-----|"
-            let rows = "";
             
-            map.forEach((data, key) => {
-              data.sort((a, b) => { return b.timestamp - a.timestamp; });
-              const thisRun = data.find(run => run.sha === context.sha);
-              const mostRecentOtherRun = data.find(run => run.sha !== context.sha);
+            const header =    `|Test|Previous ${lastRun?.sha}|Current ${context.sha}|Delta|`
+            const subheader = "|----|--------|--------|-----|"
+              let rows = "";
               
-              const thisRunValue = thisRun?.data.primaryMetric.score;
-              const mostRecentOtherRunVal = mostRecentOtherRun?.data.primaryMetric.score;
-              const delta = (thisRunValue - mostRecentOtherRunVal) / mostRecentOtherRunVal * 100;
-              rows = rows + `|\`${key.replace("com.slack.kaldb.","")}\`|${mostRecentOtherRunVal?.toFixed(1)} ${mostRecentOtherRun?.sha}|${thisRunValue?.toFixed(1)} ${thisRun.sha}|${delta?.toFixed(1)}%|\n`
+              map.forEach((data, key) => {
+              const thisRun = data.find(run => run.sha === context.sha);
+              const mostRecentOtherRun = data.find(run => run.sha === lastRun.sha);
+              
+              const thisRunMetric = thisRun?.data.primaryMetric;
+              const mostRecentOtherRunMetric = mostRecentOtherRun?.data.primaryMetric;
+              const delta = (thisRunMetric.score - mostRecentOtherRunMetric.score) / mostRecentOtherRunMetric.score * 100;
+              rows = rows + `|${key}|${mostRecentOtherRunMetric?.score.toFixed(1)} <sup>±${mostRecentOtherRunMetric?.scoreError}</sup>|${thisRunMetric?.score.toFixed(1)} <sup>±${thisRunMetric?.scoreError}</sup>|${delta?.toFixed(1)}%|\n`
             });
               
             const op = `${header}\n${subheader}\n${rows}`;
