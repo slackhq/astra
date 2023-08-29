@@ -15,7 +15,7 @@ permissions:
 jobs:
   benchmark:
     name: Run JMH benchmark
-    runs-on: kaldb-benchmark-latest-8cpu
+    runs-on: kaldb-benchmark-latest-64cpu
     steps:
       - uses: actions/checkout@v3
       - name: Set up JDK 17
@@ -32,7 +32,7 @@ jobs:
       - name: Run benchmark
         run: |
           mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
-          java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms4g -Xmx4g -jar benchmarks/target/benchmarks.jar -wi 5 -i 5 -f 1 -rf json
+          java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms8g -Xmx8g -jar benchmarks/target/benchmarks.jar -wi 5 -i 5 -f 1 -rf json
       - name: Upload JHM results
         uses: actions/upload-artifact@v3
         with:
