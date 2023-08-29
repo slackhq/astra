@@ -99,7 +99,7 @@ jobs:
               
               const thisRunMetric = thisRun?.data.primaryMetric;
               const mostRecentOtherRunMetric = mostRecentOtherRun?.data.primaryMetric;
-              const delta = (thisRunMetric.score - mostRecentOtherRunMetric.score) / mostRecentOtherRunMetric.score * 100;
+              const delta = (thisRunMetric?.score - mostRecentOtherRunMetric?.score) / mostRecentOtherRunMetric?.score * 100;
               rows = rows + `|${key.replace("com.slack.kaldb.","")}|${mostRecentOtherRunMetric?.score.toFixed(1)} <sup>±${mostRecentOtherRunMetric?.scoreError.toFixed(1)}</sup>|${thisRunMetric?.score.toFixed(1)} <sup>±${thisRunMetric?.scoreError.toFixed(1)}</sup>|${delta?.toFixed(1)}%|\n`
             });
               
