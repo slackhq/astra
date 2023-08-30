@@ -15,7 +15,8 @@ permissions:
 jobs:
   benchmark:
     name: Run JMH benchmark
-    runs-on: kaldb-benchmark-latest-64cpu
+    runs-on: ubuntu-latest
+    #runs-on: kaldb-benchmark-latest-64cpu
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'benchmark')
     steps:
       - uses: actions/checkout@v3
