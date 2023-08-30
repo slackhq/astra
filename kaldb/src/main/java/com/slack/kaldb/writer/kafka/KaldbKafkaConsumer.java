@@ -1,9 +1,5 @@
 package com.slack.kaldb.writer.kafka;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
-import static java.lang.Integer.parseInt;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -13,6 +9,15 @@ import com.slack.kaldb.writer.LogMessageWriterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
+import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
@@ -24,14 +29,10 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
-import org.apache.kafka.common.TopicPartition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
+import static java.lang.Integer.parseInt;
 
 /**
  * A simple wrapper class for Kafka Consumer. A kafka consumer is an infinite loop. So, it needs to
@@ -42,6 +43,7 @@ public class KaldbKafkaConsumer {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer.class);
   public static final int KAFKA_POLL_TIMEOUT_MS = 250;
   private final LogMessageWriterImpl logMessageWriterImpl;
+  private KaldbConfigs.KafkaConfig kafkaConfig;
 
   private static final String[] REQUIRED_CONFIGS = {ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG};
   private static final Set<String> OVERRIDABLE_CONFIGS =
@@ -141,6 +143,7 @@ public class KaldbKafkaConsumer {
 
     kafkaConsumer = new KafkaConsumer<>(consumerProps);
     new KafkaClientMetrics(kafkaConsumer).bindTo(meterRegistry);
+    this.kafkaConfig = kafkaConfig;
   }
 
   private void validateKafkaConfig(Properties props) {
@@ -176,8 +179,7 @@ public class KaldbKafkaConsumer {
     // Consume from a partition.
     kafkaConsumer.assign(Collections.singletonList(topicPartition));
     LOG.info("Assigned to topicPartition: {}", topicPartition);
-    // Offset is negative when the partition was not consumed before, so start consumption from
-    // beginning of the stream. If the offset is positive, start consuming from there.
+    // Offset is negative when the partition was not consumed before, so start consumption from there
     if (startOffset > 0) {
       kafkaConsumer.seek(topicPartition, startOffset);
     } else {
@@ -190,6 +192,14 @@ public class KaldbKafkaConsumer {
     LOG.info("Closing kafka consumer for partition:{}", topicPartition);
     kafkaConsumer.close(KaldbConfig.DEFAULT_START_STOP_DURATION);
     LOG.info("Closed kafka consumer for partition:{}", topicPartition);
+  }
+
+  public long getBeginningOffsetForPartition() {
+    return getBeginningOffsetForPartition(topicPartition);
+  }
+
+  public long getBeginningOffsetForPartition(TopicPartition topicPartition) {
+    return kafkaConsumer.beginningOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
   }
 
   public long getEndOffSetForPartition() {

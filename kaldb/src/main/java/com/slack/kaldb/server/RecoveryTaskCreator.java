@@ -1,9 +1,5 @@
 package com.slack.kaldb.server;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.Futures.addCallback;
-import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.JdkFutureAdapters;
@@ -13,16 +9,22 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.apache.logging.log4j.util.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.apache.logging.log4j.util.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
 
 /**
  * This class is responsible for the indexer startup operations like stale live snapshot cleanup.
@@ -144,7 +146,10 @@ public class RecoveryTaskCreator {
    * <p>When there is no offset data for a partition, return -1. In that case, the consumer would
    * have to start indexing the data from the earliest offset.
    */
-  public long determineStartingOffset(long currentHeadOffsetForPartition) {
+  public long determineStartingOffset(
+      long currentHeadOffsetForPartition, 
+      long currentTailOffsetForPartition,
+      KaldbConfigs.IndexerConfig indexerConfig) {
     // Filter stale snapshots for partition.
     if (partitionId == null) {
       LOG.warn("PartitionId can't be null.");
@@ -184,7 +189,34 @@ public class RecoveryTaskCreator {
 
     if (highestDurableOffsetForPartition <= 0) {
       LOG.info("There is no prior offset for this partition {}.", partitionId);
-      return highestDurableOffsetForPartition;
+
+      // If the user wants to start at the current offset in Kafka and _does not_ want to create recovery tasks to
+      // backfill, then we can just return the current offset.
+      // If the user wants to start at the current offset in Kafka and _does_ want to create recovery tasks to backfill,
+      // then we create the recovery tasks needed and then return the current offset for the indexer.
+      // And if the user does _not_ want to start at the current offset in Kafka, then we'll just default to the old
+      // behavior of starting from the very beginning
+      if (!indexerConfig.getCreateRecoveryTasksOnStart()
+              && indexerConfig.getReadFromLocationOnStart() == KaldbConfigs.KafkaOffsetLocation.CURRENT) {
+        LOG.info("CreateRecoveryTasksOnStart is set to false and ReadLocationOnStart is set to current. Reading from current and" +
+                " NOT spinning up recovery tasks");
+        return currentHeadOffsetForPartition;
+      } else if (indexerConfig.getCreateRecoveryTasksOnStart()
+              && indexerConfig.getReadFromLocationOnStart() == KaldbConfigs.KafkaOffsetLocation.CURRENT) {
+        LOG.info("CreateRecoveryTasksOnStart is set and ReadLocationOnStart is set to current. Reading from current and" +
+                " spinning up recovery tasks");
+        createRecoveryTasks(
+                partitionId,
+                currentTailOffsetForPartition,
+                currentHeadOffsetForPartition,
+                indexerConfig.getMaxMessagesPerChunk()
+        );
+        return currentHeadOffsetForPartition;
+
+      } else {
+        return highestDurableOffsetForPartition;
+      }
+
     }
 
     // The current head offset shouldn't be lower than the highest durable offset. If it is it

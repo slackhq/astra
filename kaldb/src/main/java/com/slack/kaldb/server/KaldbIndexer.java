@@ -1,9 +1,5 @@
 package com.slack.kaldb.server;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
-
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.slack.kaldb.chunkManager.ChunkRollOverException;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
@@ -16,10 +12,15 @@ import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.IOException;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
 
 /**
  * KaldbIndexer creates an indexer to index the log data. The indexer also exposes a search api to
@@ -80,8 +81,10 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     long startOffset = indexerPreStart();
     // ensure the chunk manager is available to receive messages
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+
     // Set the Kafka offset and pre consumer for consumption.
     kafkaConsumer.prepConsumerForConsumption(startOffset);
+
     LOG.info("Started Kaldb indexer.");
   }
 
@@ -110,7 +113,12 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
             meterRegistry);
 
     long currentHeadOffsetForPartition = kafkaConsumer.getEndOffSetForPartition();
-    long startOffset = recoveryTaskCreator.determineStartingOffset(currentHeadOffsetForPartition);
+    long currentTailOffsetForPartition = kafkaConsumer.getBeginningOffsetForPartition();
+    long startOffset = recoveryTaskCreator.determineStartingOffset(
+            currentHeadOffsetForPartition,
+            currentTailOffsetForPartition,
+            indexerConfig
+    );
 
     // Close these stores since we don't need them after preStart.
     snapshotMetadataStore.close();
