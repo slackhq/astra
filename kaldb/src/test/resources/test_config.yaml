@@ -120,6 +120,8 @@ preprocessorConfig:
   preprocessorInstanceCount: 1
   dataTransformer: "api_log"
   rateLimiterMaxBurstSeconds: 2
+  bootstrapServers: localhost:9092
+  useBulkApi: true
 
 clusterConfig:
   clusterName: "test_kaldb_cluster"
