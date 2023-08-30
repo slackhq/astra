@@ -150,7 +150,9 @@
     "downstreamTopic": "test-topic-out",
     "preprocessorInstanceCount": 1,
     "dataTransformer": "api_log",
-    "rateLimiterMaxBurstSeconds": 2
+    "rateLimiterMaxBurstSeconds": 2,
+    "bootstrapServers": "localhost:9092",
+    "useBulkApi": false
   },
   "clusterConfig": {
     "clusterName": "test_kaldb_json_cluster",

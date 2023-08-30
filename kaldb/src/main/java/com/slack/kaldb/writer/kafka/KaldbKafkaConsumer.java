@@ -43,6 +43,7 @@ public class KaldbKafkaConsumer {
   public static final int KAFKA_POLL_TIMEOUT_MS = 250;
   private final LogMessageWriterImpl logMessageWriterImpl;
   private static final String[] REQUIRED_CONFIGS = {ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG};
+
   private static final Set<String> OVERRIDABLE_CONFIGS =
       Set.of(
           ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,

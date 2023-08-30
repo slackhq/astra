@@ -56,28 +56,7 @@ public class SpanFormatter {
       if (MurronLogFormatter.nonTagFields.contains(key)) {
         continue;
       }
-      Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
-      tagBuilder.setKey(key);
-      if (entry.getValue() instanceof String) {
-        tagBuilder.setVType(Trace.ValueType.STRING);
-        tagBuilder.setVStr(entry.getValue().toString());
-      } else if (entry.getValue() instanceof Boolean) {
-        tagBuilder.setVType(Trace.ValueType.BOOL);
-        tagBuilder.setVBool((boolean) entry.getValue());
-      } else if (entry.getValue() instanceof Integer) {
-        tagBuilder.setVType(Trace.ValueType.INT64);
-        tagBuilder.setVInt64((int) entry.getValue());
-      } else if (entry.getValue() instanceof Float) {
-        tagBuilder.setVType(Trace.ValueType.FLOAT64);
-        tagBuilder.setVFloat64((float) entry.getValue());
-      } else if (entry.getValue() instanceof Double) {
-        tagBuilder.setVType(Trace.ValueType.FLOAT64);
-        tagBuilder.setVFloat64((double) entry.getValue());
-      } else if (entry.getValue() != null) {
-        tagBuilder.setVType(Trace.ValueType.BINARY);
-        tagBuilder.setVBinary(ByteString.copyFrom(entry.getValue().toString().getBytes()));
-      }
-      tags.add(tagBuilder.build());
+      tags.add(convertKVtoProto(key, entry.getValue()));
     }
 
     // Add missing fields from murron message.
@@ -113,6 +92,31 @@ public class SpanFormatter {
     }
     spanBuilder.addAllTags(tags);
     return spanBuilder.build();
+  }
+
+  public static Trace.KeyValue convertKVtoProto(String key, Object value) {
+    Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
+    tagBuilder.setKey(key);
+    if (value instanceof String) {
+      tagBuilder.setVType(Trace.ValueType.STRING);
+      tagBuilder.setVStr(value.toString());
+    } else if (value instanceof Boolean) {
+      tagBuilder.setVType(Trace.ValueType.BOOL);
+      tagBuilder.setVBool((boolean) value);
+    } else if (value instanceof Integer) {
+      tagBuilder.setVType(Trace.ValueType.INT64);
+      tagBuilder.setVInt64((int) value);
+    } else if (value instanceof Float) {
+      tagBuilder.setVType(Trace.ValueType.FLOAT64);
+      tagBuilder.setVFloat64((float) value);
+    } else if (value instanceof Double) {
+      tagBuilder.setVType(Trace.ValueType.FLOAT64);
+      tagBuilder.setVFloat64((double) value);
+    } else if (value != null) {
+      tagBuilder.setVType(Trace.ValueType.BINARY);
+      tagBuilder.setVBinary(ByteString.copyFrom(value.toString().getBytes()));
+    }
+    return tagBuilder.build();
   }
 
   public static Trace.ListOfSpans fromMurronMessage(Murron.MurronMessage message)

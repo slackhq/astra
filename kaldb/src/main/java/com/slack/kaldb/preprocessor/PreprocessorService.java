@@ -52,7 +52,7 @@ public class PreprocessorService extends AbstractService {
   private static final Logger LOG = LoggerFactory.getLogger(PreprocessorService.class);
   private static final long MAX_TIME = Long.MAX_VALUE;
 
-  private static final boolean INITIALIZE_RATE_LIMIT_WARM = true;
+  public static final boolean INITIALIZE_RATE_LIMIT_WARM = true;
 
   private final DatasetMetadataStore datasetMetadataStore;
   private final PreprocessorRateLimiter rateLimiter;
@@ -238,7 +238,7 @@ public class PreprocessorService extends AbstractService {
    * Filters the provided list of dataset metadata to those that are valid. This includes correctly
    * defined throughput and partition configurations.
    */
-  protected static List<DatasetMetadata> filterValidDatasetMetadata(
+  public static List<DatasetMetadata> filterValidDatasetMetadata(
       List<DatasetMetadata> datasetMetadataList) {
     return datasetMetadataList.stream()
         .filter(datasetMetadata -> datasetMetadata.getThroughputBytes() > 0)
@@ -247,7 +247,7 @@ public class PreprocessorService extends AbstractService {
   }
 
   /** Gets the active list of partitions from the provided dataset metadata */
-  protected static List<Integer> getActivePartitionList(DatasetMetadata datasetMetadata) {
+  public static List<Integer> getActivePartitionList(DatasetMetadata datasetMetadata) {
     Optional<DatasetPartitionMetadata> datasetPartitionMetadata =
         datasetMetadata.getPartitionConfigs().stream()
             .filter(partitionMetadata -> partitionMetadata.getEndTimeEpochMs() == MAX_TIME)

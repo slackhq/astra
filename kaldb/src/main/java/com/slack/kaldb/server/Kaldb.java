@@ -375,6 +375,8 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.PREPROCESSOR)) {
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
+
       final KaldbConfigs.PreprocessorConfig preprocessorConfig =
           kaldbConfig.getPreprocessorConfig();
       final int serverPort = preprocessorConfig.getServerConfig().getServerPort();
@@ -382,21 +384,24 @@ public class Kaldb {
       Duration requestTimeout =
           Duration.ofMillis(
               kaldbConfig.getPreprocessorConfig().getServerConfig().getRequestTimeoutMs());
-      ArmeriaService armeriaService =
+      ArmeriaService.Builder armeriaServiceBuilder =
           new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", meterRegistry)
               .withRequestTimeout(requestTimeout)
-              .withTracing(kaldbConfig.getTracingConfig())
-              .build();
-      services.add(armeriaService);
+              .withTracing(kaldbConfig.getTracingConfig());
 
-      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
       services.add(
           new CloseableLifecycleManager(
-              KaldbConfigs.NodeRole.RECOVERY, List.of(datasetMetadataStore)));
+              KaldbConfigs.NodeRole.PREPROCESSOR, List.of(datasetMetadataStore)));
 
-      PreprocessorService preprocessorService =
-          new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
-      services.add(preprocessorService);
+      if (preprocessorConfig.getUseBulkApi()) {
+        armeriaServiceBuilder.withAnnotatedService(
+            new OpenSearchBulkIngestApi(datasetMetadataStore, preprocessorConfig, meterRegistry));
+      } else {
+        PreprocessorService preprocessorService =
+            new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
+        services.add(preprocessorService);
+      }
+      services.add(armeriaServiceBuilder.build());
     }
 
     return services;
