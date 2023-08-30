@@ -18,8 +18,7 @@ permissions:
 jobs:
   benchmark:
     name: Run JMH benchmark
-    #runs-on: kaldb-benchmark-latest-64cpu
-    runs-on: ubuntu-latest
+    runs-on: kaldb-benchmark-latest-64cpu
     # Run on any non-pull request, or pull requests that have the benchmark label
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'benchmark')
     steps:
