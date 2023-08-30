@@ -1,0 +1,156 @@
+name: Benchmarks
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request
+    # Run on the default actions, as well as labels applied
+    types: [ opened, synchronize, reopened, labeled ]
+    branches:
+      - "**"
+
+# Required for PR comment permissions
+# https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
+permissions:
+  issues: write
+
+jobs:
+  benchmark:
+    name: Run JMH benchmark
+    runs-on: kaldb-benchmark-latest-64cpu
+    # Run on any non-pull request, or pull requests that have the benchmark label
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'benchmark')
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+      # - name: Download benchmark data
+      #  # AWS cli can be used if we want to host separate data - https://stackoverflow.com/questions/59166099/github-action-aws-cli
+      #  run: |
+      #    # https://github.com/opensearch-project/opensearch-benchmark-workloads
+      #    curl -o documents-1k.json.bz2 https://opensearch-benchmark-workloads.s3.amazonaws.com/corpora/geopoint/documents-1k.json.bz2
+      - name: Run benchmark
+        run: |
+          mvn clean package -B -Dstyle.color=always -DskipTests=true --file pom.xml
+          java -Dlog4j.configurationFile=benchmarks/log4j2.xml -Xms8g -Xmx8g -jar benchmarks/target/benchmarks.jar -wi 5 -i 5 -f 1 -rf json
+      - name: Upload JHM results
+        uses: actions/upload-artifact@v3
+        with:
+          name: jmh-result.json
+          path: jmh-result.json
+      - name: Download previous benchmark data
+        uses: actions/cache/restore@v3
+        with:
+          restore-keys: |
+            jmh-result-data-
+          path: jmh-data.json
+          key: jmh-result-data
+      - name: Compile output results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+  
+            const rawThisRun = fs.readFileSync('jmh-result.json', 'utf8');
+            const rawPreviousResults = fs.existsSync('jmh-data.json') ? fs.readFileSync('jmh-data.json', 'utf8') : null;
+            const parsedThisRun = JSON.parse(rawThisRun);
+            const parsedPreviousResults = JSON.parse(rawPreviousResults);
+            
+            const map = new Map();
+            parsedThisRun?.forEach(run => {
+              const runData = {
+                sha: context.sha,
+                timestamp: Date.now(),
+                data: run
+              }
+              if (map.has(run.benchmark)) {
+                map.get(run.benchmark).push(runData);
+              } else {
+                map.set(run.benchmark, [runData])
+              }
+            });
+            
+            let lastRun = null;
+            if (parsedPreviousResults != null) {
+              Object.keys(parsedPreviousResults).forEach(key => {
+                parsedPreviousResults[key].sort((a, b) => { return b.timestamp - a.timestamp; });
+                if (lastRun == null || lastRun.timestamp < parsedPreviousResults[key][0].timestamp) {
+                  lastRun = {
+                    sha: parsedPreviousResults[key][0].sha,
+                    timestamp: parsedPreviousResults[key][0].timestamp
+                  }
+                }
+            
+                if (map.has(key)) {
+                  map.set(key, parsedPreviousResults[key].concat(map.get(key)));
+                } else {
+                  map.set(key, parsedPreviousResults[key])
+                }
+              });
+            }
+            
+            const header = `|Test|Previous ${lastRun?.sha}|Current ${context.sha}|Delta|`
+            const subheader = "|----|--------|--------|-----|"
+              let rows = "";
+              
+              map.forEach((data, key) => {
+              const thisRun = data.find(run => run.sha === context.sha);
+              const mostRecentOtherRun = data.find(run => run.sha === lastRun?.sha);
+              
+              const thisRunMetric = thisRun?.data.primaryMetric;
+              const mostRecentOtherRunMetric = mostRecentOtherRun?.data.primaryMetric;
+              const delta = (thisRunMetric?.score - mostRecentOtherRunMetric?.score) / mostRecentOtherRunMetric?.score * 100;
+              rows = rows + `|${key.replace("com.slack.kaldb.","")}|${mostRecentOtherRunMetric?.score.toFixed(1)} <sup>±${mostRecentOtherRunMetric?.scoreError.toFixed(1)}</sup>|${thisRunMetric?.score.toFixed(1)} <sup>±${thisRunMetric?.scoreError.toFixed(1)}</sup>|${delta?.toFixed(1)}%|\n`
+            });
+              
+            const op = `${header}\n${subheader}\n${rows}`;
+            console.log(op);
+            
+            fs.writeFileSync("jmh-data.json", JSON.stringify(Object.fromEntries(map)));
+            core.exportVariable('JMH_OP', op);
+      - name: Upload previous benchmark data
+        if: github.event_name != 'pull_request'
+        uses: actions/cache/save@v3
+        with:
+          path: jmh-data.json
+          key: jmh-result-data-${{ hashFiles('jmh-data.json') }}
+      - name: Append job summary
+        run: |
+          echo "${JMH_OP}" >> $GITHUB_STEP_SUMMARY
+      - name: Update comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { JMH_OP } = process.env
+            
+            // Get the existing comments.
+            const {data: comments} = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            // Find any comment already made by the bot.                                                                                                    
+            const botComment = comments.find(comment => comment.body.includes("<!-- jmhBenchmark -->"))     
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                comment_id: botComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `${JMH_OP} <!-- jmhBenchmark -->`
+              });
+            } else {
+             await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `${JMH_OP} <!-- jmhBenchmark -->`
+              });
+            }
