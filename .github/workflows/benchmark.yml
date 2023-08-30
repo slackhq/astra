@@ -4,6 +4,9 @@ on:
     branches:
       - master
   pull_request:
+    # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request
+    # Run on the default actions, as well as labels applied
+    types: [ opened, synchronize, reopened, labeled ]
     branches:
       - "**"
 
@@ -15,8 +18,9 @@ permissions:
 jobs:
   benchmark:
     name: Run JMH benchmark
-    runs-on: ubuntu-latest
     #runs-on: kaldb-benchmark-latest-64cpu
+    runs-on: ubuntu-latest
+    # Run on any non-pull request, or pull requests that have the benchmark label
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'benchmark')
     steps:
       - uses: actions/checkout@v3
@@ -26,7 +30,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
-      #- name: Download benchmark data
+      # - name: Download benchmark data
       #  # AWS cli can be used if we want to host separate data - https://stackoverflow.com/questions/59166099/github-action-aws-cli
       #  run: |
       #    # https://github.com/opensearch-project/opensearch-benchmark-workloads
