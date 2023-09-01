@@ -42,7 +42,7 @@ public class KaldbMetadataStoreTest {
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("Test")
-            .setZkSessionTimeoutMs(1000)
+            .setZkSessionTimeoutMs(10000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(500)
             .build();
@@ -392,6 +392,58 @@ public class KaldbMetadataStoreTest {
 
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  public void testSlowCacheInitialization() {
+    class FastMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public FastMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            true,
+            new JacksonModelSerializer<>(TestMetadata.class),
+            STORE_FOLDER);
+      }
+    }
+
+    class SlowSerializer implements ModelSerializer<TestMetadata> {
+      final JacksonModelSerializer<TestMetadata> serializer =
+          new JacksonModelSerializer<>(TestMetadata.class);
+
+      @Override
+      public byte[] serialize(TestMetadata model) {
+        return serializer.serialize(model);
+      }
+
+      @Override
+      public TestMetadata deserialize(byte[] bytes) {
+        try {
+          Thread.sleep(200);
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+        return serializer.deserialize(bytes);
+      }
+    }
+
+    class SlowMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public SlowMetadataStore() {
+        super(curatorFramework, CreateMode.PERSISTENT, true, new SlowSerializer(), STORE_FOLDER);
+      }
+    }
+
+    int testMetadataInitCount = 10;
+    try (KaldbMetadataStore<TestMetadata> init = new FastMetadataStore()) {
+      for (int i = 0; i < testMetadataInitCount; i++) {
+        init.createSync(new TestMetadata("name" + i, "value" + i));
+      }
+    }
+
+    try (KaldbMetadataStore<TestMetadata> init = new SlowMetadataStore()) {
+      List<TestMetadata> metadata = init.listSync();
+      assertThat(metadata.size()).isEqualTo(testMetadataInitCount);
     }
   }
 }
