@@ -1,33 +1,5 @@
 package com.slack.kaldb.server;
 
-import brave.Tracing;
-import com.slack.kaldb.metadata.core.CuratorBuilder;
-import com.slack.kaldb.metadata.core.InternalMetadataStoreException;
-import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
-import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
-import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
-import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
-import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.proto.config.KaldbConfigs;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.apache.curator.test.TestingServer;
-import org.apache.curator.x.async.AsyncCuratorFramework;
-import org.apache.curator.x.async.AsyncStage;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.server.RecoveryTaskCreator.RECOVERY_TASKS_CREATED;
@@ -47,6 +19,33 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
+
+import brave.Tracing;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.InternalMetadataStoreException;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
+import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
+import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.curator.x.async.AsyncStage;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 @SuppressWarnings("UnstableApiUsage")
 public class RecoveryTaskCreatorTest {
