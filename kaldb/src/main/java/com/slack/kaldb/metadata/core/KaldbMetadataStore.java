@@ -2,14 +2,12 @@ package com.slack.kaldb.metadata.core;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
-import com.slack.kaldb.util.RuntimeHalterImpl;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -34,8 +32,6 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   protected final String storeFolder;
 
   private final ZPath zPath;
-
-  private final CountDownLatch cacheInitialized = new CountDownLatch(1);
 
   protected final ModeledFramework<T> modeledClient;
 
@@ -65,7 +61,6 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
 
     if (shouldCache) {
       cachedModeledFramework = modeledClient.cached();
-      cachedModeledFramework.listenable().addListener(getCacheInitializedListener());
       cachedModeledFramework.start();
     } else {
       cachedModeledFramework = null;
@@ -104,7 +99,6 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
 
   public CompletionStage<Stat> hasAsync(String path) {
     if (cachedModeledFramework != null) {
-      awaitCacheInitialized();
       return cachedModeledFramework.withPath(zPath.resolved(path)).checkExists();
     }
     return modeledClient.withPath(zPath.resolved(path)).checkExists();
@@ -161,11 +155,9 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   }
 
   public CompletionStage<List<T>> listAsync() {
-    if (cachedModeledFramework == null) {
+    if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
-    }
 
-    awaitCacheInitialized();
     return cachedModeledFramework.list();
   }
 
@@ -178,9 +170,8 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   }
 
   public void addListener(KaldbMetadataStoreChangeListener<T> watcher) {
-    if (cachedModeledFramework == null) {
+    if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
-    }
 
     // this mapping exists because the remove is by reference, and the listener is a different
     // object type
@@ -196,33 +187,9 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   }
 
   public void removeListener(KaldbMetadataStoreChangeListener<T> watcher) {
-    if (cachedModeledFramework == null) {
+    if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
-    }
     cachedModeledFramework.listenable().removeListener(listenerMap.remove(watcher));
-  }
-
-  private void awaitCacheInitialized() {
-    try {
-      cacheInitialized.await();
-    } catch (InterruptedException e) {
-      new RuntimeHalterImpl().handleFatal(e);
-    }
-  }
-
-  private ModeledCacheListener<T> getCacheInitializedListener() {
-    return new ModeledCacheListener<T>() {
-      @Override
-      public void accept(Type type, ZPath path, Stat stat, T model) {
-        // no-op
-      }
-
-      @Override
-      public void initialized() {
-        ModeledCacheListener.super.initialized();
-        cacheInitialized.countDown();
-      }
-    };
   }
 
   @Override
