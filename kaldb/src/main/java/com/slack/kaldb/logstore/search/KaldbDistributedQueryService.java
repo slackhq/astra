@@ -32,7 +32,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -92,9 +95,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
   // is used for controlling lucene future timeouts.
   private final Duration requestTimeout;
   private final Duration defaultQueryTimeout;
-
+  private final ScheduledExecutorService executorService =
+      Executors.newSingleThreadScheduledExecutor();
+  private ScheduledFuture<?> pendingStubUpdate;
   private final KaldbMetadataStoreChangeListener<SearchMetadata> searchMetadataListener =
-      (searchMetadata) -> updateStubs();
+      (searchMetadata) -> triggerStubUpdate();
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -114,22 +119,35 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
     this.requestTimeout = requestTimeout;
     this.defaultQueryTimeout = defaultQueryTimeout;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
-    this.searchMetadataStore.addListener(searchMetadataListener);
     this.distributedQueryApdexSatisfied = meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED);
     this.distributedQueryApdexTolerating =
         meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING);
     this.distributedQueryApdexFrustrated =
         meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED);
-
     this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
     this.distributedQuerySnapshotsWithReplicas =
         meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
 
-    // first time call this function manually so that we initialize stubs
-    updateStubs();
+    // start listening for new events
+    this.searchMetadataStore.addListener(searchMetadataListener);
+
+    // trigger an update, if it hasn't already happened
+    triggerStubUpdate();
   }
 
-  private void updateStubs() {
+  private void triggerStubUpdate() {
+    if (pendingStubUpdate == null || pendingStubUpdate.getDelay(TimeUnit.SECONDS) <= 0) {
+      // Add a small aggregation window to prevent churn of zk updates causing too many internal
+      // updates
+      pendingStubUpdate = executorService.schedule(this::doStubUpdate, 1500, TimeUnit.MILLISECONDS);
+    } else {
+      LOG.debug(
+          "Update stubs already queued for execution, will run in {} ms",
+          pendingStubUpdate.getDelay(TimeUnit.MILLISECONDS));
+    }
+  }
+
+  private void doStubUpdate() {
     try {
       searchMetadataTotalChangeCounter.increment();
       Set<String> latestSearchServers = new HashSet<>();
@@ -163,7 +181,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
                 }
               });
 
-      LOG.info(
+      LOG.debug(
           "SearchMetadata listener event. previous_total_stub_count={} current_total_stub_count={} added_stubs={} removed_stubs={}",
           currentSearchMetadataCount,
           stubs.size(),
@@ -321,9 +339,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
       return stubs.get(url);
     } else {
       LOG.warn(
-          "snapshot {} is not cached. ZK listener on searchMetadataStore should have cached the stub",
+          "snapshot {} is not cached. ZK listener on searchMetadataStore should have cached the stub. Will attempt to get uncached, which will be slow.",
           url);
-      return null;
+      return getKaldbServiceGrpcClient(url);
     }
   }
 
