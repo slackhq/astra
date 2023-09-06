@@ -6,7 +6,6 @@ import brave.handler.MutableSpan;
 import brave.handler.SpanHandler;
 import brave.propagation.TraceContext;
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.common.logging.LogLevel;
@@ -93,7 +92,7 @@ public class ArmeriaService extends AbstractIdleService {
     private void initializeManagementEndpoints(PrometheusMeterRegistry prometheusMeterRegistry) {
       serverBuilder
           .service("/health", HealthCheckService.builder().build())
-          .service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()))
+          .annotatedService("/metrics", new MetricsService(prometheusMeterRegistry))
           .serviceUnder("/internal/management", ManagementService.of())
           .serviceUnder("/docs", new DocService());
     }
