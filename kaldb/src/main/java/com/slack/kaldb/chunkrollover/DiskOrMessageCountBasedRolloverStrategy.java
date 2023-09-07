@@ -60,7 +60,13 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
     this.liveBytesDirGauge = this.registry.gauge(LIVE_BYTES_DIR, new AtomicLong(0));
 
     directorySizeExecutorService.scheduleAtFixedRate(
-        this::calculateDirectorySize,
+        () -> {
+          var dirSize = calculateDirectorySize(activeChunkDirectory);
+          // in case the method fails to calculate we return -1 so don't update the old value
+          if (dirSize > 0) {
+            approximateDirectoryBytes.set(dirSize);
+          }
+        },
         DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
         DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
         TimeUnit.MILLISECONDS);
@@ -89,10 +95,10 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
   @Override
   public void setActiveChunkDirectory(FSDirectory directory) {
     this.activeChunkDirectory.set(directory);
-    this.approximateDirectoryBytes.set(0);
+    approximateDirectoryBytes.set(0);
   }
 
-  public void calculateDirectorySize() {
+  public static long calculateDirectorySize(AtomicReference<FSDirectory> activeChunkDirectory) {
     try {
       FSDirectory activeChunkDir = activeChunkDirectory.get();
       if (activeChunkDir != null && activeChunkDir.listAll().length > 0) {
@@ -111,11 +117,12 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
                       }
                     })
                 .sum();
-        approximateDirectoryBytes.set(directorySize);
+        return directorySize;
       }
     } catch (Exception e) {
       LOG.error("Error calculating the directory size", e);
     }
+    return -1;
   }
 
   @Override
