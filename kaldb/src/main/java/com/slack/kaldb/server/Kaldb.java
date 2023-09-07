@@ -418,6 +418,14 @@ public class Kaldb {
 
   void shutdown() {
     LOG.info("Running shutdown hook.");
+    long blockedThreads =
+        Thread.getAllStackTraces().entrySet().stream()
+            .filter(
+                (threadEntry ->
+                    threadEntry.getKey().getName().startsWith("armeria-common-worker-kqueue")))
+            .filter(threadEntry -> threadEntry.getKey().getState() == Thread.State.BLOCKED)
+            .count();
+    LOG.info("blocked EventLoopThread threads = " + blockedThreads);
     try {
       serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
     } catch (Exception e) {
