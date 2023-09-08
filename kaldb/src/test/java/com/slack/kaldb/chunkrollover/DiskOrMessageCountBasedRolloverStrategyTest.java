@@ -9,6 +9,8 @@ import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.lucene.store.FSDirectory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -328,5 +331,27 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     assertThat(chunkRollOverStrategy.shouldRollOver(100, 2000)).isTrue();
     assertThat(chunkRollOverStrategy.shouldRollOver(100, 2001)).isTrue();
     assertThat(chunkRollOverStrategy.shouldRollOver(1001, 2001)).isTrue();
+  }
+
+  @Test
+  public void testCalculateDirectorySize() throws IOException {
+    FSDirectory directory = mock(FSDirectory.class);
+    when(directory.listAll()).thenThrow(IOException.class);
+    assertThat(DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(directory))
+        .isEqualTo(-1);
+
+    directory = mock(FSDirectory.class);
+    when(directory.listAll()).thenReturn(new String[] {"file1", "file2"});
+    when(directory.fileLength("file1")).thenReturn(1L);
+    when(directory.fileLength("file2")).thenReturn(2L);
+    assertThat(DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(directory))
+        .isEqualTo(3);
+
+    directory = mock(FSDirectory.class);
+    when(directory.listAll()).thenReturn(new String[] {"file1", "file2"});
+    when(directory.fileLength("file1")).thenReturn(1L);
+    when(directory.fileLength("file2")).thenThrow(IOException.class);
+    assertThat(DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(directory))
+        .isEqualTo(1);
   }
 }

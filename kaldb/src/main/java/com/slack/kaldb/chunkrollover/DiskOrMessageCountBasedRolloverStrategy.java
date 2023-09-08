@@ -98,17 +98,21 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
     approximateDirectoryBytes.set(0);
   }
 
-  public static long calculateDirectorySize(AtomicReference<FSDirectory> activeChunkDirectory) {
+  public static long calculateDirectorySize(AtomicReference<FSDirectory> activeChunkDirectoryRef) {
+    FSDirectory activeChunkDirectory = activeChunkDirectoryRef.get();
+    return calculateDirectorySize(activeChunkDirectory);
+  }
+
+  public static long calculateDirectorySize(FSDirectory activeChunkDirectory) {
     try {
-      FSDirectory activeChunkDir = activeChunkDirectory.get();
-      if (activeChunkDir != null && activeChunkDir.listAll().length > 0) {
+      if (activeChunkDirectory != null && activeChunkDirectory.listAll().length > 0) {
 
         long directorySize =
-            Arrays.stream(activeChunkDir.listAll())
+            Arrays.stream(activeChunkDirectory.listAll())
                 .mapToLong(
                     file -> {
                       try {
-                        return activeChunkDir.fileLength(file);
+                        return activeChunkDirectory.fileLength(file);
                       } catch (IOException e) {
                         // There can be a race condition b/w the listAll which filters
                         // pendingDeletes and then fileLength method which will throw
