@@ -115,6 +115,7 @@ message LuceneConfig {
   int64 commit_duration_secs = 1;
   int64 refresh_duration_secs = 2;
   bool enable_full_text_search = 3;
+  int64 query_cache_size_mb = 4;
 }
 
 // ServerConfig contains the address and port info of a Kaldb service.
@@ -133,6 +134,7 @@ message CacheConfig {
   ServerConfig server_config = 3;
   int32 default_query_timeout_ms = 4;
   string replica_set = 5;
+  LuceneConfig lucene_config = 6;
 }
 
 // Cluster manager config. As a convention we define a config struct for

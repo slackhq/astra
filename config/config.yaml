@@ -7,6 +7,7 @@ indexerConfig:
     commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
     refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
     enableFullTextSearch: ${INDEXER_ENABLE_FULL_TEXT_SEARCH:-false}
+    queryCacheSizeMb: ${KALDB_INDEXER_QUERY_CACHE_SIZE_MB:-256}
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataTransformer: ${INDEXER_DATA_TRANSFORMER:-trace_span}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
@@ -46,6 +47,8 @@ queryConfig:
     requestTimeoutMs: ${KALDB_QUERY_REQUEST_TIMEOUT_MS:-5000}
   defaultQueryTimeoutMs: ${KALDB_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-3000}
   managerConnectString: ${KALDB_MANAGER_CONNECTION_STRING:-localhost:8083}
+  luceneConfig:
+    queryCacheSizeMb: ${KALDB_CACHE_QUERY_CACHE_SIZE_MB:-32}
 
 metadataStoreConfig:
   zookeeperConfig:
