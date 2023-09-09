@@ -256,7 +256,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
               LuceneIndexStoreImpl.makeLogStore(
                   dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
 
-      chunkRollOverStrategy.setActiveChunkDirectory(logStore.getDirectory().toFile());
+      chunkRollOverStrategy.setActiveChunkDirectory(logStore.getDirectory());
 
       ReadWriteChunk<T> newChunk =
           new IndexingChunkImpl<>(

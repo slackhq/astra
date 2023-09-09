@@ -359,7 +359,7 @@ public class LuceneIndexStoreImplTest {
       assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
-      Path dirPath = logStore.getDirectory().toAbsolutePath();
+      Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
       IndexCommit indexCommit = logStore.getIndexCommit();
       Collection<String> activeFiles = indexCommit.getFileNames();
       LocalBlobFs localBlobFs = new LocalBlobFs();
@@ -424,7 +424,7 @@ public class LuceneIndexStoreImplTest {
       assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
-      Path dirPath = logStore.getDirectory().toAbsolutePath();
+      Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
       IndexCommit indexCommit = logStore.getIndexCommit();
       Collection<String> activeFiles = indexCommit.getFileNames();
       LocalBlobFs blobFs = new LocalBlobFs();
@@ -472,7 +472,7 @@ public class LuceneIndexStoreImplTest {
       strictLogStore.logStore.close();
       strictLogStore.logSearcher.close();
 
-      File tempFolder = strictLogStore.logStore.getDirectory().toFile();
+      File tempFolder = strictLogStore.logStore.getDirectory().getDirectory().toFile();
       assertThat(tempFolder.exists()).isTrue();
       strictLogStore.logStore.cleanup();
       assertThat(tempFolder.exists()).isFalse();

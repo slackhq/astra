@@ -1,6 +1,6 @@
 package com.slack.kaldb.chunkrollover;
 
-import java.io.File;
+import org.apache.lucene.store.FSDirectory;
 
 /**
  * The NeverRolloverChunkStrategy always responds in the negative for a chunk roll over request. It
@@ -13,7 +13,7 @@ public class NeverRolloverChunkStrategy implements ChunkRollOverStrategy {
   }
 
   @Override
-  public void setActiveChunkDirectory(File activeChunkDirectory) {}
+  public void setActiveChunkDirectory(FSDirectory activeChunkDirectory) {}
 
   @Override
   public void close() {}

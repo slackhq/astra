@@ -4,7 +4,7 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.File;
+import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +52,7 @@ public class MessageSizeOrCountBasedRolloverStrategy implements ChunkRollOverStr
   }
 
   @Override
-  public void setActiveChunkDirectory(File activeChunkDirectory) {}
+  public void setActiveChunkDirectory(FSDirectory activeChunkDirectory) {}
 
   @Override
   public void close() {}

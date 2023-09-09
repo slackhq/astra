@@ -6,13 +6,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.commons.io.FileUtils;
+import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +41,7 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
       Executors.newScheduledThreadPool(
           1, new ThreadFactoryBuilder().setNameFormat("directory-size-%d").build());
 
-  private final AtomicReference<File> activeChunkDirectory = new AtomicReference<>();
+  private final AtomicReference<FSDirectory> activeChunkDirectory = new AtomicReference<>();
   private final AtomicLong approximateDirectoryBytes = new AtomicLong(0);
 
   public static DiskOrMessageCountBasedRolloverStrategy fromConfig(
@@ -59,7 +60,13 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
     this.liveBytesDirGauge = this.registry.gauge(LIVE_BYTES_DIR, new AtomicLong(0));
 
     directorySizeExecutorService.scheduleAtFixedRate(
-        this::calculateDirectorySize,
+        () -> {
+          long dirSize = calculateDirectorySize(activeChunkDirectory);
+          // in case the method fails to calculate we return -1 so don't update the old value
+          if (dirSize > 0) {
+            approximateDirectoryBytes.set(dirSize);
+          }
+        },
         DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
         DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
         TimeUnit.MILLISECONDS);
@@ -86,20 +93,40 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
   }
 
   @Override
-  public void setActiveChunkDirectory(File activeChunkDirectory) {
-    this.activeChunkDirectory.set(activeChunkDirectory);
-    this.approximateDirectoryBytes.set(0);
+  public void setActiveChunkDirectory(FSDirectory directory) {
+    this.activeChunkDirectory.set(directory);
+    approximateDirectoryBytes.set(0);
   }
 
-  public void calculateDirectorySize() {
+  public static long calculateDirectorySize(AtomicReference<FSDirectory> activeChunkDirectoryRef) {
+    FSDirectory activeChunkDirectory = activeChunkDirectoryRef.get();
+    return calculateDirectorySize(activeChunkDirectory);
+  }
+
+  public static long calculateDirectorySize(FSDirectory activeChunkDirectory) {
     try {
-      File activeChunkDir = activeChunkDirectory.get();
-      if (activeChunkDir != null && activeChunkDir.exists()) {
-        approximateDirectoryBytes.set(FileUtils.sizeOf(activeChunkDir));
+      if (activeChunkDirectory != null && activeChunkDirectory.listAll().length > 0) {
+
+        long directorySize =
+            Arrays.stream(activeChunkDirectory.listAll())
+                .mapToLong(
+                    file -> {
+                      try {
+                        return activeChunkDirectory.fileLength(file);
+                      } catch (IOException e) {
+                        // There can be a race condition b/w the listAll which filters
+                        // pendingDeletes and then fileLength method which will throw
+                        // NoSuchFileException if the file has now become a pending delete
+                        return 0;
+                      }
+                    })
+                .sum();
+        return directorySize;
       }
     } catch (Exception e) {
       LOG.error("Error calculating the directory size", e);
     }
+    return -1;
   }
 
   @Override
