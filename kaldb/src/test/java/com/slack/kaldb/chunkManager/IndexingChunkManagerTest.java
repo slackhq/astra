@@ -1422,11 +1422,20 @@ public class IndexingChunkManagerTest {
       actualMessagesGauge++;
       actualBytesGauge += msgSize;
       if (actualMessagesGauge < msgsPerChunk) {
-        assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(actualMessagesGauge);
-        assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(actualBytesGauge);
+        final int finalActualMessagesGauge = actualMessagesGauge;
+        await()
+            .until(
+                () -> getValue(LIVE_MESSAGES_INDEXED, metricsRegistry),
+                (value) -> value == finalActualMessagesGauge);
+        final int finalActualBytesGauge = actualBytesGauge;
+        await()
+            .until(
+                () -> getValue(LIVE_BYTES_INDEXED, metricsRegistry),
+                (value) -> value == finalActualBytesGauge);
       } else { // Gauge is reset on roll over
-        assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0);
-        assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(0);
+        await()
+            .until(() -> getValue(LIVE_MESSAGES_INDEXED, metricsRegistry), (value) -> value == 0);
+        await().until(() -> getValue(LIVE_BYTES_INDEXED, metricsRegistry), (value) -> value == 0);
       }
     }
   }
