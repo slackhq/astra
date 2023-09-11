@@ -142,12 +142,18 @@ public class RecoveryTaskCreator {
    * recovery task offsets are [startOffset, endOffset]. If a recovery task is created, we start
    * indexing at the offset after the recovery task.
    *
-   * <p>When there is no offset data for a partition, return -1. In that case, the consumer would
-   * have to start indexing the data from the earliest offset.
+   * <p>When there is no offset data for a partition, if indexer.readFromLocationOnStart is set to
+   * LATEST and indexer.createRecoveryTasksOnStart is set to "false", then simply return the latest
+   * offset and start reading from there. This would be useful in the case that you're spinning up
+   * a new cluster on existing data and don't care about data previously in the pipeline. If instead
+   * indexer.createRecoveryTasksOnStart is set to "true", then the latest position will still be
+   * returned but recovery tasks will be created to ingest from the beginning to the latest. If
+   * instead indexer.readFromLocationOnStart is set to EARLIEST, then return -1. In that case,
+   * the consumer would have to start indexing the data from the earliest offset.
    */
   public long determineStartingOffset(
-      long currentHeadOffsetForPartition,
-      long currentTailOffsetForPartition,
+      long currentEndOffsetForPartition,
+      long currentBeginningOffsetForPartition,
       KaldbConfigs.IndexerConfig indexerConfig) {
     // Filter stale snapshots for partition.
     if (partitionId == null) {
@@ -190,34 +196,31 @@ public class RecoveryTaskCreator {
       LOG.info("There is no prior offset for this partition {}.", partitionId);
 
       // If the user wants to start at the current offset in Kafka and _does not_ want to create
-      // recovery tasks to
-      // backfill, then we can just return the current offset.
+      // recovery tasks to backfill, then we can just return the current offset.
       // If the user wants to start at the current offset in Kafka and _does_ want to create
-      // recovery tasks to backfill,
-      // then we create the recovery tasks needed and then return the current offset for the
-      // indexer.
-      // And if the user does _not_ want to start at the current offset in Kafka, then we'll just
-      // default to the old
-      // behavior of starting from the very beginning
+      // recovery tasks to backfill, then we create the recovery tasks needed and then return
+      // the current offset for the indexer. And if the user does _not_ want to start at the
+      // current offset in Kafka, then we'll just default to the old behavior of starting from
+      // the very beginning
       if (!indexerConfig.getCreateRecoveryTasksOnStart()
           && indexerConfig.getReadFromLocationOnStart()
-              == KaldbConfigs.KafkaOffsetLocation.CURRENT) {
+              == KaldbConfigs.KafkaOffsetLocation.LATEST) {
         LOG.info(
             "CreateRecoveryTasksOnStart is set to false and ReadLocationOnStart is set to current. Reading from current and"
                 + " NOT spinning up recovery tasks");
-        return currentHeadOffsetForPartition;
+        return currentEndOffsetForPartition;
       } else if (indexerConfig.getCreateRecoveryTasksOnStart()
           && indexerConfig.getReadFromLocationOnStart()
-              == KaldbConfigs.KafkaOffsetLocation.CURRENT) {
+              == KaldbConfigs.KafkaOffsetLocation.LATEST) {
         LOG.info(
             "CreateRecoveryTasksOnStart is set and ReadLocationOnStart is set to current. Reading from current and"
                 + " spinning up recovery tasks");
         createRecoveryTasks(
             partitionId,
-            currentTailOffsetForPartition,
-            currentHeadOffsetForPartition,
+            currentBeginningOffsetForPartition,
+            currentEndOffsetForPartition,
             indexerConfig.getMaxMessagesPerChunk());
-        return currentHeadOffsetForPartition;
+        return currentEndOffsetForPartition;
 
       } else {
         return highestDurableOffsetForPartition;
@@ -228,12 +231,12 @@ public class RecoveryTaskCreator {
     // means that we indexed more data than the current head offset. This is either a bug in the
     // offset handling mechanism or the kafka partition has rolled over. We throw an exception
     // for now, so we can investigate.
-    if (currentHeadOffsetForPartition < highestDurableOffsetForPartition) {
+    if (currentEndOffsetForPartition < highestDurableOffsetForPartition) {
       final String message =
           String.format(
               "The current head for the partition %d can't "
                   + "be lower than the highest durable offset for that partition %d",
-              currentHeadOffsetForPartition, highestDurableOffsetForPartition);
+              currentEndOffsetForPartition, highestDurableOffsetForPartition);
       LOG.error(message);
       throw new IllegalStateException(message);
     }
@@ -245,25 +248,25 @@ public class RecoveryTaskCreator {
     long nextOffsetForPartition = highestDurableOffsetForPartition + 1;
 
     // Create a recovery task if needed.
-    if (currentHeadOffsetForPartition - highestDurableOffsetForPartition > maxOffsetDelay) {
+    if (currentEndOffsetForPartition - highestDurableOffsetForPartition > maxOffsetDelay) {
       LOG.info(
           "Recovery task needed. The current position {} and head location {} are higher than max"
               + " offset {}",
           highestDurableOffsetForPartition,
-          currentHeadOffsetForPartition,
+          currentEndOffsetForPartition,
           maxOffsetDelay);
       createRecoveryTasks(
           partitionId,
           nextOffsetForPartition,
-          currentHeadOffsetForPartition - 1,
+          currentEndOffsetForPartition - 1,
           maxMessagesPerRecoveryTask);
-      return currentHeadOffsetForPartition;
+      return currentEndOffsetForPartition;
     } else {
       LOG.info(
           "The difference between the last indexed position {} and head location {} is lower "
               + "than max offset {}. So, using {} position as the start offset",
           highestDurableOffsetForPartition,
-          currentHeadOffsetForPartition,
+          currentEndOffsetForPartition,
           maxOffsetDelay,
           nextOffsetForPartition);
       return nextOffsetForPartition;

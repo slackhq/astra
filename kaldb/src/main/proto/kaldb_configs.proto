@@ -86,8 +86,8 @@ message QueryServiceConfig {
 }
 
 enum KafkaOffsetLocation {
-  BEGINNING = 0;
-  CURRENT = 1;
+  EARLIEST = 0;
+  LATEST = 1;
 }
 
 // Configuration for the indexer.
