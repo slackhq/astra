@@ -220,7 +220,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
 
     IndexCommit indexCommit = null;
     try {
-      Path dirPath = logStore.getDirectory().toAbsolutePath();
+      Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
 
       // Create schema file to upload
       ChunkSchema chunkSchema =
