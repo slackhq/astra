@@ -78,7 +78,7 @@ public class RecoveryTaskCreatorTest {
         KaldbConfigs.IndexerConfig.newBuilder()
             .setMaxMessagesPerChunk(20)
             .setMaxBytesPerChunk(20)
-            .setReadFromLocationOnStart(KaldbConfigs.KafkaOffsetLocation.BEGINNING)
+            .setReadFromLocationOnStart(KaldbConfigs.KafkaOffsetLocation.EARLIEST)
             .setCreateRecoveryTasksOnStart(false)
             .build();
 
@@ -702,7 +702,7 @@ public class RecoveryTaskCreatorTest {
     KaldbConfigs.IndexerConfig headLocationAndRecoveryConfig =
         KaldbConfigs.IndexerConfig.newBuilder()
             .setCreateRecoveryTasksOnStart(true)
-            .setReadFromLocationOnStart(KaldbConfigs.KafkaOffsetLocation.CURRENT)
+            .setReadFromLocationOnStart(KaldbConfigs.KafkaOffsetLocation.LATEST)
             .setMaxMessagesPerChunk(100)
             .build();
 
@@ -735,10 +735,10 @@ public class RecoveryTaskCreatorTest {
     KaldbConfigs.IndexerConfig headLocationAndNoRecoveryConfig =
         KaldbConfigs.IndexerConfig.newBuilder()
             .setCreateRecoveryTasksOnStart(false)
-            .setReadFromLocationOnStart(KaldbConfigs.KafkaOffsetLocation.CURRENT)
+            .setReadFromLocationOnStart(KaldbConfigs.KafkaOffsetLocation.LATEST)
             .build();
 
-    // When there is no data and ReadFromLocationOnStart is set to CURRENT, return the current head
+    // When there is no data and ReadFromLocationOnStart is set to LATEST, return the current head
     assertThat(
             recoveryTaskCreator.determineStartingOffset(1000, 0, headLocationAndNoRecoveryConfig))
         .isEqualTo(1000);
