@@ -144,12 +144,12 @@ public class RecoveryTaskCreator {
    *
    * <p>When there is no offset data for a partition, if indexer.readFromLocationOnStart is set to
    * LATEST and indexer.createRecoveryTasksOnStart is set to "false", then simply return the latest
-   * offset and start reading from there. This would be useful in the case that you're spinning up
-   * a new cluster on existing data and don't care about data previously in the pipeline. If instead
+   * offset and start reading from there. This would be useful in the case that you're spinning up a
+   * new cluster on existing data and don't care about data previously in the pipeline. If instead
    * indexer.createRecoveryTasksOnStart is set to "true", then the latest position will still be
    * returned but recovery tasks will be created to ingest from the beginning to the latest. If
-   * instead indexer.readFromLocationOnStart is set to EARLIEST, then return -1. In that case,
-   * the consumer would have to start indexing the data from the earliest offset.
+   * instead indexer.readFromLocationOnStart is set to EARLIEST, then return -1. In that case, the
+   * consumer would have to start indexing the data from the earliest offset.
    */
   public long determineStartingOffset(
       long currentEndOffsetForPartition,
