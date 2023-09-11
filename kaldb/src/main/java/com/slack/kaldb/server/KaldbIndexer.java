@@ -80,8 +80,10 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     long startOffset = indexerPreStart();
     // ensure the chunk manager is available to receive messages
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+
     // Set the Kafka offset and pre consumer for consumption.
     kafkaConsumer.prepConsumerForConsumption(startOffset);
+
     LOG.info("Started Kaldb indexer.");
   }
 
@@ -109,8 +111,11 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
             maxMessagesPerRecoveryTask,
             meterRegistry);
 
-    long currentHeadOffsetForPartition = kafkaConsumer.getEndOffSetForPartition();
-    long startOffset = recoveryTaskCreator.determineStartingOffset(currentHeadOffsetForPartition);
+    long currentEndOffsetForPartition = kafkaConsumer.getEndOffSetForPartition();
+    long currentBeginningOffsetForPartition = kafkaConsumer.getBeginningOffsetForPartition();
+    long startOffset =
+        recoveryTaskCreator.determineStartingOffset(
+            currentEndOffsetForPartition, currentBeginningOffsetForPartition, indexerConfig);
 
     // Close these stores since we don't need them after preStart.
     snapshotMetadataStore.close();

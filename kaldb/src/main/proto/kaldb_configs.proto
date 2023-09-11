@@ -85,6 +85,11 @@ message QueryServiceConfig {
   string managerConnectString = 3;
 }
 
+enum KafkaOffsetLocation {
+  EARLIEST = 0;
+  LATEST = 1;
+}
+
 // Configuration for the indexer.
 message IndexerConfig {
   // Chunk config
@@ -108,6 +113,13 @@ message IndexerConfig {
   int32 default_query_timeout_ms = 9;
 
   KafkaConfig kafka_config = 10;
+
+  // Determining where to read from the location when we start up
+  KafkaOffsetLocation read_from_location_on_start = 11;
+
+  // Whether or not to create recovery tasks when the indexer boots up and
+  // is behind.
+  bool create_recovery_tasks_on_start = 12;
 }
 
 // A config object containing all the lucene configs.

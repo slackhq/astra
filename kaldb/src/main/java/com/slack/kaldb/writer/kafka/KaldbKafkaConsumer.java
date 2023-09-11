@@ -42,7 +42,6 @@ public class KaldbKafkaConsumer {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer.class);
   public static final int KAFKA_POLL_TIMEOUT_MS = 250;
   private final LogMessageWriterImpl logMessageWriterImpl;
-
   private static final String[] REQUIRED_CONFIGS = {ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG};
   private static final Set<String> OVERRIDABLE_CONFIGS =
       Set.of(
@@ -177,7 +176,7 @@ public class KaldbKafkaConsumer {
     kafkaConsumer.assign(Collections.singletonList(topicPartition));
     LOG.info("Assigned to topicPartition: {}", topicPartition);
     // Offset is negative when the partition was not consumed before, so start consumption from
-    // beginning of the stream. If the offset is positive, start consuming from there.
+    // there
     if (startOffset > 0) {
       kafkaConsumer.seek(topicPartition, startOffset);
     } else {
@@ -190,6 +189,16 @@ public class KaldbKafkaConsumer {
     LOG.info("Closing kafka consumer for partition:{}", topicPartition);
     kafkaConsumer.close(KaldbConfig.DEFAULT_START_STOP_DURATION);
     LOG.info("Closed kafka consumer for partition:{}", topicPartition);
+  }
+
+  public long getBeginningOffsetForPartition() {
+    return getBeginningOffsetForPartition(topicPartition);
+  }
+
+  public long getBeginningOffsetForPartition(TopicPartition topicPartition) {
+    return kafkaConsumer
+        .beginningOffsets(Collections.singletonList(topicPartition))
+        .get(topicPartition);
   }
 
   public long getEndOffSetForPartition() {

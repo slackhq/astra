@@ -55,6 +55,7 @@ public class RecoveryTaskCreatorTest {
   private AsyncCuratorFramework curatorFramework;
   private SnapshotMetadataStore snapshotMetadataStore;
   private RecoveryTaskMetadataStore recoveryTaskStore;
+  private KaldbConfigs.IndexerConfig indexerConfig;
   private static final String partitionId = "1";
 
   @BeforeEach
@@ -71,6 +72,16 @@ public class RecoveryTaskCreatorTest {
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(500)
             .build();
+
+    // Default behavior
+    this.indexerConfig =
+        KaldbConfigs.IndexerConfig.newBuilder()
+            .setMaxMessagesPerChunk(20)
+            .setMaxBytesPerChunk(20)
+            .setReadFromLocationOnStart(KaldbConfigs.KafkaOffsetLocation.EARLIEST)
+            .setCreateRecoveryTasksOnStart(false)
+            .build();
+
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, true));
@@ -674,7 +685,41 @@ public class RecoveryTaskCreatorTest {
   }
 
   @Test
-  public void testDetermineStartOffsetReturnsNegativeWhenNoOffset() {
+  public void
+      testDetermineStartingOffsetReturnsHeadAndCreatesRecoveryTasksWhenCreateTasksIsTrueAndOffsetLocationIsHead() {
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
+
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
+
+    KaldbConfigs.IndexerConfig headLocationAndRecoveryConfig =
+        KaldbConfigs.IndexerConfig.newBuilder()
+            .setCreateRecoveryTasksOnStart(true)
+            .setReadFromLocationOnStart(KaldbConfigs.KafkaOffsetLocation.LATEST)
+            .setMaxMessagesPerChunk(100)
+            .build();
+
+    assertThat(recoveryTaskCreator.determineStartingOffset(100, 10, headLocationAndRecoveryConfig))
+        .isEqualTo(100);
+    List<RecoveryTaskMetadata> recoveryTasks =
+        KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
+    assertThat(recoveryTasks.size()).isEqualTo(1);
+    assertThat(recoveryTasks.get(0).startOffset).isEqualTo(10);
+    assertThat(recoveryTasks.get(0).endOffset).isEqualTo(100);
+    assertThat((recoveryTasks.get(0)).partitionId).isEqualTo(partitionId);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      testDetermineStartingOffsetReturnsHeadWhenCreateTasksIsFalseAndOffsetLocationIsHead() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
             snapshotMetadataStore,
@@ -687,9 +732,16 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
 
-    // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
-    assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
+    KaldbConfigs.IndexerConfig headLocationAndNoRecoveryConfig =
+        KaldbConfigs.IndexerConfig.newBuilder()
+            .setCreateRecoveryTasksOnStart(false)
+            .setReadFromLocationOnStart(KaldbConfigs.KafkaOffsetLocation.LATEST)
+            .build();
+
+    // When there is no data and ReadFromLocationOnStart is set to LATEST, return the current head
+    assertThat(
+            recoveryTaskCreator.determineStartingOffset(1000, 0, headLocationAndNoRecoveryConfig))
+        .isEqualTo(1000);
 
     // Data exists for not for this partition.
     final String name = "testSnapshotId";
@@ -702,7 +754,9 @@ public class RecoveryTaskCreatorTest {
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, "2", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
     await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
-    assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
+
+    assertThat(recoveryTaskCreator.determineStartingOffset(1, -1, headLocationAndNoRecoveryConfig))
+        .isEqualTo(1);
 
     final SnapshotMetadata partition11 =
         new SnapshotMetadata(
@@ -711,7 +765,7 @@ public class RecoveryTaskCreatorTest {
     await().until(() -> snapshotMetadataStore.listSync().contains(partition11));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11);
-    assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(0, 0, indexerConfig)).isNegative();
 
     final String recoveryTaskName = "recoveryTask";
     final long recoveryStartOffset = 400;
@@ -726,7 +780,64 @@ public class RecoveryTaskCreatorTest {
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
     await().until(() -> recoveryTaskStore.listSync().contains(recoveryTask1));
-    assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1, -1, headLocationAndNoRecoveryConfig))
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void testDetermineStartOffsetReturnsNegativeWhenNoOffset() {
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            1,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
+
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
+
+    // When there is no data return -1.
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(0, 0, indexerConfig)).isNegative();
+
+    // Data exists for not for this partition.
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 100;
+
+    final SnapshotMetadata partition1 =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, "2", LOGS_LUCENE9);
+    snapshotMetadataStore.createSync(partition1);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
+    assertThat(recoveryTaskCreator.determineStartingOffset(0, 0, indexerConfig)).isNegative();
+
+    final SnapshotMetadata partition11 =
+        new SnapshotMetadata(
+            name + "1", path, endTime + 1, endTime * 2, maxOffset * 2, "2", LOGS_LUCENE9);
+    snapshotMetadataStore.createSync(partition11);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition11));
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
+        .contains(partition1, partition11);
+    assertThat(recoveryTaskCreator.determineStartingOffset(0, 0, indexerConfig)).isNegative();
+
+    final String recoveryTaskName = "recoveryTask";
+    final long recoveryStartOffset = 400;
+    final long createdTimeUtc = Instant.now().toEpochMilli();
+
+    final RecoveryTaskMetadata recoveryTask1 =
+        new RecoveryTaskMetadata(
+            recoveryTaskName + "1",
+            "2",
+            recoveryStartOffset,
+            recoveryStartOffset * 2,
+            createdTimeUtc);
+    recoveryTaskStore.createSync(recoveryTask1);
+    await().until(() -> recoveryTaskStore.listSync().contains(recoveryTask1));
+    assertThat(recoveryTaskCreator.determineStartingOffset(0, 0, indexerConfig)).isNegative();
   }
 
   @Test
@@ -744,7 +855,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
 
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
     final String recoveryTaskName = "recoveryTask";
     final long recoveryStartOffset = 400;
     final long createdTimeUtc = Instant.now().toEpochMilli();
@@ -758,10 +869,10 @@ public class RecoveryTaskCreatorTest {
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
     await().until(() -> recoveryTaskStore.listSync().contains(recoveryTask1));
-    assertThat(recoveryTaskCreator.determineStartingOffset(850))
+    assertThat(recoveryTaskCreator.determineStartingOffset(850, 0, indexerConfig))
         .isEqualTo((recoveryStartOffset * 2) + 1);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(750));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(750, 0, indexerConfig));
 
     final RecoveryTaskMetadata recoveryTask11 =
         new RecoveryTaskMetadata(
@@ -774,12 +885,12 @@ public class RecoveryTaskCreatorTest {
     await()
         .until(
             () -> recoveryTaskStore.listSync().containsAll(List.of(recoveryTask1, recoveryTask11)));
-    assertThat(recoveryTaskCreator.determineStartingOffset(1201))
+    assertThat(recoveryTaskCreator.determineStartingOffset(1201, 0, indexerConfig))
         .isEqualTo((recoveryStartOffset * 3) + 1);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1200))
+    assertThat(recoveryTaskCreator.determineStartingOffset(1200, 0, indexerConfig))
         .isEqualTo((recoveryStartOffset * 3) + 1);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1150));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1150, 0, indexerConfig));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .contains(recoveryTask1, recoveryTask11);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
@@ -800,7 +911,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
 
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
     final String recoveryTaskName = "recoveryTask";
     final long recoveryStartOffset = 400;
     final long createdTimeUtc = Instant.now().toEpochMilli();
@@ -815,7 +926,7 @@ public class RecoveryTaskCreatorTest {
     recoveryTaskStore.createSync(recoveryTask1);
     await().until(() -> recoveryTaskStore.listSync().contains(recoveryTask1));
     final long currentHeadOffset = 4000;
-    assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset))
+    assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset, 0, indexerConfig))
         .isEqualTo(currentHeadOffset);
     List<RecoveryTaskMetadata> recoveryTasks =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
@@ -845,7 +956,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
 
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
     final String recoveryTaskName = "BasicRecoveryTask";
     final long recoveryStartOffset = 400;
     final long createdTimeUtc = Instant.now().toEpochMilli();
@@ -871,7 +982,7 @@ public class RecoveryTaskCreatorTest {
             () -> recoveryTaskStore.listSync().containsAll(List.of(recoveryTask1, recoveryTask11)));
 
     final long currentHeadOffset = 4000;
-    assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset))
+    assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset, 0, indexerConfig))
         .isEqualTo(currentHeadOffset);
     List<RecoveryTaskMetadata> recoveryTasks =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
@@ -901,7 +1012,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
 
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
     final String recoveryTaskName = "BasicRecoveryTask";
     final long recoveryStartOffset = 400;
     final long createdTimeUtc = Instant.now().toEpochMilli();
@@ -943,7 +1054,7 @@ public class RecoveryTaskCreatorTest {
                         List.of(recoveryTask1, recoveryTask11, recoveryTask2, recoveryTask21)));
 
     final long currentHeadOffset = 4000;
-    assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset))
+    assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset, 0, indexerConfig))
         .isEqualTo(currentHeadOffset);
     List<RecoveryTaskMetadata> recoveryTasks =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
@@ -973,7 +1084,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -991,10 +1102,10 @@ public class RecoveryTaskCreatorTest {
                 Collections.emptyList(),
                 partitionId))
         .isEqualTo(100);
-    assertThat(recoveryTaskCreator.determineStartingOffset(150)).isEqualTo(101);
+    assertThat(recoveryTaskCreator.determineStartingOffset(150, 0, indexerConfig)).isEqualTo(101);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50, 0, indexerConfig));
 
     final SnapshotMetadata partition11 =
         new SnapshotMetadata(
@@ -1004,10 +1115,10 @@ public class RecoveryTaskCreatorTest {
     await().until(() -> snapshotMetadataStore.listSync().contains(partition11));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsExactlyInAnyOrder(partition1, partition11);
-    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
-    assertThat(recoveryTaskCreator.determineStartingOffset(201)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250, 0, indexerConfig)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(201, 0, indexerConfig)).isEqualTo(201);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(150));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(150, 0, indexerConfig));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
@@ -1026,7 +1137,7 @@ public class RecoveryTaskCreatorTest {
     await().until(() -> snapshotMetadataStore.listSync().contains(livePartition1));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1);
-    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250, 0, indexerConfig)).isEqualTo(201);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsExactlyInAnyOrder(partition1, partition11);
@@ -1048,7 +1159,7 @@ public class RecoveryTaskCreatorTest {
     await().until(() -> snapshotMetadataStore.listSync().contains(livePartition11));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition11);
-    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250, 0, indexerConfig)).isEqualTo(201);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsExactlyInAnyOrder(partition1, partition11);
@@ -1070,7 +1181,7 @@ public class RecoveryTaskCreatorTest {
                     .containsAll(List.of(livePartition1, livePartition11, livePartition2)));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition2);
-    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250, 0, indexerConfig)).isEqualTo(201);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
@@ -1092,7 +1203,7 @@ public class RecoveryTaskCreatorTest {
                     .containsAll(List.of(livePartition1, livePartition11, partition2)));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
-    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250, 0, indexerConfig)).isEqualTo(201);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
@@ -1115,7 +1226,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1133,7 +1244,7 @@ public class RecoveryTaskCreatorTest {
                 Collections.emptyList(),
                 partitionId))
         .isEqualTo(100);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150, 0, indexerConfig)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
     assertThat(recoveryTasks1.size()).isEqualTo(1);
@@ -1141,7 +1252,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50, 0, indexerConfig));
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
     // clean up recovery task.
@@ -1154,7 +1265,7 @@ public class RecoveryTaskCreatorTest {
 
     snapshotMetadataStore.createSync(partition11);
     await().until(() -> snapshotMetadataStore.listSync().contains(partition11));
-    assertThat(recoveryTaskCreator.determineStartingOffset(1250)).isEqualTo(1250);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1250, 0, indexerConfig)).isEqualTo(1250);
 
     AtomicReference<List<RecoveryTaskMetadata>> recoveryTasks = new AtomicReference<>();
     await()
@@ -1168,10 +1279,10 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTask1.endOffset).isEqualTo(1249);
     assertThat(recoveryTask1.partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1248));
-    assertThat(recoveryTaskCreator.determineStartingOffset(1249)).isEqualTo(1250);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1250)).isEqualTo(1250);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1251)).isEqualTo(1250);
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1248, 0, indexerConfig));
+    assertThat(recoveryTaskCreator.determineStartingOffset(1249, 0, indexerConfig)).isEqualTo(1250);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1250, 0, indexerConfig)).isEqualTo(1250);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1251, 0, indexerConfig)).isEqualTo(1250);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore).size()).isEqualTo(1);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(2);
@@ -1198,8 +1309,8 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(250));
-    assertThat(recoveryTaskCreator.determineStartingOffset(1450)).isEqualTo(1450);
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(250, 0, indexerConfig));
+    assertThat(recoveryTaskCreator.determineStartingOffset(1450, 0, indexerConfig)).isEqualTo(1450);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsExactlyInAnyOrder(partition1, partition11);
     List<RecoveryTaskMetadata> recoveryTasks2 =
@@ -1235,12 +1346,12 @@ public class RecoveryTaskCreatorTest {
                     .containsAll(List.of(livePartition1, livePartition11)));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition11);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1500)).isEqualTo(1450);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1500, 0, indexerConfig)).isEqualTo(1450);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsExactlyInAnyOrder(partition1, partition11);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .contains(recoveryTask1, recoveryTask2);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1650)).isEqualTo(1650);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1650, 0, indexerConfig)).isEqualTo(1650);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsExactlyInAnyOrder(partition1, partition11);
     List<RecoveryTaskMetadata> recoveryTasks3 =
@@ -1274,12 +1385,12 @@ public class RecoveryTaskCreatorTest {
                     .containsAll(List.of(livePartition1, livePartition11, livePartition2)));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition2);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1660)).isEqualTo(1650);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1660, 0, indexerConfig)).isEqualTo(1650);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1850)).isEqualTo(1850);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1850, 0, indexerConfig)).isEqualTo(1850);
     List<RecoveryTaskMetadata> recoveryTasks4 =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
     assertThat(recoveryTasks4.size()).isEqualTo(4);
@@ -1317,12 +1428,12 @@ public class RecoveryTaskCreatorTest {
         new RecoveryTaskMetadata("basicRecovery" + "2", "2", 10000, 20000, 1000);
     recoveryTaskStore.createSync(recoveryTaskPartition2);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1650));
-    assertThat(recoveryTaskCreator.determineStartingOffset(1900)).isEqualTo(1850);
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1650, 0, indexerConfig));
+    assertThat(recoveryTaskCreator.determineStartingOffset(1900, 0, indexerConfig)).isEqualTo(1850);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .containsExactlyInAnyOrder(
             recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4, recoveryTaskPartition2);
-    assertThat(recoveryTaskCreator.determineStartingOffset(2050)).isEqualTo(2050);
+    assertThat(recoveryTaskCreator.determineStartingOffset(2050, 0, indexerConfig)).isEqualTo(2050);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore).size()).isEqualTo(6);
     RecoveryTaskMetadata recoveryTask5 =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore).stream()
@@ -1360,7 +1471,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1378,7 +1489,7 @@ public class RecoveryTaskCreatorTest {
                 Collections.emptyList(),
                 partitionId))
         .isEqualTo(100);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150, 0, indexerConfig)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
     assertThat(recoveryTasks1.size()).isEqualTo(1);
@@ -1386,13 +1497,13 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50, 0, indexerConfig));
 
     // Fail a recovery store task creation.
     doThrow(new RuntimeException()).when(recoveryTaskStore).createSync(any());
 
     assertThatExceptionOfType(RuntimeException.class)
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350, 0, indexerConfig));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .containsExactly(recoveryTasks1.get(0));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).contains(partition1);
@@ -1412,7 +1523,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1430,7 +1541,7 @@ public class RecoveryTaskCreatorTest {
                 Collections.emptyList(),
                 partitionId))
         .isEqualTo(100);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150, 0, indexerConfig)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
     assertThat(recoveryTasks1.size()).isEqualTo(1);
@@ -1438,7 +1549,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50, 0, indexerConfig));
 
     // Fail snapshot store list creation.
     doThrow(new InternalMetadataStoreException(""))
@@ -1447,7 +1558,7 @@ public class RecoveryTaskCreatorTest {
         .listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350, 0, indexerConfig));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .containsExactly(recoveryTasks1.get(0));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -1468,7 +1579,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1486,7 +1597,7 @@ public class RecoveryTaskCreatorTest {
                 Collections.emptyList(),
                 partitionId))
         .isEqualTo(100);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150, 0, indexerConfig)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
     assertThat(recoveryTasks1.size()).isEqualTo(1);
@@ -1494,7 +1605,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50, 0, indexerConfig));
 
     // Fail a recovery store list.
     doThrow(new InternalMetadataStoreException(""))
@@ -1503,7 +1614,7 @@ public class RecoveryTaskCreatorTest {
         .listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350, 0, indexerConfig));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .containsExactly(recoveryTasks1.get(0));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -1525,7 +1636,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1543,7 +1654,7 @@ public class RecoveryTaskCreatorTest {
                 Collections.emptyList(),
                 partitionId))
         .isEqualTo(100);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150, 0, indexerConfig)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
     assertThat(recoveryTasks1.size()).isEqualTo(1);
@@ -1551,7 +1662,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50, 0, indexerConfig));
 
     // Add a live partition to be deleted.
     SnapshotMetadata livePartition1 =
@@ -1574,7 +1685,7 @@ public class RecoveryTaskCreatorTest {
     doThrow(new IllegalStateException()).when(snapshotMetadataStore).deleteAsync(any());
 
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350, 0, indexerConfig));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .containsExactly(recoveryTasks1.get(0));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -1690,7 +1801,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000, 0, indexerConfig)).isNegative();
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
 
     final String name = "testSnapshotId";
@@ -1709,7 +1820,7 @@ public class RecoveryTaskCreatorTest {
                 Collections.emptyList(),
                 partitionId))
         .isEqualTo(100);
-    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150, 0, indexerConfig)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 =
         KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore);
     assertThat(recoveryTasks1.size()).isEqualTo(3);
