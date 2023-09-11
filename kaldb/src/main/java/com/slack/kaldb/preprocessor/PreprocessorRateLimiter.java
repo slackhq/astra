@@ -15,6 +15,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.kafka.streams.kstream.Predicate;
@@ -111,7 +112,7 @@ public class PreprocessorRateLimiter {
     return spans.stream().mapToInt(Trace.Span::getSerializedSize).sum();
   }
 
-  public Predicate<String, List<Trace.Span>> createBulkIngestRateLimiter(
+  public BiPredicate<String, List<Trace.Span>> createBulkIngestRateLimiter(
       List<DatasetMetadata> datasetMetadataList) {
 
     List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);

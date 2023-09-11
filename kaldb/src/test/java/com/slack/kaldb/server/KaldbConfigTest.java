@@ -629,6 +629,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
+    assertThat(preprocessorConfig.getUseBulkApi()).isFalse();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();
@@ -762,6 +763,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();
     assertThat(preprocessorServerConfig.getServerAddress()).isEmpty();
+    assertThat(preprocessorConfig.getUseBulkApi()).isFalse();
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
         preprocessorConfig.getKafkaStreamConfig();
