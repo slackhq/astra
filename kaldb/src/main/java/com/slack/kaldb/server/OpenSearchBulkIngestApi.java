@@ -29,10 +29,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiPredicate;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.ProducerFencedException;
-import org.apache.kafka.streams.kstream.Predicate;
 import org.opensearch.action.index.IndexRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +49,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       (datasetMetadata) -> load();
 
   private final PreprocessorRateLimiter rateLimiter;
-  private Predicate<String, List<Trace.Span>> rateLimiterPredicate;
+  private BiPredicate<String, List<Trace.Span>> rateLimiterPredicate;
   private List<DatasetMetadata> throughputSortedDatasets;
 
   private final Timer configReloadTimer;

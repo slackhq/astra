@@ -13,6 +13,7 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
+import java.util.function.BiPredicate;
 import org.apache.kafka.streams.kstream.Predicate;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +51,7 @@ public class PreprocessorBulkRateLimiterTest {
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             name);
-    Predicate<String, List<Trace.Span>> predicate =
+    BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
     // try to get just below the scaled limit, then try to go over
@@ -107,7 +108,7 @@ public class PreprocessorBulkRateLimiterTest {
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             DatasetMetadata.MATCH_ALL_SERVICE);
-    Predicate<String, List<Trace.Span>> predicate =
+    BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
     // try to get just below the scaled limit, then try to go over
@@ -148,7 +149,7 @@ public class PreprocessorBulkRateLimiterTest {
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             DatasetMetadata.MATCH_STAR_SERVICE);
-    Predicate<String, List<Trace.Span>> predicate1 =
+    BiPredicate<String, List<Trace.Span>> predicate1 =
         rateLimiter1.createBulkIngestRateLimiter(List.of(datasetMetadata1));
 
     // try to get just below the scaled limit, then try to go over
@@ -189,7 +190,7 @@ public class PreprocessorBulkRateLimiterTest {
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             null);
-    Predicate<String, List<Trace.Span>> predicate2 =
+    BiPredicate<String, List<Trace.Span>> predicate2 =
         rateLimiter2.createBulkIngestRateLimiter(List.of(datasetMetadata2));
 
     // try to get just below the scaled limit, then try to go over
@@ -256,11 +257,11 @@ public class PreprocessorBulkRateLimiterTest {
             DatasetMetadata.MATCH_ALL_SERVICE);
 
     // ensure we always drop for dataset1
-    Predicate<String, List<Trace.Span>> predicate1 =
+    BiPredicate<String, List<Trace.Span>> predicate1 =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata1));
     assertThat(predicate1.test(name1, List.of(span))).isFalse();
 
-    Predicate<String, List<Trace.Span>> predicate2 =
+    BiPredicate<String, List<Trace.Span>> predicate2 =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata1, datasetMetadata2));
 
     // try to get just below the scaled limit, then try to go over
@@ -311,7 +312,7 @@ public class PreprocessorBulkRateLimiterTest {
             Long.MAX_VALUE,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             "wrong_service");
-    Predicate<String, List<Trace.Span>> predicate =
+    BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
     // this should be immediately dropped
@@ -391,7 +392,7 @@ public class PreprocessorBulkRateLimiterTest {
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             name);
-    Predicate<String, List<Trace.Span>> predicate =
+    BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
     assertThat(predicate.test(name, List.of(span))).isTrue();
@@ -432,7 +433,7 @@ public class PreprocessorBulkRateLimiterTest {
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             name);
-    Predicate<String, List<Trace.Span>> predicate =
+    BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
     assertThat(predicate.test(name, spans)).isTrue();
