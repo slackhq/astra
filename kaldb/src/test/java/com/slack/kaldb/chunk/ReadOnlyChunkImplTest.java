@@ -522,7 +522,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(getTimerCount(REFRESHES_TIMER, meterRegistry)).isEqualTo(1);
     assertThat(getTimerCount(COMMITS_TIMER, meterRegistry)).isEqualTo(1);
 
-    Path dirPath = logStore.getDirectory().toAbsolutePath();
+    Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
 
     // Create schema file to upload
     ChunkSchema chunkSchema =
