@@ -31,6 +31,7 @@
         <log4j.version>2.20.0</log4j.version>
         <aws.sdk.version>2.20.116</aws.sdk.version>
         <error.prone.version>2.16</error.prone.version>
+        <junit.jupiter.version>5.10.0</junit.jupiter.version>
     </properties>
 
     <repositories>
@@ -377,19 +378,19 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.9.1</version>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.9.1</version>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>1.9.3</version>
+            <version>1.10.0</version>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
