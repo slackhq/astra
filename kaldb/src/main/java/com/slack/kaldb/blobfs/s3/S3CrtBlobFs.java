@@ -31,6 +31,8 @@ import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
+import software.amazon.awssdk.services.s3.crt.S3CrtHttpConfiguration;
+import software.amazon.awssdk.services.s3.crt.S3CrtProxyConfiguration;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -84,6 +86,12 @@ public class S3CrtBlobFs extends BlobFs {
               .region(Region.of(region))
               .credentialsProvider(awsCredentialsProvider);
 
+      S3CrtProxyConfiguration proxyConfiguration = getProxyConfiguration();
+      if (proxyConfiguration != null) {
+        s3AsyncClient.httpConfiguration(
+            S3CrtHttpConfiguration.builder().proxyConfiguration(proxyConfiguration).build());
+      }
+
       if (!isNullOrEmpty(config.getS3EndPoint())) {
         String endpoint = config.getS3EndPoint();
         try {
@@ -96,6 +104,24 @@ public class S3CrtBlobFs extends BlobFs {
     } catch (S3Exception e) {
       throw new RuntimeException("Could not initialize S3blobFs", e);
     }
+  }
+
+  /**
+   * Temporary system properties override for setting the aws crt proxy due to lack of <a
+   * href="https://github.com/awslabs/aws-c-http/issues/413">NO_PROXY support</a> This can be
+   * bypassed by providing a "valid" proxy that doesn't do anything, such as a no-op squid sidecar
+   */
+  private static S3CrtProxyConfiguration getProxyConfiguration() {
+    try {
+      String scheme = System.getProperty("aws.s3.crt.proxy.scheme");
+      String host = System.getProperty("aws.s3.crt.proxy.host");
+      int port = Integer.parseInt(System.getProperty("aws.s3.crt.proxy.port"));
+      LOG.info("Using proxy for AWS S3 CRT client - scheme/host/port {}/{}/{}", scheme, host, port);
+      return S3CrtProxyConfiguration.builder().scheme(scheme).host(host).port(port).build();
+    } catch (Exception e) {
+      LOG.error("Error getting proxy config", e);
+    }
+    return null;
   }
 
   @Override
