@@ -5,7 +5,8 @@ import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
+import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkrollover.ChunkRollOverStrategy;
@@ -24,7 +25,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 /**
  * This class creates a chunk manager that can be used in unit tests.
@@ -37,7 +38,7 @@ public class ChunkManagerUtil<T> {
   public static final int TEST_PORT = 34567;
 
   private final File tempFolder;
-  public final S3Client s3Client;
+  public S3AsyncClient s3AsyncClient;
   public static final String ZK_PATH_PREFIX = "testZK";
   public final IndexingChunkManager<T> chunkManager;
   private final TestingServer zkServer;
@@ -87,9 +88,9 @@ public class ChunkManagerUtil<T> {
       throws Exception {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
-    s3Client = s3MockExtension.createS3ClientV2();
+    s3AsyncClient = S3TestUtils.createS3CrtClient(s3MockExtension.getServiceEndpoint());
+    S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
 
-    S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
     this.zkServer = zkServer;
     // noop if zk has already been started by the caller
     this.zkServer.start();
@@ -106,7 +107,7 @@ public class ChunkManagerUtil<T> {
             tempFolder.getAbsolutePath(),
             chunkRollOverStrategy,
             meterRegistry,
-            s3BlobFs,
+            s3CrtBlobFs,
             s3Bucket,
             MoreExecutors.newDirectExecutorService(),
             curatorFramework,
@@ -117,7 +118,7 @@ public class ChunkManagerUtil<T> {
   public void close() throws IOException, TimeoutException {
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
-    s3Client.close();
+    s3AsyncClient.close();
     curatorFramework.unwrap().close();
     zkServer.close();
     FileUtils.deleteDirectory(tempFolder);
