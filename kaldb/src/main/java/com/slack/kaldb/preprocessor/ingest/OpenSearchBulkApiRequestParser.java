@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
@@ -36,6 +37,11 @@ public class OpenSearchBulkApiRequestParser {
 
     Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
     String id = (String) sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName());
+    // See https://blog.mikemccandless.com/2014/05/choosing-fast-unique-identifier-uuid.html on how
+    // to improve this
+    if (id == null) {
+      id = UUID.randomUUID().toString();
+    }
     String index = (String) sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName());
 
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
@@ -70,6 +76,9 @@ public class OpenSearchBulkApiRequestParser {
 
     for (IndexRequest indexRequest : indexRequests) {
       String index = indexRequest.index();
+      if (index == null) {
+        continue;
+      }
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
       List<Trace.Span> docs = indexDocs.computeIfAbsent(index, key -> new ArrayList<>());
       docs.add(OpenSearchBulkApiRequestParser.fromIngestDocument(ingestDocument));

@@ -51,6 +51,63 @@ public class OpenSearchBulkRequestTest {
   }
 
   @Test
+  public void testIndexNoFields() throws Exception {
+    String rawRequest = getRawQueryString("index_no_fields");
+
+    List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+
+    Map<String, List<Trace.Span>> indexDocs =
+        OpenSearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+    assertThat(indexDocs.keySet().size()).isEqualTo(1);
+    assertThat(indexDocs.get("test").size()).isEqualTo(1);
+
+    assertThat(indexDocs.get("test").get(0).getId().toStringUtf8()).isEqualTo("1");
+    assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(1);
+    assertThat(
+            indexDocs.get("test").get(0).getTagsList().stream()
+                .filter(
+                    keyValue ->
+                        keyValue.getKey().equals("service_name")
+                            && keyValue.getVStr().equals("test"))
+                .count())
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void testIndexNoFieldsNoId() throws Exception {
+    String rawRequest = getRawQueryString("index_no_fields_no_id");
+
+    List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+
+    Map<String, List<Trace.Span>> indexDocs =
+        OpenSearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+    assertThat(indexDocs.keySet().size()).isEqualTo(1);
+    assertThat(indexDocs.get("test").size()).isEqualTo(1);
+
+    assertThat(indexDocs.get("test").get(0).getId().toStringUtf8()).isNotNull();
+    assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(1);
+    assertThat(
+            indexDocs.get("test").get(0).getTagsList().stream()
+                .filter(
+                    keyValue ->
+                        keyValue.getKey().equals("service_name")
+                            && keyValue.getVStr().equals("test"))
+                .count())
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void testIndexEmptyRequest() throws Exception {
+    String rawRequest = getRawQueryString("index_empty_request");
+
+    List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+
+    Map<String, List<Trace.Span>> indexDocs =
+        OpenSearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+    assertThat(indexDocs.keySet().size()).isEqualTo(0);
+  }
+
+  @Test
   public void testOtherBulkRequests() throws Exception {
     String rawRequest = getRawQueryString("non_index");
     List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(rawRequest);
