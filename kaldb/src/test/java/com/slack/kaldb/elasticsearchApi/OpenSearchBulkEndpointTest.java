@@ -6,6 +6,8 @@ import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -209,7 +211,7 @@ public class OpenSearchBulkEndpointTest {
   }
 
   @Test
-  public void testDocumentInKafka() throws Exception {
+  public void testDocumentInKafkaSimple() throws Exception {
     String request1 =
         """
                     { "index": {"_index": "testindex", "_id": "1"} }
@@ -237,6 +239,16 @@ public class OpenSearchBulkEndpointTest {
     KafkaConsumer kafkaConsumer = new KafkaConsumer(properties);
     kafkaConsumer.subscribe(List.of(DOWNSTREAM_TOPIC));
 
+    // since we create one kafka server for the test check what the current offset is
+    long beforeOffset =
+        (Long)
+            kafkaConsumer
+                .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
+                .values()
+                .stream()
+                .findFirst()
+                .get();
+
     AggregatedHttpResponse response = openSearchBulkAPI.addDocument(request1).aggregate().join();
     assertThat(response.status().isSuccess()).isEqualTo(true);
     assertThat(response.status().code()).isEqualTo(OK.code());
@@ -251,16 +263,19 @@ public class OpenSearchBulkEndpointTest {
         .until(
             () -> {
               @SuppressWarnings("OptionalGetWithoutIsPresent")
-              Long partitionOffset =
-                  ((Long)
+              long partitionOffset =
+                  (long)
                       kafkaConsumer
                           .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
                           .values()
                           .stream()
                           .findFirst()
-                          .get());
-              LOG.debug("Current partitionOffset - {}", partitionOffset);
-              return partitionOffset == 3;
+                          .get();
+              LOG.debug(
+                  "Current partitionOffset - {} , Partition before - {}",
+                  partitionOffset,
+                  beforeOffset);
+              return partitionOffset == 3 + beforeOffset;
             });
     ConsumerRecords<String, byte[]> records =
         kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
@@ -274,6 +289,82 @@ public class OpenSearchBulkEndpointTest {
         .anyMatch(
             record ->
                 TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("2"));
+
+    // close the kafka consumer used in the test
+    kafkaConsumer.close();
+  }
+
+  @Test
+  public void testDocumentInKafkaTransactionError() throws Exception {
+    setup(100_1000);
+
+    // used to verify the message exist on the downstream topic
+    Properties properties = kafkaServer.getBroker().consumerConfig();
+    properties.put(
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringDeserializer");
+    properties.put(
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+    properties.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
+    KafkaConsumer kafkaConsumer = new KafkaConsumer(properties);
+    kafkaConsumer.subscribe(List.of(DOWNSTREAM_TOPIC));
+
+    // since we create one kafka server for the test check what the current offset is
+    long beforeOffset =
+        (Long)
+            kafkaConsumer
+                .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
+                .values()
+                .stream()
+                .findFirst()
+                .get();
+
+    // we want to inject a failure in the second doc and test if the abort transaction works and we
+    // don't index the first document
+    Trace.Span doc1 = Trace.Span.newBuilder().build();
+    Trace.Span doc2 = Trace.Span.newBuilder().build();
+    Trace.Span doc3 = Trace.Span.newBuilder().build();
+    Trace.Span doc4 = spy(Trace.Span.newBuilder().build());
+    when(doc4.toByteArray()).thenThrow(new RuntimeException("exception"));
+    Trace.Span doc5 = Trace.Span.newBuilder().build();
+
+    Map<String, List<Trace.Span>> indexDocs =
+        Map.of("testindex", List.of(doc1, doc2, doc3, doc4, doc5));
+
+    BulkIngestResponse responseObj = openSearchBulkAPI.produceDocuments(indexDocs);
+    assertThat(responseObj.totalDocs()).isEqualTo(0);
+    assertThat(responseObj.failedDocs()).isEqualTo(5);
+    assertThat(responseObj.errorMsg()).isNotNull();
+
+    // wait before we check if any docs arrived
+    Thread.sleep(1000);
+
+    await()
+        .until(
+            () -> {
+              @SuppressWarnings("OptionalGetWithoutIsPresent")
+              long partitionOffset =
+                  (Long)
+                      kafkaConsumer
+                          .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
+                          .values()
+                          .stream()
+                          .findFirst()
+                          .get();
+              LOG.debug(
+                  "Current partitionOffset - {} , Partition before - {}",
+                  partitionOffset,
+                  beforeOffset);
+              // from what I can tell even if N-1 docs gets sent before aborting on the Nth doc ,
+              // the offset increments by 1
+              // probably the "control batch"
+              return partitionOffset == beforeOffset + 1;
+            });
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
+
+    assertThat(records.count()).isEqualTo(0);
 
     // close the kafka consumer used in the test
     kafkaConsumer.close();
