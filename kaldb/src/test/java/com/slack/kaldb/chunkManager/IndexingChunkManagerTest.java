@@ -206,9 +206,10 @@ public class IndexingChunkManagerTest {
     // we use an executor service since the chunkCleaner is an AbstractScheduledService and we want
     // these to run immediately
     ChunkCleanerService<LogMessage> chunkCleanerService =
-        new ChunkCleanerService<>(chunkManager, Duration.ZERO);
+        new ChunkCleanerService<>(chunkManager, 0, Duration.ZERO);
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    Future<?> cleanerTask = executorService.submit(() -> chunkCleanerService.runAt(Instant.now()));
+    Future<?> cleanerTask =
+        executorService.submit(() -> chunkCleanerService.deleteStaleData(Instant.now()));
 
     chunkManager.stopAsync();
     // wait for both to be complete

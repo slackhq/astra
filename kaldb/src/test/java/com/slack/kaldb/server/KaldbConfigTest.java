@@ -206,6 +206,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isEqualTo(10);
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isEqualTo(11);
     assertThat(indexerConfig.getLuceneConfig().getEnableFullTextSearch()).isTrue();
+    assertThat(indexerConfig.getMaxChunksOnDisk()).isEqualTo(3);
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
@@ -377,6 +378,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isEqualTo(10);
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isEqualTo(11);
     assertThat(indexerConfig.getLuceneConfig().getEnableFullTextSearch()).isTrue();
+    assertThat(indexerConfig.getMaxChunksOnDisk()).isEqualTo(3);
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
@@ -541,6 +543,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isZero();
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isZero();
     assertThat(indexerConfig.getLuceneConfig().getEnableFullTextSearch()).isFalse();
+    assertThat(indexerConfig.getMaxChunksOnDisk()).isZero();
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDefaultQueryTimeoutMs()).isEqualTo(2500);
@@ -682,6 +685,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isZero();
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isZero();
     assertThat(indexerConfig.getLuceneConfig().getEnableFullTextSearch()).isFalse();
+    assertThat(indexerConfig.getMaxChunksOnDisk()).isZero();
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");

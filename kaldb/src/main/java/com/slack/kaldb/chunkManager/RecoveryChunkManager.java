@@ -21,7 +21,9 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -57,6 +59,8 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
   private final ListeningExecutorService rolloverExecutorService;
   private boolean rollOverFailed;
 
+  private final ChunkCleanerService<T> chunkCleanerService;
+
   public RecoveryChunkManager(
       ChunkFactory<T> recoveryChunkFactory,
       ChunkRolloverFactory chunkRolloverFactory,
@@ -67,6 +71,8 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     liveBytesIndexedGauge = registry.gauge(LIVE_BYTES_INDEXED, new AtomicLong(0));
     this.recoveryChunkFactory = recoveryChunkFactory;
     this.chunkRolloverFactory = chunkRolloverFactory;
+
+    this.chunkCleanerService = new ChunkCleanerService<>(this, 0, Duration.ZERO);
 
     this.rolloverExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
@@ -112,6 +118,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
             if (success == null || !success) {
               LOG.warn("Roll over failed");
               rollOverFailed = true;
+              chunkCleanerService.deleteStaleData();
             }
           }
 
@@ -230,5 +237,40 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
             new NeverRolloverChunkStrategy(), blobFs, s3Config.getS3Bucket(), meterRegistry);
 
     return new RecoveryChunkManager<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
+  }
+
+  @Override
+  public void removeStaleChunks(List<Chunk<T>> staleChunks) {
+    if (staleChunks.isEmpty()) return;
+
+    LOG.info("Stale chunks to be removed are: {}", staleChunks);
+
+    if (chunkList.isEmpty()) {
+      LOG.warn("Possible race condition, there are no chunks in chunkList");
+    }
+
+    staleChunks.forEach(
+        chunk -> {
+          try {
+            if (chunkList.contains(chunk)) {
+              String chunkInfo = chunk.info().toString();
+              LOG.info("Deleting chunk {}.", chunkInfo);
+
+              // Remove the chunk first from the map so we don't search it anymore.
+              // Note that any pending queries may still hold references to these chunks
+              chunkList.remove(chunk);
+
+              chunk.close();
+              LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
+            } else {
+              LOG.warn(
+                  "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",
+                  chunk,
+                  chunkList);
+            }
+          } catch (Exception e) {
+            LOG.warn("Exception when deleting chunk", e);
+          }
+        });
   }
 }

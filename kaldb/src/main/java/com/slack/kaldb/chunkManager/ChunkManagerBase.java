@@ -185,6 +185,8 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     return chunkList;
   }
 
+  public abstract void removeStaleChunks(List<Chunk<T>> staleChunks);
+
   @Override
   public Map<String, FieldType> getSchema() {
     Map<String, FieldType> schema = new HashMap<>();

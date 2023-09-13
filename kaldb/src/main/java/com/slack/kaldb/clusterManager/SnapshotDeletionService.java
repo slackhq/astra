@@ -14,6 +14,7 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
@@ -169,6 +170,14 @@ public class SnapshotDeletionService extends AbstractScheduledService {
                 snapshotMetadata ->
                     snapshotMetadata.endTimeEpochMs < expirationCutoff
                         && !snapshotIdsWithReplicas.contains(snapshotMetadata.name))
+
+            // There are cases where we will have LIVE snapshots that might be past the expiration.
+            // The primary use case here would be for low traffic clusters. Since they might take
+            // a long time to roll over chunks, we may have chunks that are still being actively
+            // served from the indexers. To avoid the whole headache of managing all the
+            // different states we could be in, we should just disable the deletion of live
+            // snapshots whole-cloth. We clean those up when a node boots anyhow
+            .filter(snapshotMetadata -> !SnapshotMetadata.isLive(snapshotMetadata))
             .map(
                 snapshotMetadata -> {
                   ListenableFuture<?> future =

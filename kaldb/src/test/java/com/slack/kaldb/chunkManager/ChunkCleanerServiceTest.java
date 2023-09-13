@@ -11,6 +11,7 @@ import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -85,11 +86,264 @@ public class ChunkCleanerServiceTest {
   }
 
   @Test
+  public void testDeleteStaleDataThrowsErrorWhenGivenDurationInFuture() throws IOException {
+    Instant creationTime = Instant.now();
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, 1, Duration.ofSeconds(999_999_999));
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, 11, 1000, startTime);
+
+    int offset = 1;
+    for (LogMessage m : messages.subList(0, 9)) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    testBasicSnapshotMetadata(creationTime);
+
+    final ReadWriteChunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    assertThat(chunk1.isReadOnly()).isFalse();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isZero();
+    try {
+      final Instant theBeginning =
+          LocalDateTime.of(1, 1, 1, 1, 1, 1).atZone(ZoneOffset.UTC).toInstant();
+      chunkCleanerService.deleteStaleData(theBeginning);
+      fail(
+          "Expected IllegalArgumentException to be thrown if the time is far enough in the past that we underflow");
+    } catch (IllegalArgumentException e) {
+      assertThat(true).isTrue();
+    }
+  }
+
+  @Test
+  public void testDeleteStaleDataThrowsErrorWhenGivenLimitLessThan0() throws IOException {
+    Instant creationTime = Instant.now();
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, -1, Duration.ofSeconds(100_000_000));
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, 11, 1000, startTime);
+
+    int offset = 1;
+    for (LogMessage m : messages.subList(0, 9)) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    testBasicSnapshotMetadata(creationTime);
+
+    final ReadWriteChunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    assertThat(chunk1.isReadOnly()).isFalse();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isZero();
+    try {
+      chunkCleanerService.deleteStaleData();
+      fail("Expected IllegalArgumentException to be thrown if the limit is negative");
+    } catch (IllegalArgumentException e) {
+      assertThat(true).isTrue();
+    }
+  }
+
+  @Test
+  public void testDeleteOverMaxThresholdGreaterThanZero() throws IOException {
+    Instant creationTime = Instant.now();
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, 1, Duration.ofSeconds(100_000_000));
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, 11, 1000, startTime);
+
+    int offset = 1;
+    for (LogMessage m : messages.subList(0, 9)) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    testBasicSnapshotMetadata(creationTime);
+
+    final ReadWriteChunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    assertThat(chunk1.isReadOnly()).isFalse();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isZero();
+
+    for (LogMessage m : messages.subList(9, 11)) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
+
+    checkMetadata(3, 2, 1, 2, 1);
+
+    final ReadWriteChunk<LogMessage> chunk2 = chunkManager.getActiveChunk();
+    assertThat(chunk1.isReadOnly()).isTrue();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isNotZero();
+    assertThat(chunk2.isReadOnly()).isFalse();
+    assertThat(chunk2.info().getChunkSnapshotTimeEpochMs()).isZero();
+    // Commit the chunk1 and roll it over.
+    chunkManager.rollOverActiveChunk();
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
+
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
+
+    checkMetadata(4, 2, 2, 2, 0);
+    assertThat(
+            KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).stream()
+                .map(s -> s.maxOffset)
+                .sorted()
+                .collect(Collectors.toList()))
+        .containsExactlyElementsOf(List.of(10L, 10L, 11L, 11L));
+
+    assertThat(chunk1.isReadOnly()).isTrue();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isNotZero();
+    assertThat(chunk2.isReadOnly()).isTrue();
+    assertThat(chunk2.info().getChunkSnapshotTimeEpochMs()).isNotZero();
+
+    // Confirm that we deleted chunk1 instead of chunk2, as chunk1 is the older chunk
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+    assertThat(chunkCleanerService.deleteStaleData()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().contains(chunk1)).isFalse();
+    assertThat(chunkManager.getChunkList().contains(chunk2)).isTrue();
+
+    checkMetadata(3, 1, 2, 1, 0);
+    assertThat(
+            KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).stream()
+                .map(s -> s.maxOffset)
+                .sorted()
+                .collect(Collectors.toList()))
+        .containsOnly(10L, 11L, 11L);
+  }
+
+  @Test
+  public void testDeleteOverZeroMaxThreshold() throws IOException {
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    final Instant creationTime = Instant.now();
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, 0, Duration.ofSeconds(100_000_000));
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, 9, 1000, startTime);
+
+    int offset = 1;
+    for (LogMessage m : messages) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+
+    ReadWriteChunk<LogMessage> chunk = chunkManager.getActiveChunk();
+    assertThat(chunk.isReadOnly()).isFalse();
+    assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isZero();
+
+    testBasicSnapshotMetadata(creationTime);
+
+    // try to delete active chunk
+    assertThat(chunkCleanerService.deleteStaleData()).isEqualTo(0);
+
+    // Commit the chunk and roll it over.
+    chunkManager.rollOverActiveChunk();
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+
+    List<SnapshotMetadata> afterSnapshots =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
+    assertThat(afterSnapshots.size()).isEqualTo(2);
+    assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
+    SnapshotMetadata liveSnapshot = fetchLiveSnapshot(afterSnapshots).get(0);
+    assertThat(liveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+    assertThat(liveSnapshot.maxOffset).isEqualTo(9);
+    assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(liveSnapshot.snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(liveSnapshot.startTimeEpochMs).isEqualTo(startTime.toEpochMilli());
+    assertThat(liveSnapshot.endTimeEpochMs).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
+    SnapshotMetadata nonLiveSnapshot = fetchNonLiveSnapshot(afterSnapshots).get(0);
+    assertThat(nonLiveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+    assertThat(nonLiveSnapshot.maxOffset).isEqualTo(9);
+    assertThat(
+            nonLiveSnapshot.snapshotPath.startsWith("s3")
+                && nonLiveSnapshot.snapshotPath.contains(nonLiveSnapshot.name))
+        .isTrue();
+    assertThat(nonLiveSnapshot.snapshotId).isEqualTo(nonLiveSnapshot.name);
+    assertThat(nonLiveSnapshot.startTimeEpochMs).isEqualTo(startTime.toEpochMilli());
+    assertThat(nonLiveSnapshot.endTimeEpochMs).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
+
+    List<SearchMetadata> afterSearchNodes =
+        KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
+    assertThat(afterSearchNodes.size()).isEqualTo(1);
+    assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
+    assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
+    assertThat(afterSearchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+
+    assertThat(chunk.isReadOnly()).isTrue();
+    assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isNotZero();
+
+    // Delete the chunk once we hit the time threshold.
+    assertThat(chunkCleanerService.deleteStaleData()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isZero();
+
+    // Check metadata after chunk is deleted.
+    List<SnapshotMetadata> chunkDeletedSnapshots =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
+    assertThat(chunkDeletedSnapshots.size()).isEqualTo(1);
+    SnapshotMetadata nonLiveSnapshotAfterChunkDelete =
+        fetchNonLiveSnapshot(chunkDeletedSnapshots).get(0);
+    assertThat(nonLiveSnapshotAfterChunkDelete.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+    assertThat(nonLiveSnapshotAfterChunkDelete.maxOffset).isEqualTo(9);
+    assertThat(
+            nonLiveSnapshotAfterChunkDelete.snapshotPath.startsWith("s3")
+                && nonLiveSnapshotAfterChunkDelete.snapshotPath.contains(
+                    nonLiveSnapshotAfterChunkDelete.name))
+        .isTrue();
+    assertThat(nonLiveSnapshotAfterChunkDelete.snapshotId)
+        .isEqualTo(nonLiveSnapshotAfterChunkDelete.name);
+    assertThat(nonLiveSnapshotAfterChunkDelete.startTimeEpochMs)
+        .isEqualTo(startTime.toEpochMilli());
+    assertThat(nonLiveSnapshotAfterChunkDelete.endTimeEpochMs)
+        .isEqualTo(startTime.plusSeconds(8).toEpochMilli());
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
+  }
+
+  @Test
   public void testDeleteStaleDataOn1Chunk() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     final Instant creationTime = Instant.now();
     ChunkCleanerService<LogMessage> chunkCleanerService =
-        new ChunkCleanerService<>(chunkManager, Duration.ofSeconds(100));
+        new ChunkCleanerService<>(chunkManager, 20, Duration.ofSeconds(100));
     assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -221,7 +475,7 @@ public class ChunkCleanerServiceTest {
     Instant creationTime = Instant.now();
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     ChunkCleanerService<LogMessage> chunkCleanerService =
-        new ChunkCleanerService<>(chunkManager, Duration.ofSeconds(100));
+        new ChunkCleanerService<>(chunkManager, 20, Duration.ofSeconds(100));
     assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -356,17 +610,17 @@ public class ChunkCleanerServiceTest {
   @Test
   public void testDeleteStaleDataOnMultipleChunks() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
-    final long startTimeSecs = 1580515200; // Sat, 01 Feb 2020 00:00:00 UTC
-    ChunkCleanerService<LogMessage> chunkCleanerService =
-        new ChunkCleanerService<>(chunkManager, Duration.ofSeconds(100));
-    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
-    assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs)).isZero();
-    assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs + 1)).isZero();
-    assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs + 3600 * 2)).isZero();
-    assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs + 3600 * 3)).isZero();
-
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, 20, Duration.ofSeconds(100));
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
+    assertThat(chunkCleanerService.deleteStaleData(startTime)).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(startTime.plusSeconds(1))).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(startTime.plusSeconds(3600 * 2))).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(startTime.plusSeconds(3600 * 3))).isZero();
+
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000, startTime);
     messages.addAll(

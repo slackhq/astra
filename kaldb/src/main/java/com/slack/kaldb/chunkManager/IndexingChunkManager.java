@@ -27,6 +27,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -74,6 +75,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private final ListeningExecutorService rolloverExecutorService;
 
   private ListenableFuture<Boolean> rolloverFuture;
+
+  private final ChunkCleanerService<T> chunkCleanerService;
 
   /**
    * A flag to indicate that ingestion should be stopped. Currently, we only stop ingestion when a
@@ -136,6 +139,12 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     this.curatorFramework = curatorFramework;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
+    this.chunkCleanerService =
+        new ChunkCleanerService<>(
+            this,
+            indexerConfig.getMaxChunksOnDisk(),
+            Duration.ofSeconds(indexerConfig.getStaleDurationSecs()));
+
     stopIngestion = true;
     activeChunk = null;
 
@@ -206,6 +215,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
               if (success == null || !success) {
                 LOG.error("RollOverChunkTask success=false for chunk={}", currentChunk.info());
                 stopIngestion = true;
+                chunkCleanerService.deleteStaleData();
               }
             }
 
@@ -275,6 +285,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     return activeChunk;
   }
 
+  @Override
   public void removeStaleChunks(List<Chunk<T>> staleChunks) {
     if (staleChunks.isEmpty()) return;
 

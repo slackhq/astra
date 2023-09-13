@@ -14,6 +14,7 @@ indexerConfig:
   defaultQueryTimeoutMs: ${KALDB_INDEX_DEFAULT_QUERY_TIMEOUT_MS:-2500}
   readFromLocationOnStart: ${INDEXER_READ_FROM_LOCATION_ON_START:-LATEST}
   createRecoveryTasksOnStart: ${INDEXER_CREATE_RECOVERY_TASKS_ON_START:-true}
+  maxChunksOnDisk: ${INDEXER_MAX_CHUNKS_ON_DISK:-3}
   serverConfig:
     serverPort: ${KALDB_INDEX_SERVER_PORT:-8080}
     serverAddress: ${KALDB_INDEX_SERVER_ADDRESS:-localhost}

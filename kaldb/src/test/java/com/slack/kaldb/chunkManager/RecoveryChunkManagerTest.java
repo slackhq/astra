@@ -150,6 +150,7 @@ public class RecoveryChunkManagerTest {
             kaldbCfg.getIndexerConfig(),
             s3CrtBlobFs,
             kaldbCfg.getS3Config());
+
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }

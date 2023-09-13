@@ -21,12 +21,12 @@
   "indexerConfig": {
     "maxMessagesPerChunk": 1000,
     "maxBytesPerChunk": 100000,
+    "maxChunksOnDisk": 3,
     "luceneConfig" : {
       "commitDurationSecs": 10,
       "refreshDurationSecs": 11,
       "enableFullTextSearch": true
     },
-    "staleDurationSecs": 7200,
     "dataTransformer": "api_log",
     "dataDirectory": "/tmp",
     "maxOffsetDelayMessages" : 10002,
@@ -119,6 +119,7 @@
     }
   },
   "recoveryConfig": {
+    "maxChunksOnDisk": 3,
     "serverConfig": {
       "serverPort": 8084,
       "serverAddress": "localhost",
