@@ -116,8 +116,7 @@ public class OpenSearchBulkApiRequestParser {
         // IndexRequest. It then creates an IngestDocument
         indexRequests.add((IndexRequest) request);
       } else {
-        LOG.warn(
-            "request=" + request + " of type " + request.opType().toString() + "not supported");
+        LOG.warn("request={} of type={} not supported", request, request.opType().toString());
       }
     }
     return indexRequests;
