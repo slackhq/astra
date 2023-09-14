@@ -406,6 +406,9 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(2);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(1);
 
+    await().until(() -> snapshotMetadataStore.listSync().size(), (size) -> size == 2);
+    await().until(() -> searchMetadataStore.listSync().size(), (size) -> size == 1);
+
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
