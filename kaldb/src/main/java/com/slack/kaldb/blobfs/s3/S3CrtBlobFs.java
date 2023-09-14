@@ -15,6 +15,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
+import software.amazon.awssdk.services.s3.crt.S3CrtConnectionHealthConfiguration;
 import software.amazon.awssdk.services.s3.crt.S3CrtHttpConfiguration;
 import software.amazon.awssdk.services.s3.crt.S3CrtProxyConfiguration;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
@@ -86,11 +88,21 @@ public class S3CrtBlobFs extends BlobFs {
               .region(Region.of(region))
               .credentialsProvider(awsCredentialsProvider);
 
+      // We add a healthcheck to prevent an error with the CRT client, where it will
+      // continue to attempt to read data from a socket that is no longer returning data
+      S3CrtHttpConfiguration.Builder httpConfigurationBuilder =
+          S3CrtHttpConfiguration.builder()
+              .connectionHealthConfiguration(
+                  S3CrtConnectionHealthConfiguration.builder()
+                      .minimumThroughputTimeout(Duration.ofSeconds(15))
+                      .minimumThroughputInBps(32000L)
+                      .build());
+
       S3CrtProxyConfiguration proxyConfiguration = getProxyConfiguration();
       if (proxyConfiguration != null) {
-        s3AsyncClient.httpConfiguration(
-            S3CrtHttpConfiguration.builder().proxyConfiguration(proxyConfiguration).build());
+        httpConfigurationBuilder.proxyConfiguration(proxyConfiguration);
       }
+      s3AsyncClient.httpConfiguration(httpConfigurationBuilder.build());
 
       if (!isNullOrEmpty(config.getS3EndPoint())) {
         String endpoint = config.getS3EndPoint();
