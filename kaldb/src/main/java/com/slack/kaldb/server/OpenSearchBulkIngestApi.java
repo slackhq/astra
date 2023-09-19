@@ -21,6 +21,7 @@ import com.slack.kaldb.preprocessor.PreprocessorRateLimiter;
 import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.preprocessor.ingest.OpenSearchBulkApiRequestParser;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
@@ -32,11 +33,17 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiPredicate;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.AuthorizationException;
+import org.apache.kafka.common.errors.OutOfOrderSequenceException;
 import org.apache.kafka.common.errors.ProducerFencedException;
 import org.opensearch.action.index.IndexRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * batching is important - if we send one doc a time we will create a transaction per request which
+ * is expensive
+ */
 public class OpenSearchBulkIngestApi extends AbstractService {
 
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchBulkIngestApi.class);
@@ -53,6 +60,8 @@ public class OpenSearchBulkIngestApi extends AbstractService {
   private List<DatasetMetadata> throughputSortedDatasets;
 
   private final Timer configReloadTimer;
+
+  private final KafkaProducer kafkaProducer;
 
   @Override
   protected void doStart() {
@@ -72,6 +81,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     try {
       LOG.info("Stopping OpenSearchBulkIngestApi service");
       datasetMetadataStore.removeListener(datasetListener);
+      kafkaProducer.close();
       LOG.info("OpenSearchBulkIngestApi service closed");
       notifyStopped();
     } catch (Throwable t) {
@@ -121,6 +131,13 @@ public class OpenSearchBulkIngestApi extends AbstractService {
             initializeRateLimitWarm);
 
     this.configReloadTimer = meterRegistry.timer(CONFIG_RELOAD_TIMER);
+    // since we use a new transaction ID every time we start a preprocessor there can be some zombie
+    // transactions?
+    // I think they will remain in kafka till they expire. They should never be readable if the
+    // consumer sets isolation.level as "read_committed"
+    // see "zombie fencing" https://www.confluent.io/blog/transactions-apache-kafka/
+    this.kafkaProducer = createKafkaTransactionProducer(UUID.randomUUID().toString());
+    this.kafkaProducer.initTransactions();
   }
 
   /**
@@ -163,41 +180,40 @@ public class OpenSearchBulkIngestApi extends AbstractService {
   public BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
     int totalDocs = indexDocs.values().stream().mapToInt(List::size).sum();
 
-    String transactionId = UUID.randomUUID().toString();
     // we cannot create a generic pool of producers because the kafka API expects the transaction ID
     // to be a property while creating the producer object.
-    try (KafkaProducer<String, byte[]> kafkaProducer =
-        createKafkaTransactionProducer(transactionId)) {
-      for (Map.Entry<String, List<Trace.Span>> indexDoc : indexDocs.entrySet()) {
-        String index = indexDoc.getKey();
-        // call once per batch and use the same partition for better batching
-        int partition = getPartition(index);
+    for (Map.Entry<String, List<Trace.Span>> indexDoc : indexDocs.entrySet()) {
+      String index = indexDoc.getKey();
+      // call once per batch and use the same partition for better batching
+      int partition = getPartition(index);
 
-        // since there isn't a dataset provisioned for this service/index we will not index this set
-        // of docs
-        if (partition < 0) {
-          LOG.warn("index=" + index + " does not have a provisioned dataset associated with it");
-          continue;
+      // since there isn't a dataset provisioned for this service/index we will not index this set
+      // of docs
+      if (partition < 0) {
+        LOG.warn("index=" + index + " does not have a provisioned dataset associated with it");
+        continue;
+      }
+      try {
+        kafkaProducer.beginTransaction();
+        for (Trace.Span doc : indexDoc.getValue()) {
+
+          ProducerRecord<String, byte[]> producerRecord =
+              new ProducerRecord<>(
+                  preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
+          kafkaProducer.send(producerRecord);
         }
+        kafkaProducer.commitTransaction();
+      } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
+        // We can't recover from these exceptions, so our only option is to close the producer and
+        // exit.
+        new RuntimeHalterImpl().handleFatal(new Throwable("KafkaProducer needs to shutdown ", e));
+      } catch (Exception e) {
         try {
-          kafkaProducer.initTransactions();
-          kafkaProducer.beginTransaction();
-          for (Trace.Span doc : indexDoc.getValue()) {
-
-            ProducerRecord<String, byte[]> producerRecord =
-                new ProducerRecord<>(
-                    preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
-            kafkaProducer.send(producerRecord);
-          }
-          kafkaProducer.commitTransaction();
-        } catch (Exception e) {
-          try {
-            kafkaProducer.abortTransaction();
-          } catch (ProducerFencedException err) {
-            LOG.error("Could not abort transaction", err);
-          }
-          return new BulkIngestResponse(0, totalDocs, e.getMessage());
+          kafkaProducer.abortTransaction();
+        } catch (ProducerFencedException err) {
+          LOG.error("Could not abort transaction", err);
         }
+        return new BulkIngestResponse(0, totalDocs, e.getMessage());
       }
     }
 
