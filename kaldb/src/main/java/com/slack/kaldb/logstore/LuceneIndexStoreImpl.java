@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore;
 
+import com.slack.kaldb.logstore.index.codec.ZstdCodec;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -178,6 +179,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
             .setRAMBufferSizeMB(ramBufferSizeMb)
             .setUseCompoundFile(useCFSFiles)
+            .setCodec(new ZstdCodec())
             // we sort by timestamp descending, as that is the order we expect to return results the
             // majority of the time
             .setIndexSort(
