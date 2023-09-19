@@ -14,7 +14,7 @@
             aligned with the Armeria included versions.
         -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <javac.target>17</javac.target>
+        <javac.target>21</javac.target>
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.14</http.client.version>
         <http.core.version>4.4.16</http.core.version>
@@ -32,6 +32,7 @@
         <aws.sdk.version>2.20.116</aws.sdk.version>
         <error.prone.version>2.16</error.prone.version>
         <junit.jupiter.version>5.10.0</junit.jupiter.version>
+        <spotless.version>2.39.0</spotless.version>
     </properties>
 
     <repositories>
@@ -572,7 +573,7 @@
                             <version>${error.prone.version}</version>
                         </path>
                     </annotationProcessorPaths>
-                 </configuration>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -624,30 +625,18 @@
                 </executions>
             </plugin>
 
-            <!-- Format code automatically during build using google's style guide.-->
-            <!-- https://github.com/spotify/fmt-maven-plugin/blob/main/README.md -->
             <plugin>
-                <groupId>com.spotify.fmt</groupId>
-                <artifactId>fmt-maven-plugin</artifactId>
-                <version>2.20</version>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
                 <configuration>
-                    <sourceDirectory>src/main/java</sourceDirectory>
-                    <testSourceDirectory>src/test/java</testSourceDirectory>
-                    <verbose>true</verbose>
-                    <filesNamePattern>.*\.java</filesNamePattern>
-                    <skip>false</skip>
-                    <skipSourceDirectory>false</skipSourceDirectory>
-                    <skipTestSourceDirectory>false</skipTestSourceDirectory>
-                    <skipSortingImports>false</skipSortingImports>
-                    <style>google</style>
+                    <java>
+                        <googleJavaFormat>
+                            <version>1.17.0</version>
+                            <style>GOOGLE</style>
+                        </googleJavaFormat>
+                    </java>
                 </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>format</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
