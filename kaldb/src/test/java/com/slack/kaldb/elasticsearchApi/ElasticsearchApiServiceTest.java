@@ -226,6 +226,10 @@ public class ElasticsearchApiServiceTest {
     KaldbLocalQueryService<LogMessage> slowSearcher =
         spy(new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(3)));
 
+    // warmup to load OpenSearch plugins
+    ElasticsearchApiService slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher);
+    HttpResponse response = slowElasticsearchApiService.multiSearch(postBody);
+
     Set<String> threadNames = ConcurrentHashMap.newKeySet();
     doAnswer(
             invocationOnMock -> {
@@ -234,8 +238,8 @@ public class ElasticsearchApiServiceTest {
             })
         .when(slowSearcher)
         .doSearch(any());
-    ElasticsearchApiService slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher);
-    HttpResponse response = slowElasticsearchApiService.multiSearch(postBody.repeat(100));
+    slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher);
+    response = slowElasticsearchApiService.multiSearch(postBody.repeat(100));
 
     // handle response
     AggregatedHttpResponse aggregatedRes = response.aggregate().join();

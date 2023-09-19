@@ -255,4 +255,9 @@ message PreprocessorConfig {
   // value must be more than 0
   // more docs on PreprocessorPartitioner#getDatasetPartitionSuppliers
   int32 kafka_partition_sticky_timeout_ms = 8;
+
+  // this value needs to be set if the bulk API is used to bootstrap the producer kafka
+  // we plan on moving everything to the bulk API and removing KafkaStreamConfig in the future
+  string bootstrap_servers = 9;
+  bool use_bulk_api = 10;
 }

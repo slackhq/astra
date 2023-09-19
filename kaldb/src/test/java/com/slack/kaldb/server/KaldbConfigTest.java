@@ -293,6 +293,8 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
+    assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(false);
+    assertThat(preprocessorConfig.getBootstrapServers()).isEqualTo("localhost:9092");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
@@ -462,6 +464,9 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
 
+    assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(true);
+    assertThat(preprocessorConfig.getBootstrapServers()).isEqualTo("localhost:9092");
+
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
     assertThat(preprocessorServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -624,6 +629,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
+    assertThat(preprocessorConfig.getUseBulkApi()).isFalse();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();
@@ -757,6 +763,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();
     assertThat(preprocessorServerConfig.getServerAddress()).isEmpty();
+    assertThat(preprocessorConfig.getUseBulkApi()).isFalse();
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
         preprocessorConfig.getKafkaStreamConfig();
