@@ -55,6 +55,7 @@ public class S3BlobFs extends BlobFs {
   public static final String S3_SCHEME = "s3://";
   private static final Logger LOG = LoggerFactory.getLogger(S3BlobFs.class);
   private static final String DELIMITER = "/";
+  private static final int LIST_MAX_KEYS = 2500;
   private S3Client s3Client;
 
   public S3BlobFs(S3Client s3Client) {
@@ -381,6 +382,7 @@ public class S3BlobFs extends BlobFs {
       String continuationToken = null;
       boolean isDone = false;
       String prefix = normalizeToDirectoryPrefix(fileUri);
+      int fileCount = 0;
       while (!isDone) {
         ListObjectsV2Request.Builder listObjectsV2RequestBuilder =
             ListObjectsV2Request.builder().bucket(fileUri.getHost());
@@ -398,6 +400,7 @@ public class S3BlobFs extends BlobFs {
         ListObjectsV2Response listObjectsV2Response = s3Client.listObjectsV2(listObjectsV2Request);
         LOG.debug("Getting ListObjectsV2Response: {}", listObjectsV2Response);
         List<S3Object> filesReturned = listObjectsV2Response.contents();
+        fileCount += filesReturned.size();
         filesReturned.stream()
             .forEach(
                 object -> {
@@ -411,6 +414,15 @@ public class S3BlobFs extends BlobFs {
                     builder.add(S3_SCHEME + fileUri.getHost() + DELIMITER + fileKey);
                   }
                 });
+        if (fileCount == LIST_MAX_KEYS) {
+          // check if we reached the max keys returned, if so abort and throw an error message
+          LOG.error(
+              "Too many files ({}) returned from S3 when attempting to list object prefixes",
+              LIST_MAX_KEYS);
+          throw new IllegalStateException(
+              String.format(
+                  "Max keys (%s) reached when attempting to list S3 objects", LIST_MAX_KEYS));
+        }
         isDone = !listObjectsV2Response.isTruncated();
         continuationToken = listObjectsV2Response.nextContinuationToken();
       }
