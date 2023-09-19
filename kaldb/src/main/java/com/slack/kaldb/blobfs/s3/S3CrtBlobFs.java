@@ -51,6 +51,9 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryDownload;
+import software.amazon.awssdk.transfer.s3.model.DownloadDirectoryRequest;
 
 public class S3CrtBlobFs extends BlobFs {
   public static final String S3_SCHEME = "s3://";
@@ -59,9 +62,11 @@ public class S3CrtBlobFs extends BlobFs {
   private static final int LIST_MAX_KEYS = 2500;
 
   private final S3AsyncClient s3AsyncClient;
+  private final S3TransferManager transferManager;
 
   public S3CrtBlobFs(S3AsyncClient s3AsyncClient) {
     this.s3AsyncClient = s3AsyncClient;
+    this.transferManager = S3TransferManager.builder().s3Client(s3AsyncClient).build();
   }
 
   static boolean isNullOrEmpty(String target) {
@@ -491,10 +496,38 @@ public class S3CrtBlobFs extends BlobFs {
     URI base = getBase(srcUri);
     FileUtils.forceMkdir(dstFile.getParentFile());
     String prefix = sanitizePath(base.relativize(srcUri).getPath());
-    GetObjectRequest getObjectRequest =
-        GetObjectRequest.builder().bucket(srcUri.getHost()).key(prefix).build();
 
-    s3AsyncClient.getObject(getObjectRequest, AsyncResponseTransformer.toFile(dstFile)).get();
+    if (isDirectory(srcUri)) {
+      CompletedDirectoryDownload completedDirectoryDownload =
+          transferManager
+              .downloadDirectory(
+                  DownloadDirectoryRequest.builder()
+                      .destination(dstFile.toPath())
+                      .bucket(srcUri.getHost())
+                      .listObjectsV2RequestTransformer(
+                          builder -> {
+                            builder.maxKeys(2500);
+                            builder.prefix(prefix);
+                          })
+                      .build())
+              .completionFuture()
+              .get();
+      if (!completedDirectoryDownload.failedTransfers().isEmpty()) {
+        completedDirectoryDownload
+            .failedTransfers()
+            .forEach(
+                failedFileDownload -> LOG.warn("Failed to download file '{}'", failedFileDownload));
+        throw new IllegalStateException(
+            String.format(
+                "Was unable to download all files - failed %s",
+                completedDirectoryDownload.failedTransfers().size()));
+      }
+    } else {
+      GetObjectRequest getObjectRequest =
+          GetObjectRequest.builder().bucket(srcUri.getHost()).key(prefix).build();
+
+      s3AsyncClient.getObject(getObjectRequest, AsyncResponseTransformer.toFile(dstFile)).get();
+    }
   }
 
   @Override
