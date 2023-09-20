@@ -318,7 +318,7 @@ public class ReplicaCreationServiceTest {
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
-            .setEventAggregationSecs(10)
+            .setEventAggregationSecs(3)
             .setScheduleInitialDelayMins(0)
             .build();
 
@@ -386,10 +386,12 @@ public class ReplicaCreationServiceTest {
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
             replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
+    int expectedReplicas = eligibleSnapshotsToCreate * replicasToCreate;
 
     Map<String, Integer> replicasCreated =
         replicaCreationService.createReplicasForUnassignedSnapshots();
-    int expectedReplicas = eligibleSnapshotsToCreate * replicasToCreate;
+    assertThat(replicasCreated.values().stream().mapToInt(i -> i).sum())
+        .isEqualTo(expectedReplicas);
 
     await()
         .until(
@@ -398,8 +400,6 @@ public class ReplicaCreationServiceTest {
                     == expectedReplicas);
     await().until(() -> replicaMetadataStore.listSync().size() == expectedReplicas);
 
-    assertThat(replicasCreated.values().stream().mapToInt(i -> i).sum())
-        .isEqualTo(expectedReplicas);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(expectedReplicas);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry))

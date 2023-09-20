@@ -147,7 +147,7 @@ public class KaldbMetadataStoreTest {
       // delete a node by path reference, and ensure that list and cache both reflect the change
       store.deleteSync(metadata1.name);
       assertThat(KaldbMetadataTestUtils.listSyncUncached(store)).isEmpty();
-      assertThat(store.listSync()).isEmpty();
+      await().until(() -> store.listSync().isEmpty());
     }
   }
 
