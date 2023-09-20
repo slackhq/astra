@@ -44,9 +44,8 @@ public class HpaMetricPublisherService extends AbstractIdleService {
               if (metric.isPresent()) {
                 return metric.get().getValue();
               } else {
-                // store no longer has this metric - report a 0
-                // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#implicit-maintenance-mode-deactivation
-                return 0;
+                // store no longer has this metric - report a nominal value 1
+                return 1;
               }
             });
       }

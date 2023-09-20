@@ -31,8 +31,9 @@ import org.slf4j.LoggerFactory;
 public class ClusterHpaMetricService extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(ClusterHpaMetricService.class);
 
-  // todo - consider making over-provision and lock duration configurable values
-  protected int CACHE_SLOT_OVER_PROVISION = 1000;
+  // todo - consider making HPA_TOLERANCE and CACHE_SCALEDOWN_LOCK configurable
+  // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#algorithm-details
+  private static final double HPA_TOLERANCE = 0.1;
   protected Duration CACHE_SCALEDOWN_LOCK = Duration.of(15, ChronoUnit.MINUTES);
 
   private final ReplicaMetadataStore replicaMetadataStore;
@@ -103,34 +104,58 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
           replicaMetadataStore.listSync().stream()
               .filter(replicaMetadata -> replicaMetadata.getReplicaSet().equals(replicaSet))
               .count();
-      double rawDemandFactor =
-          (double) (totalReplicaDemand + CACHE_SLOT_OVER_PROVISION) / (totalCacheSlotCapacity + 1);
-      double demandFactor = (double) Math.round(rawDemandFactor * 100) / 100;
+
+      double demandFactor = calculateDemandFactor(totalCacheSlotCapacity, totalReplicaDemand);
+      String action;
+      if (demandFactor > 1) {
+        // scale-up
+        if (demandFactor < (1 + HPA_TOLERANCE)) {
+          // scale-up required, but still within the HPA tolerance
+          // we need to ensure the scale-up is at least triggering the HPA
+          demandFactor = demandFactor + HPA_TOLERANCE;
+        }
+        action = "scale-up";
+        persistCacheConfig(replicaSet, demandFactor);
+      } else if (demandFactor < (1 - HPA_TOLERANCE)) {
+        // scale-down required
+        if (tryCacheReplicasetLock(replicaSet)) {
+          action = "scale-down";
+          persistCacheConfig(replicaSet, demandFactor);
+        } else {
+          // couldn't get exclusive lock, no-op
+          action = "pending-scale-down";
+          persistCacheConfig(replicaSet, 1.0);
+        }
+      } else {
+        // over-provisioned, but within HPA tolerance
+        action = "no-op";
+        persistCacheConfig(replicaSet, demandFactor);
+      }
+
       LOG.info(
-          "Cache autoscaler for replicaSet '{}' calculated a demandFactor of '{}' - totalReplicaDemand: '{}', cacheSlotOverProvision: '{}', totalCacheSlotCapacity: '{}'",
+          "Cache autoscaler for replicaset '{}' took action '{}', demandFactor: '{}', totalReplicaDemand: '{}', totalCacheSlotCapacity: '{}'",
           replicaSet,
+          action,
           demandFactor,
           totalReplicaDemand,
-          CACHE_SLOT_OVER_PROVISION,
           totalCacheSlotCapacity);
-
-      if (demandFactor >= 1.0) {
-        // Publish a scale-up metric
-        persistCacheConfig(replicaSet, demandFactor);
-        LOG.debug("Publishing scale-up request for replicaset '{}'", replicaSet);
-      } else {
-        if (tryCacheReplicasetLock(replicaSet)) {
-          // Publish a scale-down metric
-          persistCacheConfig(replicaSet, demandFactor);
-          LOG.debug("Acquired scale-down lock for replicaSet '{}'", replicaSet);
-        } else {
-          // Publish a no-op scale metric (0) to disable the HPA from applying
-          // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#implicit-maintenance-mode-deactivation
-          persistCacheConfig(replicaSet, 0.0);
-          LOG.debug("Unable to acquire scale-down lock for replicaSet '{}'", replicaSet);
-        }
-      }
     }
+  }
+
+  private static double calculateDemandFactor(
+      long totalCacheSlotCapacity, long totalReplicaDemand) {
+    if (totalCacheSlotCapacity == 0) {
+      // we have no provisioned capacity, so cannot determine a value
+      // this should never happen unless the user misconfigured the HPA with a minimum instance
+      // count of 0
+      LOG.error(
+          "No cache slot capacity is detected, this indicates a misconfiguration of the HPA minimum instance count which must be at least 1");
+      return 1;
+    }
+    // demand factor will be < 1 indicating a scale-down demand, and > 1 indicating a scale-up
+    double rawDemandFactor = (double) (totalReplicaDemand) / (totalCacheSlotCapacity);
+    // round to 2 decimals
+    return (double) Math.round(rawDemandFactor * 100) / 100;
   }
 
   /** Updates or inserts an (ephemeral) HPA metric for the cache nodes. This is NOT threadsafe. */
