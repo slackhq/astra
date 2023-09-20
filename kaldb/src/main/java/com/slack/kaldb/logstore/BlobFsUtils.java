@@ -45,29 +45,14 @@ public class BlobFsUtils {
   // TODO: Take a complete URI as this is the format stored in snapshot data
   public static String[] copyFromS3(
       String bucket, String prefix, BlobFs s3BlobFs, Path localDirPath) throws Exception {
-    if (System.getProperty("useOldCopyFromS3") != null) {
-      String[] s3Files = s3BlobFs.listFiles(createURI(bucket, prefix, ""), true);
-      LOG.info(
-          "Copying files from bucket={} prefix={} filesToCopy={}", bucket, prefix, s3Files.length);
-      for (String fileName : s3Files) {
-        URI fileToCopy = URI.create(fileName);
-        File toFile =
-            new File(
-                localDirPath.toString(), Paths.get(fileToCopy.getPath()).getFileName().toString());
-        s3BlobFs.copyToLocalFile(fileToCopy, toFile);
-      }
-      LOG.info("Copying S3 files complete");
-      return s3Files;
-    } else {
-      LOG.info("Copying files from bucket={} prefix={} using directory", bucket, prefix);
-      URI directoryToCopy = createURI(bucket, prefix, "");
-      s3BlobFs.copyToLocalFile(directoryToCopy, localDirPath.toFile());
-      LOG.info("Copying S3 files complete");
-      return Arrays.stream(localDirPath.toFile().listFiles())
-          .map(File::toString)
-          .distinct()
-          .toArray(String[]::new);
-    }
+    LOG.info("Copying files from bucket={} prefix={} using directory", bucket, prefix);
+    URI directoryToCopy = createURI(bucket, prefix, "");
+    s3BlobFs.copyToLocalFile(directoryToCopy, localDirPath.toFile());
+    LOG.info("Copying S3 files complete");
+    return Arrays.stream(localDirPath.toFile().listFiles())
+        .map(File::toString)
+        .distinct()
+        .toArray(String[]::new);
   }
 
   public static void copyToLocalPath(

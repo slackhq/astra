@@ -53,8 +53,21 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryDownload;
+import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
 import software.amazon.awssdk.transfer.s3.model.DownloadDirectoryRequest;
+import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest;
+import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
+import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 
+/**
+ * This class is a duplicate of the original S3BlobFs, but modified to support the new S3 CRT client
+ * and S3 transfer manager. As part of this all internal api calls to S3 were moved to async, as
+ * this is the only client type supported by the new CRT code.
+ *
+ * <p>Todo - this class would hugely benefit from a clean sheet rewrite, as a lot of the original
+ * assumptions this was based on no longer apply. Additionally, several retrofits have been made to
+ * support new API approaches which has left this overly complex.
+ */
 public class S3CrtBlobFs extends BlobFs {
   public static final String S3_SCHEME = "s3://";
   private static final Logger LOG = LoggerFactory.getLogger(S3CrtBlobFs.class);
@@ -161,7 +174,11 @@ public class S3CrtBlobFs extends BlobFs {
     try {
       return s3AsyncClient.headObject(headObjectRequest).get();
     } catch (InterruptedException | ExecutionException e) {
-      throw new IOException(e);
+      if (e instanceof ExecutionException && e.getCause() instanceof NoSuchKeyException) {
+        throw NoSuchKeyException.builder().cause(e.getCause()).build();
+      } else {
+        throw new IOException(e);
+      }
     }
   }
 
@@ -525,8 +542,14 @@ public class S3CrtBlobFs extends BlobFs {
     } else {
       GetObjectRequest getObjectRequest =
           GetObjectRequest.builder().bucket(srcUri.getHost()).key(prefix).build();
-
-      s3AsyncClient.getObject(getObjectRequest, AsyncResponseTransformer.toFile(dstFile)).get();
+      transferManager
+          .downloadFile(
+              DownloadFileRequest.builder()
+                  .getObjectRequest(getObjectRequest)
+                  .destination(dstFile)
+                  .build())
+          .completionFuture()
+          .get();
     }
   }
 
@@ -535,10 +558,39 @@ public class S3CrtBlobFs extends BlobFs {
     LOG.debug("Copy {} from local to {}", srcFile.getAbsolutePath(), dstUri);
     URI base = getBase(dstUri);
     String prefix = sanitizePath(base.relativize(dstUri).getPath());
-    PutObjectRequest putObjectRequest =
-        PutObjectRequest.builder().bucket(dstUri.getHost()).key(prefix).build();
 
-    s3AsyncClient.putObject(putObjectRequest, AsyncRequestBody.fromFile(srcFile)).get();
+    if (srcFile.isDirectory()) {
+      CompletedDirectoryUpload completedDirectoryUpload =
+          transferManager
+              .uploadDirectory(
+                  UploadDirectoryRequest.builder()
+                      .source(srcFile.toPath())
+                      .bucket(dstUri.getHost())
+                      .build())
+              .completionFuture()
+              .get();
+
+      if (!completedDirectoryUpload.failedTransfers().isEmpty()) {
+        completedDirectoryUpload
+            .failedTransfers()
+            .forEach(failedFileUpload -> LOG.warn("Failed to upload file '{}'", failedFileUpload));
+        throw new IllegalStateException(
+            String.format(
+                "Was unable to upload all files - failed %s",
+                completedDirectoryUpload.failedTransfers().size()));
+      }
+    } else {
+      PutObjectRequest putObjectRequest =
+          PutObjectRequest.builder().bucket(dstUri.getHost()).key(prefix).build();
+      transferManager
+          .uploadFile(
+              UploadFileRequest.builder()
+                  .putObjectRequest(putObjectRequest)
+                  .source(srcFile)
+                  .build())
+          .completionFuture()
+          .get();
+    }
   }
 
   @Override
