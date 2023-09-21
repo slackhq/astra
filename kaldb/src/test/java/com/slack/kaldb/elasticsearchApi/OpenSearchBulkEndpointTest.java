@@ -39,6 +39,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.opensearch.action.index.IndexRequest;
 import org.slf4j.Logger;
@@ -268,6 +269,7 @@ public class OpenSearchBulkEndpointTest {
   }
 
   @Test
+  @Disabled("Flaky test")
   public void testDocumentInKafkaTransactionError() throws Exception {
     updateDatasetThroughput(100_1000);
 

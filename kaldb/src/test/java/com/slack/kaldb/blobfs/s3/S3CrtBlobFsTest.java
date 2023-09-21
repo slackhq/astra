@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
+import com.google.common.io.Resources;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,20 +15,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
-@Deprecated
-public class S3BlobFsTest {
+public class S3CrtBlobFsTest {
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
       S3MockExtension.builder().silent().withSecureConnection(false).build();
@@ -37,15 +38,16 @@ public class S3BlobFsTest {
   final String FILE_FORMAT = "%s://%s/%s";
   final String DIR_FORMAT = "%s://%s";
 
-  private final S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
+  private final S3AsyncClient s3Client =
+      S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
   private String bucket;
-  private S3BlobFs s3BlobFs;
+  private S3CrtBlobFs s3BlobFs;
 
   @BeforeEach
-  public void setUp() {
+  public void setUp() throws ExecutionException, InterruptedException {
     bucket = "test-bucket-" + UUID.randomUUID();
-    s3BlobFs = new S3BlobFs(s3Client);
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
+    s3BlobFs = new S3CrtBlobFs(s3Client);
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
   }
 
   @AfterEach
@@ -55,11 +57,14 @@ public class S3BlobFsTest {
     }
   }
 
-  private void createEmptyFile(String folderName, String fileName) {
+  private void createEmptyFile(String folderName, String fileName)
+      throws ExecutionException, InterruptedException {
     String fileNameWithFolder = folderName + DELIMITER + fileName;
-    s3Client.putObject(
-        S3TestUtils.getPutObjectRequest(bucket, fileNameWithFolder),
-        RequestBody.fromBytes(new byte[0]));
+    s3Client
+        .putObject(
+            S3TestUtils.getPutObjectRequest(bucket, fileNameWithFolder),
+            AsyncRequestBody.fromBytes(new byte[0]))
+        .get();
   }
 
   @Test
@@ -71,7 +76,7 @@ public class S3BlobFsTest {
       s3BlobFs.touch(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
     }
     ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
+        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true)).get();
 
     String[] response =
         listObjectsV2Response.contents().stream()
@@ -94,7 +99,7 @@ public class S3BlobFsTest {
       s3BlobFs.touch(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileNameWithFolder)));
     }
     ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, folder, false));
+        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, folder, false)).get();
 
     String[] response =
         listObjectsV2Response.contents().stream()
@@ -193,7 +198,7 @@ public class S3BlobFsTest {
     s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileToDelete)), false);
 
     ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
+        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true)).get();
     String[] actualResponse =
         listObjectsV2Response.contents().stream()
             .map(x -> x.key().substring(1))
@@ -216,7 +221,7 @@ public class S3BlobFsTest {
     s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folderName)), true);
 
     ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
+        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true)).get();
     String[] actualResponse =
         listObjectsV2Response.contents().stream()
             .map(S3Object::key)
@@ -311,13 +316,36 @@ public class S3BlobFsTest {
         fileToCopy, URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
 
     HeadObjectResponse headObjectResponse =
-        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, fileName));
+        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, fileName)).get();
 
     assertEquals(headObjectResponse.contentLength(), (Long) fileToCopy.length());
 
-    File fileToDownload = new File("copyFile_download.txt").getAbsoluteFile();
+    File fileToDownload = new File("copyFile_download_crt.txt").getAbsoluteFile();
     s3BlobFs.copyToLocalFile(
         URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)), fileToDownload);
+    assertEquals(fileToCopy.length(), fileToDownload.length());
+
+    fileToDownload.deleteOnExit();
+  }
+
+  @Test
+  public void testCopyFromAndToLocalDirectory() throws Exception {
+    String fileName = "copyFile.txt";
+
+    File fileToCopy =
+        new File(Resources.getResource(String.format("s3CrtBlobFsTest/%s", fileName)).getFile());
+
+    s3BlobFs.copyFromLocalFile(
+        fileToCopy.getParentFile(), URI.create(String.format(FILE_FORMAT, SCHEME, bucket, "")));
+
+    HeadObjectResponse headObjectResponse =
+        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, fileName)).get();
+
+    assertEquals(headObjectResponse.contentLength(), (Long) fileToCopy.length());
+
+    File fileToDownload = new File(fileName).getAbsoluteFile();
+    s3BlobFs.copyToLocalFile(
+        URI.create(String.format(FILE_FORMAT, SCHEME, bucket, "")), fileToDownload.getParentFile());
     assertEquals(fileToCopy.length(), fileToDownload.length());
 
     fileToDownload.deleteOnExit();
@@ -328,8 +356,11 @@ public class S3BlobFsTest {
     String fileName = "sample.txt";
     String fileContent = "Hello, World";
 
-    s3Client.putObject(
-        S3TestUtils.getPutObjectRequest(bucket, fileName), RequestBody.fromString(fileContent));
+    s3Client
+        .putObject(
+            S3TestUtils.getPutObjectRequest(bucket, fileName),
+            AsyncRequestBody.fromString(fileContent))
+        .get();
 
     InputStream is =
         s3BlobFs.open(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
@@ -344,7 +375,7 @@ public class S3BlobFsTest {
     s3BlobFs.mkdir(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folderName)));
 
     HeadObjectResponse headObjectResponse =
-        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, folderName + DELIMITER));
+        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, folderName + DELIMITER)).get();
     assertTrue(headObjectResponse.sdkHttpResponse().isSuccessful());
   }
 }
