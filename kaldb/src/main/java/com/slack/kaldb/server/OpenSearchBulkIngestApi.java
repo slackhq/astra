@@ -241,6 +241,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
     props.put("transactional.id", transactionId);
+    props.put("linger.ms", 100);
     return new KafkaProducer<>(props);
   }
 }
