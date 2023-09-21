@@ -523,7 +523,7 @@ public class S3CrtBlobFs extends BlobFs {
                       .bucket(srcUri.getHost())
                       .listObjectsV2RequestTransformer(
                           builder -> {
-                            builder.maxKeys(2500);
+                            builder.maxKeys(LIST_MAX_KEYS);
                             builder.prefix(prefix);
                           })
                       .build())
