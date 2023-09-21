@@ -20,11 +20,19 @@ import org.apache.commons.text.lookup.StringLookup;
  * <p>TODO: Set reasonable defaults for the config values.
  */
 public class KaldbConfig {
-  // Default start/stop duration for guava services.
-  public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
-  public static final int DEFAULT_ZK_TIMEOUT_SECS = 15;
 
-  public static final String CHUNK_DATA_PREFIX = "log";
+  // This should be either moved to a proper config, or likely completely rethought.
+  // This doesn't make sense as a global for all services, as each service has potentially different
+  // requirements
+  // Default start/stop duration for guava services.
+  @Deprecated public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
+
+  // This should go away, in factor of using the zkConnectionTimeoutMs config value
+  @Deprecated public static final int DEFAULT_ZK_TIMEOUT_SECS = 30;
+
+  // This should either be a static final closer to the chunk manager, a config value, or removed
+  // entirely
+  @Deprecated public static final String CHUNK_DATA_PREFIX = "log";
 
   private static KaldbConfig _instance = null;
 
