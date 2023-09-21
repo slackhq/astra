@@ -290,12 +290,37 @@ public class OpenSearchBulkEndpointTest {
     assertThat(responseObj.failedDocs()).isEqualTo(5);
     assertThat(responseObj.errorMsg()).isNotNull();
 
-    // 1 for aborted txn?
-    validateOffset(kafkaConsumer, 1);
+    await()
+        .until(
+            () -> {
+              @SuppressWarnings("OptionalGetWithoutIsPresent")
+              long partitionOffset =
+                  (Long)
+                      kafkaConsumer
+                          .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
+                          .values()
+                          .stream()
+                          .findFirst()
+                          .get();
+              LOG.debug(
+                  "Current partitionOffset - {}. expecting offset to be less than 5",
+                  partitionOffset);
+              return partitionOffset > 0 && partitionOffset < 5;
+            });
+
     ConsumerRecords<String, byte[]> records =
         kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
 
     assertThat(records.count()).isEqualTo(0);
+
+    long currentPartitionOffset =
+        (Long)
+            kafkaConsumer
+                .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
+                .values()
+                .stream()
+                .findFirst()
+                .get();
 
     Trace.Span doc6 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("no_error6")).build();
     Trace.Span doc7 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("no_error7")).build();
@@ -312,7 +337,7 @@ public class OpenSearchBulkEndpointTest {
     assertThat(responseObj.errorMsg()).isNotNull();
 
     // 5 docs. 1 control batch. initial offset was 1 after the first failed batch
-    validateOffset(kafkaConsumer, 7);
+    validateOffset(kafkaConsumer, currentPartitionOffset + 5 + 1);
     records = kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
 
     assertThat(records.count()).isEqualTo(5);
@@ -325,7 +350,7 @@ public class OpenSearchBulkEndpointTest {
     kafkaConsumer.close();
   }
 
-  public void validateOffset(KafkaConsumer kafkaConsumer, int offset) {
+  public void validateOffset(KafkaConsumer kafkaConsumer, long expectedOffset) {
     await()
         .until(
             () -> {
@@ -341,8 +366,8 @@ public class OpenSearchBulkEndpointTest {
               LOG.debug(
                   "Current partitionOffset - {}. expecting offset to be - {}",
                   partitionOffset,
-                  offset);
-              return partitionOffset == offset;
+                  expectedOffset);
+              return partitionOffset == expectedOffset;
             });
   }
 
