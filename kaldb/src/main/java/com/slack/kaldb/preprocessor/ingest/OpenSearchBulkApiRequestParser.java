@@ -45,7 +45,7 @@ public class OpenSearchBulkApiRequestParser {
     String index = (String) sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName());
 
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
-    spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
+    spanBuilder.setId(ByteString.copyFromUtf8(id));
     // Trace.Span proto expects duration in microseconds today
     spanBuilder.setTimestamp(
         TimeUnit.MICROSECONDS.convert(timestamp.toInstant().toEpochMilli(), TimeUnit.MILLISECONDS));

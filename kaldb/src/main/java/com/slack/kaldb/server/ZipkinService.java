@@ -138,13 +138,12 @@ public class ZipkinService {
       Map<String, String> tags) {
     Span.Builder spanBuilder = Span.newBuilder();
 
-    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()).toStringUtf8());
-    spanBuilder.setId(ByteString.copyFrom(id.getBytes()).toStringUtf8());
+    spanBuilder.setTraceId(ByteString.copyFromUtf8(traceId).toStringUtf8());
+    spanBuilder.setId(ByteString.copyFromUtf8(id).toStringUtf8());
     spanBuilder.setTimestamp(timestamp);
     spanBuilder.setDuration(duration);
 
-    parentId.ifPresent(
-        s -> spanBuilder.setParentId(ByteString.copyFrom(s.getBytes()).toStringUtf8()));
+    parentId.ifPresent(s -> spanBuilder.setParentId(ByteString.copyFromUtf8(s).toStringUtf8()));
     name.ifPresent(spanBuilder::setName);
     serviceName.ifPresent(
         s -> spanBuilder.setRemoteEndpoint(Endpoint.newBuilder().setServiceName(s)));

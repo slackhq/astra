@@ -1,5 +1,6 @@
 package com.slack.kaldb.preprocessor;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
@@ -8,6 +9,8 @@ import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.nio.charset.StandardCharsets;
 
 /**
  * Factory for creating Kaldb specific serializers / deserializers. Based off of
@@ -37,7 +40,10 @@ public class KaldbSerdes {
           try {
             murronMsg = Murron.MurronMessage.parseFrom(data);
           } catch (InvalidProtocolBufferException e) {
-            LOG.error("Error parsing byte string into MurronMessage: {}", new String(data), e);
+            LOG.error(
+                "Error parsing byte string into MurronMessage: {}",
+                new String(data, StandardCharsets.UTF_8),
+                e);
           }
           return murronMsg;
         };
@@ -66,7 +72,10 @@ public class KaldbSerdes {
           try {
             span = Trace.Span.parseFrom(data);
           } catch (InvalidProtocolBufferException e) {
-            LOG.error("Error parsing byte string into Trace.Span: {}", new String(data), e);
+            LOG.error(
+                "Error parsing byte string into Trace.Span: {}",
+                    new String(data, StandardCharsets.UTF_8),
+                e);
           }
           return span;
         };
@@ -95,7 +104,10 @@ public class KaldbSerdes {
           try {
             listOfSpans = Trace.ListOfSpans.parseFrom(data);
           } catch (InvalidProtocolBufferException e) {
-            LOG.error("Error parsing byte string into Trace.ListOfSpans: {}", new String(data), e);
+            LOG.error(
+                "Error parsing byte string into Trace.ListOfSpans: {}",
+                    new String(data, StandardCharsets.UTF_8),
+                e);
           }
           return listOfSpans;
         };

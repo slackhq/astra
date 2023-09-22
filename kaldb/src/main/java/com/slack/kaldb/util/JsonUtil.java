@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 public class JsonUtil {
   private static JsonUtil ourInstance = new JsonUtil();
@@ -17,10 +16,6 @@ public class JsonUtil {
 
   public static JsonUtil getInstance() {
     return ourInstance;
-  }
-
-  public static <T> ByteBuffer toByteBuffer(T obj) throws JsonProcessingException {
-    return ByteBuffer.wrap(writeAsString(obj).getBytes());
   }
 
   public static <T> String writeAsString(T obj) throws JsonProcessingException {

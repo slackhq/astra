@@ -44,7 +44,7 @@ public class SpanFormatter {
 
     String parentId =
         (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.PARENT_ID.fieldName, "");
-    spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
+    spanBuilder.setParentId(ByteString.copyFromUtf8(parentId));
 
     traceId.ifPresent(s -> spanBuilder.setTraceId(ByteString.copyFromUtf8(s)));
     spanBuilder.setTimestamp(timestamp);
@@ -75,7 +75,7 @@ public class SpanFormatter {
                       .build()));
     }
 
-    spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
+    spanBuilder.setId(ByteString.copyFromUtf8(id));
 
     boolean containsServiceName =
         tags.stream()
@@ -114,7 +114,7 @@ public class SpanFormatter {
       tagBuilder.setVFloat64((double) value);
     } else if (value != null) {
       tagBuilder.setVType(Trace.ValueType.BINARY);
-      tagBuilder.setVBinary(ByteString.copyFrom(value.toString().getBytes()));
+      tagBuilder.setVBinary(ByteString.copyFromUtf8(value.toString()));
     }
     return tagBuilder.build();
   }

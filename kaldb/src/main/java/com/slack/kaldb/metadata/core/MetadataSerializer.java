@@ -2,6 +2,7 @@ package com.slack.kaldb.metadata.core;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import java.nio.charset.StandardCharsets;
 import org.apache.curator.x.async.modeled.ModelSerializer;
 
 /**
@@ -28,7 +29,7 @@ public interface MetadataSerializer<T extends KaldbMetadata> {
         }
 
         try {
-          return toJsonStr(model).getBytes();
+          return toJsonStr(model).getBytes(StandardCharsets.UTF_8);
         } catch (Exception e) {
           throw new IllegalArgumentException(e);
         }
@@ -41,7 +42,7 @@ public interface MetadataSerializer<T extends KaldbMetadata> {
         }
 
         try {
-          return fromJsonStr(new String(bytes));
+          return fromJsonStr(new String(bytes, StandardCharsets.UTF_8));
         } catch (Exception e) {
           throw new IllegalStateException(e);
         }
