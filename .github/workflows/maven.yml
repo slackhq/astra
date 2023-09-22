@@ -23,7 +23,7 @@ jobs:
       uses: actions/setup-java@v3
       with:
         java-version: '21'
-        distribution: 'temurin'
+        distribution: 'corretto'
         cache: 'maven'
     - name: Ensure code is formatted
       run: mvn -B -Dstyle.color=always spotless:check --file kaldb/pom.xml
