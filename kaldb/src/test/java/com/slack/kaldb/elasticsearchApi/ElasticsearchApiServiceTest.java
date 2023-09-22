@@ -224,7 +224,7 @@ public class ElasticsearchApiServiceTest {
             Resources.getResource("elasticsearchApi/multisearch_query_10results.ndjson"),
             Charset.defaultCharset());
     KaldbLocalQueryService<LogMessage> slowSearcher =
-        spy(new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(3)));
+        spy(new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(5)));
 
     // warmup to load OpenSearch plugins
     ElasticsearchApiService slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher);
