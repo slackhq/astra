@@ -446,7 +446,6 @@
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
             <version>1.14.8</version>
-            <scope>test</scope>
         </dependency>
 
         <!-- BlobFs test dependencies -->
