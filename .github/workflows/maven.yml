@@ -23,6 +23,8 @@ jobs:
       uses: actions/setup-java@v3
       with:
         java-version: '21'
+        #  Currently, LTS versions of Eclipse Temurin (temurin) are cached on the GitHub Hosted Runners.
+        #  When temurin releases Java 21 we can start using that again
         distribution: 'corretto'
         cache: 'maven'
     - name: Ensure code is formatted
