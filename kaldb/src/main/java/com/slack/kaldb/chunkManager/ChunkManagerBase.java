@@ -68,11 +68,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     return MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(
             Math.max(1, Runtime.getRuntime().availableProcessors() - 2),
-            new ThreadFactoryBuilder()
-                .setNameFormat("chunk-manager-query-%d")
-                .setUncaughtExceptionHandler(
-                    (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-                .build()));
+            Thread.ofVirtual().name("chunk-manager-query-", 0).factory()));
   }
 
   /*
