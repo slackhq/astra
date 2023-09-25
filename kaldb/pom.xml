@@ -18,19 +18,19 @@
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.14</http.client.version>
         <http.core.version>4.4.16</http.core.version>
-        <protobuf.version>3.23.2</protobuf.version>
+        <protobuf.version>3.25.0</protobuf.version>
         <grpc.version>1.57.2</grpc.version>
         <micrometer.version>1.11.0</micrometer.version>
         <armeria.version>1.25.2</armeria.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.15.2</jackson.version>
-        <jackson.databind.version>2.15.1</jackson.databind.version>
+        <jackson.databind.version>2.15.3</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.0</opensearch.version>
         <curator.version>5.5.0</curator.version>
         <log4j.version>2.20.0</log4j.version>
-        <aws.sdk.version>2.21.2</aws.sdk.version>
-        <error.prone.version>2.16</error.prone.version>
+        <aws.sdk.version>2.21.15</aws.sdk.version>
+        <error.prone.version>2.23.0</error.prone.version>
         <junit.jupiter.version>5.10.0</junit.jupiter.version>
     </properties>
 
@@ -258,7 +258,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
-            <version>1.10.0</version>
+            <version>1.11.0</version>
         </dependency>
 
         <dependency>
@@ -455,7 +455,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.14.8</version>
+            <version>1.14.9</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
@@ -573,7 +573,6 @@
                     <compilerArgs>
                         <arg>-XDcompilePolicy=simple</arg>
                         <arg>--enable-preview</arg>
-                        <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/protobuf/.* -Xep:WildcardImport:ERROR -Xep:AssertEqualsArgumentOrderChecker:ERROR</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
@@ -584,6 +583,32 @@
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                        <!-- Error prone settings -->
+                        <arg>
+                            <!-- TODO: consider removing all specific error upgrades in favor of -Werror (all warnings as build errors) -->
+                            -Xplugin:ErrorProne \
+                            -XepDisableWarningsInGeneratedCode \
+                            -XepExcludedPaths:.*/protobuf/.* \
+                            -Xep:WildcardImport:ERROR \
+                            -Xep:AssertEqualsArgumentOrderChecker:ERROR \
+                            -Xep:AlmostJavadoc:ERROR \
+                            -Xep:FallThrough:ERROR \
+                            -Xep:Finally:ERROR \
+                            -Xep:InconsistentCapitalization:ERROR \
+                            -Xep:InconsistentHashCode:ERROR \
+                            -Xep:InlineFormatString:ERROR \
+                            -Xep:InvalidThrows:ERROR \
+                            -Xep:JavaInstantGetSecondsGetNano:ERROR \
+                            -Xep:JavaUtilDate:ERROR \
+                            -Xep:LockNotBeforeTry:ERROR \
+                            -Xep:MissingOverride:ERROR \
+                            -Xep:NullOptional:ERROR \
+                            -Xep:UnnecessaryParentheses:ERROR \
+                            -Xep:UnusedMethod:ERROR \
+                            -Xep:UnusedVariable:ERROR \
+                            -Xep:StreamResourceLeak:ERROR \
+                            -Xep:StaticAssignmentInConstructor:ERROR
+                        </arg>
                     </compilerArgs>
                     <annotationProcessorPaths>
                         <path>

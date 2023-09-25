@@ -713,7 +713,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks.size()).isEqualTo(1);
     assertThat(recoveryTasks.get(0).startOffset).isEqualTo(10);
     assertThat(recoveryTasks.get(0).endOffset).isEqualTo(100);
-    assertThat((recoveryTasks.get(0)).partitionId).isEqualTo(partitionId);
+    assertThat(recoveryTasks.get(0).partitionId).isEqualTo(partitionId);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
   }
 
@@ -1712,7 +1712,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks.size()).isEqualTo(1);
     assertThat(recoveryTasks.get(0).startOffset).isEqualTo(10);
     assertThat(recoveryTasks.get(0).endOffset).isEqualTo(100);
-    assertThat((recoveryTasks.get(0)).partitionId).isEqualTo(partitionId);
+    assertThat(recoveryTasks.get(0).partitionId).isEqualTo(partitionId);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
   }
 
@@ -1736,7 +1736,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks.size()).isEqualTo(1);
     assertThat(recoveryTasks.get(0).startOffset).isEqualTo(100);
     assertThat(recoveryTasks.get(0).endOffset).isEqualTo(101);
-    assertThat((recoveryTasks.get(0)).partitionId).isEqualTo(testPartitionId);
+    assertThat(recoveryTasks.get(0).partitionId).isEqualTo(testPartitionId);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
   }
 

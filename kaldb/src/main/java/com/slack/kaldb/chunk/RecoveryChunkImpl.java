@@ -48,11 +48,11 @@ public class RecoveryChunkImpl<T> extends ReadWriteChunk<T> {
 
   @Override
   public void postSnapshot() {
-    LOG.info("Start post snapshot for recovery chunk {}", chunkInfo);
+    LOG.debug("Start post snapshot for recovery chunk {}", chunkInfo);
     // Publish a persistent snapshot for this chunk.
     SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
     snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
-    LOG.info("Post snapshot operation completed for recovery chunk {}", chunkInfo);
+    LOG.debug("Post snapshot operation completed for recovery chunk {}", chunkInfo);
   }
 
   @Override

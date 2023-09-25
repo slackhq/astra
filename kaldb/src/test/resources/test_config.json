@@ -22,6 +22,7 @@
     "maxMessagesPerChunk": 1000,
     "maxBytesPerChunk": 100000,
     "maxChunksOnDisk": 3,
+    "staleDurationSecs": 7200,
     "luceneConfig" : {
       "commitDurationSecs": 10,
       "refreshDurationSecs": 11,
@@ -119,7 +120,6 @@
     }
   },
   "recoveryConfig": {
-    "maxChunksOnDisk": 3,
     "serverConfig": {
       "serverPort": 8084,
       "serverAddress": "localhost",

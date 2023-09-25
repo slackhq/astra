@@ -27,7 +27,6 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
     LOG.debug("Received search request: {}", request);
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbLocalQueryService.doSearch");
     SearchQuery query = SearchResultUtils.fromSearchRequest(request);
-    span.tag("query", query.toString());
     // TODO: In the future we will also accept query timeouts from the search request. If provided
     // we'll use that over defaultQueryTimeout
     SearchResult<T> searchResult = chunkManager.query(query, defaultQueryTimeout);

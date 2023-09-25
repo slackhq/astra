@@ -153,7 +153,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
     Map<String, Integer> assignments = new HashMap<>();
 
     for (String replicaSet : managerConfig.getReplicaCreationServiceConfig().getReplicaSetsList()) {
-      LOG.info("Starting replica creation for unassigned snapshots for replicaSet {}", replicaSet);
+      LOG.debug("Starting replica creation for unassigned snapshots for replicaSet {}", replicaSet);
       Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
       List<String> existingReplicas =

@@ -61,7 +61,7 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
 
   @Override
   public void postSnapshot() {
-    LOG.info("Start post snapshot chunk {}", chunkInfo);
+    LOG.debug("Start post snapshot chunk {}", chunkInfo);
     // Publish a persistent snapshot for this chunk.
     SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
     snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
@@ -80,7 +80,7 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
     snapshotMetadataStore.updateSync(updatedSnapshotMetadata);
     liveSnapshotMetadata = updatedSnapshotMetadata;
 
-    LOG.info("Post snapshot operation completed for indexing RW chunk {}", chunkInfo);
+    LOG.debug("Post snapshot operation completed for indexing RW chunk {}", chunkInfo);
   }
 
   @Override

@@ -13,6 +13,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.Chunk;
+import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.IndexingChunkImpl;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.chunk.SearchContext;
@@ -30,6 +31,8 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -76,8 +79,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
   private ListenableFuture<Boolean> rolloverFuture;
 
-  private final ChunkCleanerService<T> chunkCleanerService;
-
   /**
    * A flag to indicate that ingestion should be stopped. Currently, we only stop ingestion when a
    * chunk roll over fails. Ideally, access to this field should be synchronized. But we don't
@@ -117,7 +118,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       MeterRegistry registry,
       BlobFs blobFs,
       String s3Bucket,
-      ListeningExecutorService rollOverExecutorService,
+      ListeningExecutorService rolloverExecutorService,
       AsyncCuratorFramework curatorFramework,
       SearchContext searchContext,
       KaldbConfigs.IndexerConfig indexerConfig) {
@@ -134,16 +135,11 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
-    this.rolloverExecutorService = rollOverExecutorService;
+    this.rolloverExecutorService = rolloverExecutorService;
     this.rolloverFuture = null;
     this.curatorFramework = curatorFramework;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
-    this.chunkCleanerService =
-        new ChunkCleanerService<>(
-            this,
-            indexerConfig.getMaxChunksOnDisk(),
-            Duration.ofSeconds(indexerConfig.getStaleDurationSecs()));
 
     stopIngestion = true;
     activeChunk = null;
@@ -169,6 +165,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
    * @param offset Kafka offset of the message.
    *     <p>TODO: Indexer should stop cleanly if the roll over fails or an exception.
    */
+  @Override
   public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     if (stopIngestion) {
@@ -215,8 +212,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
               if (success == null || !success) {
                 LOG.error("RollOverChunkTask success=false for chunk={}", currentChunk.info());
                 stopIngestion = true;
-                chunkCleanerService.deleteStaleData();
               }
+              deleteStaleData();
             }
 
             @Override
@@ -240,7 +237,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
    * a remote store.
    */
   public void rollOverActiveChunk() {
-    LOG.info("Rolling over active chunk");
+    LOG.debug("Rolling over active chunk");
     doRollover(getActiveChunk());
   }
 
@@ -285,8 +282,69 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     return activeChunk;
   }
 
-  @Override
-  public void removeStaleChunks(List<Chunk<T>> staleChunks) {
+  private void deleteStaleData() {
+    Duration staleDelayDuration = Duration.ofSeconds(indexerConfig.getStaleDurationSecs());
+    int limit = indexerConfig.getMaxChunksOnDisk();
+
+    Instant startInstant = Instant.now();
+    final Instant staleCutOffMs = startInstant.minusSeconds(staleDelayDuration.toSeconds());
+
+    // Delete any stale chunks that are either too old, or those chunks that go over the max allowed
+    // on
+    // any given node
+    deleteStaleChunksPastCutOff(staleCutOffMs);
+    deleteChunksOverLimit(limit);
+  }
+
+  private void deleteChunksOverLimit(int limit) {
+    if (limit < 0) {
+      throw new IllegalArgumentException("limit can't be negative");
+    }
+
+    final List<Chunk<T>> unsortedChunks = this.getChunkList();
+
+    if (unsortedChunks.size() <= limit) {
+      LOG.info("Unsorted chunks less than or equal to limit. Doing nothing.");
+      return;
+    }
+
+    // Sorts the list in ascending order (i.e. oldest to newest) and only gets chunks that we've
+    // taken a snapshot of
+    final List<Chunk<T>> sortedChunks =
+        unsortedChunks.stream()
+            .sorted(Comparator.comparingLong(chunk -> chunk.info().getChunkCreationTimeEpochMs()))
+            .filter(chunk -> chunk.info().getChunkSnapshotTimeEpochMs() > 0)
+            .toList();
+
+    final int totalChunksToDelete = sortedChunks.size() - limit;
+
+    final List<Chunk<T>> chunksToDelete = sortedChunks.subList(0, totalChunksToDelete);
+
+    LOG.info("Number of chunks past limit of {} is {}", limit, chunksToDelete.size());
+    this.removeStaleChunks(chunksToDelete);
+  }
+
+  private void deleteStaleChunksPastCutOff(Instant staleDataCutOffMs) {
+    List<Chunk<T>> staleChunks = new ArrayList<>();
+    for (Chunk<T> chunk : this.getChunkList()) {
+      if (chunkIsStale(chunk.info(), staleDataCutOffMs)) {
+        staleChunks.add(chunk);
+      }
+    }
+
+    LOG.info(
+        "Number of stale chunks at staleDataCutOffMs {} is {}",
+        staleDataCutOffMs,
+        staleChunks.size());
+    this.removeStaleChunks(staleChunks);
+  }
+
+  private boolean chunkIsStale(ChunkInfo chunkInfo, Instant staleDataCutoffMs) {
+    return chunkInfo.getChunkSnapshotTimeEpochMs() > 0
+        && chunkInfo.getChunkSnapshotTimeEpochMs() <= staleDataCutoffMs.toEpochMilli();
+  }
+
+  private void removeStaleChunks(List<Chunk<T>> staleChunks) {
     if (staleChunks.isEmpty()) return;
 
     LOG.info("Stale chunks to be removed are: {}", staleChunks);
@@ -300,14 +358,14 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
           try {
             if (chunkList.contains(chunk)) {
               String chunkInfo = chunk.info().toString();
-              LOG.info("Deleting chunk {}.", chunkInfo);
+              LOG.debug("Deleting chunk {}.", chunkInfo);
 
               // Remove the chunk first from the map so we don't search it anymore.
               // Note that any pending queries may still hold references to these chunks
               chunkList.remove(chunk);
 
               chunk.close();
-              LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
+              LOG.debug("Deleted and cleaned up chunk {}.", chunkInfo);
             } else {
               LOG.warn(
                   "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",

@@ -21,7 +21,6 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -59,8 +58,6 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
   private final ListeningExecutorService rolloverExecutorService;
   private boolean rollOverFailed;
 
-  private final ChunkCleanerService<T> chunkCleanerService;
-
   public RecoveryChunkManager(
       ChunkFactory<T> recoveryChunkFactory,
       ChunkRolloverFactory chunkRolloverFactory,
@@ -72,17 +69,14 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     this.recoveryChunkFactory = recoveryChunkFactory;
     this.chunkRolloverFactory = chunkRolloverFactory;
 
-    this.chunkCleanerService = new ChunkCleanerService<>(this, 0, Duration.ZERO);
-
     this.rolloverExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
     this.rollOverFailed = false;
 
     activeChunk = null;
-
-    LOG.info("Created a recovery chunk manager");
   }
 
+  @Override
   public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     if (readOnly) {
@@ -116,15 +110,19 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
           @Override
           public void onSuccess(Boolean success) {
             if (success == null || !success) {
-              LOG.warn("Roll over failed");
+              LOG.error("Roll over failed");
               rollOverFailed = true;
-              chunkCleanerService.deleteStaleData();
             }
+
+            // Clean up the chunks after
+            final List<Chunk<T>> chunks = getChunkList();
+            LOG.info("Removing {} chunks", chunks.size());
+            removeStaleChunks(chunks);
           }
 
           @Override
           public void onFailure(Throwable t) {
-            LOG.warn("Roll over failed with an exception", t);
+            LOG.error("Roll over failed with an exception", t);
             rollOverFailed = true;
           }
         },
@@ -174,7 +172,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     }
 
     if (rollOverFailed) {
-      LOG.info("Rollover has failed.");
+      LOG.error("Rollover has failed.");
       return false;
     } else {
       LOG.info("Rollover is completed");
@@ -239,8 +237,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     return new RecoveryChunkManager<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
   }
 
-  @Override
-  public void removeStaleChunks(List<Chunk<T>> staleChunks) {
+  private void removeStaleChunks(List<Chunk<T>> staleChunks) {
     if (staleChunks.isEmpty()) return;
 
     LOG.info("Stale chunks to be removed are: {}", staleChunks);

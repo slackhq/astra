@@ -1,7 +1,6 @@
 package com.slack.kaldb.chunkManager;
 
 import com.slack.kaldb.blobfs.BlobFs;
-import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.LogMessage;
@@ -12,7 +11,6 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
-import java.util.List;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,15 +124,5 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       throws IOException {
     throw new UnsupportedOperationException(
         "Adding messages is not supported on a caching chunk manager");
-  }
-
-  @Override
-  public void removeStaleChunks(List<Chunk<T>> staleChunks) {
-    // There's no need for us to remove any stale chunks here,
-    // as a chunk being "stale" only exists as a concept on
-    // ChunkManagers that are indexing data (e.g. an
-    // IndexingChunkManager and a RecoveryChunkManager)
-    throw new UnsupportedOperationException(
-        "Removing stale chunks is not supported on a caching chunk manager");
   }
 }

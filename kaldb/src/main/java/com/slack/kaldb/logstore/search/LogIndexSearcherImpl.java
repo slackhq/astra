@@ -102,7 +102,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("LogIndexSearcherImpl.search");
     span.tag("dataset", dataset);
-    span.tag("queryStr", queryStr);
     span.tag("startTimeMsEpoch", String.valueOf(startTimeMsEpoch));
     span.tag("endTimeMsEpoch", String.valueOf(endTimeMsEpoch));
     span.tag("howMany", String.valueOf(howMany));
@@ -116,7 +115,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       Query query =
           openSearchAdapter.buildQuery(
               dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch, searcher);
-      span.tag("lucene_query", query.toString());
       try {
         List<LogMessage> results;
         InternalAggregation internalAggregation = null;

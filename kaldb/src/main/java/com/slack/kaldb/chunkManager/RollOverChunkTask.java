@@ -33,7 +33,6 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
   private final String s3Bucket;
   private final String s3BucketPrefix;
   private final BlobFs blobFs;
-  private final MeterRegistry meterRegistry;
 
   public RollOverChunkTask(
       ReadWriteChunk<T> chunk,
@@ -45,7 +44,6 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.s3BucketPrefix = s3BucketPrefix;
-    this.meterRegistry = meterRegistry;
     rolloversInitiatedCounter = meterRegistry.counter(ROLLOVERS_INITIATED);
     rolloversCompletedCounter = meterRegistry.counter(ROLLOVERS_COMPLETED);
     rolloversFailedCounter = meterRegistry.counter(ROLLOVERS_FAILED);
@@ -59,7 +57,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
 
   private Boolean doRollover() {
     try {
-      LOG.info("Start chunk roll over {}", chunk.info());
+      LOG.debug("Start chunk roll over {}", chunk.info());
       rolloversInitiatedCounter.increment();
       // Run pre-snapshot and upload chunk to blob store.
       chunk.preSnapshot();
@@ -72,7 +70,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
       chunk.postSnapshot();
       rolloversCompletedCounter.increment();
       chunk.info().setChunkSnapshotTimeEpochMs(Instant.now().toEpochMilli());
-      LOG.info("Finished chunk roll over {}", chunk.info());
+      LOG.debug("Finished chunk roll over {}", chunk.info());
       return true;
     } catch (RuntimeException e) {
       rolloversFailedCounter.increment();

@@ -42,7 +42,7 @@ public abstract class PipelineAggBuilder extends AggBuilderBase {
   @Override
   public int hashCode() {
     int result = super.hashCode();
-    result = 31 * result + (bucketsPath.hashCode());
+    result = 31 * result + bucketsPath.hashCode();
     return result;
   }
 

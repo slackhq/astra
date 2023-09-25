@@ -144,31 +144,29 @@ public class RecoveryChunkImplTest {
       }
       chunk.commit();
 
+      chunk.query(
+          new SearchQuery(
+              MessageUtil.TEST_DATASET_NAME,
+              "*:*",
+              0,
+              MAX_TIME,
+              10,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+              Collections.emptyList()));
+
+      chunk.query(
+          new SearchQuery(
+              MessageUtil.TEST_DATASET_NAME,
+              "Message1",
+              0,
+              MAX_TIME,
+              10,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+              Collections.emptyList()));
+
       SearchResult<LogMessage> results =
-          chunk.query(
-              new SearchQuery(
-                  MessageUtil.TEST_DATASET_NAME,
-                  "*:*",
-                  0,
-                  MAX_TIME,
-                  10,
-                  new DateHistogramAggBuilder(
-                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-                  Collections.emptyList()));
-
-      results =
-          chunk.query(
-              new SearchQuery(
-                  MessageUtil.TEST_DATASET_NAME,
-                  "Message1",
-                  0,
-                  MAX_TIME,
-                  10,
-                  new DateHistogramAggBuilder(
-                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-                  Collections.emptyList()));
-
-      results =
           chunk.query(
               new SearchQuery(
                   MessageUtil.TEST_DATASET_NAME,
