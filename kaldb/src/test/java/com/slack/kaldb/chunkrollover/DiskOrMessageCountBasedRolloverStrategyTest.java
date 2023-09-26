@@ -9,8 +9,6 @@ import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -31,14 +29,17 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -79,6 +80,12 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private static long MAX_BYTES_PER_CHUNK = 12000;
 
   private KaldbLocalQueryService<LogMessage> kaldbLocalQueryService;
+
+  @RegisterExtension
+  public TemporaryLogStoreAndSearcherExtension strictLogStore =
+      new TemporaryLogStoreAndSearcherExtension(true);
+
+  public DiskOrMessageCountBasedRolloverStrategyTest() throws IOException {}
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -337,24 +344,21 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   }
 
   @Test
-  public void testCalculateDirectorySize() throws IOException {
-    FSDirectory directory = mock(FSDirectory.class);
-    when(directory.listAll()).thenThrow(IOException.class);
-    assertThat(DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(directory))
-        .isEqualTo(-1);
+  public void testDirectorySizeWithNoValidSegments() throws IOException {
+    try (FSDirectory fsDirectory = FSDirectory.open(Files.createTempDirectory(null))) {
+      long directorySize =
+          DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(fsDirectory);
+      assertThat(directorySize).isEqualTo(0);
+    }
+  }
 
-    directory = mock(FSDirectory.class);
-    when(directory.listAll()).thenReturn(new String[] {"file1", "file2"});
-    when(directory.fileLength("file1")).thenReturn(1L);
-    when(directory.fileLength("file2")).thenReturn(2L);
-    assertThat(DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(directory))
-        .isEqualTo(3);
-
-    directory = mock(FSDirectory.class);
-    when(directory.listAll()).thenReturn(new String[] {"file1", "file2"});
-    when(directory.fileLength("file1")).thenReturn(1L);
-    when(directory.fileLength("file2")).thenThrow(IOException.class);
-    assertThat(DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(directory))
-        .isEqualTo(1);
+  @Test
+  public void testDirectorySizeWithValidSegments() {
+    strictLogStore.logStore.addMessage(
+        new LogMessage("foo", "bar", "baz", Instant.EPOCH, Map.of()));
+    strictLogStore.logStore.commit();
+    FSDirectory directory = strictLogStore.logStore.getDirectory();
+    long directorySize = DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(directory);
+    assertThat(directorySize).isGreaterThan(0);
   }
 }

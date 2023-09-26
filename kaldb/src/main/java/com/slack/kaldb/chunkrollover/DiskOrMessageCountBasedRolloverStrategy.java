@@ -7,12 +7,13 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.lucene.index.IndexNotFoundException;
+import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,27 +107,24 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
   public static long calculateDirectorySize(FSDirectory activeChunkDirectory) {
     try {
       if (activeChunkDirectory != null && activeChunkDirectory.listAll().length > 0) {
-
-        long directorySize =
-            Arrays.stream(activeChunkDirectory.listAll())
-                .mapToLong(
-                    file -> {
-                      try {
-                        return activeChunkDirectory.fileLength(file);
-                      } catch (IOException e) {
-                        // There can be a race condition b/w the listAll which filters
-                        // pendingDeletes and then fileLength method which will throw
-                        // NoSuchFileException if the file has now become a pending delete
-                        return 0;
-                      }
-                    })
-                .sum();
-        return directorySize;
+        return SegmentInfos.readLatestCommit(activeChunkDirectory).asList().stream()
+            .mapToLong(
+                segmentCommitInfo -> {
+                  try {
+                    return segmentCommitInfo.sizeInBytes();
+                  } catch (IOException e) {
+                    return 0;
+                  }
+                })
+            .sum();
       }
+    } catch (IndexNotFoundException ignored) {
+      // no committed index found (may be brand new)
     } catch (Exception e) {
       LOG.error("Error calculating the directory size", e);
+      return -1;
     }
-    return -1;
+    return 0;
   }
 
   @Override
