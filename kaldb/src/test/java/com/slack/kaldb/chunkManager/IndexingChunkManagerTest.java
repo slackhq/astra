@@ -1322,7 +1322,9 @@ public class IndexingChunkManagerTest {
     // Add first set of messages, wait for roll over, then add next set of messages.
     insertMessages(chunkManager, messages1, msgsPerChunk);
 
-    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    await()
+        .atMost(15, TimeUnit.SECONDS)
+        .until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
     checkMetadata(2, 1, 1, 1, 0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
@@ -1336,7 +1338,9 @@ public class IndexingChunkManagerTest {
 
     insertMessages(chunkManager, messages2, msgsPerChunk);
 
-    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
+    await()
+        .atMost(15, TimeUnit.SECONDS)
+        .until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
     checkMetadata(4, 2, 2, 2, 0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(6);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
