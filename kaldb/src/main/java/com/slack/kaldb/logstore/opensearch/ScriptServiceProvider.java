@@ -15,23 +15,27 @@ import org.opensearch.script.ScriptService;
  * folded into the OpenSearchAdapter class.
  */
 public class ScriptServiceProvider {
-  private static ScriptService scriptService = null;
 
+  private static class ScriptServiceHolder {
+    static ScriptService scriptService = createInstance();
+  }
+
+  // The first call to this method, causes the initialization of the ScriptServiceHolder class
+  // “A typical VM will synchronize field access only to initialize the class” from Effective Java
   public static ScriptService getInstance() {
-    if (scriptService == null) {
-      IndexSettings indexSettings = OpenSearchAdapter.buildIndexSettings();
-      PluginsService pluginsService =
-          new PluginsService(
-              indexSettings.getSettings(), Path.of(""), null, null, List.of(PainlessPlugin.class));
-      ScriptModule scriptModule =
-          new ScriptModule(
-              pluginsService.updatedSettings(), pluginsService.filterPlugins(ScriptPlugin.class));
+    return ScriptServiceHolder.scriptService;
+  }
 
-      scriptService =
-          new ScriptService(
-              indexSettings.getSettings(), scriptModule.engines, scriptModule.contexts);
-      return scriptService;
-    }
-    return scriptService;
+  private static ScriptService createInstance() {
+    IndexSettings indexSettings = OpenSearchAdapter.buildIndexSettings();
+    PluginsService pluginsService =
+        new PluginsService(
+            indexSettings.getSettings(), Path.of(""), null, null, List.of(PainlessPlugin.class));
+    ScriptModule scriptModule =
+        new ScriptModule(
+            pluginsService.updatedSettings(), pluginsService.filterPlugins(ScriptPlugin.class));
+
+    return new ScriptService(
+        indexSettings.getSettings(), scriptModule.engines, scriptModule.contexts);
   }
 }
