@@ -4,7 +4,7 @@
 [![release pipeline](https://img.shields.io/github/actions/workflow/status/slackhq/kaldb/maven.yml?branch=master)](https://github.com/slackhq/kaldb/actions/workflows/maven.yml)
 [![license](https://img.shields.io/github/license/slackhq/kaldb)](https://github.com/slackhq/kaldb/blob/master/LICENSE)
 
-KalDB is a cloud-native search and analytics engine for log, trace, and audit data. It is designed to easy to operate, 
+KalDB is a cloud-native search and analytics engine for log, trace, and audit data. It is designed to be easy to operate, 
 cost-effective, and scale to petabytes of data.
 
 ## Goals
