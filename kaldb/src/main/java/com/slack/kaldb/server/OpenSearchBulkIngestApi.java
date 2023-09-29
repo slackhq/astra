@@ -1,5 +1,6 @@
 package com.slack.kaldb.server;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
 import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
@@ -37,6 +38,7 @@ import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.OutOfOrderSequenceException;
 import org.apache.kafka.common.errors.ProducerFencedException;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.common.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,6 +99,8 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       List<DatasetMetadata> datasetMetadataToProcesses =
           filterValidDatasetMetadata(datasetMetadataList);
 
+      checkArgument(!datasetMetadataToProcesses.isEmpty(), "dataset metadata list must not be empty");
+
       this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataToProcesses);
       this.rateLimiterPredicate =
           rateLimiter.createBulkIngestRateLimiter(datasetMetadataToProcesses);
@@ -120,6 +124,14 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       KaldbConfigs.PreprocessorConfig preprocessorConfig,
       PrometheusMeterRegistry meterRegistry,
       boolean initializeRateLimitWarm) {
+
+    checkArgument(
+            !preprocessorConfig.getBootstrapServers().isEmpty(),
+            "Kafka bootstrapServers must be provided");
+
+    checkArgument(!Strings.isEmpty(preprocessorConfig.getDownstreamTopic()),
+            "Kafka bootstrapServers must be provided");
+
     this.datasetMetadataStore = datasetMetadataStore;
     this.preprocessorConfig = preprocessorConfig;
     this.meterRegistry = meterRegistry;
