@@ -393,10 +393,11 @@ public class Kaldb {
           new CloseableLifecycleManager(
               KaldbConfigs.NodeRole.PREPROCESSOR, List.of(datasetMetadataStore)));
 
-      LOG.info("TEST: getUseBulkApi=" + preprocessorConfig.getUseBulkApi());
       if (preprocessorConfig.getUseBulkApi()) {
-        armeriaServiceBuilder.withAnnotatedService(
-            new OpenSearchBulkIngestApi(datasetMetadataStore, preprocessorConfig, meterRegistry));
+        OpenSearchBulkIngestApi openSearchBulkApiService =
+            new OpenSearchBulkIngestApi(datasetMetadataStore, preprocessorConfig, meterRegistry);
+        armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
+        services.add(openSearchBulkApiService);
       } else {
         PreprocessorService preprocessorService =
             new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);

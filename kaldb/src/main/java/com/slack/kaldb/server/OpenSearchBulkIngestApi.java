@@ -99,7 +99,8 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       List<DatasetMetadata> datasetMetadataToProcesses =
           filterValidDatasetMetadata(datasetMetadataList);
 
-      checkArgument(!datasetMetadataToProcesses.isEmpty(), "dataset metadata list must not be empty");
+      checkArgument(
+          !datasetMetadataToProcesses.isEmpty(), "dataset metadata list must not be empty");
 
       this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataToProcesses);
       this.rateLimiterPredicate =
@@ -126,11 +127,12 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       boolean initializeRateLimitWarm) {
 
     checkArgument(
-            !preprocessorConfig.getBootstrapServers().isEmpty(),
-            "Kafka bootstrapServers must be provided");
+        !preprocessorConfig.getBootstrapServers().isEmpty(),
+        "Kafka bootstrapServers must be provided");
 
-    checkArgument(!Strings.isEmpty(preprocessorConfig.getDownstreamTopic()),
-            "Kafka bootstrapServers must be provided");
+    checkArgument(
+        !Strings.isEmpty(preprocessorConfig.getDownstreamTopic()),
+        "Kafka downstreamTopic must be provided");
 
     this.datasetMetadataStore = datasetMetadataStore;
     this.preprocessorConfig = preprocessorConfig;
