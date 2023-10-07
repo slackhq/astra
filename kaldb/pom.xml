@@ -14,7 +14,7 @@
             aligned with the Armeria included versions.
         -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <javac.target>17</javac.target>
+        <javac.target>21</javac.target>
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.14</http.client.version>
         <http.core.version>4.4.16</http.core.version>
