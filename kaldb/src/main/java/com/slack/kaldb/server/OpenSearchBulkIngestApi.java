@@ -12,7 +12,10 @@ import static com.slack.kaldb.preprocessor.PreprocessorService.sortDatasetsOnThr
 
 import com.google.common.util.concurrent.AbstractService;
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.HttpStatus;
+import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.server.annotation.Blocking;
+import com.linecorp.armeria.server.annotation.Get;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.elasticsearchApi.BulkIngestResponse;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
@@ -152,6 +155,53 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     // see "zombie fencing" https://www.confluent.io/blog/transactions-apache-kafka/
     this.kafkaProducer = createKafkaTransactionProducer(UUID.randomUUID().toString());
     this.kafkaProducer.initTransactions();
+  }
+
+  // along with the bulk API we also need to expose some node info that logstash needs info from
+  @Get("/")
+  public HttpResponse getNodeInfo() {
+    String output =
+        """
+                {
+                  "name" : "node_name",
+                  "cluster_name" : "cluster_name",
+                  "cluster_uuid" : "uuid",
+                  "version" : {
+                    "number" : "7.12.0",
+                    "build_flavor" : "default",
+                    "build_type" : "deb",
+                    "build_hash" : "78722783c38caa25a70982b5b042074cde5d3b3a",
+                    "build_date" : "2021-04-02T00:53:29.130908562Z",
+                    "build_snapshot" : false,
+                    "lucene_version" : "8.8.0",
+                    "minimum_wire_compatibility_version" : "6.8.0",
+                    "minimum_index_compatibility_version" : "6.0.0-beta1"
+                  },
+                  "tagline" : "You Know, for Search"
+                }
+                """;
+    return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
+  }
+
+  @Get("/_license")
+  public HttpResponse getLicenseInfo() {
+    String output =
+        """
+                    {
+                      "license" : {
+                        "status" : "active",
+                        "uid" : "8afdc262-f37a-4b48-ad2e-68e224180640",
+                        "type" : "basic",
+                        "issue_date" : "2020-12-07T23:59:22.009Z",
+                        "issue_date_in_millis" : 1607385562009,
+                        "max_nodes" : 1000,
+                        "issued_to" : "cluster_name",
+                        "issuer" : "elasticsearch",
+                        "start_date_in_millis" : -1
+                      }
+                    }
+                    """;
+    return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
   }
 
   /**
