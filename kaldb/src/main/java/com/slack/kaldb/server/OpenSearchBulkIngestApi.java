@@ -1,6 +1,7 @@
 package com.slack.kaldb.server;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
 import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
@@ -99,8 +100,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       List<DatasetMetadata> datasetMetadataToProcesses =
           filterValidDatasetMetadata(datasetMetadataList);
 
-      checkArgument(
-          !datasetMetadataToProcesses.isEmpty(), "dataset metadata list must not be empty");
+      checkState(!datasetMetadataToProcesses.isEmpty(), "dataset metadata list must not be empty");
 
       this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataToProcesses);
       this.rateLimiterPredicate =
