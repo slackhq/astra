@@ -154,6 +154,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     // consumer sets isolation.level as "read_committed"
     // see "zombie fencing" https://www.confluent.io/blog/transactions-apache-kafka/
     this.kafkaProducer = createKafkaTransactionProducer(UUID.randomUUID().toString());
+    LOG.info("Calling initTransactions");
     this.kafkaProducer.initTransactions();
   }
 
@@ -170,6 +171,12 @@ public class OpenSearchBulkIngestApi extends AbstractService {
                         "number" : "7.12.0",
                         "build_flavor" : "default",
                         "build_type" : "deb",
+                        "build_hash" : "78722783c38caa25a70982b5b042074cde5d3b3a",
+                        "build_date" : "2021-04-02T00:53:29.130908562Z",
+                        "build_snapshot" : false,
+                        "lucene_version" : "8.8.0",
+                        "minimum_wire_compatibility_version" : "6.8.0",
+                        "minimum_index_compatibility_version" : "6.0.0-beta1"
                       },
                       "tagline" : "You Know, for Search"
                     }
@@ -185,7 +192,13 @@ public class OpenSearchBulkIngestApi extends AbstractService {
                           "license" : {
                             "status" : "active",
                             "uid" : "8afdc262-f37a-4b48-ad2e-68e224180640",
-                            "type" : "basic"
+                            "type" : "basic",
+                            "issue_date" : "2020-12-07T23:59:22.009Z",
+                            "issue_date_in_millis" : 1607385562009,
+                            "max_nodes" : 1000,
+                            "issued_to" : "cluster_name",
+                            "issuer" : "elasticsearch",
+                            "start_date_in_millis" : -1
                           }
                         }
                         """;
@@ -229,7 +242,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     }
   }
 
-  public BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
+  public synchronized BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
     int totalDocs = indexDocs.values().stream().mapToInt(List::size).sum();
 
     // we cannot create a generic pool of producers because the kafka API expects the transaction ID
