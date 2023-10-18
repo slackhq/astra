@@ -394,8 +394,12 @@ public class Kaldb {
               KaldbConfigs.NodeRole.PREPROCESSOR, List.of(datasetMetadataStore)));
 
       if (preprocessorConfig.getUseBulkApi()) {
-        armeriaServiceBuilder.withAnnotatedService(
-            new OpenSearchBulkIngestApi(datasetMetadataStore, preprocessorConfig, meterRegistry));
+        // TODO: using an armeria service that is also a guava service does not look elegant
+        // explore ways where we can control the lifecycle without the need for a guava service here
+        OpenSearchBulkIngestApi openSearchBulkApiService =
+            new OpenSearchBulkIngestApi(datasetMetadataStore, preprocessorConfig, meterRegistry);
+        armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
+        services.add(openSearchBulkApiService);
       } else {
         PreprocessorService preprocessorService =
             new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
