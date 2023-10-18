@@ -120,7 +120,10 @@ public class ArmeriaService extends AbstractIdleService {
       if (!tracingConfig.getZipkinEndpoint().isBlank()) {
         LOG.info(String.format("Trace reporting enabled: %s", tracingConfig.getZipkinEndpoint()));
         Sender sender = URLConnectionSender.create(tracingConfig.getZipkinEndpoint());
-        spanHandlers.add(AsyncZipkinSpanHandler.create(sender));
+        spanHandlers.add(
+            AsyncZipkinSpanHandler.newBuilder(sender)
+                .threadFactory(Thread.ofVirtual().factory())
+                .build());
       }
 
       return this;

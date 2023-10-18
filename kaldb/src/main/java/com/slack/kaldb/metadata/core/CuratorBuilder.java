@@ -39,6 +39,7 @@ public class CuratorBuilder {
     // TODO: In future add ZK auth credentials can be passed in here.
     CuratorFramework curator =
         CuratorFrameworkFactory.builder()
+            .threadFactory(Thread.ofVirtual().factory())
             .connectString(zkConfig.getZkConnectString())
             .namespace(zkConfig.getZkPathPrefix())
             .connectionTimeoutMs(zkConfig.getZkConnectionTimeoutMs())
