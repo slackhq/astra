@@ -33,7 +33,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -163,8 +162,6 @@ public class ArmeriaService extends AbstractIdleService {
                       .build());
       spanHandlers.forEach(tracingBuilder::addSpanHandler);
       serverBuilder.decorator(BraveService.newDecorator(tracingBuilder.build()));
-      serverBuilder.blockingTaskExecutor(
-          new ScheduledThreadPoolExecutor(0, Thread.ofVirtual().factory()), false);
 
       return new ArmeriaService(serverBuilder.build(), serviceName);
     }

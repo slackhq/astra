@@ -5,7 +5,6 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
-import java.util.concurrent.Executors;
 
 public class KaldbSearchUtils {
 
@@ -14,7 +13,6 @@ public class KaldbSearchUtils {
     KaldbServiceGrpc.KaldbServiceBlockingStub kaldbService =
         GrpcClients.builder(uri(port))
             .build(KaldbServiceGrpc.KaldbServiceBlockingStub.class)
-            .withExecutor(Executors.newVirtualThreadPerTaskExecutor())
             .withCompression("gzip");
 
     return kaldbService.search(
