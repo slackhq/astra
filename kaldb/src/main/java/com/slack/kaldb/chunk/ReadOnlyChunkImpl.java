@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -67,8 +66,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
   private final MeterRegistry meterRegistry;
-
-  private final ExecutorService executorService;
   private final BlobFs blobFs;
 
   public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
@@ -93,14 +90,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore,
-      ExecutorService executorService)
+      SearchMetadataStore searchMetadataStore)
       throws Exception {
     this.meterRegistry = meterRegistry;
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
-    this.executorService = executorService;
     this.searchContext = searchContext;
     this.slotId = UUID.randomUUID().toString();
 
@@ -144,7 +139,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                 newSlotState,
                 cacheSlotMetadata);
           }
-          executorService.execute(() -> handleChunkAssignment(cacheSlotMetadata));
+          Thread.ofVirtual().start(() -> handleChunkAssignment(cacheSlotMetadata));
         } else if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.EVICT)) {
           LOG.info("Chunk - EVICT received - {}", cacheSlotMetadata);
           if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
@@ -154,7 +149,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                 newSlotState,
                 cacheSlotMetadata);
           }
-          executorService.execute(() -> handleChunkEviction(cacheSlotMetadata));
+          Thread.ofVirtual().start(() -> handleChunkEviction(cacheSlotMetadata));
         }
         cacheSlotLastKnownState = newSlotState;
       } else {
