@@ -226,7 +226,7 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   }
 
   @Override
-  public synchronized void close() {
+  public void close() {
     if (cachedModeledFramework != null) {
       listenerMap.forEach(
           ((kaldbMetadataStoreChangeListener, tModeledCacheListener) ->

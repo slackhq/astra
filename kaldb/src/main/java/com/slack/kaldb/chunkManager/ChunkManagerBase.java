@@ -72,6 +72,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
 
     try {
       try (var scope = new StructuredTaskScope<SearchResult<T>>()) {
+        // TODO - are we potentially adding way too many concurrently and completing _fewer_?
         List<StructuredTaskScope.Subtask<SearchResult<T>>> chunkSubtasks =
             chunksMatchingQuery.stream()
                 .map((chunk) -> scope.fork(currentTraceContext.wrap(() -> chunk.query(query))))
@@ -88,9 +89,11 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                 .map(
                     searchResultSubtask -> {
                       try {
-                        return searchResultSubtask.get();
-                      } catch (Exception err) {
                         if (searchResultSubtask
+                            .state()
+                            .equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
+                          return searchResultSubtask.get();
+                        } else if (searchResultSubtask
                             .state()
                             .equals(StructuredTaskScope.Subtask.State.FAILED)) {
                           Throwable throwable = searchResultSubtask.exception();
@@ -100,6 +103,14 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                             // result we throw back an error to the user
                             throw new IllegalArgumentException(throwable);
                           }
+                          LOG.warn("Chunk Query Exception: {}", throwable.getMessage());
+                          return errorResult;
+                        }
+
+                        return searchResultSubtask.get();
+                      } catch (Exception err) {
+                        if (err instanceof IllegalArgumentException) {
+                          throw err;
                         }
 
                         // Only log the exception message as warn, and not the entire trace

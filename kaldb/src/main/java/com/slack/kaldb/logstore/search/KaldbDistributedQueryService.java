@@ -5,6 +5,7 @@ import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
+import brave.propagation.CurrentTraceContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -195,7 +196,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
   private KaldbServiceGrpc.KaldbServiceFutureStub getKaldbServiceGrpcClient(String server) {
     return GrpcClients.builder(server)
         .build(KaldbServiceGrpc.KaldbServiceFutureStub.class)
-        .withExecutor(Executors.newVirtualThreadPerTaskExecutor())
         // This enables compression for requests
         // Independent of this setting, servers choose whether to compress responses
         .withCompression("gzip");
@@ -369,7 +369,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
         getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
 
     span.tag("queryServerCount", String.valueOf(nodesAndSnapshotsToQuery.size()));
-    List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
+
+    CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
 
     try {
       try (var scope = new StructuredTaskScope<SearchResult<LogMessage>>()) {
@@ -378,44 +379,52 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
                 .map(
                     (searchNode) ->
                         scope.fork(
-                            () -> {
-                              KaldbServiceGrpc.KaldbServiceFutureStub stub =
-                                  getStub(searchNode.getKey());
+                            currentTraceContext.wrap(
+                                () -> {
+                                  KaldbServiceGrpc.KaldbServiceFutureStub stub =
+                                      getStub(searchNode.getKey());
 
-                              if (stub == null) {
-                                // TODO: insert a failed result in the results object that we return
-                                // from this method
-                                return null;
-                              }
+                                  if (stub == null) {
+                                    // TODO: insert a failed result in the results object that we
+                                    // return
+                                    // from this method
+                                    return null;
+                                  }
 
-                              KaldbSearch.SearchRequest localSearchReq =
-                                  distribSearchReq.toBuilder()
-                                      .addAllChunkIds(searchNode.getValue())
-                                      .build();
-                              return SearchResultUtils.fromSearchResultProtoOrEmpty(
-                                  stub.withInterceptors(
-                                          GrpcTracing.newBuilder(Tracing.current())
-                                              .build()
-                                              .newClientInterceptor())
-                                      .search(localSearchReq)
-                                      .get());
-                            }))
+                                  KaldbSearch.SearchRequest localSearchReq =
+                                      distribSearchReq.toBuilder()
+                                          .addAllChunkIds(searchNode.getValue())
+                                          .build();
+                                  return SearchResultUtils.fromSearchResultProtoOrEmpty(
+                                      stub.withDeadlineAfter(
+                                              defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
+                                          .withInterceptors(
+                                              GrpcTracing.newBuilder(Tracing.current())
+                                                  .build()
+                                                  .newClientInterceptor())
+                                          .search(localSearchReq)
+                                          .get());
+                                })))
                 .toList();
 
         try {
-          scope.joinUntil(Instant.now().plusSeconds(requestTimeout.toSeconds()));
+          scope.joinUntil(Instant.now().plusSeconds(defaultQueryTimeout.toSeconds()));
         } catch (TimeoutException timeoutException) {
           scope.shutdown();
           scope.join();
         }
 
-        List<SearchResult<LogMessage>> response = new ArrayList(searchSubtasks.size());
+        List<SearchResult<LogMessage>> response = new ArrayList<>(searchSubtasks.size());
         for (StructuredTaskScope.Subtask<SearchResult<LogMessage>> searchResult : searchSubtasks) {
           try {
-            response.add(searchResult.get() == null ? SearchResult.empty() : searchResult.get());
+            if (searchResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
+              response.add(searchResult.get() == null ? SearchResult.error() : searchResult.get());
+            } else {
+              response.add(SearchResult.error());
+            }
           } catch (Exception e) {
             LOG.error("Error fetching search result", e);
-            response.add(SearchResult.empty());
+            response.add(SearchResult.error());
           }
         }
         return response;

@@ -33,7 +33,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,8 +42,6 @@ import zipkin2.reporter.urlconnection.URLConnectionSender;
 
 public class ArmeriaService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ArmeriaService.class);
-
-  private static final int MAX_CONNECTIONS = 100;
 
   private final String serviceName;
   private final Server server;
@@ -63,14 +60,9 @@ public class ArmeriaService extends AbstractIdleService {
       this.serviceName = serviceName;
       this.serverBuilder = Server.builder().http(port);
 
-      initializeLimits();
       initializeCompression();
       initializeLogging();
       initializeManagementEndpoints(prometheusMeterRegistry);
-    }
-
-    private void initializeLimits() {
-      serverBuilder.maxNumConnections(MAX_CONNECTIONS);
     }
 
     private void initializeCompression() {
@@ -120,10 +112,7 @@ public class ArmeriaService extends AbstractIdleService {
       if (!tracingConfig.getZipkinEndpoint().isBlank()) {
         LOG.info(String.format("Trace reporting enabled: %s", tracingConfig.getZipkinEndpoint()));
         Sender sender = URLConnectionSender.create(tracingConfig.getZipkinEndpoint());
-        spanHandlers.add(
-            AsyncZipkinSpanHandler.newBuilder(sender)
-                .threadFactory(Thread.ofVirtual().factory())
-                .build());
+        spanHandlers.add(AsyncZipkinSpanHandler.newBuilder(sender).build());
       }
 
       return this;
@@ -173,8 +162,6 @@ public class ArmeriaService extends AbstractIdleService {
                       .build());
       spanHandlers.forEach(tracingBuilder::addSpanHandler);
       serverBuilder.decorator(BraveService.newDecorator(tracingBuilder.build()));
-      serverBuilder.blockingTaskExecutor(
-          new ScheduledThreadPoolExecutor(0, Thread.ofVirtual().factory()), false);
 
       return new ArmeriaService(serverBuilder.build(), serviceName);
     }
