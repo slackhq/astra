@@ -93,7 +93,7 @@
         <dependency>
             <groupId>io.netty.incubator</groupId>
             <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-            <version>0.0.22.Final</version>
+            <version>0.0.23.Final</version>
             <classifier>linux-x86_64</classifier>
         </dependency>
         <dependency>
@@ -323,7 +323,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.22.1</version>
+            <version>0.27.4</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
