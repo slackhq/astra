@@ -1,6 +1,5 @@
 package com.slack.kaldb.chunkManager;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
@@ -12,8 +11,6 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +34,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
   private CacheSlotMetadataStore cacheSlotMetadataStore;
-  private final ExecutorService executorService;
 
   public CachingChunkManager(
       MeterRegistry registry,
@@ -56,18 +52,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.replicaSet = replicaSet;
     this.slotCountPerInstance = slotCountPerInstance;
-
-    // todo - consider making the thread count a config option; this would allow for more
-    //  fine-grained tuning, but we might not need to expose this to the user if we can set sensible
-    //  defaults
-    this.executorService =
-        Executors.newFixedThreadPool(
-            Runtime.getRuntime().availableProcessors() >= 4 ? 2 : 1,
-            new ThreadFactoryBuilder()
-                .setNameFormat("caching-chunk-manager-%d")
-                .setUncaughtExceptionHandler(
-                    (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-                .build());
   }
 
   @Override
@@ -92,18 +76,13 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
               cacheSlotMetadataStore,
               replicaMetadataStore,
               snapshotMetadataStore,
-              searchMetadataStore,
-              ProtectedExecutorService.wrap(executorService)));
+              searchMetadataStore));
     }
   }
 
   @Override
   protected void shutDown() throws Exception {
     LOG.info("Closing caching chunk manager.");
-
-    // Attempt to forcibly shutdown the executor service. This prevents any further downloading of
-    // data from S3 that would be unused.
-    executorService.shutdown();
 
     chunkList.forEach(
         (readonlyChunk) -> {
