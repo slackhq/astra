@@ -113,17 +113,14 @@ public class S3CrtBlobFs extends BlobFs {
       // continue to attempt to read data from a socket that is no longer returning data
       S3CrtHttpConfiguration.Builder httpConfigurationBuilder =
           S3CrtHttpConfiguration.builder()
+              .proxyConfiguration(
+                  S3CrtProxyConfiguration.builder().useEnvironmentVariableValues(false).build())
               .connectionTimeout(Duration.ofSeconds(5))
               .connectionHealthConfiguration(
                   S3CrtConnectionHealthConfiguration.builder()
                       .minimumThroughputTimeout(Duration.ofSeconds(3))
                       .minimumThroughputInBps(32000L)
                       .build());
-
-      S3CrtProxyConfiguration proxyConfiguration = getProxyConfiguration();
-      if (proxyConfiguration != null) {
-        httpConfigurationBuilder.proxyConfiguration(proxyConfiguration);
-      }
       s3AsyncClient.httpConfiguration(httpConfigurationBuilder.build());
 
       if (!isNullOrEmpty(config.getS3EndPoint())) {
@@ -138,24 +135,6 @@ public class S3CrtBlobFs extends BlobFs {
     } catch (S3Exception e) {
       throw new RuntimeException("Could not initialize S3blobFs", e);
     }
-  }
-
-  /**
-   * Temporary system properties override for setting the aws crt proxy due to lack of <a
-   * href="https://github.com/awslabs/aws-c-http/issues/413">NO_PROXY support</a> This can be
-   * bypassed by providing a "valid" proxy that doesn't do anything, such as a no-op squid sidecar
-   */
-  private static S3CrtProxyConfiguration getProxyConfiguration() {
-    try {
-      String scheme = System.getProperty("aws.s3.crt.proxy.scheme");
-      String host = System.getProperty("aws.s3.crt.proxy.host");
-      int port = Integer.parseInt(System.getProperty("aws.s3.crt.proxy.port"));
-      LOG.info("Using proxy for AWS S3 CRT client - scheme/host/port {}/{}/{}", scheme, host, port);
-      return S3CrtProxyConfiguration.builder().scheme(scheme).host(host).port(port).build();
-    } catch (Exception e) {
-      LOG.error("Error getting proxy config", e);
-    }
-    return null;
   }
 
   @Override

@@ -17,7 +17,6 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.LocalBlobFs;
 import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
@@ -138,8 +137,7 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            MoreExecutors.newDirectExecutorService());
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -268,8 +266,7 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            MoreExecutors.newDirectExecutorService());
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -335,8 +332,7 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            MoreExecutors.newDirectExecutorService());
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -403,8 +399,7 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            MoreExecutors.newDirectExecutorService());
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
