@@ -14,7 +14,7 @@
             aligned with the Armeria included versions.
         -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <javac.target>17</javac.target>
+        <javac.target>21</javac.target>
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.14</http.client.version>
         <http.core.version>4.4.16</http.core.version>
@@ -51,7 +51,7 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>2.0.7</version>
+            <version>2.0.9</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -254,7 +254,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>32.0.0-jre</version>
+            <version>32.1.2-jre</version>
         </dependency>
 
         <dependency>
