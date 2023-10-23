@@ -191,7 +191,9 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     }
   }
 
-  public BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
+  // TODO: temporary synchronized till we produceDocuments supports writing multiple requests in one
+  // transaction
+  public synchronized BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
     int totalDocs = indexDocs.values().stream().mapToInt(List::size).sum();
 
     // we cannot create a generic pool of producers because the kafka API expects the transaction ID
@@ -222,6 +224,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
         // exit.
         new RuntimeHalterImpl().handleFatal(new Throwable("KafkaProducer needs to shutdown ", e));
       } catch (Exception e) {
+        LOG.warn("failed transaction with error", e);
         try {
           kafkaProducer.abortTransaction();
         } catch (ProducerFencedException err) {
