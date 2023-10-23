@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiPredicate;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -65,6 +66,8 @@ public class OpenSearchBulkIngestApi extends AbstractService {
   private final Timer configReloadTimer;
 
   private final KafkaProducer kafkaProducer;
+
+  private final ReentrantLock lockTransactionalProducer = new ReentrantLock();
 
   @Override
   protected void doStart() {
@@ -207,6 +210,13 @@ public class OpenSearchBulkIngestApi extends AbstractService {
         LOG.warn("index=" + index + " does not have a provisioned dataset associated with it");
         continue;
       }
+
+      // KafkaProducer does not allow creating multiple transactions from a single object -
+      // rightfully so.
+      // Till we fix the producer design to allow for multiple /_bulk requests to be able to
+      // write to the same txn
+      // we will limit producing documents 1 thread at a time
+      lockTransactionalProducer.lock();
       try {
         kafkaProducer.beginTransaction();
         for (Trace.Span doc : indexDoc.getValue()) {
@@ -222,12 +232,15 @@ public class OpenSearchBulkIngestApi extends AbstractService {
         // exit.
         new RuntimeHalterImpl().handleFatal(new Throwable("KafkaProducer needs to shutdown ", e));
       } catch (Exception e) {
+        LOG.warn("failed transaction with error", e);
         try {
           kafkaProducer.abortTransaction();
         } catch (ProducerFencedException err) {
           LOG.error("Could not abort transaction", err);
         }
         return new BulkIngestResponse(0, totalDocs, e.getMessage());
+      } finally {
+        lockTransactionalProducer.unlock();
       }
     }
 
