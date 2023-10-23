@@ -32,6 +32,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiPredicate;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -65,6 +69,9 @@ public class OpenSearchBulkIngestApi extends AbstractService {
   private final Timer configReloadTimer;
 
   private final KafkaProducer kafkaProducer;
+
+  private final ReentrantLock lockTransactionalProducer = new ReentrantLock();
+  private final Integer LOCK_TIMEOUT_SECONDS = 10;
 
   @Override
   protected void doStart() {
@@ -182,6 +189,12 @@ public class OpenSearchBulkIngestApi extends AbstractService {
           return HttpResponse.ofJson(TOO_MANY_REQUESTS, response);
         }
       }
+      // KafkaProducer does not allow creating multiple transactions from a single object -
+      // rightfully so.
+      // Till we fix the producer design to allow for multiple /_bulk requests to be able to
+      // write to the same txn
+      // we will limit producing documents 1 thread at a time
+      runWithLock(lockTransactionalProducer, () -> produceDocuments(docs));
       BulkIngestResponse response = produceDocuments(docs);
       return HttpResponse.ofJson(response);
     } catch (Exception e) {
@@ -191,9 +204,19 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     }
   }
 
-  // TODO: temporary synchronized till we produceDocuments supports writing multiple requests in one
-  // transaction
-  public synchronized BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
+  private void runWithLock(Lock lock, Runnable task) throws Exception {
+    if (lock.tryLock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+      try {
+        task.run();
+      } finally {
+        lock.unlock();
+      }
+    } else {
+      throw new TimeoutException("Timed out while waiting for kafkaProducer lock");
+    }
+  }
+
+  public BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
     int totalDocs = indexDocs.values().stream().mapToInt(List::size).sum();
 
     // we cannot create a generic pool of producers because the kafka API expects the transaction ID
