@@ -204,6 +204,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     logger.info("Started RW chunk pre-snapshot {}", chunkInfo);
     setReadOnly(true);
     commit();
+    logStore.finalMerge();
     logger.info("Finished RW chunk pre-snapshot {}", chunkInfo);
   }
 
