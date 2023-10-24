@@ -1372,6 +1372,87 @@ public class ReplicaAssignmentServiceTest {
   }
 
   @Test
+  public void shouldNotAssignIfAlreadyLoading() throws Exception {
+    MeterRegistry concurrentAssignmentsRegistry = new SimpleMeterRegistry();
+
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
+            .setSchedulePeriodMins(1)
+            .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(1)
+            .build();
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(1)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
+            .build();
+
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            managerConfig,
+            concurrentAssignmentsRegistry);
+
+    Instant now = Instant.now();
+    ReplicaMetadata expectedUnassignedMetadata =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            REPLICA_SET,
+            now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
+            now.plusSeconds(60).toEpochMilli(),
+            false,
+            LOGS_LUCENE9);
+    replicaMetadataStore.createAsync(expectedUnassignedMetadata);
+
+    ReplicaMetadata loadingMetadata =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            REPLICA_SET,
+            now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
+            now.plusSeconds(60).toEpochMilli(),
+            false,
+            LOGS_LUCENE9);
+    replicaMetadataStore.createAsync(loadingMetadata);
+
+    await().until(() -> replicaMetadataStore.listSync().size() == 2);
+
+    CacheSlotMetadata cacheSlotMetadata =
+        new CacheSlotMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.CacheSlotMetadata.CacheSlotState.LOADING,
+            loadingMetadata.snapshotId,
+            Instant.now().toEpochMilli(),
+            List.of(LOGS_LUCENE9, LOGS_LUCENE9),
+            HOSTNAME,
+            REPLICA_SET);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
+
+    CacheSlotMetadata freeCacheSlot =
+        new CacheSlotMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+            "",
+            Instant.now().toEpochMilli(),
+            List.of(LOGS_LUCENE9, LOGS_LUCENE9),
+            HOSTNAME,
+            REPLICA_SET);
+    cacheSlotMetadataStore.createAsync(freeCacheSlot);
+
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 2);
+
+    replicaAssignmentService.startAsync();
+    replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // immediately force a run
+    Map<String, Integer> assignments = replicaAssignmentService.assignReplicasToCacheSlots();
+    assertThat(assignments.get(REPLICA_SET)).isEqualTo(0);
+  }
+
+  @Test
   public void shouldPreventConcurrentAssignmentsExceedingLimit() throws Exception {
     MeterRegistry concurrentAssignmentsRegistry = new SimpleMeterRegistry();
 
