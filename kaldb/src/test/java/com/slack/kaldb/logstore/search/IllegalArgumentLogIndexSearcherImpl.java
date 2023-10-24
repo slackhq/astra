@@ -8,8 +8,8 @@ public class IllegalArgumentLogIndexSearcherImpl implements LogIndexSearcher<Log
   public SearchResult<LogMessage> search(
       String dataset,
       String query,
-      long minTime,
-      long maxTime,
+      Long minTime,
+      Long maxTime,
       int howMany,
       AggBuilder aggBuilder) {
     throw new IllegalArgumentException("Failed to acquire an index searcher");

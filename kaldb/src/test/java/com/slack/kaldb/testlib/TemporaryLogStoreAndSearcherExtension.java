@@ -47,7 +47,7 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
         searcher.search(
             dataset,
             query,
-            0,
+            0L,
             MAX_TIME,
             howMany,
             new DateHistogramAggBuilder(

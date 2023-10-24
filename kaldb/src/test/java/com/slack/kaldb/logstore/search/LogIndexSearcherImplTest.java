@@ -649,7 +649,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new DateHistogramAggBuilder(
@@ -677,7 +677,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, null));
@@ -687,7 +687,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, ""));
@@ -697,7 +697,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, "return 9;"));
@@ -713,7 +713,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new FiltersAggBuilder(
@@ -758,7 +758,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new MinAggBuilder(
@@ -783,7 +783,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new MaxAggBuilder(
@@ -809,7 +809,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new SumAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null));
@@ -832,7 +832,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new ExtendedStatsAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null, null));
@@ -862,7 +862,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new TermsAggBuilder(
@@ -969,7 +969,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new TermsAggBuilder(
@@ -998,7 +998,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "_all:baby",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1012,7 +1012,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "_all:1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1027,7 +1027,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "baby",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1041,7 +1041,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1063,7 +1063,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "_all:baby",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1077,7 +1077,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "_all:1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1092,7 +1092,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "baby",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1106,7 +1106,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1128,7 +1128,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "_all:baby",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1142,7 +1142,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "_all:1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1157,7 +1157,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "baby",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1171,7 +1171,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1187,7 +1187,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1202,7 +1202,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "app*",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1218,7 +1218,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "baby car",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1234,7 +1234,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "apple 1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1249,7 +1249,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "123",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1285,7 +1285,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "_all:baby",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1300,7 +1300,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "_all:1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1316,7 +1316,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "baby",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1331,7 +1331,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1347,7 +1347,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1362,7 +1362,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "app*",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1378,7 +1378,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "baby car",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1394,7 +1394,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "apple 1234",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1409,7 +1409,7 @@ public class LogIndexSearcherImplTest {
                 .search(
                     TEST_DATASET_NAME,
                     "123",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1430,7 +1430,7 @@ public class LogIndexSearcherImplTest {
                 strictLogStore.logSearcher.search(
                     TEST_DATASET_NAME + "miss",
                     null,
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1447,7 +1447,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME + "miss",
             "apple",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new DateHistogramAggBuilder(
@@ -1475,7 +1475,7 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "elephant",
-            0,
+            0L,
             MAX_TIME,
             1000,
             new DateHistogramAggBuilder(
@@ -1544,7 +1544,7 @@ public class LogIndexSearcherImplTest {
                 strictLogStore.logSearcher.search(
                     "",
                     "test",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1561,7 +1561,7 @@ public class LogIndexSearcherImplTest {
                 strictLogStore.logSearcher.search(
                     null,
                     "test",
-                    0,
+                    0L,
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1595,7 +1595,7 @@ public class LogIndexSearcherImplTest {
                 strictLogStore.logSearcher.search(
                     TEST_DATASET_NAME,
                     "test",
-                    0,
+                    0L,
                     -1L,
                     1000,
                     new DateHistogramAggBuilder(
@@ -1704,7 +1704,7 @@ public class LogIndexSearcherImplTest {
                   strictLogStore.logSearcher.search(
                       TEST_DATASET_NAME,
                       "baby",
-                      0,
+                      0L,
                       MAX_TIME,
                       100,
                       new DateHistogramAggBuilder(

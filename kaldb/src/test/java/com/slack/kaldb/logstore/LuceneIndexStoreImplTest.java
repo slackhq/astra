@@ -100,7 +100,7 @@ public class LuceneIndexStoreImplTest {
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
               "nested.key1:value1",
-              0,
+              0L,
               MAX_TIME,
               100,
               new DateHistogramAggBuilder(
@@ -111,7 +111,7 @@ public class LuceneIndexStoreImplTest {
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
               "duplicateproperty:duplicate1",
-              0,
+              0L,
               MAX_TIME,
               100,
               new DateHistogramAggBuilder(
@@ -122,7 +122,7 @@ public class LuceneIndexStoreImplTest {
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
               "nested.duplicateproperty:2",
-              0,
+              0L,
               MAX_TIME,
               100,
               new DateHistogramAggBuilder(
