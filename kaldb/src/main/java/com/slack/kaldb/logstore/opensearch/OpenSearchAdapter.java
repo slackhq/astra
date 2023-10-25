@@ -40,11 +40,12 @@ import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.CheckedConsumer;
-import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.compress.CompressedXContent;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
@@ -61,7 +62,6 @@ import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.indices.IndicesModule;
-import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.script.Script;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
@@ -327,7 +327,7 @@ public class OpenSearchAdapter {
         Settings.builder()
             .put(IndexMetadata.INDEX_NUMBER_OF_SHARDS_SETTING.getKey(), 1)
             .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
-            .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_7_0)
+            .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_11_0)
             .put(
                 MapperService.INDEX_MAPPING_TOTAL_FIELDS_LIMIT_SETTING.getKey(), TOTAL_FIELDS_LIMIT)
 

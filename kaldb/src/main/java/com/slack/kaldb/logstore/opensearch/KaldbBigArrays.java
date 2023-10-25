@@ -5,7 +5,7 @@ import static org.opensearch.common.util.PageCacheRecycler.LIMIT_HEAP_SETTING;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.util.PageCacheRecycler;
-import org.opensearch.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 
 /**
  * Kaldb singleton wrapper for an OpenSearch BigArrays implementation. Only one BigArrays should be
