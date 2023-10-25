@@ -128,7 +128,7 @@ preprocessorConfig:
   serverConfig:
     serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
     serverAddress: ${KALDB_PREPROCESSOR_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${KALDB_PREPROCESSOR_REQUEST_TIMEOUT_MS:-5000}
+    requestTimeoutMs: ${KALDB_PREPROCESSOR_REQUEST_TIMEOUT_MS:-30000}
   upstreamTopics: [${KAKFA_UPSTREAM_TOPICS:-test-topic-in}]
   downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic}
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}

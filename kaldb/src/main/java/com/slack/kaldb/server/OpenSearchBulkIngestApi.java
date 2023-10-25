@@ -26,6 +26,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.OutOfOrderSequenceException;
 import org.apache.kafka.common.errors.ProducerFencedException;
+import org.apache.kafka.common.errors.TimeoutException;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.common.Strings;
 import org.slf4j.Logger;
@@ -66,6 +68,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
   private final Timer configReloadTimer;
 
   private final KafkaProducer kafkaProducer;
+  private final KafkaClientMetrics kafkaMetrics;
 
   private final ReentrantLock lockTransactionalProducer = new ReentrantLock();
 
@@ -88,6 +91,9 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       LOG.info("Stopping OpenSearchBulkIngestApi service");
       datasetMetadataStore.removeListener(datasetListener);
       kafkaProducer.close();
+      if (kafkaMetrics != null) {
+        kafkaMetrics.close();
+      }
       LOG.info("OpenSearchBulkIngestApi service closed");
       notifyStopped();
     } catch (Throwable t) {
@@ -154,6 +160,8 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     // consumer sets isolation.level as "read_committed"
     // see "zombie fencing" https://www.confluent.io/blog/transactions-apache-kafka/
     this.kafkaProducer = createKafkaTransactionProducer(UUID.randomUUID().toString());
+    kafkaMetrics = new KafkaClientMetrics(kafkaProducer);
+    kafkaMetrics.bindTo(meterRegistry);
     this.kafkaProducer.initTransactions();
   }
 
@@ -220,13 +228,24 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       try {
         kafkaProducer.beginTransaction();
         for (Trace.Span doc : indexDoc.getValue()) {
-
           ProducerRecord<String, byte[]> producerRecord =
               new ProducerRecord<>(
                   preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
           kafkaProducer.send(producerRecord);
         }
         kafkaProducer.commitTransaction();
+      } catch (TimeoutException te) {
+        LOG.error("Commit transaction timeout", te);
+        new RuntimeHalterImpl()
+            .handleFatal(
+                new Throwable(
+                    "KafkaProducer needs to shutdown as we don't have retry yet and we cannot call abortTxn on timeout",
+                    te));
+        // the commitTransaction waits till "max.block.ms" after which it will timeout
+        // in that case we cannot cause abort exception because that throws the following error
+        // "Cannot attempt operation `abortTransaction` because the previous
+        // call to `commitTransaction` timed out and must be retried"
+        //
       } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
         // We can't recover from these exceptions, so our only option is to close the producer and
         // exit.
@@ -268,6 +287,8 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
     props.put("transactional.id", transactionId);
+    props.put("max.block.ms", "25000");
+    props.put("compression.type", "snappy");
     props.put("linger.ms", 250);
     return new KafkaProducer<>(props);
   }
