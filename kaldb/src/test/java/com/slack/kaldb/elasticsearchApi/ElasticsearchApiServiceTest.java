@@ -4,7 +4,6 @@ import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -34,8 +33,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.AfterEach;
@@ -230,14 +227,6 @@ public class ElasticsearchApiServiceTest {
     ElasticsearchApiService slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher);
     HttpResponse response = slowElasticsearchApiService.multiSearch(postBody);
 
-    Set<String> threadNames = ConcurrentHashMap.newKeySet();
-    doAnswer(
-            invocationOnMock -> {
-              threadNames.add(Thread.currentThread().getName());
-              return invocationOnMock.callRealMethod();
-            })
-        .when(slowSearcher)
-        .doSearch(any());
     slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher);
     response = slowElasticsearchApiService.multiSearch(postBody.repeat(100));
 
@@ -247,9 +236,6 @@ public class ElasticsearchApiServiceTest {
     JsonNode jsonNode = new ObjectMapper().readTree(body);
 
     assertThat(aggregatedRes.status().code()).isEqualTo(200);
-
-    // assert that more than one thread executed our code
-    assertThat(threadNames.size()).isGreaterThan(1);
 
     // ensure we have all 100 results
     assertThat(jsonNode.get("responses").size()).isEqualTo(100);

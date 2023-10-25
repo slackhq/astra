@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.Serdes;
@@ -71,6 +72,8 @@ public class PreprocessorService extends AbstractService {
 
   private final KaldbMetadataStoreChangeListener<DatasetMetadata> datasetListener =
       (datasetMetadata) -> load();
+
+  private final ReentrantLock schemaLoadingLock = new ReentrantLock();
 
   public PreprocessorService(
       DatasetMetadataStore datasetMetadataStore,
@@ -135,9 +138,10 @@ public class PreprocessorService extends AbstractService {
   /**
    * Configures and starts a KafkaStream processor, based off of the cached DatasetMetadataStore.
    * This method is reentrant, and will restart any existing KafkaStream processors. Access to this
-   * must be synchronized if using this method as part of a listener.
+   * must be guarded with ReentrantLock if using this method as part of a listener.
    */
-  public synchronized void load() {
+  public void load() {
+    schemaLoadingLock.lock();
     try {
       Timer.Sample loadTimer = Timer.start(meterRegistry);
       LOG.info("Loading new Kafka stream processor config");
@@ -183,6 +187,8 @@ public class PreprocessorService extends AbstractService {
       loadTimer.stop(configReloadTimer);
     } catch (Exception e) {
       notifyFailed(e);
+    } finally {
+      schemaLoadingLock.unlock();
     }
   }
 

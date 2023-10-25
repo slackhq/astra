@@ -5,10 +5,10 @@ import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
+import brave.propagation.CurrentTraceContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
@@ -25,6 +25,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,14 +34,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -369,64 +369,69 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
         getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
 
     span.tag("queryServerCount", String.valueOf(nodesAndSnapshotsToQuery.size()));
-    List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
-    for (Map.Entry<String, List<String>> searchNode : nodesAndSnapshotsToQuery.entrySet()) {
-      KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
-      if (stub == null) {
-        // TODO: insert a failed result in the results object that we return from this method
-        // mimicing
-        continue;
-      }
 
-      KaldbSearch.SearchRequest localSearchReq =
-          distribSearchReq.toBuilder().addAllChunkIds(searchNode.getValue()).build();
-
-      // make sure all underlying futures finish executing (successful/cancelled/failed/other)
-      // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
-      ListenableFuture<KaldbSearch.SearchResult> searchRequest =
-          stub.withDeadlineAfter(defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
-              .withInterceptors(
-                  GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
-              .search(localSearchReq);
-      Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
-          SearchResultUtils::fromSearchResultProtoOrEmpty;
-
-      queryServers.add(
-          Futures.transform(
-              searchRequest, searchRequestTransform::apply, MoreExecutors.directExecutor()));
-    }
-
-    Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
+    CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
     try {
-      List<SearchResult<LogMessage>> searchResults =
-          searchFuture.get(requestTimeout.toMillis(), TimeUnit.MILLISECONDS);
-      LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
+      try (var scope = new StructuredTaskScope<SearchResult<LogMessage>>()) {
+        List<StructuredTaskScope.Subtask<SearchResult<LogMessage>>> searchSubtasks =
+            nodesAndSnapshotsToQuery.entrySet().stream()
+                .map(
+                    (searchNode) ->
+                        scope.fork(
+                            currentTraceContext.wrap(
+                                () -> {
+                                  KaldbServiceGrpc.KaldbServiceFutureStub stub =
+                                      getStub(searchNode.getKey());
 
-      List<SearchResult<LogMessage>> response = new ArrayList(searchResults.size());
-      for (SearchResult<LogMessage> searchResult : searchResults) {
-        response.add(searchResult == null ? SearchResult.empty() : searchResult);
+                                  if (stub == null) {
+                                    // TODO: insert a failed result in the results object that we
+                                    // return from this method
+                                    return null;
+                                  }
+
+                                  KaldbSearch.SearchRequest localSearchReq =
+                                      distribSearchReq.toBuilder()
+                                          .addAllChunkIds(searchNode.getValue())
+                                          .build();
+                                  return SearchResultUtils.fromSearchResultProtoOrEmpty(
+                                      stub.withDeadlineAfter(
+                                              defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
+                                          .withInterceptors(
+                                              GrpcTracing.newBuilder(Tracing.current())
+                                                  .build()
+                                                  .newClientInterceptor())
+                                          .search(localSearchReq)
+                                          .get());
+                                })))
+                .toList();
+
+        try {
+          scope.joinUntil(Instant.now().plusSeconds(defaultQueryTimeout.toSeconds()));
+        } catch (TimeoutException timeoutException) {
+          scope.shutdown();
+          scope.join();
+        }
+
+        List<SearchResult<LogMessage>> response = new ArrayList(searchSubtasks.size());
+        for (StructuredTaskScope.Subtask<SearchResult<LogMessage>> searchResult : searchSubtasks) {
+          try {
+            if (searchResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
+              response.add(searchResult.get() == null ? SearchResult.error() : searchResult.get());
+            } else {
+              response.add(SearchResult.error());
+            }
+          } catch (Exception e) {
+            LOG.error("Error fetching search result", e);
+            response.add(SearchResult.error());
+          }
+        }
+        return response;
       }
-      return response;
-    } catch (TimeoutException e) {
-      // We provide a deadline to the stub of "defaultQueryTimeout" - if this is sufficiently lower
-      // than the request timeout, we would expect searchFuture.get(requestTimeout) to never throw
-      // an exception. This however doesn't necessarily hold true if the query node is CPU
-      // saturated, and there is not enough cpu time to fail the pending stub queries that have
-      // exceeded their deadline - causing the searchFuture get to fail with a timeout.
-      LOG.error(
-          "Search failed with timeout exception. This is potentially due to CPU saturation of the query node.",
-          e);
-      span.error(e);
-      return List.of(SearchResult.empty());
     } catch (Exception e) {
       LOG.error("Search failed with ", e);
       span.error(e);
       return List.of(SearchResult.empty());
     } finally {
-      // always request future cancellation, so that any exceptions or incomplete futures don't
-      // continue to consume CPU on work that will not be used
-      searchFuture.cancel(false);
-      LOG.debug("Finished distributed search for request: {}", distribSearchReq);
       span.finish();
     }
   }

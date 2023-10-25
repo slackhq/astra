@@ -1,5 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
@@ -26,6 +28,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
 
   @Override
   public SearchResult<T> aggregate(List<SearchResult<T>> searchResults, boolean finalAggregation) {
+    ScopedSpan span =
+        Tracing.currentTracer().startScopedSpan("SearchResultAggregatorImpl.aggregate");
     long tookMicros = 0;
     int failedNodes = 0;
     int totalNodes = 0;
@@ -92,6 +96,10 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
                     (T m) -> m.getTimestamp().toEpochMilli(), Comparator.reverseOrder()))
             .limit(searchQuery.howMany)
             .collect(Collectors.toList());
+
+    span.tag("resultHits", String.valueOf(resultHits.size()));
+    span.tag("finalAggregation", String.valueOf(finalAggregation));
+    span.finish();
 
     return new SearchResult<>(
         resultHits,

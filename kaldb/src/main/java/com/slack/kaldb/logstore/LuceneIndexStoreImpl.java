@@ -15,6 +15,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -69,6 +70,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   // compound files or not.
   // If we ever revisit this - the value was picked thinking it's a good "default"
   private final Integer CFS_FILES_SIZE_MB_CUTOFF = 128;
+
+  private final ReentrantLock indexWriterLock = new ReentrantLock();
 
   // TODO: Set the policy via a lucene config file.
   public static LuceneIndexStoreImpl makeLogStore(
@@ -208,26 +211,35 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
   // TODO: IOException can be logged and recovered from?.
   private void syncCommit() throws IOException {
-    synchronized (this) {
+    indexWriterLock.lock();
+    try {
       if (indexWriter.isPresent()) {
         indexWriter.get().commit();
       }
+    } finally {
+      indexWriterLock.unlock();
     }
   }
 
   private void syncRefresh() throws IOException {
-    synchronized (this) {
+    indexWriterLock.lock();
+    try {
       if (indexWriter.isPresent()) {
         searcherManager.maybeRefresh();
       }
+    } finally {
+      indexWriterLock.unlock();
     }
   }
 
   private void syncFinalMerge() throws IOException {
-    synchronized (this) {
+    indexWriterLock.lock();
+    try {
       if (indexWriter.isPresent()) {
         indexWriter.get().forceMerge(1);
       }
+    } finally {
+      indexWriterLock.unlock();
     }
   }
 
@@ -353,7 +365,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
    */
   @Override
   public void close() {
-    synchronized (this) {
+    indexWriterLock.lock();
+    try {
       if (indexWriter.isEmpty()) {
         // Closable.close() requires this be idempotent, so silently exit instead of throwing an
         // exception
@@ -367,6 +380,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         LOG.error("Error closing index " + id, e);
       }
       indexWriter = Optional.empty();
+    } finally {
+      indexWriterLock.unlock();
     }
   }
 
