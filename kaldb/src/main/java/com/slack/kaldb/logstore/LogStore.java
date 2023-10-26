@@ -20,6 +20,8 @@ public interface LogStore<T> extends Closeable {
 
   void refresh();
 
+  void finalMerge();
+
   boolean isOpen();
 
   void cleanup() throws IOException;

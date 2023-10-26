@@ -321,4 +321,11 @@ class ClusterHpaMetricServiceTest {
     // 2 replicas, 0 slots (will log an error and return a default no-op)
     assertThat(rep2Metadata.getValue()).isEqualTo(1);
   }
+
+  @Test
+  void testDemandFactorRounding() {
+    assertThat(ClusterHpaMetricService.calculateDemandFactor(100, 98)).isEqualTo(0.98);
+    assertThat(ClusterHpaMetricService.calculateDemandFactor(98, 100)).isEqualTo(1.03);
+    assertThat(ClusterHpaMetricService.calculateDemandFactor(9999, 10000)).isEqualTo(1.01);
+  }
 }

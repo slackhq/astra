@@ -1,5 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.hpa.HpaMetricMetadata;
@@ -142,7 +143,8 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
     }
   }
 
-  private static double calculateDemandFactor(
+  @VisibleForTesting
+  protected static double calculateDemandFactor(
       long totalCacheSlotCapacity, long totalReplicaDemand) {
     if (totalCacheSlotCapacity == 0) {
       // we have no provisioned capacity, so cannot determine a value
@@ -154,8 +156,8 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
     }
     // demand factor will be < 1 indicating a scale-down demand, and > 1 indicating a scale-up
     double rawDemandFactor = (double) (totalReplicaDemand) / (totalCacheSlotCapacity);
-    // round to 2 decimals
-    return (double) Math.round(rawDemandFactor * 100) / 100;
+    // round up to 2 decimals
+    return Math.ceil(rawDemandFactor * 100) / 100;
   }
 
   /** Updates or inserts an (ephemeral) HPA metric for the cache nodes. This is NOT threadsafe. */

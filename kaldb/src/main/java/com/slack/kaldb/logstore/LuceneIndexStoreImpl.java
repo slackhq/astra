@@ -48,6 +48,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   public static final String COMMITS_TIMER = "kaldb_index_commits";
   public static final String REFRESHES_TIMER = "kaldb_index_refreshes";
 
+  public static final String FINAL_MERGES_TIMER = "kaldb_index_final_merges";
+
   private final SearcherManager searcherManager;
   private final DocumentBuilder<LogMessage> documentBuilder;
   private final FSDirectory indexDirectory;
@@ -60,6 +62,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final Counter messagesFailedCounter;
   private final io.micrometer.core.instrument.Timer commitsTimer;
   private final io.micrometer.core.instrument.Timer refreshesTimer;
+
+  private final io.micrometer.core.instrument.Timer finalMergesTimer;
 
   // We think if the segments being flushed to disk are smaller than this then we should use
   // compound files or not.
@@ -142,6 +146,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     messagesFailedCounter = registry.counter(MESSAGES_FAILED_COUNTER);
     commitsTimer = registry.timer(COMMITS_TIMER);
     refreshesTimer = registry.timer(REFRESHES_TIMER);
+    finalMergesTimer = registry.timer(FINAL_MERGES_TIMER);
 
     LOG.info(
         "Created a lucene index {} at: {}", id, indexDirectory.getDirectory().toAbsolutePath());
@@ -218,6 +223,14 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     }
   }
 
+  private void syncFinalMerge() throws IOException {
+    synchronized (this) {
+      if (indexWriter.isPresent()) {
+        indexWriter.get().forceMerge(1);
+      }
+    }
+  }
+
   @Override
   public FSDirectory getDirectory() {
     return indexDirectory;
@@ -270,6 +283,22 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
           try {
             syncRefresh();
             LOG.debug("Indexer finished refresh for: " + indexDirectory.getDirectory().toString());
+          } catch (IOException e) {
+            handleNonFatal(e);
+          }
+        });
+  }
+
+  @Override
+  public void finalMerge() {
+    finalMergesTimer.record(
+        () -> {
+          LOG.debug(
+              "Indexer starting final merge for: " + indexDirectory.getDirectory().toString());
+          try {
+            syncFinalMerge();
+            LOG.debug(
+                "Indexer finished final merge for: " + indexDirectory.getDirectory().toString());
           } catch (IOException e) {
             handleNonFatal(e);
           }
