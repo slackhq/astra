@@ -11,6 +11,9 @@ public class SearchResult<T> {
   private static final SearchResult EMPTY =
       new SearchResult<>(Collections.emptyList(), 0, 0, 1, 0, 0, null);
 
+  private static final SearchResult ERROR =
+      new SearchResult<>(Collections.emptyList(), 0, 1, 1, 0, 0, null);
+
   // TODO: Make hits an iterator.
   // An iterator helps with the early termination of a search and may be efficient in some cases.
   public final List<T> hits;
@@ -107,5 +110,9 @@ public class SearchResult<T> {
 
   public static SearchResult<LogMessage> empty() {
     return EMPTY;
+  }
+
+  public static SearchResult<LogMessage> error() {
+    return ERROR;
   }
 }

@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -78,6 +79,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private final KaldbMetadataStoreChangeListener<CacheSlotMetadata> cacheSlotListener =
       this::cacheNodeListener;
+
+  private final ReentrantLock chunkAssignmentLock = new ReentrantLock();
 
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
@@ -187,12 +190,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  // We synchronize access when manipulating the chunk, as the close() can
+  // We lock access when manipulating the chunk, as the close() can
   // run concurrently with an assignment
-  private synchronized void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
+  private void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
+    chunkAssignmentLock.lock();
     try {
-      ///
       if (!setChunkMetadataState(
           cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.LOADING)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
@@ -249,6 +252,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       setChunkMetadataState(cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.FREE);
       LOG.error("Error handling chunk assignment", e);
       assignmentTimer.stop(chunkAssignmentTimerFailure);
+    } finally {
+      chunkAssignmentLock.unlock();
     }
   }
 
@@ -265,10 +270,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
-  // We synchronize access when manipulating the chunk, as the close()
+  // We lock access when manipulating the chunk, as the close()
   // can run concurrently with an eviction
-  private synchronized void handleChunkEviction(CacheSlotMetadata cacheSlotMetadata) {
+  private void handleChunkEviction(CacheSlotMetadata cacheSlotMetadata) {
     Timer.Sample evictionTimer = Timer.start(meterRegistry);
+    chunkAssignmentLock.lock();
     try {
       if (!setChunkMetadataState(
           cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.EVICTING)) {
@@ -297,6 +303,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       // re-assignment or queries hitting this slot
       LOG.error("Error handling chunk eviction", e);
       evictionTimer.stop(chunkEvictionTimerFailure);
+    } finally {
+      chunkAssignmentLock.unlock();
     }
   }
 
@@ -381,15 +389,46 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   @Override
   public SearchResult<T> query(SearchQuery query) {
     if (logSearcher != null) {
+      Long searchStartTime =
+          determineStartTime(query.startTimeEpochMs, chunkInfo.getDataStartTimeEpochMs());
+      Long searchEndTime =
+          determineEndTime(query.endTimeEpochMs, chunkInfo.getDataEndTimeEpochMs());
+
       return logSearcher.search(
           query.dataset,
           query.queryStr,
-          query.startTimeEpochMs,
-          query.endTimeEpochMs,
+          searchStartTime,
+          searchEndTime,
           query.howMany,
           query.aggBuilder);
     } else {
       return (SearchResult<T>) SearchResult.empty();
     }
+  }
+
+  /**
+   * Determines the start time to use for the query, given the original query start time and the
+   * start time of data in the chunk
+   */
+  protected static Long determineStartTime(long queryStartTimeEpochMs, long chunkStartTimeEpochMs) {
+    Long searchStartTime = null;
+    if (queryStartTimeEpochMs > chunkStartTimeEpochMs) {
+      // if the query start time falls after the beginning of the chunk
+      searchStartTime = queryStartTimeEpochMs;
+    }
+    return searchStartTime;
+  }
+
+  /**
+   * Determines the end time to use for the query, given the original query end time and the end
+   * time of data in the chunk
+   */
+  protected static Long determineEndTime(long queryEndTimeEpochMs, long chunkEndTimeEpochMs) {
+    Long searchEndTime = null;
+    if (queryEndTimeEpochMs < chunkEndTimeEpochMs) {
+      // if the query end time falls before the end of the chunk
+      searchEndTime = queryEndTimeEpochMs;
+    }
+    return searchEndTime;
   }
 }

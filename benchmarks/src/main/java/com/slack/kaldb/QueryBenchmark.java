@@ -126,7 +126,7 @@ public class QueryBenchmark {
     logIndexSearcher.search(
         "*",
         "",
-        0,
+        0L,
         Long.MAX_VALUE,
         500,
         new DateHistogramAggBuilder(

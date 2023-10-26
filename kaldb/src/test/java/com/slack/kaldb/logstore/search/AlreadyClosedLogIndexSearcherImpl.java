@@ -9,8 +9,8 @@ public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMe
   public SearchResult<LogMessage> search(
       String dataset,
       String query,
-      long minTime,
-      long maxTime,
+      Long minTime,
+      Long maxTime,
       int howMany,
       AggBuilder aggBuilder) {
     throw new AlreadyClosedException("Failed to acquire an index searcher");

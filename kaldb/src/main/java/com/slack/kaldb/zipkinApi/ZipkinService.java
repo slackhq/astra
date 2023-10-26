@@ -1,12 +1,15 @@
-package com.slack.kaldb.server;
+package com.slack.kaldb.zipkinApi;
 
 import static com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata.MATCH_ALL_DATASET;
 
 import brave.Tracing;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.util.JsonFormat;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
@@ -18,8 +21,10 @@ import com.linecorp.armeria.server.annotation.Path;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -27,11 +32,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.StringJoiner;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import zipkin2.proto3.Endpoint;
-import zipkin2.proto3.Span;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 /**
@@ -47,8 +50,8 @@ import zipkin2.proto3.Span;
 public class ZipkinService {
 
   protected static String convertLogWireMessageToZipkinSpan(List<LogWireMessage> messages)
-      throws InvalidProtocolBufferException {
-    List<String> traces = new ArrayList<>(messages.size());
+      throws JsonProcessingException {
+    List<ZipkinSpanResponse> traces = new ArrayList<>(messages.size());
     for (LogWireMessage message : messages) {
       if (message.getId() == null) {
         LOG.warn("Document={} cannot have missing id ", message);
@@ -60,7 +63,7 @@ public class ZipkinService {
       String name = null;
       String serviceName = null;
       String timestamp = String.valueOf(message.getTimestamp().toEpochMilli());
-      long duration = Long.MIN_VALUE;
+      long duration = Integer.MIN_VALUE;
       Map<String, String> messageTags = new HashMap<>();
 
       for (String k : message.getSource().keySet()) {
@@ -74,7 +77,7 @@ public class ZipkinService {
         } else if (LogMessage.ReservedField.SERVICE_NAME.fieldName.equals(k)) {
           serviceName = (String) value;
         } else if (LogMessage.ReservedField.DURATION_MS.fieldName.equals(k)) {
-          duration = ((Number) value).longValue();
+          duration = TimeUnit.MICROSECONDS.convert(Duration.ofMillis(((Number) value).intValue()));
         } else {
           messageTags.put(k, String.valueOf(value));
         }
@@ -92,24 +95,20 @@ public class ZipkinService {
         continue;
       }
 
-      final long messageConvertedTimestamp = convertToMicroSeconds(message.getTimestamp());
-
-      final Span span =
-          makeSpan(
-              messageTraceId,
-              Optional.ofNullable(parentId),
-              message.getId(),
-              Optional.ofNullable(name),
-              Optional.ofNullable(serviceName),
-              messageConvertedTimestamp,
-              duration,
-              messageTags);
-      String spanJson = printer.print(span);
-      traces.add(spanJson);
+      final ZipkinSpanResponse span = new ZipkinSpanResponse(message.getId(), messageTraceId);
+      span.setParentId(parentId);
+      span.setName(name);
+      if (serviceName != null) {
+        ZipkinEndpointResponse remoteEndpoint = new ZipkinEndpointResponse();
+        remoteEndpoint.setServiceName(serviceName);
+        span.setRemoteEndpoint(remoteEndpoint);
+      }
+      span.setTimestamp(convertToMicroSeconds(message.getTimestamp()));
+      span.setDuration(Math.toIntExact(duration));
+      span.setTags(messageTags);
+      traces.add(span);
     }
-    StringJoiner outputJsonArray = new StringJoiner(",", "[", "]");
-    traces.forEach(outputJsonArray::add);
-    return outputJsonArray.toString();
+    return objectMapper.writeValueAsString(traces);
   }
 
   // returning LogWireMessage instead of LogMessage
@@ -127,31 +126,6 @@ public class ZipkinService {
     return messages;
   }
 
-  private static Span makeSpan(
-      String traceId,
-      Optional<String> parentId,
-      String id,
-      Optional<String> name,
-      Optional<String> serviceName,
-      long timestamp,
-      long duration,
-      Map<String, String> tags) {
-    Span.Builder spanBuilder = Span.newBuilder();
-
-    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()).toStringUtf8());
-    spanBuilder.setId(ByteString.copyFrom(id.getBytes()).toStringUtf8());
-    spanBuilder.setTimestamp(timestamp);
-    spanBuilder.setDuration(duration);
-
-    parentId.ifPresent(
-        s -> spanBuilder.setParentId(ByteString.copyFrom(s.getBytes()).toStringUtf8()));
-    name.ifPresent(spanBuilder::setName);
-    serviceName.ifPresent(
-        s -> spanBuilder.setRemoteEndpoint(Endpoint.newBuilder().setServiceName(s)));
-    spanBuilder.putAllTags(tags);
-    return spanBuilder.build();
-  }
-
   @VisibleForTesting
   protected static long convertToMicroSeconds(Instant instant) {
     return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
@@ -163,8 +137,14 @@ public class ZipkinService {
   private static final int MAX_SPANS = 20_000;
 
   private final KaldbQueryServiceBase searcher;
-  private static final JsonFormat.Printer printer =
-      JsonFormat.printer().includingDefaultValueFields();
+
+  private static final ObjectMapper objectMapper =
+      JsonMapper.builder()
+          // sort alphabetically for easier test asserts
+          .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+          // don't serialize null values or empty maps
+          .serializationInclusion(JsonInclude.Include.NON_EMPTY)
+          .build();
 
   public ZipkinService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;

@@ -187,20 +187,25 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
               .stream()
               .flatMap(
                   (cacheSlotsPerHost) -> {
-                    int currentlyAssigned =
+                    int currentlyAssignedOrLoading =
                         cacheSlotsPerHost.stream()
                             .filter(
                                 cacheSlotMetadata ->
                                     cacheSlotMetadata.cacheSlotState.equals(
-                                        Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
+                                            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)
+                                        || cacheSlotMetadata.cacheSlotState.equals(
+                                            Metadata.CacheSlotMetadata.CacheSlotState.LOADING))
                             .toList()
                             .size();
+
                     return cacheSlotsPerHost.stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
                                     Metadata.CacheSlotMetadata.CacheSlotState.FREE))
-                        .limit(Math.max(0, maxConcurrentAssignmentsPerNode - currentlyAssigned));
+                        .limit(
+                            Math.max(
+                                0, maxConcurrentAssignmentsPerNode - currentlyAssignedOrLoading));
                   })
               .collect(Collectors.toList());
 

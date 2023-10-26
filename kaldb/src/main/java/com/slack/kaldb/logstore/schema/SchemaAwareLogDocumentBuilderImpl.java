@@ -48,7 +48,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   // TODO: Move this definition to the config file.
-  private static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions(
+  public static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions(
       boolean enableFullTextSearch) {
     ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
 
