@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
@@ -22,7 +23,13 @@ import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.CollectorManager;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.IndexSortSortedNumericDocValuesRangeQuery;
+import org.apache.lucene.search.MatchAllDocsQuery;
+import org.apache.lucene.search.Query;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
@@ -48,9 +55,14 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherExtension(false);
 
-  private final OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of());
+  private final OpenSearchAdapter openSearchAdapter =
+      new OpenSearchAdapter(
+          SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions(false));
 
-  public OpenSearchAdapterTest() throws IOException {}
+  public OpenSearchAdapterTest() throws IOException {
+    // We need to reload the schema so that query optimizations take into account the schema
+    openSearchAdapter.reloadSchema();
+  }
 
   @Test
   public void safelyHandlesUnknownAggregations() throws IOException {
@@ -390,5 +402,51 @@ public class OpenSearchAdapterTest {
 
     assertThatExceptionOfType(IllegalArgumentException.class)
         .isThrownBy(() -> collectorManager.newCollector());
+  }
+
+  @Test
+  public void shouldExcludeDateFilterWhenNullTimestamps() throws Exception {
+    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+    Query nullBothTimestamps = openSearchAdapter.buildQuery("foo", "", null, null, indexSearcher);
+    // null for both timestamps with no query string should be optimized into a matchall
+    assertThat(nullBothTimestamps).isInstanceOf(MatchAllDocsQuery.class);
+
+    Query nullStartTimestamp = openSearchAdapter.buildQuery("foo", "a", null, 100L, indexSearcher);
+    assertThat(nullStartTimestamp).isInstanceOf(BooleanQuery.class);
+
+    Optional<IndexSortSortedNumericDocValuesRangeQuery> filterNullStartQuery =
+        ((BooleanQuery) nullStartTimestamp)
+            .clauses().stream()
+                .filter(
+                    booleanClause ->
+                        booleanClause.getQuery()
+                            instanceof IndexSortSortedNumericDocValuesRangeQuery)
+                .map(
+                    booleanClause ->
+                        (IndexSortSortedNumericDocValuesRangeQuery) booleanClause.getQuery())
+                .findFirst();
+    assertThat(filterNullStartQuery).isPresent();
+    // a null start and provided end should result in an optimized range query of min long to the
+    // end value
+    assertThat(filterNullStartQuery.get().toString()).contains(String.valueOf(Long.MIN_VALUE));
+    assertThat(filterNullStartQuery.get().toString()).contains(String.valueOf(100L));
+
+    Query nullEndTimestamp = openSearchAdapter.buildQuery("foo", "", 100L, null, indexSearcher);
+    Optional<IndexSortSortedNumericDocValuesRangeQuery> filterNullEndQuery =
+        ((BooleanQuery) nullEndTimestamp)
+            .clauses().stream()
+                .filter(
+                    booleanClause ->
+                        booleanClause.getQuery()
+                            instanceof IndexSortSortedNumericDocValuesRangeQuery)
+                .map(
+                    booleanClause ->
+                        (IndexSortSortedNumericDocValuesRangeQuery) booleanClause.getQuery())
+                .findFirst();
+    assertThat(filterNullEndQuery).isPresent();
+    // a null end and provided start should result in an optimized range query of start value to max
+    // long
+    assertThat(filterNullEndQuery.get().toString()).contains(String.valueOf(100L));
+    assertThat(filterNullEndQuery.get().toString()).contains(String.valueOf(Long.MAX_VALUE));
   }
 }

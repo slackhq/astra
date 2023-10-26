@@ -389,15 +389,46 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   @Override
   public SearchResult<T> query(SearchQuery query) {
     if (logSearcher != null) {
+      Long searchStartTime =
+          determineStartTime(query.startTimeEpochMs, chunkInfo.getDataStartTimeEpochMs());
+      Long searchEndTime =
+          determineEndTime(query.endTimeEpochMs, chunkInfo.getDataEndTimeEpochMs());
+
       return logSearcher.search(
           query.dataset,
           query.queryStr,
-          query.startTimeEpochMs,
-          query.endTimeEpochMs,
+          searchStartTime,
+          searchEndTime,
           query.howMany,
           query.aggBuilder);
     } else {
       return (SearchResult<T>) SearchResult.empty();
     }
+  }
+
+  /**
+   * Determines the start time to use for the query, given the original query start time and the
+   * start time of data in the chunk
+   */
+  protected static Long determineStartTime(long queryStartTimeEpochMs, long chunkStartTimeEpochMs) {
+    Long searchStartTime = null;
+    if (queryStartTimeEpochMs > chunkStartTimeEpochMs) {
+      // if the query start time falls after the beginning of the chunk
+      searchStartTime = queryStartTimeEpochMs;
+    }
+    return searchStartTime;
+  }
+
+  /**
+   * Determines the end time to use for the query, given the original query end time and the end
+   * time of data in the chunk
+   */
+  protected static Long determineEndTime(long queryEndTimeEpochMs, long chunkEndTimeEpochMs) {
+    Long searchEndTime = null;
+    if (queryEndTimeEpochMs < chunkEndTimeEpochMs) {
+      // if the query end time falls before the end of the chunk
+      searchEndTime = queryEndTimeEpochMs;
+    }
+    return searchEndTime;
   }
 }

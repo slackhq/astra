@@ -143,8 +143,8 @@ public class OpenSearchAdapter {
   public Query buildQuery(
       String dataset,
       String queryStr,
-      long startTimeMsEpoch,
-      long endTimeMsEpoch,
+      Long startTimeMsEpoch,
+      Long endTimeMsEpoch,
       IndexSearcher indexSearcher)
       throws IOException {
     LOG.trace("Query raw input string: '{}'", queryStr);
@@ -158,11 +158,22 @@ public class OpenSearchAdapter {
     try {
       BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
 
-      RangeQueryBuilder rangeQueryBuilder =
-          new RangeQueryBuilder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
-              .gte(startTimeMsEpoch)
-              .lte(endTimeMsEpoch);
-      boolQueryBuilder.filter(rangeQueryBuilder);
+      // only add a range filter if either start or end time is provided
+      if (startTimeMsEpoch != null || endTimeMsEpoch != null) {
+        RangeQueryBuilder rangeQueryBuilder =
+            new RangeQueryBuilder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+
+        // todo - consider supporting something other than GTE/LTE (ie GT/LT?)
+        if (startTimeMsEpoch != null) {
+          rangeQueryBuilder.gte(startTimeMsEpoch);
+        }
+
+        if (endTimeMsEpoch != null) {
+          rangeQueryBuilder.lte(endTimeMsEpoch);
+        }
+
+        boolQueryBuilder.filter(rangeQueryBuilder);
+      }
 
       // todo - dataset?
 
