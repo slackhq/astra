@@ -1,6 +1,9 @@
 package com.slack.kaldb.chunk;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
@@ -51,8 +54,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   @Deprecated // replace with sync methods, which use DEFAULT_ZK_TIMEOUT_SECS where possible
   private static final int TIMEOUT_MS = 5000;
 
-  private ChunkInfo chunkInfo;
-  private LogIndexSearcher<T> logSearcher;
+  protected ChunkInfo chunkInfo;
+  protected LogIndexSearcher<T> logSearcher;
   private SearchMetadata searchMetadata;
   private Path dataDirectory;
   private ChunkSchema chunkSchema;
@@ -81,6 +84,16 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this::cacheNodeListener;
 
   private final ReentrantLock chunkAssignmentLock = new ReentrantLock();
+  private final LoadingCache<LogSearcherQuery, SearchResult<T>> queryCache =
+      CacheBuilder.newBuilder()
+          .maximumSize(100) // this is per-chunk
+          .build(
+              new CacheLoader<>() {
+                @Override
+                public SearchResult<T> load(LogSearcherQuery query) {
+                  return doQuery(query);
+                }
+              });
 
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
@@ -386,49 +399,29 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     return null;
   }
 
+  protected SearchResult<T> doQuery(LogSearcherQuery query) {
+    return logSearcher.search(
+        query.dataset,
+        query.queryStr,
+        query.startTimeEpochMs,
+        query.endTimeEpochMs,
+        query.howMany,
+        query.aggBuilder);
+  }
+
   @Override
   public SearchResult<T> query(SearchQuery query) {
     if (logSearcher != null) {
-      Long searchStartTime =
-          determineStartTime(query.startTimeEpochMs, chunkInfo.getDataStartTimeEpochMs());
-      Long searchEndTime =
-          determineEndTime(query.endTimeEpochMs, chunkInfo.getDataEndTimeEpochMs());
-
-      return logSearcher.search(
-          query.dataset,
-          query.queryStr,
-          searchStartTime,
-          searchEndTime,
-          query.howMany,
-          query.aggBuilder);
+      LogSearcherQuery logSearcherQuery = new LogSearcherQuery(query, chunkInfo);
+      if (logSearcherQuery.isCacheable()) {
+        LOG.info(
+            "Query eligible for cached request result, will attempt to load from cache - {}",
+            query);
+        return queryCache.getUnchecked(logSearcherQuery);
+      }
+      return doQuery(logSearcherQuery);
     } else {
       return (SearchResult<T>) SearchResult.empty();
     }
-  }
-
-  /**
-   * Determines the start time to use for the query, given the original query start time and the
-   * start time of data in the chunk
-   */
-  protected static Long determineStartTime(long queryStartTimeEpochMs, long chunkStartTimeEpochMs) {
-    Long searchStartTime = null;
-    if (queryStartTimeEpochMs > chunkStartTimeEpochMs) {
-      // if the query start time falls after the beginning of the chunk
-      searchStartTime = queryStartTimeEpochMs;
-    }
-    return searchStartTime;
-  }
-
-  /**
-   * Determines the end time to use for the query, given the original query end time and the end
-   * time of data in the chunk
-   */
-  protected static Long determineEndTime(long queryEndTimeEpochMs, long chunkEndTimeEpochMs) {
-    Long searchEndTime = null;
-    if (queryEndTimeEpochMs < chunkEndTimeEpochMs) {
-      // if the query end time falls before the end of the chunk
-      searchEndTime = queryEndTimeEpochMs;
-    }
-    return searchEndTime;
   }
 }

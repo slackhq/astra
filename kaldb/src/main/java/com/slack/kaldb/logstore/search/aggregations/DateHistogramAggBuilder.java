@@ -81,7 +81,13 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
     if (!interval.equals(that.interval)) return false;
     if (!Objects.equals(offset, that.offset)) return false;
     if (!Objects.equals(format, that.format)) return false;
-    return Objects.equals(extendedBounds, that.extendedBounds);
+
+    if (minDocCount != 0) {
+      // We only consider extended bounds if the minDocCount is not 0
+      return Objects.equals(extendedBounds, that.extendedBounds);
+    }
+
+    return true;
   }
 
   @Override
@@ -91,7 +97,10 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
     result = 31 * result + (offset != null ? offset.hashCode() : 0);
     result = 31 * result + (int) (minDocCount ^ (minDocCount >>> 32));
     result = 31 * result + (format != null ? format.hashCode() : 0);
-    result = 31 * result + (extendedBounds != null ? extendedBounds.hashCode() : 0);
+
+    if (minDocCount != 0) {
+      result = 31 * result + (extendedBounds != null ? extendedBounds.hashCode() : 0);
+    }
     return result;
   }
 

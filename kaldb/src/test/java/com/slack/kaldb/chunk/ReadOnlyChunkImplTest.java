@@ -14,15 +14,27 @@ import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.LocalBlobFs;
 import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
@@ -40,6 +52,7 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -51,20 +64,30 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.lucene.index.IndexCommit;
+import org.apache.lucene.search.CollectorManager;
 import org.assertj.core.util.Files;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.opensearch.search.aggregations.Aggregator;
+import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 public class ReadOnlyChunkImplTest {
+
+  @RegisterExtension
+  public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
+      new TemporaryLogStoreAndSearcherExtension(false);
+
   private static final String TEST_S3_BUCKET = "read-only-chunk-impl-test";
 
   private TestingServer testingServer;
@@ -78,6 +101,8 @@ public class ReadOnlyChunkImplTest {
           .silent()
           .withSecureConnection(false)
           .build();
+
+  public ReadOnlyChunkImplTest() throws IOException {}
 
   @BeforeEach
   public void startup() throws Exception {
@@ -459,24 +484,80 @@ public class ReadOnlyChunkImplTest {
   }
 
   @Test
-  public void shouldUseOptimizedQueryStartEndTime() {
-    // Query is before the chunk data, so do not return a start time
-    assertThat(ReadOnlyChunkImpl.determineStartTime(10, 12)).isNull();
+  public void shouldCacheRepeatedQueries() throws Exception {
+    ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
+        new ReadOnlyChunkImpl<>(
+            mock(AsyncCuratorFramework.class),
+            new SimpleMeterRegistry(),
+            mock(BlobFs.class),
+            new SearchContext("hostname", 8080),
+            "foo",
+            "bar",
+            "rep1",
+            mock(CacheSlotMetadataStore.class),
+            mock(ReplicaMetadataStore.class),
+            mock(SnapshotMetadataStore.class),
+            mock(SearchMetadataStore.class));
+    LogIndexSearcher<LogMessage> searcher = mock(LogIndexSearcher.class);
+    OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of());
+    DateHistogramAggBuilder dateHistogramAggBuilder =
+        new DateHistogramAggBuilder(
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of());
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAdapter.getCollectorManager(
+            dateHistogramAggBuilder,
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
 
-    // Query matches chunk start time, do not return a start time
-    assertThat(ReadOnlyChunkImpl.determineStartTime(10, 10)).isNull();
+    InternalDateHistogram internalDateHistogram;
+    try (Aggregator dateHistogramAggregator = collectorManager.newCollector()) {
+      internalDateHistogram = (InternalDateHistogram) dateHistogramAggregator.buildTopLevel();
+    }
 
-    // Query only matches part of the chunk, return the query start time
-    assertThat(ReadOnlyChunkImpl.determineStartTime(10, 9)).isEqualTo(10);
+    List<LogMessage> hits = new ArrayList<>();
+    hits.add(new LogMessage("index", "type", "messageId", Instant.now(), Map.of()));
+    // when(searcher.search(anyString(), anyString(), any(), anyLong(), anyInt(),
+    // any())).thenReturn()
+    doReturn(new SearchResult<>(hits, 100L, 0, 100, 100, 100, internalDateHistogram))
+        .when(searcher)
+        .search(
+            anyString(), anyString(), nullable(Long.class), nullable(Long.class), anyInt(), any());
+    readOnlyChunk.logSearcher = searcher;
 
-    // Query only matches part of the chunk, return the query end time
-    assertThat(ReadOnlyChunkImpl.determineEndTime(10, 12)).isEqualTo(10);
+    ChunkInfo chunkInfo = mock(ChunkInfo.class);
+    when(chunkInfo.getDataStartTimeEpochMs()).thenReturn(100L);
+    when(chunkInfo.getDataEndTimeEpochMs()).thenReturn(500L);
+    readOnlyChunk.chunkInfo = chunkInfo;
 
-    // Query matches chunk end time, do not return an end time
-    assertThat(ReadOnlyChunkImpl.determineEndTime(10, 10)).isNull();
+    SearchQuery searchQuery =
+        new SearchQuery(
+            "_all",
+            "",
+            200,
+            300,
+            0,
+            new DateHistogramAggBuilder(
+                "0", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1h"),
+            List.of("foo"));
+    SearchResult<LogMessage> result1 = readOnlyChunk.query(searchQuery);
+    assertThat(result1).isNotNull();
+    SearchResult<LogMessage> result2 = readOnlyChunk.query(searchQuery);
+    assertThat(result2).isNotNull();
 
-    // Query is after the chunk data, so do not return an end time
-    assertThat(ReadOnlyChunkImpl.determineEndTime(12, 10)).isNull();
+    // repeated tests should have same result
+    assertThat(result1).isEqualTo(result2);
+
+    // we should have only invoked search once
+    verify(searcher, times(1))
+        .search(
+            anyString(), anyString(), nullable(Long.class), nullable(Long.class), anyInt(), any());
   }
 
   private void assignReplicaToChunk(
