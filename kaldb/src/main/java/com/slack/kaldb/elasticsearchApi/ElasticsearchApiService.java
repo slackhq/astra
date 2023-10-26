@@ -2,13 +2,11 @@ package com.slack.kaldb.elasticsearchApi;
 
 import brave.ScopedSpan;
 import brave.Tracing;
+import brave.propagation.CurrentTraceContext;
 import brave.propagation.TraceContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.protobuf.ByteString;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
@@ -38,9 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
+import java.util.concurrent.StructuredTaskScope;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,17 +53,6 @@ import org.slf4j.LoggerFactory;
 public class ElasticsearchApiService {
   private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchApiService.class);
   private final KaldbQueryServiceBase searcher;
-
-  // This uses a separate cached threadpool for multisearch queries so that we can run these in
-  // parallel. A cached threadpool was chosen over something like forkjoin, as it's easier to
-  // propagate the trace instrumentation, and has better visibility using a custom threadfactory.
-  private final ExecutorService multisearchExecutor =
-      Executors.newCachedThreadPool(
-          new ThreadFactoryBuilder()
-              .setUncaughtExceptionHandler(
-                  (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-              .setNameFormat("elasticsearch-multisearch-api-%d")
-              .build());
 
   private final OpenSearchRequest openSearchRequest = new OpenSearchRequest();
   private final ObjectMapper objectMapper = new ObjectMapper();
@@ -89,21 +74,22 @@ public class ElasticsearchApiService {
   public HttpResponse multiSearch(String postBody) throws Exception {
     LOG.debug("Search request: {}", postBody);
 
-    List<KaldbSearch.SearchRequest> requests = openSearchRequest.parseHttpPostBody(postBody);
-    List<ListenableFuture<EsSearchResponse>> responseFutures =
-        requests.stream()
-            .map(
-                (request) ->
-                    Futures.submit(
-                        () -> this.doSearch(request),
-                        Tracing.current().currentTraceContext().executor(multisearchExecutor)))
-            .collect(Collectors.toList());
+    CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
+    try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
+      List<StructuredTaskScope.Subtask<EsSearchResponse>> requestSubtasks =
+          openSearchRequest.parseHttpPostBody(postBody).stream()
+              .map((request) -> scope.fork(currentTraceContext.wrap(() -> doSearch(request))))
+              .toList();
 
-    SearchResponseMetadata responseMetadata =
-        new SearchResponseMetadata(
-            0, Futures.allAsList(responseFutures).get(), Map.of("traceId", getTraceId()));
-    return HttpResponse.of(
-        HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
+      scope.join();
+      SearchResponseMetadata responseMetadata =
+          new SearchResponseMetadata(
+              0,
+              requestSubtasks.stream().map(StructuredTaskScope.Subtask::get).toList(),
+              Map.of("traceId", getTraceId()));
+      return HttpResponse.of(
+          HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
+    }
   }
 
   private EsSearchResponse doSearch(KaldbSearch.SearchRequest searchRequest) {

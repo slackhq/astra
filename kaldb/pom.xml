@@ -562,7 +562,8 @@
                     <fork>true</fork>
                     <compilerArgs>
                         <arg>-XDcompilePolicy=simple</arg>
-                        <arg> -Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/protobuf/.* -Xep:WildcardImport:ERROR -Xep:AssertEqualsArgumentOrderChecker:ERROR</arg>
+                        <arg>--enable-preview</arg>
+                        <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/protobuf/.* -Xep:WildcardImport:ERROR -Xep:AssertEqualsArgumentOrderChecker:ERROR</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
@@ -730,6 +731,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.1.0</version>
                     <configuration>
+                        <argLine>--enable-preview</argLine>
                         <trimStackTrace>false</trimStackTrace>
                         <systemPropertyVariables>
                             <log4j.configurationFile>src/test/resources/log4j2.xml</log4j.configurationFile>
