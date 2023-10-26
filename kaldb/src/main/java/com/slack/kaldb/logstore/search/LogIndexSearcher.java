@@ -5,5 +5,5 @@ import java.io.Closeable;
 
 public interface LogIndexSearcher<T> extends Closeable {
   SearchResult<T> search(
-      String dataset, String query, long minTime, long maxTime, int howMany, AggBuilder aggBuilder);
+      String dataset, String query, Long minTime, Long maxTime, int howMany, AggBuilder aggBuilder);
 }

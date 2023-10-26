@@ -84,15 +84,19 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   public SearchResult<LogMessage> search(
       String dataset,
       String queryStr,
-      long startTimeMsEpoch,
-      long endTimeMsEpoch,
+      Long startTimeMsEpoch,
+      Long endTimeMsEpoch,
       int howMany,
       AggBuilder aggBuilder) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");
-    ensureTrue(startTimeMsEpoch >= 0, "start time should be non-negative value");
-    ensureTrue(startTimeMsEpoch < endTimeMsEpoch, "end time should be greater than start time");
+    if (startTimeMsEpoch != null) {
+      ensureTrue(startTimeMsEpoch >= 0, "start time should be non-negative value");
+    }
+    if (startTimeMsEpoch != null && endTimeMsEpoch != null) {
+      ensureTrue(startTimeMsEpoch < endTimeMsEpoch, "end time should be greater than start time");
+    }
     ensureTrue(howMany >= 0, "hits requested should not be negative.");
     ensureTrue(howMany > 0 || aggBuilder != null, "Hits or aggregation should be requested.");
 

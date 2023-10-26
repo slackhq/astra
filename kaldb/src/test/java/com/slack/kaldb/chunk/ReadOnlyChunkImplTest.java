@@ -458,6 +458,27 @@ public class ReadOnlyChunkImplTest {
     curatorFramework.unwrap().close();
   }
 
+  @Test
+  public void shouldUseOptimizedQueryStartEndTime() {
+    // Query is before the chunk data, so do not return a start time
+    assertThat(ReadOnlyChunkImpl.determineStartTime(10, 12)).isNull();
+
+    // Query matches chunk start time, do not return a start time
+    assertThat(ReadOnlyChunkImpl.determineStartTime(10, 10)).isNull();
+
+    // Query only matches part of the chunk, return the query start time
+    assertThat(ReadOnlyChunkImpl.determineStartTime(10, 9)).isEqualTo(10);
+
+    // Query only matches part of the chunk, return the query end time
+    assertThat(ReadOnlyChunkImpl.determineEndTime(10, 12)).isEqualTo(10);
+
+    // Query matches chunk end time, do not return an end time
+    assertThat(ReadOnlyChunkImpl.determineEndTime(10, 10)).isNull();
+
+    // Query is after the chunk data, so do not return an end time
+    assertThat(ReadOnlyChunkImpl.determineEndTime(12, 10)).isNull();
+  }
+
   private void assignReplicaToChunk(
       CacheSlotMetadataStore cacheSlotMetadataStore,
       String replicaId,
