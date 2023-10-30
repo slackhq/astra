@@ -23,10 +23,7 @@ import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.search.SearchExtBuilder;
 import org.opensearch.search.SearchShardTarget;
-import org.opensearch.search.aggregations.BucketCollectorProcessor;
-import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.SearchContextAggregations;
-import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 import org.opensearch.search.collapse.CollapseContext;
 import org.opensearch.search.dfs.DfsSearchResult;
 import org.opensearch.search.fetch.FetchPhase;
@@ -61,7 +58,6 @@ import org.opensearch.search.suggest.SuggestionSearchContext;
 public class KaldbSearchContext extends SearchContext {
   private final BigArrays bigArrays;
   private final ContextIndexSearcher contextIndexSearcher;
-  private BucketCollectorProcessor bucketCollectorProcessor = NO_OP_BUCKET_COLLECTOR_PROCESSOR;
   private final QueryShardContext queryShardContext;
   private final Query query;
 
@@ -81,8 +77,7 @@ public class KaldbSearchContext extends SearchContext {
             IndexSearcher.getDefaultQueryCache(),
             IndexSearcher.getDefaultQueryCachingPolicy(),
             false,
-            indexSearcher.getExecutor(),
-            this);
+            indexSearcher.getExecutor());
   }
 
   @Override
@@ -565,30 +560,5 @@ public class KaldbSearchContext extends SearchContext {
   @Override
   public ReaderContext readerContext() {
     throw new NotImplementedException();
-  }
-
-  @Override
-  public InternalAggregation.ReduceContext partialOnShard() {
-    return InternalAggregation.ReduceContext.forPartialReduction(
-        KaldbBigArrays.getInstance(),
-        ScriptServiceProvider.getInstance(),
-        () -> PipelineAggregator.PipelineTree.EMPTY);
-  }
-
-  @Override
-  public void setBucketCollectorProcessor(BucketCollectorProcessor bucketCollectorProcessor) {
-    this.bucketCollectorProcessor = bucketCollectorProcessor;
-  }
-
-  @Override
-  public BucketCollectorProcessor bucketCollectorProcessor() {
-    return bucketCollectorProcessor;
-  }
-
-  @Override
-  public boolean shouldUseTimeSeriesDescSortOptimization() {
-    // this is true, since we index with the timestamp in reverse order
-    // see LuceneIndexStoreImpl.buildIndexWriterConfig()
-    return true;
   }
 }

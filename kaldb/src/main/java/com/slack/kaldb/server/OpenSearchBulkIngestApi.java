@@ -42,6 +42,7 @@ import org.apache.kafka.common.errors.OutOfOrderSequenceException;
 import org.apache.kafka.common.errors.ProducerFencedException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.common.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -139,7 +140,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
         "Kafka bootstrapServers must be provided");
 
     checkArgument(
-        !preprocessorConfig.getDownstreamTopic().isEmpty(),
+        !Strings.isEmpty(preprocessorConfig.getDownstreamTopic()),
         "Kafka downstreamTopic must be provided");
 
     this.datasetMetadataStore = datasetMetadataStore;
