@@ -62,14 +62,9 @@ public class ArmeriaService extends AbstractIdleService {
       this.serviceName = serviceName;
       this.serverBuilder = Server.builder().http(port);
 
-      initializeLimits();
       initializeCompression();
       initializeLogging();
       initializeManagementEndpoints(prometheusMeterRegistry);
-    }
-
-    private void initializeLimits() {
-      serverBuilder.maxNumConnections(MAX_CONNECTIONS);
     }
 
     private void initializeCompression() {
