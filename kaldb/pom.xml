@@ -25,8 +25,8 @@
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.15.2</jackson.version>
         <jackson.databind.version>2.15.1</jackson.databind.version>
-        <lucene.version>9.5.0</lucene.version>
-        <opensearch.version>2.7.0</opensearch.version>
+        <lucene.version>9.7.0</lucene.version>
+        <opensearch.version>2.11.0</opensearch.version>
         <curator.version>5.5.0</curator.version>
         <log4j.version>2.20.0</log4j.version>
         <aws.sdk.version>2.21.2</aws.sdk.version>
@@ -185,6 +185,16 @@
         <dependency>
             <groupId>org.opensearch.plugin</groupId>
             <artifactId>lang-painless</artifactId>
+            <version>${opensearch.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+            <version>4.13.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.opensearch.plugin</groupId>
+            <artifactId>opensearch-scripting-painless-spi</artifactId>
             <version>${opensearch.version}</version>
         </dependency>
 
