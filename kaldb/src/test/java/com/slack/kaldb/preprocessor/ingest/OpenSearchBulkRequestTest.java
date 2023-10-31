@@ -115,6 +115,28 @@ public class OpenSearchBulkRequestTest {
   }
 
   @Test
+  public void testIndexRequestWithSpecialChars() throws Exception {
+    String rawRequest = getRawQueryString("index_request_with_special_chars");
+    List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(1);
+    Map<String, List<Trace.Span>> indexDocs =
+        OpenSearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+    assertThat(indexDocs.keySet().size()).isEqualTo(1);
+    assertThat(indexDocs.get("index_name").size()).isEqualTo(1);
+
+    assertThat(indexDocs.get("index_name").get(0).getId().toStringUtf8()).isNotNull();
+    assertThat(indexDocs.get("index_name").get(0).getTagsList().size()).isEqualTo(4);
+    assertThat(
+            indexDocs.get("index_name").get(0).getTagsList().stream()
+                .filter(
+                    keyValue ->
+                        keyValue.getKey().equals("service_name")
+                            && keyValue.getVStr().equals("index_name"))
+                .count())
+        .isEqualTo(1);
+  }
+
+  @Test
   public void testBulkRequests() throws Exception {
     String rawRequest = getRawQueryString("bulk_requests");
     List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(rawRequest);

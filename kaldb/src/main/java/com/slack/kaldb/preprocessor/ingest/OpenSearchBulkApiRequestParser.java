@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.index.VersionType;
 import org.opensearch.ingest.IngestDocument;
 import org.slf4j.Logger;
@@ -105,8 +105,8 @@ public class OpenSearchBulkApiRequestParser {
     List<IndexRequest> indexRequests = new ArrayList<>();
     BulkRequest bulkRequest = new BulkRequest();
     // calls parse under the hood
-    bulkRequest.add(
-        postBody.getBytes(StandardCharsets.UTF_8), 0, postBody.length(), null, XContentType.JSON);
+    byte[] bytes = postBody.getBytes(StandardCharsets.UTF_8);
+    bulkRequest.add(bytes, 0, bytes.length, null, MediaTypeRegistry.JSON);
     List<DocWriteRequest<?>> requests = bulkRequest.requests();
     for (DocWriteRequest<?> request : requests) {
       if (request.opType() == DocWriteRequest.OpType.INDEX) {
