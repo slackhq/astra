@@ -173,6 +173,12 @@ public class OpenSearchBulkIngestApi extends AbstractService {
   @Post("/_bulk")
   public HttpResponse addDocument(String bulkRequest) {
     try {
+      System.out.println("bulk request payload start");
+      System.out.println(bulkRequest);
+      System.out.println("bulk request payload end");
+      if (!bulkRequest.endsWith("\n")) {
+        bulkRequest = bulkRequest + "\n";
+      }
       List<IndexRequest> indexRequests =
           OpenSearchBulkApiRequestParser.parseBulkRequest(bulkRequest);
       Map<String, List<Trace.Span>> docs =
