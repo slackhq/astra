@@ -73,8 +73,6 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     this.rollOverFailed = false;
 
     activeChunk = null;
-
-    LOG.info("Created a recovery chunk manager");
   }
 
   public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
@@ -110,14 +108,14 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
           @Override
           public void onSuccess(Boolean success) {
             if (success == null || !success) {
-              LOG.warn("Roll over failed");
+              LOG.error("Roll over failed");
               rollOverFailed = true;
             }
           }
 
           @Override
           public void onFailure(Throwable t) {
-            LOG.warn("Roll over failed with an exception", t);
+            LOG.error("Roll over failed with an exception", t);
             rollOverFailed = true;
           }
         },
@@ -167,7 +165,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     }
 
     if (rollOverFailed) {
-      LOG.info("Rollover has failed.");
+      LOG.error("Rollover has failed.");
       return false;
     } else {
       LOG.info("Rollover is completed");

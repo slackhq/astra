@@ -44,7 +44,7 @@ public class MessageSizeOrCountBasedRolloverStrategy implements ChunkRollOverStr
     boolean shouldRollover =
         (currentBytesIndexed >= maxBytesPerChunk)
             || (currentMessagesIndexed >= maxMessagesPerChunk);
-    LOG.info(
+    LOG.debug(
         "After {} messages and {} ingested bytes rolling over chunk",
         currentMessagesIndexed,
         currentBytesIndexed);

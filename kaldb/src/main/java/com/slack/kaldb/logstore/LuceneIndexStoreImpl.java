@@ -151,7 +151,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     refreshesTimer = registry.timer(REFRESHES_TIMER);
     finalMergesTimer = registry.timer(FINAL_MERGES_TIMER);
 
-    LOG.info(
+    LOG.debug(
         "Created a lucene index {} at: {}", id, indexDirectory.getDirectory().toAbsolutePath());
   }
 
@@ -391,7 +391,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     if (indexWriter.isPresent()) {
       throw new IllegalStateException("IndexWriter should be closed before cleanup");
     }
-    LOG.info("Deleting directory: {}", indexDirectory.getDirectory().toAbsolutePath());
+    LOG.debug("Deleting directory: {}", indexDirectory.getDirectory().toAbsolutePath());
     FileUtils.deleteDirectory(indexDirectory.getDirectory().toFile());
   }
 

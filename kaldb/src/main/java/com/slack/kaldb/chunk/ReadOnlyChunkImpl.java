@@ -126,7 +126,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     chunkEvictionTimerSuccess = meterRegistry.timer(CHUNK_EVICTION_TIMER, "successful", "true");
     chunkEvictionTimerFailure = meterRegistry.timer(CHUNK_EVICTION_TIMER, "successful", "false");
 
-    LOG.info("Created a new read only chunk - zkSlotId: {}", slotId);
+    LOG.debug("Created a new read only chunk - zkSlotId: {}", slotId);
   }
 
   private void cacheNodeListener(CacheSlotMetadata cacheSlotMetadata) {
@@ -156,7 +156,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         }
         cacheSlotLastKnownState = newSlotState;
       } else {
-        LOG.info("Cache node listener fired but slot state was the same - {}", cacheSlotMetadata);
+        LOG.debug("Cache node listener fired but slot state was the same - {}", cacheSlotMetadata);
       }
     }
   }
@@ -240,7 +240,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           registerSearchMetadata(searchMetadataStore, searchContext, snapshotMetadata.name);
       long durationNanos = assignmentTimer.stop(chunkAssignmentTimerSuccess);
 
-      LOG.info(
+      LOG.debug(
           "Downloaded chunk with snapshot id '{}' at path '{}' in {} seconds, was {}",
           snapshotMetadata.snapshotId,
           snapshotMetadata.snapshotPath,
@@ -326,7 +326,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       try {
         FileUtils.cleanDirectory(dataDirectory.toFile());
       } catch (Exception e) {
-        LOG.info("Error removing files {}", dataDirectory.toString(), e);
+        LOG.error("Error removing files {}", dataDirectory.toString(), e);
       }
     }
   }
@@ -375,7 +375,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
     cacheSlotMetadataStore.removeListener(cacheSlotListener);
     cacheSlotMetadataStore.close();
-    LOG.info("Closed chunk");
+    LOG.debug("Closed chunk");
   }
 
   @Override

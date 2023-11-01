@@ -128,7 +128,7 @@ public class KaldbPartitioningMetadataStore<T extends KaldbPartitionedMetadata>
                       partition -> {
                         int cachedSize = metadataStoreMap.get(partition).listSync().size();
                         if (cachedSize == 0) {
-                          LOG.info("Closing unused store for partition - {}", partition);
+                          LOG.debug("Closing unused store for partition - {}", partition);
                           KaldbMetadataStore<T> store = metadataStoreMap.remove(partition);
                           store.close();
                         } else {
@@ -257,7 +257,8 @@ public class KaldbPartitioningMetadataStore<T extends KaldbPartitionedMetadata>
         partition,
         (p1) -> {
           String path = String.format("%s/%s", storeFolder, p1);
-          LOG.info("Creating new metadata store for partition - {}, at path - {}", partition, path);
+          LOG.debug(
+              "Creating new metadata store for partition - {}, at path - {}", partition, path);
 
           KaldbMetadataStore<T> newStore =
               new KaldbMetadataStore<>(curator, createMode, true, modelSerializer, path);

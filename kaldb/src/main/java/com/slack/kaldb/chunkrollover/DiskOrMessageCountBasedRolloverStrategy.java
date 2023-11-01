@@ -80,7 +80,7 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
         (approximateDirectoryBytes.get() >= maxBytesPerChunk)
             || (currentMessagesIndexed >= maxMessagesPerChunk);
     if (shouldRollover) {
-      LOG.info(
+      LOG.debug(
           "After {} messages and {} ingested bytes rolling over chunk of {} bytes",
           currentMessagesIndexed,
           currentBytesIndexed,

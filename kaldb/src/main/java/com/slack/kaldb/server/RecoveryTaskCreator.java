@@ -187,7 +187,7 @@ public class RecoveryTaskCreator {
     long highestDurableOffsetForPartition =
         getHighestDurableOffsetForPartition(
             nonLiveSnapshotsForPartition, recoveryTasks, partitionId);
-    LOG.info(
+    LOG.debug(
         "The highest durable offset for partition {} is {}",
         partitionId,
         highestDurableOffsetForPartition);

@@ -59,7 +59,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
 
   private Boolean doRollover() {
     try {
-      LOG.info("Start chunk roll over {}", chunk.info());
+      LOG.debug("Start chunk roll over {}", chunk.info());
       rolloversInitiatedCounter.increment();
       // Run pre-snapshot and upload chunk to blob store.
       chunk.preSnapshot();
@@ -72,7 +72,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
       chunk.postSnapshot();
       rolloversCompletedCounter.increment();
       chunk.info().setChunkSnapshotTimeEpochMs(Instant.now().toEpochMilli());
-      LOG.info("Finished chunk roll over {}", chunk.info());
+      LOG.debug("Finished chunk roll over {}", chunk.info());
       return true;
     } catch (RuntimeException e) {
       rolloversFailedCounter.increment();

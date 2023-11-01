@@ -332,7 +332,7 @@ public class KaldbKafkaConsumer {
             () -> {
               long startTime = System.nanoTime();
               try {
-                LOG.info("Ingesting batch from {} with {} records", topicPartition, recordCount);
+                LOG.debug("Ingesting batch from {} with {} records", topicPartition, recordCount);
                 for (ConsumerRecord<String, byte[]> record : records) {
                   if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
                     messagesOutsideOffsetRange.incrementAndGet();
@@ -356,7 +356,7 @@ public class KaldbKafkaConsumer {
                     }
                   }
                 }
-                LOG.info(
+                LOG.debug(
                     "Finished ingesting batch from {} with {} records",
                     topicPartition,
                     recordCount);

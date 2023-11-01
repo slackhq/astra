@@ -177,7 +177,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
       recoveryTasksInsufficientCapacity.increment(
           recoveryTasksThatNeedAssignment.size() - availableRecoveryNodes.size());
     } else if (recoveryTasksThatNeedAssignment.size() == 0) {
-      LOG.info("No recovery tasks found requiring assignment");
+      LOG.debug("No recovery tasks found requiring assignment");
       assignmentTimer.stop(recoveryAssignmentTimer);
       return 0;
     }

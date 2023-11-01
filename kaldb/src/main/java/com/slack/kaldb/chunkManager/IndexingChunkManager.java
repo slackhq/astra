@@ -230,7 +230,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
    * a remote store.
    */
   public void rollOverActiveChunk() {
-    LOG.info("Rolling over active chunk");
+    LOG.debug("Rolling over active chunk");
     doRollover(getActiveChunk());
   }
 
@@ -289,14 +289,14 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
           try {
             if (chunkList.contains(chunk)) {
               String chunkInfo = chunk.info().toString();
-              LOG.info("Deleting chunk {}.", chunkInfo);
+              LOG.debug("Deleting chunk {}.", chunkInfo);
 
               // Remove the chunk first from the map so we don't search it anymore.
               // Note that any pending queries may still hold references to these chunks
               chunkList.remove(chunk);
 
               chunk.close();
-              LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
+              LOG.debug("Deleted and cleaned up chunk {}.", chunkInfo);
             } else {
               LOG.warn(
                   "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",

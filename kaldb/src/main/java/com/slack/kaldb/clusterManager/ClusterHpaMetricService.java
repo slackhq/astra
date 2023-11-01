@@ -133,7 +133,7 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
         persistCacheConfig(replicaSet, demandFactor);
       }
 
-      LOG.info(
+      LOG.debug(
           "Cache autoscaler for replicaset '{}' took action '{}', demandFactor: '{}', totalReplicaDemand: '{}', totalCacheSlotCapacity: '{}'",
           replicaSet,
           action,

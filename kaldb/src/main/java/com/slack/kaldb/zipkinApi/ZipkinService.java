@@ -199,7 +199,6 @@ public class ZipkinService {
     int howMany = maxSpans.orElse(MAX_SPANS);
 
     brave.Span span = Tracing.currentTracer().currentSpan();
-    span.tag("queryString", queryString);
     span.tag("startTimeEpochMs", String.valueOf(startTime));
     span.tag("endTimeEpochMs", String.valueOf(endTimeEpochMs));
     span.tag("howMany", String.valueOf(howMany));

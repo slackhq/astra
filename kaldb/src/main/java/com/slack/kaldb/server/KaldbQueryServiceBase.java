@@ -15,10 +15,6 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
   public void search(
       KaldbSearch.SearchRequest request,
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {
-
-    LOG.info(
-        String.format("Search request received: '%s'", request.toString().replace("\n", ", ")));
-
     try {
       responseObserver.onNext(doSearch(request));
       responseObserver.onCompleted();
@@ -32,9 +28,6 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
   public void schema(
       KaldbSearch.SchemaRequest request,
       StreamObserver<KaldbSearch.SchemaResult> responseObserver) {
-    LOG.info(
-        String.format("Schema request received: '%s'", request.toString().replace("\n", ", ")));
-
     try {
       responseObserver.onNext(getSchema(request));
       responseObserver.onCompleted();
