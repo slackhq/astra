@@ -221,5 +221,6 @@ public abstract class BlobFs implements Closeable, Serializable {
    *
    * @throws IOException on IO failure
    */
+  @Override
   public void close() throws IOException {}
 }

@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -104,7 +105,12 @@ public class RecoveryTaskCreator {
   }
 
   private static String getRecoveryTaskName(String partitionId) {
-    return "recoveryTask_" + partitionId + "_" + Instant.now().getNano();
+    return "recoveryTask_"
+        + partitionId
+        + "_"
+        + Instant.now().getEpochSecond()
+        + "_"
+        + UUID.randomUUID();
   }
 
   @VisibleForTesting

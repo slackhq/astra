@@ -26,13 +26,9 @@ import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.util.BytesRef;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class ConvertFieldValueAndDuplicateTest {
-
   private SimpleMeterRegistry meterRegistry;
-  private static final Logger LOG = LoggerFactory.getLogger(RaiseErrorFieldValueTest.class);
 
   @BeforeEach
   public void setup() throws Exception {

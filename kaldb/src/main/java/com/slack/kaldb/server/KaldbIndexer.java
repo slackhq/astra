@@ -125,6 +125,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     return startOffset;
   }
 
+  @Override
   protected void run() throws Exception {
     while (isRunning()) {
       try {

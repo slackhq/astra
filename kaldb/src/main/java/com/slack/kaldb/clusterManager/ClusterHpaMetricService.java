@@ -155,7 +155,7 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
       return 1;
     }
     // demand factor will be < 1 indicating a scale-down demand, and > 1 indicating a scale-up
-    double rawDemandFactor = (double) (totalReplicaDemand) / (totalCacheSlotCapacity);
+    double rawDemandFactor = (double) totalReplicaDemand / totalCacheSlotCapacity;
     // round up to 2 decimals
     return Math.ceil(rawDemandFactor * 100) / 100;
   }

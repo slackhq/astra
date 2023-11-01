@@ -142,8 +142,7 @@ public class PreprocessorValueMapperTest {
     assertThatIllegalArgumentException()
         .isThrownBy(
             () -> {
-              ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
-                  PreprocessorValueMapper.byteArrayToTraceSpans("invalid");
+              PreprocessorValueMapper.byteArrayToTraceSpans("invalid");
             });
   }
 

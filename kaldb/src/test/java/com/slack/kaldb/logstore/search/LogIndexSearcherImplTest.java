@@ -561,15 +561,13 @@ public class LogIndexSearcherImplTest {
     assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
     assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
-    SearchResult<LogMessage> car =
-        strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
-            "car",
-            time.toEpochMilli(),
-            time.plusSeconds(10).toEpochMilli(),
-            2,
-            new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    strictLogStore.logSearcher.search(
+        TEST_DATASET_NAME,
+        "car",
+        time.toEpochMilli(),
+        time.plusSeconds(10).toEpochMilli(),
+        2,
+        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
 
     // Commit but no refresh. Item is still not available for search.
     strictLogStore.logStore.commit();
@@ -579,15 +577,13 @@ public class LogIndexSearcherImplTest {
     assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
     assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(2);
 
-    SearchResult<LogMessage> carAfterCommit =
-        strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
-            "car",
-            time.toEpochMilli(),
-            time.plusSeconds(10).toEpochMilli(),
-            2,
-            new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    strictLogStore.logSearcher.search(
+        TEST_DATASET_NAME,
+        "car",
+        time.toEpochMilli(),
+        time.plusSeconds(10).toEpochMilli(),
+        2,
+        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
 
     // Car can be searched after refresh.
     strictLogStore.logStore.refresh();
@@ -597,15 +593,13 @@ public class LogIndexSearcherImplTest {
     assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(2);
     assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(2);
 
-    SearchResult<LogMessage> carAfterRefresh =
-        strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
-            "car",
-            time.toEpochMilli(),
-            time.plusSeconds(10).toEpochMilli(),
-            2,
-            new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    strictLogStore.logSearcher.search(
+        TEST_DATASET_NAME,
+        "car",
+        time.toEpochMilli(),
+        time.plusSeconds(10).toEpochMilli(),
+        2,
+        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
 
     // Add another message to search, refresh but don't commit.
     strictLogStore.logStore.addMessage(

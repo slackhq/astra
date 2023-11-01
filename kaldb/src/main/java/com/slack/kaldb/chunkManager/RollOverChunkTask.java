@@ -33,7 +33,6 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
   private final String s3Bucket;
   private final String s3BucketPrefix;
   private final BlobFs blobFs;
-  private final MeterRegistry meterRegistry;
 
   public RollOverChunkTask(
       ReadWriteChunk<T> chunk,
@@ -45,7 +44,6 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.s3BucketPrefix = s3BucketPrefix;
-    this.meterRegistry = meterRegistry;
     rolloversInitiatedCounter = meterRegistry.counter(ROLLOVERS_INITIATED);
     rolloversCompletedCounter = meterRegistry.counter(ROLLOVERS_COMPLETED);
     rolloversFailedCounter = meterRegistry.counter(ROLLOVERS_FAILED);

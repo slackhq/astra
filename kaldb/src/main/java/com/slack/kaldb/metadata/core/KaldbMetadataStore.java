@@ -229,8 +229,8 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   public void close() {
     if (cachedModeledFramework != null) {
       listenerMap.forEach(
-          ((kaldbMetadataStoreChangeListener, tModeledCacheListener) ->
-              cachedModeledFramework.listenable().removeListener(tModeledCacheListener)));
+          (kaldbMetadataStoreChangeListener, tModeledCacheListener) ->
+              cachedModeledFramework.listenable().removeListener(tModeledCacheListener));
       cachedModeledFramework.close();
     }
   }

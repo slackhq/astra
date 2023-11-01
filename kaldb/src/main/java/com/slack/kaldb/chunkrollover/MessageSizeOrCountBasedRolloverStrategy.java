@@ -19,8 +19,6 @@ public class MessageSizeOrCountBasedRolloverStrategy implements ChunkRollOverStr
   private static final Logger LOG =
       LoggerFactory.getLogger(MessageSizeOrCountBasedRolloverStrategy.class);
 
-  private final MeterRegistry registry;
-
   public static MessageSizeOrCountBasedRolloverStrategy fromConfig(
       MeterRegistry registry, KaldbConfigs.IndexerConfig indexerConfig) {
     return new MessageSizeOrCountBasedRolloverStrategy(
@@ -36,7 +34,6 @@ public class MessageSizeOrCountBasedRolloverStrategy implements ChunkRollOverStr
     ensureTrue(maxMessagesPerChunk > 0, "Max messages per chunk should be a positive number.");
     this.maxBytesPerChunk = maxBytesPerChunk;
     this.maxMessagesPerChunk = maxMessagesPerChunk;
-    this.registry = registry;
   }
 
   @Override

@@ -106,13 +106,6 @@ public class LogMessage extends LogWireMessage {
         && INDEX_NAME_PATTERN.matcher(getIndex()).matches());
   }
 
-  private BadMessageFormatException raiseException(Throwable t) {
-    throw new BadMessageFormatException(
-        String.format(
-            "Index:%s, Type: %s, Id: %s, Source: %s", getIndex(), getType(), getId(), getSource()),
-        t);
-  }
-
   public LogMessage(
       String index, String type, String messageId, Instant timestamp, Map<String, Object> source) {
     super(index, type, messageId, timestamp, source);
@@ -120,10 +113,6 @@ public class LogMessage extends LogWireMessage {
       throw new BadMessageFormatException(
           String.format("Index:%s, Type: %s, Id: %s, Source: %s", index, type, getId(), source));
     }
-  }
-
-  private Long getTime(String dateStr) {
-    return Instant.parse(dateStr).toEpochMilli();
   }
 
   public LogWireMessage toWireMessage() {

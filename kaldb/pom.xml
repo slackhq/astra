@@ -30,7 +30,7 @@
         <curator.version>5.5.0</curator.version>
         <log4j.version>2.20.0</log4j.version>
         <aws.sdk.version>2.21.2</aws.sdk.version>
-        <error.prone.version>2.16</error.prone.version>
+        <error.prone.version>2.23.0</error.prone.version>
         <junit.jupiter.version>5.10.0</junit.jupiter.version>
     </properties>
 
@@ -573,7 +573,6 @@
                     <compilerArgs>
                         <arg>-XDcompilePolicy=simple</arg>
                         <arg>--enable-preview</arg>
-                        <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/protobuf/.* -Xep:WildcardImport:ERROR -Xep:AssertEqualsArgumentOrderChecker:ERROR</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
@@ -584,6 +583,32 @@
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                        <!-- Error prone settings -->
+                        <arg>
+                            <!-- TODO: consider removing all specific error upgrades in favor of -Werror (all warnings as build errors) -->
+                            -Xplugin:ErrorProne \
+                            -XepDisableWarningsInGeneratedCode \
+                            -XepExcludedPaths:.*/protobuf/.* \
+                            -Xep:WildcardImport:ERROR \
+                            -Xep:AssertEqualsArgumentOrderChecker:ERROR \
+                            -Xep:AlmostJavadoc:ERROR \
+                            -Xep:FallThrough:ERROR \
+                            -Xep:Finally:ERROR \
+                            -Xep:InconsistentCapitalization:ERROR \
+                            -Xep:InconsistentHashCode:ERROR \
+                            -Xep:InlineFormatString:ERROR \
+                            -Xep:InvalidThrows:ERROR \
+                            -Xep:JavaInstantGetSecondsGetNano:ERROR \
+                            -Xep:JavaUtilDate:ERROR \
+                            -Xep:LockNotBeforeTry:ERROR \
+                            -Xep:MissingOverride:ERROR \
+                            -Xep:NullOptional:ERROR \
+                            -Xep:UnnecessaryParentheses:ERROR \
+                            -Xep:UnusedMethod:ERROR \
+                            -Xep:UnusedVariable:ERROR \
+                            -Xep:StreamResourceLeak:ERROR \
+                            -Xep:StaticAssignmentInConstructor:ERROR
+                        </arg>
                     </compilerArgs>
                     <annotationProcessorPaths>
                         <path>

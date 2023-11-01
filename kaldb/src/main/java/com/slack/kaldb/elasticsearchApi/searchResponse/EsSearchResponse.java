@@ -17,6 +17,7 @@ public class EsSearchResponse {
   private final Map<String, Integer> shardsMetadata;
 
   @JsonProperty("_debug")
+  @SuppressWarnings("unused")
   private final Map<String, String> debugMetadata;
 
   @JsonProperty("hits")

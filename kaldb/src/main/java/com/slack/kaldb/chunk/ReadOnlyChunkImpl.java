@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.io.FileUtils;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
@@ -204,9 +205,14 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       dataDirectory =
           Path.of(
               String.format("%s/kaldb-slot-%s", dataDirectoryPrefix, cacheSlotMetadata.replicaId));
-      if (Files.isDirectory(dataDirectory) && Files.list(dataDirectory).findFirst().isPresent()) {
-        LOG.warn("Existing files found in slot directory, clearing directory");
-        cleanDirectory();
+
+      if (Files.isDirectory(dataDirectory)) {
+        try (Stream<Path> files = Files.list(dataDirectory)) {
+          if (files.findFirst().isPresent()) {
+            LOG.warn("Existing files found in slot directory, clearing directory");
+            cleanDirectory();
+          }
+        }
       }
 
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);

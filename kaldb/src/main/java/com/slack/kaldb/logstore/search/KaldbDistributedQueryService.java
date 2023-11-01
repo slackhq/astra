@@ -436,6 +436,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
     }
   }
 
+  @Override
   public KaldbSearch.SearchResult doSearch(final KaldbSearch.SearchRequest request) {
     try {
       List<SearchResult<LogMessage>> searchResults = distributedSearch(request);

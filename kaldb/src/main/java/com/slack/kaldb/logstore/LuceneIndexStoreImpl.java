@@ -348,6 +348,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     return indexWriter.get();
   }
 
+  @Override
   public void releaseIndexCommit(IndexCommit indexCommit) {
     if (indexCommit != null) {
       try {

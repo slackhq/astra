@@ -114,7 +114,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       MeterRegistry registry,
       BlobFs blobFs,
       String s3Bucket,
-      ListeningExecutorService rollOverExecutorService,
+      ListeningExecutorService rolloverExecutorService,
       AsyncCuratorFramework curatorFramework,
       SearchContext searchContext,
       KaldbConfigs.IndexerConfig indexerConfig) {
@@ -131,7 +131,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
-    this.rolloverExecutorService = rollOverExecutorService;
+    this.rolloverExecutorService = rolloverExecutorService;
     this.rolloverFuture = null;
     this.curatorFramework = curatorFramework;
     this.searchContext = searchContext;
@@ -160,6 +160,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
    * @param offset Kafka offset of the message.
    *     <p>TODO: Indexer should stop cleanly if the roll over fails or an exception.
    */
+  @Override
   public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     if (stopIngestion) {

@@ -75,6 +75,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     activeChunk = null;
   }
 
+  @Override
   public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     if (readOnly) {

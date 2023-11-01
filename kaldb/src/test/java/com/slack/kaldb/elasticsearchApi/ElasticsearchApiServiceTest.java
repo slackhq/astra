@@ -225,10 +225,10 @@ public class ElasticsearchApiServiceTest {
 
     // warmup to load OpenSearch plugins
     ElasticsearchApiService slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher);
-    HttpResponse response = slowElasticsearchApiService.multiSearch(postBody);
+    slowElasticsearchApiService.multiSearch(postBody);
 
     slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher);
-    response = slowElasticsearchApiService.multiSearch(postBody.repeat(100));
+    HttpResponse response = slowElasticsearchApiService.multiSearch(postBody.repeat(100));
 
     // handle response
     AggregatedHttpResponse aggregatedRes = response.aggregate().join();

@@ -23,8 +23,6 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
-import com.slack.kaldb.metadata.search.SearchMetadataStore;
-import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -74,8 +72,6 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private S3CrtBlobFs s3CrtBlobFs;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
-  private SnapshotMetadataStore snapshotMetadataStore;
-  private SearchMetadataStore searchMetadataStore;
 
   private static long MAX_BYTES_PER_CHUNK = 12000;
 
@@ -109,8 +105,6 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
   }
 
   @AfterEach
