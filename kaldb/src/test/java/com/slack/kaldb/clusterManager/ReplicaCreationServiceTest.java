@@ -378,7 +378,7 @@ public class ReplicaCreationServiceTest {
         .isEqualTo(eligibleSnapshotsToCreate + ineligibleSnapshotsToCreate + liveSnapshotsToCreate);
     Collections.shuffle(snapshotList);
     snapshotList.parallelStream()
-        .forEach((snapshotMetadata -> snapshotMetadataStore.createSync(snapshotMetadata)));
+        .forEach(snapshotMetadata -> snapshotMetadataStore.createSync(snapshotMetadata));
     List<SnapshotMetadata> snapshotMetadataList =
         KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshotMetadataList.size()).isEqualTo(snapshotList.size());

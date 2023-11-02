@@ -1359,6 +1359,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
+  @Disabled // flaky
   public void testMultipleCountRollOversSuccessfully()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =

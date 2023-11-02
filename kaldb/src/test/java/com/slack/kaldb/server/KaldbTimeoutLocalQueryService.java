@@ -19,6 +19,7 @@ public class KaldbTimeoutLocalQueryService extends KaldbServiceGrpc.KaldbService
     this.waitMS = waitMS;
   }
 
+  @Override
   public void search(
       KaldbSearch.SearchRequest request,
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {

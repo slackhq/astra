@@ -133,7 +133,7 @@ public class MovingAvgAggBuilder extends PipelineAggBuilder {
   @Override
   public int hashCode() {
     int result = super.hashCode();
-    result = 31 * result + (model.hashCode());
+    result = 31 * result + model.hashCode();
     result = 31 * result + (window != null ? window.hashCode() : 0);
     result = 31 * result + (predict != null ? predict.hashCode() : 0);
     result = 31 * result + (alpha != null ? alpha.hashCode() : 0);

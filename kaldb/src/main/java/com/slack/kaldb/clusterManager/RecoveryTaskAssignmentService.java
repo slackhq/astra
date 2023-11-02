@@ -146,7 +146,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
 
     Set<String> recoveryTasksAlreadyAssigned =
         recoveryNodeMetadataStore.listSync().stream()
-            .map((recoveryNodeMetadata -> recoveryNodeMetadata.recoveryTaskName))
+            .map(recoveryNodeMetadata -> recoveryNodeMetadata.recoveryTaskName)
             .filter((recoveryTaskName) -> !recoveryTaskName.isEmpty())
             .collect(Collectors.toUnmodifiableSet());
 
@@ -164,9 +164,9 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
     List<RecoveryNodeMetadata> availableRecoveryNodes =
         recoveryNodeMetadataStore.listSync().stream()
             .filter(
-                (recoveryNodeMetadata ->
+                recoveryNodeMetadata ->
                     recoveryNodeMetadata.recoveryNodeState.equals(
-                        Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)))
+                        Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE))
             .collect(Collectors.toUnmodifiableList());
 
     if (recoveryTasksThatNeedAssignment.size() > availableRecoveryNodes.size()) {
@@ -177,7 +177,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
       recoveryTasksInsufficientCapacity.increment(
           recoveryTasksThatNeedAssignment.size() - availableRecoveryNodes.size());
     } else if (recoveryTasksThatNeedAssignment.size() == 0) {
-      LOG.info("No recovery tasks found requiring assignment");
+      LOG.debug("No recovery tasks found requiring assignment");
       assignmentTimer.stop(recoveryAssignmentTimer);
       return 0;
     }

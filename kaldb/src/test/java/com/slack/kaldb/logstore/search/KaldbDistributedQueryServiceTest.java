@@ -187,8 +187,8 @@ public class KaldbDistributedQueryServiceTest {
     Iterator<String> chunkIter = chunks.iterator();
     String result1 = chunkIter.next();
     String result2 = chunkIter.next();
-    assertThat(result1.equals(chunk1Name) || result1.equals((chunk2Name))).isTrue();
-    assertThat(result2.equals(chunk1Name) || result2.equals((chunk2Name))).isTrue();
+    assertThat(result1.equals(chunk1Name) || result1.equals(chunk2Name)).isTrue();
+    assertThat(result2.equals(chunk1Name) || result2.equals(chunk2Name)).isTrue();
 
     // request a time window that matches only 1 chunk
     searchNodes =
@@ -287,9 +287,8 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(chunkIter.next()).isEqualTo(cacheNodeSearchMetada.snapshotName);
 
     // create cache node entry for search metadata also serving the snapshot
-    SearchMetadata snapshot1Cache2SearchMetadata =
-        ReadOnlyChunkImpl.registerSearchMetadata(
-            searchMetadataStore, cache2SearchContext, snapshot1Name);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache2SearchContext, snapshot1Name);
     await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
 
     searchNodes.set(
@@ -305,7 +304,7 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(
             searchNodeUrl.equals(cache1SearchContext.toString())
                 || searchNodeUrl.equals(cache2SearchContext.toString())
-                || searchNodeUrl.equals((cache3SearchContext.toString())))
+                || searchNodeUrl.equals(cache3SearchContext.toString()))
         .isTrue();
     chunks = searchNodes.get().values().iterator().next();
     assertThat(chunks.size()).isEqualTo(1);
@@ -322,9 +321,8 @@ public class KaldbDistributedQueryServiceTest {
                 KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 3); // snapshot1(live + non_live) + snapshot2
 
-    SearchMetadata snapshot2Cache2SearchMetadata =
-        ReadOnlyChunkImpl.registerSearchMetadata(
-            searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
     await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
 
     Instant snapshot3CreationTime = Instant.ofEpochMilli(151);
@@ -337,9 +335,8 @@ public class KaldbDistributedQueryServiceTest {
                 KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 4); // snapshot1(live + non_live) + snapshot2 + snapshot3
 
-    SearchMetadata snapshot3Cache1SearchMetadata =
-        ReadOnlyChunkImpl.registerSearchMetadata(
-            searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
     await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 5);
 
     searchNodes.set(
@@ -571,7 +568,7 @@ public class KaldbDistributedQueryServiceTest {
     String searchNodeUrl = searchNodes.keySet().iterator().next();
     assertThat(
             searchNodeUrl.equals(cache1SearchContext.toString())
-                || searchNodeUrl.equals((cache2SearchContext.toString())))
+                || searchNodeUrl.equals(cache2SearchContext.toString()))
         .isTrue();
     chunks = searchNodes.values().iterator().next();
     assertThat(chunks.size()).isEqualTo(1);
@@ -579,7 +576,7 @@ public class KaldbDistributedQueryServiceTest {
     String chunkName = chunkIter.next();
     assertThat(
             chunkName.equals(cache1NodeSearchMetada.snapshotName)
-                || chunkName.equals((cache2NodeSearchMetada.snapshotName)))
+                || chunkName.equals(cache2NodeSearchMetada.snapshotName))
         .isTrue();
 
     // now add snapshot2 to cache2
@@ -593,9 +590,8 @@ public class KaldbDistributedQueryServiceTest {
                 KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 2); // snapshot1 + snapshot2
 
-    SearchMetadata snapshot2Cache2SearchMetadata =
-        ReadOnlyChunkImpl.registerSearchMetadata(
-            searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
     await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
 
     // now add snapshot3 to cache1
@@ -609,9 +605,8 @@ public class KaldbDistributedQueryServiceTest {
                 KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 3); // snapshot1 + snapshot2 + snapshot3
 
-    SearchMetadata snapshot3Cache1SearchMetadata =
-        ReadOnlyChunkImpl.registerSearchMetadata(
-            searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
     await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
 
     // assert search will always find cache1 AND cache2
@@ -738,11 +733,11 @@ public class KaldbDistributedQueryServiceTest {
     String node2 = iter.next();
     assertThat(
             node1.equals(cache1SearchContext.toString())
-                || node1.equals((cache2SearchContext.toString())))
+                || node1.equals(cache2SearchContext.toString()))
         .isTrue();
     assertThat(
             node2.equals(cache1SearchContext.toString())
-                || node2.equals((cache2SearchContext.toString())))
+                || node2.equals(cache2SearchContext.toString()))
         .isTrue();
 
     searchNodes =
@@ -754,11 +749,11 @@ public class KaldbDistributedQueryServiceTest {
     node2 = iter.next();
     assertThat(
             node1.equals(cache3SearchContext.toString())
-                || node1.equals((cache4SearchContext.toString())))
+                || node1.equals(cache4SearchContext.toString()))
         .isTrue();
     assertThat(
             node2.equals(cache3SearchContext.toString())
-                || node2.equals((cache4SearchContext.toString())))
+                || node2.equals(cache4SearchContext.toString()))
         .isTrue();
   }
 

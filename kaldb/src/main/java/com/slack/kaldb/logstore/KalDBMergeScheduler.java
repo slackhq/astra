@@ -17,10 +17,10 @@ public class KalDBMergeScheduler extends ConcurrentMergeScheduler {
   public static final String STALL_TIME = "kaldb_index_merge_stall_time_ms";
   private final Counter stallCounter;
 
-  public static final String STALL_THREADS = "kaldb_index_merge_stall_threads";
-  static AtomicInteger activeStallThreadsCount = new AtomicInteger(0);
+  public final String STALL_THREADS = "kaldb_index_merge_stall_threads";
+  private AtomicInteger activeStallThreadsCount;
 
-  public static final String MERGE_COUNTER = "kaldb_index_merge_count";
+  public final String MERGE_COUNTER = "kaldb_index_merge_count";
   private final Counter mergeCounter;
 
   public KalDBMergeScheduler(MeterRegistry metricsRegistry) {
@@ -30,6 +30,7 @@ public class KalDBMergeScheduler extends ConcurrentMergeScheduler {
     this.mergeCounter = this.metricsRegistry.counter(MERGE_COUNTER);
   }
 
+  @Override
   protected void doMerge(MergeSource mergeSource, MergePolicy.OneMerge merge) throws IOException {
     // We can use `merge` to get more stats when we want to tune further
     LOG.debug("Starting merge");
@@ -47,6 +48,7 @@ public class KalDBMergeScheduler extends ConcurrentMergeScheduler {
    * offline indexing ) based on this knowledge https://issues.apache.org/jira/browse/LUCENE-6119
    * has details on why Lucene added auto IO throttle
    */
+  @Override
   protected synchronized boolean maybeStall(MergeSource mergeSource) {
     long startTime = System.nanoTime();
     activeStallThreadsCount.incrementAndGet();

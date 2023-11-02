@@ -114,7 +114,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       MeterRegistry registry,
       BlobFs blobFs,
       String s3Bucket,
-      ListeningExecutorService rollOverExecutorService,
+      ListeningExecutorService rolloverExecutorService,
       AsyncCuratorFramework curatorFramework,
       SearchContext searchContext,
       KaldbConfigs.IndexerConfig indexerConfig) {
@@ -131,7 +131,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
-    this.rolloverExecutorService = rollOverExecutorService;
+    this.rolloverExecutorService = rolloverExecutorService;
     this.rolloverFuture = null;
     this.curatorFramework = curatorFramework;
     this.searchContext = searchContext;
@@ -160,6 +160,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
    * @param offset Kafka offset of the message.
    *     <p>TODO: Indexer should stop cleanly if the roll over fails or an exception.
    */
+  @Override
   public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     if (stopIngestion) {
@@ -230,7 +231,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
    * a remote store.
    */
   public void rollOverActiveChunk() {
-    LOG.info("Rolling over active chunk");
+    LOG.debug("Rolling over active chunk");
     doRollover(getActiveChunk());
   }
 
@@ -289,14 +290,14 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
           try {
             if (chunkList.contains(chunk)) {
               String chunkInfo = chunk.info().toString();
-              LOG.info("Deleting chunk {}.", chunkInfo);
+              LOG.debug("Deleting chunk {}.", chunkInfo);
 
               // Remove the chunk first from the map so we don't search it anymore.
               // Note that any pending queries may still hold references to these chunks
               chunkList.remove(chunk);
 
               chunk.close();
-              LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
+              LOG.debug("Deleted and cleaned up chunk {}.", chunkInfo);
             } else {
               LOG.warn(
                   "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",

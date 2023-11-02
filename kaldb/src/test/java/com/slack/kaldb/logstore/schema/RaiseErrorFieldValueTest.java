@@ -20,12 +20,9 @@ import java.util.Map;
 import org.apache.lucene.document.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class RaiseErrorFieldValueTest {
   private SimpleMeterRegistry meterRegistry;
-  private static final Logger LOG = LoggerFactory.getLogger(RaiseErrorFieldValueTest.class);
 
   @BeforeEach
   public void setup() throws Exception {

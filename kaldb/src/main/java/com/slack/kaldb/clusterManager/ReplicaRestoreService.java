@@ -120,7 +120,7 @@ public class ReplicaRestoreService extends AbstractScheduledService {
           "Number of replicas requested exceeds maxReplicasPerRequest limit");
     }
     queue.addAll(snapshotsToRestore);
-    LOG.info("Current size of Snapshot restoration queue: {} ", queue.size());
+    LOG.debug("Current size of Snapshot restoration queue: {} ", queue.size());
     runOneIteration();
   }
 
@@ -166,7 +166,7 @@ public class ReplicaRestoreService extends AbstractScheduledService {
       SnapshotMetadata snapshot, String replicaSet, Set<String> createdReplicas)
       throws InterruptedException {
     if (!createdReplicas.contains(snapshot.snapshotId)) {
-      LOG.info("Restoring replica with ID {}", snapshot.snapshotId);
+      LOG.debug("Restoring replica with ID {}", snapshot.snapshotId);
 
       try {
         replicaMetadataStore.createSync(
@@ -184,7 +184,7 @@ public class ReplicaRestoreService extends AbstractScheduledService {
       createdReplicas.add(snapshot.snapshotId);
       replicasCreated.tag("replicaSet", replicaSet).register(meterRegistry).increment();
     } else {
-      LOG.info("Skipping Snapshot ID {} ", snapshot.snapshotId);
+      LOG.debug("Skipping Snapshot ID {} ", snapshot.snapshotId);
       replicasSkipped.tag("replicaSet", replicaSet).register(meterRegistry).increment();
     }
   }

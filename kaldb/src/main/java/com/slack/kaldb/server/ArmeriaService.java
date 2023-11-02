@@ -43,8 +43,6 @@ import zipkin2.reporter.urlconnection.URLConnectionSender;
 public class ArmeriaService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ArmeriaService.class);
 
-  private static final int MAX_CONNECTIONS = 100;
-
   private final String serviceName;
   private final Server server;
 

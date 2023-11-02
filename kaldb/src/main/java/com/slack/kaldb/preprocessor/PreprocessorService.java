@@ -222,7 +222,7 @@ public class PreprocessorService extends AbstractService {
         rateLimiter.createRateLimiter(datasetMetadataList);
 
     upstreamTopics.forEach(
-        (upstreamTopic ->
+        upstreamTopic ->
             builder.stream(upstreamTopic, Consumed.with(Serdes.String(), Serdes.ByteArray()))
                 .flatMapValues(valueMapper)
                 .filter(rateLimitPredicate)
@@ -235,7 +235,7 @@ public class PreprocessorService extends AbstractService {
                             downstreamTopic))
                 .to(
                     downstreamTopic,
-                    Produced.with(Serdes.String(), KaldbSerdes.TraceSpan(), streamPartitioner))));
+                    Produced.with(Serdes.String(), KaldbSerdes.TraceSpan(), streamPartitioner)));
 
     return builder.build();
   }

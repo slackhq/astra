@@ -59,6 +59,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    * 2. histogram over a fixed time range
    * We will not aggregate locally for future use-cases that have complex group by etc
    */
+  @Override
   public SearchResult<T> query(SearchQuery query, Duration queryTimeout) {
     SearchResult<T> errorResult = new SearchResult<>(new ArrayList<>(), 0, 0, 0, 1, 0, null);
 

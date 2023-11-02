@@ -129,7 +129,7 @@ public class SearchResultUtils {
       return new MinAggBuilder(
           searchAggregation.getName(),
           searchAggregation.getValueSource().getField(),
-          fromValueProto((searchAggregation.getValueSource().getMissing())),
+          fromValueProto(searchAggregation.getValueSource().getMissing()),
           getScript(searchAggregation.getValueSource().getScript()));
     } else if (searchAggregation.getType().equals(MaxAggBuilder.TYPE)) {
       return new MaxAggBuilder(

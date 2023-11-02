@@ -188,7 +188,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
                               // the
                               // metadata and try again on the next run.
                               URI snapshotUri = URI.create(snapshotMetadata.snapshotPath);
-                              LOG.info("Starting delete of snapshot {}", snapshotMetadata);
+                              LOG.debug("Starting delete of snapshot {}", snapshotMetadata);
                               if (s3BlobFs.exists(snapshotUri)) {
                                 // Ensure that the file exists before attempting to delete, in case
                                 // the previous run successfully deleted the object but failed the

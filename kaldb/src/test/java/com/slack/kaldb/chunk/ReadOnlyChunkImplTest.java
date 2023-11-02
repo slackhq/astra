@@ -440,8 +440,9 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // verify we have files on disk
-    assertThat(java.nio.file.Files.list(readOnlyChunk.getDataDirectory()).findFirst().isPresent())
-        .isTrue();
+    try (var files = java.nio.file.Files.list(readOnlyChunk.getDataDirectory())) {
+      assertThat(files.findFirst().isPresent()).isTrue();
+    }
 
     // attempt to close the readOnlyChunk
     readOnlyChunk.close();
@@ -452,8 +453,9 @@ public class ReadOnlyChunkImplTest {
     assertThat(readOnlyChunk.info()).isNull();
 
     // verify that the directory has been cleaned up
-    assertThat(java.nio.file.Files.list(readOnlyChunk.getDataDirectory()).findFirst().isPresent())
-        .isFalse();
+    try (var files = java.nio.file.Files.list(readOnlyChunk.getDataDirectory())) {
+      assertThat(files.findFirst().isPresent()).isFalse();
+    }
 
     curatorFramework.unwrap().close();
   }

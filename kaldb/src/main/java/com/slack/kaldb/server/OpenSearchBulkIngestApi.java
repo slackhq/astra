@@ -232,7 +232,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
           ProducerRecord<String, byte[]> producerRecord =
               new ProducerRecord<>(
                   preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
-          kafkaProducer.send(producerRecord);
+          kafkaProducer.send(producerRecord).get();
         }
         kafkaProducer.commitTransaction();
       } catch (TimeoutException te) {

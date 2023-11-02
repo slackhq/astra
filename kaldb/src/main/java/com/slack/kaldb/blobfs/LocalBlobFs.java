@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.stream.Stream;
 import org.apache.commons.io.FileUtils;
 
 /**
@@ -87,10 +88,12 @@ public class LocalBlobFs extends BlobFs {
           .map(File::getAbsolutePath)
           .toArray(String[]::new);
     } else {
-      return Files.walk(Paths.get(fileUri))
-          .filter(s -> !s.equals(file.toPath()))
-          .map(Path::toString)
-          .toArray(String[]::new);
+      try (Stream<Path> files = Files.walk(Paths.get(fileUri))) {
+        return files
+            .filter(s -> !s.equals(file.toPath()))
+            .map(Path::toString)
+            .toArray(String[]::new);
+      }
     }
   }
 

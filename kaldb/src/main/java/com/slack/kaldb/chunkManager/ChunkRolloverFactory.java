@@ -11,7 +11,7 @@ import io.micrometer.core.instrument.MeterRegistry;
  * <p>TODO: Consider using partial functions in future.
  */
 public class ChunkRolloverFactory {
-  private final ChunkRollOverStrategy chunkRolloverStrategy;
+  private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final BlobFs blobFs;
   private final String s3Bucket;
   private final MeterRegistry meterRegistry;
@@ -21,7 +21,7 @@ public class ChunkRolloverFactory {
       BlobFs blobFs,
       String s3Bucket,
       MeterRegistry registry) {
-    this.chunkRolloverStrategy = chunkRollOverStrategy;
+    this.chunkRollOverStrategy = chunkRollOverStrategy;
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.meterRegistry = registry;
@@ -31,7 +31,7 @@ public class ChunkRolloverFactory {
     return new RollOverChunkTask<>(chunk, meterRegistry, blobFs, s3Bucket, chunkId);
   }
 
-  public ChunkRollOverStrategy getChunkRolloverStrategy() {
-    return chunkRolloverStrategy;
+  public ChunkRollOverStrategy getChunkRollOverStrategy() {
+    return chunkRollOverStrategy;
   }
 }

@@ -842,10 +842,10 @@ public class RecoveryTaskAssignmentServiceTest {
             () ->
                 recoveryNodeMetadataStore.listSync().stream()
                     .allMatch(
-                        (recoveryNodeMetadata ->
+                        recoveryNodeMetadata ->
                             recoveryNodeMetadata.updatedTimeEpochMs > before.toEpochMilli()
                                 && recoveryNodeMetadata.recoveryNodeState.equals(
-                                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))));
+                                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED)));
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(7);
 
     recoveryTaskAssignmentService.stopAsync();
@@ -951,10 +951,10 @@ public class RecoveryTaskAssignmentServiceTest {
             () ->
                 recoveryNodeMetadataStore.listSync().stream()
                     .allMatch(
-                        (recoveryNodeMetadata ->
+                        recoveryNodeMetadata ->
                             recoveryNodeMetadata.updatedTimeEpochMs > before.toEpochMilli()
                                 && recoveryNodeMetadata.recoveryNodeState.equals(
-                                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))));
+                                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED)));
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(7);
 
     recoveryTaskAssignmentService.stopAsync();

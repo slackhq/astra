@@ -98,7 +98,7 @@ public class LocalKafkaSeed {
       String message = line.substring(messageDivision);
       Murron.MurronMessage testMurronMsg =
           Murron.MurronMessage.newBuilder()
-              .setMessage(ByteString.copyFrom((message).getBytes(StandardCharsets.UTF_8)))
+              .setMessage(ByteString.copyFrom(message.getBytes(StandardCharsets.UTF_8)))
               .setType(splitLine[5])
               .setHost(splitLine[4])
               .setTimestamp(timestamp * 1000 * 1000)

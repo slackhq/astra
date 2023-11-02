@@ -45,10 +45,10 @@ public class BlobFsUtils {
   // TODO: Take a complete URI as this is the format stored in snapshot data
   public static String[] copyFromS3(
       String bucket, String prefix, BlobFs s3BlobFs, Path localDirPath) throws Exception {
-    LOG.info("Copying files from bucket={} prefix={} using directory", bucket, prefix);
+    LOG.debug("Copying files from bucket={} prefix={} using directory", bucket, prefix);
     URI directoryToCopy = createURI(bucket, prefix, "");
     s3BlobFs.copyToLocalFile(directoryToCopy, localDirPath.toFile());
-    LOG.info("Copying S3 files complete");
+    LOG.debug("Copying S3 files complete");
     return Arrays.stream(localDirPath.toFile().listFiles())
         .map(File::toString)
         .distinct()
