@@ -24,7 +24,7 @@
         <armeria.version>1.25.2</armeria.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.15.2</jackson.version>
-        <jackson.databind.version>2.15.1</jackson.databind.version>
+        <jackson.databind.version>2.15.3</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.0</opensearch.version>
         <curator.version>5.5.0</curator.version>
