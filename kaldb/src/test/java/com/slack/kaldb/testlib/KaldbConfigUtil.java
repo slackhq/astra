@@ -55,6 +55,7 @@ public class KaldbConfigUtil {
                     .setRefreshDurationSecs(10)
                     .setEnableFullTextSearch(true)
                     .build())
+            .setMaxChunksOnDisk(3)
             .setStaleDurationSecs(7200)
             .setDataTransformer(dataTransformerConfig)
             .setMaxOffsetDelayMessages(maxOffsetDelay)
@@ -145,7 +146,36 @@ public class KaldbConfigUtil {
                 .setRefreshDurationSecs(10)
                 .setEnableFullTextSearch(true)
                 .build())
+        .setMaxChunksOnDisk(3)
         .setStaleDurationSecs(7200)
+        .setMaxOffsetDelayMessages(maxOffsetDelay)
+        .setDataTransformer(dataTransformer)
+        .build();
+  }
+
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig(
+      int indexerPort,
+      int maxOffsetDelay,
+      String dataTransformer,
+      int maxMessagesPerChunk,
+      int maxChunksOnDisk,
+      long staleDuration) {
+    return KaldbConfigs.IndexerConfig.newBuilder()
+        .setServerConfig(
+            KaldbConfigs.ServerConfig.newBuilder()
+                .setServerPort(indexerPort)
+                .setServerAddress("localhost")
+                .build())
+        .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
+        .setMaxMessagesPerChunk(maxMessagesPerChunk)
+        .setLuceneConfig(
+            KaldbConfigs.LuceneConfig.newBuilder()
+                .setCommitDurationSecs(10)
+                .setRefreshDurationSecs(10)
+                .setEnableFullTextSearch(true)
+                .build())
+        .setMaxChunksOnDisk(maxChunksOnDisk)
+        .setStaleDurationSecs(staleDuration)
         .setMaxOffsetDelayMessages(maxOffsetDelay)
         .setDataTransformer(dataTransformer)
         .build();

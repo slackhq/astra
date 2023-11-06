@@ -12,6 +12,7 @@ indexerConfig:
   dataDirectory: "/tmp"
   maxOffsetDelayMessages: 10001
   defaultQueryTimeoutMs: 1500
+  maxChunksOnDisk: 3
   serverConfig:
     serverPort: 8080
     serverAddress: "localhost"
@@ -94,6 +95,7 @@ managerConfig:
     replicaLifespanMins: 60
 
 recoveryConfig:
+  maxChunksOnDisk: 3
   serverConfig:
     serverPort: 8084
     serverAddress: localhost

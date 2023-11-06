@@ -13,6 +13,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.Chunk;
+import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.IndexingChunkImpl;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.chunk.SearchContext;
@@ -27,8 +28,11 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -136,6 +140,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     this.curatorFramework = curatorFramework;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
+
     stopIngestion = true;
     activeChunk = null;
 
@@ -208,6 +213,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
                 LOG.error("RollOverChunkTask success=false for chunk={}", currentChunk.info());
                 stopIngestion = true;
               }
+              deleteStaleData();
             }
 
             @Override
@@ -276,7 +282,69 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     return activeChunk;
   }
 
-  public void removeStaleChunks(List<Chunk<T>> staleChunks) {
+  private void deleteStaleData() {
+    Duration staleDelayDuration = Duration.ofSeconds(indexerConfig.getStaleDurationSecs());
+    int limit = indexerConfig.getMaxChunksOnDisk();
+
+    Instant startInstant = Instant.now();
+    final Instant staleCutOffMs = startInstant.minusSeconds(staleDelayDuration.toSeconds());
+
+    // Delete any stale chunks that are either too old, or those chunks that go over the max allowed
+    // on
+    // any given node
+    deleteStaleChunksPastCutOff(staleCutOffMs);
+    deleteChunksOverLimit(limit);
+  }
+
+  private void deleteChunksOverLimit(int limit) {
+    if (limit < 0) {
+      throw new IllegalArgumentException("limit can't be negative");
+    }
+
+    final List<Chunk<T>> unsortedChunks = this.getChunkList();
+
+    if (unsortedChunks.size() <= limit) {
+      LOG.info("Unsorted chunks less than or equal to limit. Doing nothing.");
+      return;
+    }
+
+    // Sorts the list in ascending order (i.e. oldest to newest) and only gets chunks that we've
+    // taken a snapshot of
+    final List<Chunk<T>> sortedChunks =
+        unsortedChunks.stream()
+            .sorted(Comparator.comparingLong(chunk -> chunk.info().getChunkCreationTimeEpochMs()))
+            .filter(chunk -> chunk.info().getChunkSnapshotTimeEpochMs() > 0)
+            .toList();
+
+    final int totalChunksToDelete = sortedChunks.size() - limit;
+
+    final List<Chunk<T>> chunksToDelete = sortedChunks.subList(0, totalChunksToDelete);
+
+    LOG.info("Number of chunks past limit of {} is {}", limit, chunksToDelete.size());
+    this.removeStaleChunks(chunksToDelete);
+  }
+
+  private void deleteStaleChunksPastCutOff(Instant staleDataCutOffMs) {
+    List<Chunk<T>> staleChunks = new ArrayList<>();
+    for (Chunk<T> chunk : this.getChunkList()) {
+      if (chunkIsStale(chunk.info(), staleDataCutOffMs)) {
+        staleChunks.add(chunk);
+      }
+    }
+
+    LOG.info(
+        "Number of stale chunks at staleDataCutOffMs {} is {}",
+        staleDataCutOffMs,
+        staleChunks.size());
+    this.removeStaleChunks(staleChunks);
+  }
+
+  private boolean chunkIsStale(ChunkInfo chunkInfo, Instant staleDataCutoffMs) {
+    return chunkInfo.getChunkSnapshotTimeEpochMs() > 0
+        && chunkInfo.getChunkSnapshotTimeEpochMs() <= staleDataCutoffMs.toEpochMilli();
+  }
+
+  private void removeStaleChunks(List<Chunk<T>> staleChunks) {
     if (staleChunks.isEmpty()) return;
 
     LOG.info("Stale chunks to be removed are: {}", staleChunks);

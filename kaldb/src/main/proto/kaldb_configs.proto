@@ -99,9 +99,13 @@ message IndexerConfig {
 
   // Lucene config
   LuceneConfig lucene_config = 3;
-  // Chunk cleaner task removes a chunk from indexer after a certain time.
-  // Duration after which a chunk no longer served by the indexer.
-  int64 stale_duration_secs= 4;
+
+  // How long it's okay for a chunk to be on disk. If any chunks are found on
+  // disk that were created longer than this many seconds ago, they will be
+  // pruned (even if they are under the number of max_chunks_on_disk). This
+  // check will be executed every time we roll over a chunk.
+  int64 stale_duration_secs = 4;
+
   // Name of the data transformation pipeline to use when ingesting the data.
   string data_transformer = 5;
   // Folder where data is persisted locally on disk.
@@ -121,6 +125,11 @@ message IndexerConfig {
   // Whether or not to create recovery tasks when the indexer boots up and
   // is behind.
   bool create_recovery_tasks_on_start = 12;
+
+  // After rolling over a chunk, we attempt to delete any chunks on disk
+  // past the max_chunks_on_disk. Chunks will be deleted in an oldest
+  // to newest order.
+  int32 max_chunks_on_disk = 13;
 }
 
 // A config object containing all the lucene configs.
@@ -209,6 +218,7 @@ message ManagerConfig {
 // Config for the recovery node.
 message RecoveryConfig {
   ServerConfig server_config = 1;
+
   KafkaConfig kafka_config = 10;
 }
 

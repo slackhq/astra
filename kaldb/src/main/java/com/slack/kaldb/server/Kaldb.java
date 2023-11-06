@@ -6,7 +6,6 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
-import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.clusterManager.ClusterHpaMetricService;
 import com.slack.kaldb.clusterManager.ClusterMonitorService;
@@ -163,12 +162,6 @@ public class Kaldb {
               blobFs,
               kaldbConfig.getS3Config());
       services.add(chunkManager);
-
-      ChunkCleanerService<LogMessage> chunkCleanerService =
-          new ChunkCleanerService<>(
-              chunkManager,
-              Duration.ofSeconds(kaldbConfig.getIndexerConfig().getStaleDurationSecs()));
-      services.add(chunkCleanerService);
 
       KaldbIndexer indexer =
           new KaldbIndexer(

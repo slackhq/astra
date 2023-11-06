@@ -22,6 +22,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -112,6 +113,11 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
               LOG.error("Roll over failed");
               rollOverFailed = true;
             }
+
+            // Clean up the chunks after
+            final List<Chunk<T>> chunks = getChunkList();
+            LOG.info("Removing {} chunks", chunks.size());
+            removeStaleChunks(chunks);
           }
 
           @Override
@@ -229,5 +235,39 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
             new NeverRolloverChunkStrategy(), blobFs, s3Config.getS3Bucket(), meterRegistry);
 
     return new RecoveryChunkManager<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
+  }
+
+  private void removeStaleChunks(List<Chunk<T>> staleChunks) {
+    if (staleChunks.isEmpty()) return;
+
+    LOG.info("Stale chunks to be removed are: {}", staleChunks);
+
+    if (chunkList.isEmpty()) {
+      LOG.warn("Possible race condition, there are no chunks in chunkList");
+    }
+
+    staleChunks.forEach(
+        chunk -> {
+          try {
+            if (chunkList.contains(chunk)) {
+              String chunkInfo = chunk.info().toString();
+              LOG.info("Deleting chunk {}.", chunkInfo);
+
+              // Remove the chunk first from the map so we don't search it anymore.
+              // Note that any pending queries may still hold references to these chunks
+              chunkList.remove(chunk);
+
+              chunk.close();
+              LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
+            } else {
+              LOG.warn(
+                  "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",
+                  chunk,
+                  chunkList);
+            }
+          } catch (Exception e) {
+            LOG.warn("Exception when deleting chunk", e);
+          }
+        });
   }
 }

@@ -41,6 +41,7 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
@@ -84,6 +85,8 @@ public class RecoveryChunkManagerTest {
   private SearchMetadataStore searchMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
 
+  private KaldbConfigs.KaldbConfig kaldbConfig;
+
   @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
@@ -125,7 +128,7 @@ public class RecoveryChunkManagerTest {
 
   private void initChunkManager(String testS3Bucket) throws Exception {
 
-    KaldbConfigs.KaldbConfig kaldbCfg =
+    kaldbConfig =
         KaldbConfigUtil.makeKaldbConfig(
             "localhost:9090",
             9000,
@@ -147,9 +150,10 @@ public class RecoveryChunkManagerTest {
             metricsRegistry,
             searchMetadataStore,
             snapshotMetadataStore,
-            kaldbCfg.getIndexerConfig(),
+            kaldbConfig.getIndexerConfig(),
             s3CrtBlobFs,
-            kaldbCfg.getS3Config());
+            kaldbConfig.getS3Config());
+
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
@@ -276,6 +280,14 @@ public class RecoveryChunkManagerTest {
                     "differentKafkaTopic",
                     lowerOffset + 1));
 
+    // Get the count of the amount of indices so that we can confirm we've cleaned them up
+    // after the rollover
+    final File dataDirectory = new File(kaldbConfig.getIndexerConfig().getDataDirectory());
+    final File indexDirectory = new File(dataDirectory.getAbsolutePath() + "/indices");
+    File[] filesBeforeRollover = indexDirectory.listFiles();
+    assertThat(filesBeforeRollover).isNotNull();
+    assertThat(filesBeforeRollover).isNotEmpty();
+
     // Roll over chunk.
     assertThat(chunkManager.waitForRollOvers()).isTrue();
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -297,7 +309,15 @@ public class RecoveryChunkManagerTest {
                     MessageUtil.makeMessage(100000), TEST_KAFKA_PARTITION_ID, 100000))
         .isInstanceOf(IllegalStateException.class);
 
-    // TODO: Ensure data on disk is deleted.
+    // Ensure data is cleaned up in the manager
+    assertThat(chunkManager.getChunkList()).isEmpty();
+    assertThat(chunkManager.getActiveChunk()).isNull();
+
+    // Ensure data on disk is deleted.
+    File[] filesAfterRollover = indexDirectory.listFiles();
+    assertThat(filesAfterRollover).isNotNull();
+    assertThat(filesBeforeRollover.length > filesAfterRollover.length).isTrue();
+
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;
@@ -319,8 +339,16 @@ public class RecoveryChunkManagerTest {
     SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
-    assertThat(result.totalSnapshots).isEqualTo(1);
-    assertThat(result.snapshotsWithReplicas).isEqualTo(1);
+
+    // Special case: if we're expecting this search to have no hits then it won't have any snapshots
+    // or replicas either
+    if (expectedHitCount == 0) {
+      assertThat(result.totalSnapshots).isEqualTo(0);
+      assertThat(result.snapshotsWithReplicas).isEqualTo(0);
+    } else {
+      assertThat(result.totalSnapshots).isEqualTo(1);
+      assertThat(result.snapshotsWithReplicas).isEqualTo(1);
+    }
   }
 
   // TODO: Add a unit test where the chunk manager uses a different field conflict policy like
@@ -382,14 +410,13 @@ public class RecoveryChunkManagerTest {
 
     assertThat(chunkManager.waitForRollOvers()).isFalse();
 
-    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(20);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(1);
-    testChunkManagerSearch(chunkManager, "Message1", 1);
-    testChunkManagerSearch(chunkManager, "Message20", 1);
+    testChunkManagerSearch(chunkManager, "Message1", 0);
 
     // Ensure can't add messages once roll over is complete.
     assertThatIllegalStateException()

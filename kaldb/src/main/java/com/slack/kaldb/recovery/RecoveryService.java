@@ -280,6 +280,7 @@ public class RecoveryService extends AbstractIdleService {
                 kaldbConfig.getIndexerConfig(),
                 blobFs,
                 kaldbConfig.getS3Config());
+
         // Ingest data in parallel
         LogMessageTransformer messageTransformer =
             INDEXER_DATA_TRANSFORMER_MAP.get(kaldbConfig.getIndexerConfig().getDataTransformer());

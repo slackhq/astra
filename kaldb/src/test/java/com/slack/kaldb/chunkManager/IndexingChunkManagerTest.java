@@ -60,6 +60,7 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -72,9 +73,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -175,6 +173,157 @@ public class IndexingChunkManagerTest {
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
+  private void initChunkManager(
+      ChunkRollOverStrategy chunkRollOverStrategy,
+      String s3TestBucket,
+      ListeningExecutorService listeningExecutorService,
+      KaldbConfigs.IndexerConfig indexerConfig)
+      throws IOException, TimeoutException {
+    SearchContext searchContext = new SearchContext(TEST_HOST, TEST_PORT);
+    chunkManager =
+        new IndexingChunkManager<>(
+            "testData",
+            tmpPath.toFile().getAbsolutePath(),
+            chunkRollOverStrategy,
+            metricsRegistry,
+            s3CrtBlobFs,
+            s3TestBucket,
+            listeningExecutorService,
+            curatorFramework,
+            searchContext,
+            indexerConfig);
+    chunkManager.startAsync();
+    chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+  }
+
+  @Test
+  public void testDeleteOverMaxThresholdGreaterThanZero() throws IOException, TimeoutException {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
+
+    KaldbConfigs.IndexerConfig indexerConfig =
+        KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100, 1, 1_000_000_000L);
+    initChunkManager(
+        chunkRollOverStrategy,
+        S3_TEST_BUCKET,
+        MoreExecutors.newDirectExecutorService(),
+        indexerConfig);
+
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, 11, 1000, startTime);
+
+    int offset = 1;
+    for (LogMessage m : messages.subList(0, 9)) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+
+    final ReadWriteChunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    assertThat(chunk1.isReadOnly()).isFalse();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isZero();
+
+    for (LogMessage m : messages.subList(9, 11)) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
+
+    checkMetadata(3, 2, 1, 2, 1);
+
+    final ReadWriteChunk<LogMessage> chunk2 = chunkManager.getActiveChunk();
+    assertThat(chunk1.isReadOnly()).isTrue();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isNotZero();
+    assertThat(chunk2.isReadOnly()).isFalse();
+    assertThat(chunk2.info().getChunkSnapshotTimeEpochMs()).isZero();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+
+    assertThat(chunk1.isReadOnly()).isTrue();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isNotZero();
+
+    // Confirm that we deleted chunk1 instead of chunk2, as chunk1 is the older chunk
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+
+    // Commit the chunk1 and roll it over.
+    chunkManager.rollOverActiveChunk();
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().contains(chunk1)).isFalse();
+    assertThat(chunkManager.getChunkList().contains(chunk2)).isTrue();
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
+    checkMetadata(3, 1, 2, 1, 0);
+    assertThat(
+            KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).stream()
+                .map(s -> s.maxOffset)
+                .sorted()
+                .collect(Collectors.toList()))
+        .containsOnly(10L, 11L, 11L);
+  }
+
+  @Test
+  public void testDeleteStaleDataDoesNothingWhenGivenLimitLessThan0()
+      throws IOException, TimeoutException {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new DiskOrMessageCountBasedRolloverStrategy(
+            metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
+
+    KaldbConfigs.IndexerConfig indexerConfig =
+        KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100, -1, 0);
+    initChunkManager(
+        chunkRollOverStrategy,
+        S3_TEST_BUCKET,
+        MoreExecutors.newDirectExecutorService(),
+        indexerConfig);
+
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, 11, 1000, startTime);
+
+    int offset = 1;
+    for (LogMessage m : messages.subList(0, 9)) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+
+    final ReadWriteChunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    assertThat(chunk1.isReadOnly()).isFalse();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isZero();
+
+    // Get the count of the amount of indices so that we can confirm we've cleaned them up
+    // after the rollover
+    final File dataDirectory = new File(indexerConfig.getDataDirectory());
+    final File indexDirectory = new File(dataDirectory.getAbsolutePath() + "/indices");
+    File[] filesBeforeRollover = indexDirectory.listFiles();
+    assertThat(filesBeforeRollover).isNotNull();
+
+    chunkManager.rollOverActiveChunk();
+
+    // Ensure data on disk is NOT deleted.
+    File[] filesAfterRollover = indexDirectory.listFiles();
+    assertThat(filesAfterRollover).isNotNull();
+    assertThat(filesBeforeRollover.length == filesAfterRollover.length).isTrue();
+  }
+
   @Test
   @Disabled
   // Todo: this test needs to be refactored as it currently does not reliably replicate the race
@@ -205,15 +354,17 @@ public class IndexingChunkManagerTest {
     // attempt to clean all chunks while shutting the service down
     // we use an executor service since the chunkCleaner is an AbstractScheduledService and we want
     // these to run immediately
-    ChunkCleanerService<LogMessage> chunkCleanerService =
-        new ChunkCleanerService<>(chunkManager, Duration.ZERO);
-    ExecutorService executorService = Executors.newSingleThreadExecutor();
-    Future<?> cleanerTask = executorService.submit(() -> chunkCleanerService.runAt(Instant.now()));
+    //    ExecutorService executorService = Executors.newSingleThreadExecutor();
+    // NOTE: This doesn't make much sense anymore as this class/method has been removed. This is
+    // only
+    // left here for historical breadcrumbs
+    //    Future<?> cleanerTask =
+    //        executorService.submit(() -> chunkCleaner.deleteStaleData(Instant.now()));
 
     chunkManager.stopAsync();
     // wait for both to be complete
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
-    cleanerTask.get(10, TimeUnit.SECONDS);
+    //    cleanerTask.get(10, TimeUnit.SECONDS);
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(0);
   }

@@ -123,6 +123,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   public void addMessage(T message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     throw new UnsupportedOperationException(
-        "Adding messages is not supported on caching chunk manager");
+        "Adding messages is not supported on a caching chunk manager");
   }
 }
