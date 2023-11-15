@@ -202,6 +202,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     }
   }
 
+  @SuppressWarnings("FutureReturnValueIgnored")
   public BulkIngestResponse produceDocuments(Map<String, List<Trace.Span>> indexDocs) {
     int totalDocs = indexDocs.values().stream().mapToInt(List::size).sum();
 
@@ -228,11 +229,14 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       try {
         kafkaProducer.beginTransaction();
         for (Trace.Span doc : indexDoc.getValue()) {
-
           ProducerRecord<String, byte[]> producerRecord =
               new ProducerRecord<>(
                   preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
-          kafkaProducer.send(producerRecord).get();
+
+          // we intentionally supress FutureReturnValueIgnored here in errorprone - this is because
+          // we wrap this in a transaction, which is responsible for flushing all of the pending
+          // messages
+          kafkaProducer.send(producerRecord);
         }
         kafkaProducer.commitTransaction();
       } catch (TimeoutException te) {
