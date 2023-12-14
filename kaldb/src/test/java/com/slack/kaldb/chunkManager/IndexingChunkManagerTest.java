@@ -72,6 +72,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -313,15 +314,16 @@ public class IndexingChunkManagerTest {
     // after the rollover
     final File dataDirectory = new File(indexerConfig.getDataDirectory());
     final File indexDirectory = new File(dataDirectory.getAbsolutePath() + "/indices");
-    File[] filesBeforeRollover = indexDirectory.listFiles();
-    assertThat(filesBeforeRollover).isNotNull();
 
+    // files before rollover may or may-not be null, depending on other test timing
+    int filesBeforeRollover =
+        Optional.ofNullable(indexDirectory.listFiles()).orElse(new File[] {}).length;
     chunkManager.rollOverActiveChunk();
 
     // Ensure data on disk is NOT deleted.
     File[] filesAfterRollover = indexDirectory.listFiles();
     assertThat(filesAfterRollover).isNotNull();
-    assertThat(filesBeforeRollover.length == filesAfterRollover.length).isTrue();
+    assertThat(filesBeforeRollover == filesAfterRollover.length).isTrue();
   }
 
   @Test

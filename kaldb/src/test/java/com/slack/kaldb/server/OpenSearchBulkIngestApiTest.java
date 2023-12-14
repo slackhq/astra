@@ -1,4 +1,4 @@
-package com.slack.kaldb.elasticsearchApi;
+package com.slack.kaldb.server;
 
 import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
 import static com.linecorp.armeria.common.HttpStatus.OK;
@@ -13,6 +13,7 @@ import brave.Tracing;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
+import com.slack.kaldb.elasticsearchApi.BulkIngestResponse;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
@@ -20,7 +21,6 @@ import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.preprocessor.PreprocessorRateLimiter;
 import com.slack.kaldb.preprocessor.ingest.OpenSearchBulkApiRequestParser;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.server.OpenSearchBulkIngestApi;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.trace.Trace;
@@ -44,9 +44,9 @@ import org.opensearch.action.index.IndexRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenSearchBulkEndpointTest {
+public class OpenSearchBulkIngestApiTest {
 
-  private static final Logger LOG = LoggerFactory.getLogger(OpenSearchBulkEndpointTest.class);
+  private static final Logger LOG = LoggerFactory.getLogger(OpenSearchBulkIngestApi.class);
 
   private static PrometheusMeterRegistry meterRegistry;
   private static AsyncCuratorFramework curatorFramework;
@@ -126,6 +126,18 @@ public class OpenSearchBulkEndpointTest {
             List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0"))),
             INDEX_NAME);
     datasetMetadataStore.updateSync(datasetMetadata);
+
+    // Need to wait until we've verified the rate limit has been correctly loaded
+    await()
+        .until(
+            () ->
+                openSearchBulkAPI.throughputSortedDatasets.stream()
+                    .filter(datasetMetadata1 -> datasetMetadata1.name.equals(INDEX_NAME))
+                    .findFirst(),
+            (storedDatasetMetadata) -> {
+              //noinspection OptionalGetWithoutIsPresent
+              return storedDatasetMetadata.get().getThroughputBytes() == throughputBytes;
+            });
   }
 
   @AfterEach
