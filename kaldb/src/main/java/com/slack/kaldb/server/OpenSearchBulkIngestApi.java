@@ -62,7 +62,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
 
   private final PreprocessorRateLimiter rateLimiter;
   private BiPredicate<String, List<Trace.Span>> rateLimiterPredicate;
-  private List<DatasetMetadata> throughputSortedDatasets;
+  protected List<DatasetMetadata> throughputSortedDatasets;
 
   private final Timer configReloadTimer;
 
