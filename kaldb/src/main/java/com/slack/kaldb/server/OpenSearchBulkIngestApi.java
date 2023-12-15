@@ -28,12 +28,16 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiPredicate;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -69,7 +73,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
   private final KafkaProducer kafkaProducer;
   private final KafkaClientMetrics kafkaMetrics;
 
-  private final ReentrantLock lockTransactionalProducer = new ReentrantLock();
+  private Thread producerThread;
 
   @Override
   protected void doStart() {
@@ -78,6 +82,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       load();
       datasetMetadataStore.addListener(datasetListener);
       LOG.info("OpenSearchBulkIngestAPI service started");
+      producerThread = Thread.ofVirtual().start(this::run);
       notifyStarted();
     } catch (Throwable t) {
       notifyFailed(t);
@@ -89,6 +94,9 @@ public class OpenSearchBulkIngestApi extends AbstractService {
     try {
       LOG.info("Stopping OpenSearchBulkIngestApi service");
       datasetMetadataStore.removeListener(datasetListener);
+      if (producerThread != null) {
+        producerThread.interrupt();
+      }
       kafkaProducer.close();
       if (kafkaMetrics != null) {
         kafkaMetrics.close();
@@ -193,12 +201,82 @@ public class OpenSearchBulkIngestApi extends AbstractService {
           return HttpResponse.ofJson(TOO_MANY_REQUESTS, response);
         }
       }
-      BulkIngestResponse response = produceDocuments(docs);
+      BulkIngestResponse response = createRequest(docs).getResponse();
       return HttpResponse.ofJson(response);
     } catch (Exception e) {
       LOG.error("Request failed ", e);
       BulkIngestResponse response = new BulkIngestResponse(0, 0, e.getMessage());
       return HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response);
+    }
+  }
+
+  static class BatchRequest {
+    private final Map<String, List<Trace.Span>> inputDocs;
+    private final SynchronousQueue<BulkIngestResponse> internalResponse = new SynchronousQueue<>();
+
+    public BatchRequest(Map<String, List<Trace.Span>> inputDocs) {
+      this.inputDocs = inputDocs;
+    }
+
+    public Map<String, List<Trace.Span>> getInputDocs() {
+      return inputDocs;
+    }
+
+    public void setResponse(BulkIngestResponse response) {
+      internalResponse.add(response);
+    }
+
+    public BulkIngestResponse getResponse() throws InterruptedException {
+      return internalResponse.take();
+    }
+  }
+
+  BlockingQueue<BatchRequest> pendingRequests = new ArrayBlockingQueue<>(500);
+
+  public BatchRequest createRequest(Map<String, List<Trace.Span>> inputDocs) {
+    BatchRequest request = new BatchRequest(inputDocs);
+    // todo - add can throw exceptions
+    pendingRequests.add(request);
+    return request;
+  }
+
+  public void run() {
+    while (true) {
+      List<BatchRequest> requests = new ArrayList<>();
+      pendingRequests.drainTo(requests);
+
+      if (requests.isEmpty()) {
+        try {
+          Thread.sleep(2000);
+        } catch (InterruptedException e) {
+          return;
+        }
+      } else {
+        try {
+          Map<BatchRequest, BulkIngestResponse> responseMap = new HashMap<>();
+          kafkaProducer.beginTransaction();
+          for (BatchRequest request : requests) {
+            responseMap.put(request, produceDocuments(request.getInputDocs()));
+          }
+          kafkaProducer.commitTransaction();
+          responseMap.forEach(BatchRequest::setResponse);
+        } catch (Exception e) {
+          LOG.warn("failed transaction with error", e);
+          try {
+            kafkaProducer.abortTransaction();
+          } catch (ProducerFencedException err) {
+            LOG.error("Could not abort transaction", err);
+          }
+
+          for (BatchRequest request : requests) {
+            request.setResponse(
+                new BulkIngestResponse(
+                    0,
+                    request.inputDocs.values().stream().mapToInt(List::size).sum(),
+                    e.getMessage()));
+          }
+        }
+      }
     }
   }
 
@@ -225,9 +303,7 @@ public class OpenSearchBulkIngestApi extends AbstractService {
       // Till we fix the producer design to allow for multiple /_bulk requests to be able to
       // write to the same txn
       // we will limit producing documents 1 thread at a time
-      lockTransactionalProducer.lock();
       try {
-        kafkaProducer.beginTransaction();
         for (Trace.Span doc : indexDoc.getValue()) {
           ProducerRecord<String, byte[]> producerRecord =
               new ProducerRecord<>(
@@ -238,7 +314,6 @@ public class OpenSearchBulkIngestApi extends AbstractService {
           // messages
           kafkaProducer.send(producerRecord);
         }
-        kafkaProducer.commitTransaction();
       } catch (TimeoutException te) {
         LOG.error("Commit transaction timeout", te);
         // the commitTransaction waits till "max.block.ms" after which it will time out
@@ -255,16 +330,6 @@ public class OpenSearchBulkIngestApi extends AbstractService {
         // We can't recover from these exceptions, so our only option is to close the producer and
         // exit.
         new RuntimeHalterImpl().handleFatal(new Throwable("KafkaProducer needs to shutdown ", e));
-      } catch (Exception e) {
-        LOG.warn("failed transaction with error", e);
-        try {
-          kafkaProducer.abortTransaction();
-        } catch (ProducerFencedException err) {
-          LOG.error("Could not abort transaction", err);
-        }
-        return new BulkIngestResponse(0, totalDocs, e.getMessage());
-      } finally {
-        lockTransactionalProducer.unlock();
       }
     }
 
