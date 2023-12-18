@@ -34,9 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class TransactionBatchingKafkaProducerTest {
-  private static final Logger LOG =
-      LoggerFactory.getLogger(TransactionBatchingKafkaProducerTest.class);
+class BulkIngestKafkaProducerTest {
+  private static final Logger LOG = LoggerFactory.getLogger(BulkIngestKafkaProducerTest.class);
   private static PrometheusMeterRegistry meterRegistry;
   private static AsyncCuratorFramework curatorFramework;
   private static KaldbConfigs.PreprocessorConfig preprocessorConfig;
@@ -44,7 +43,7 @@ class TransactionBatchingKafkaProducerTest {
   private static TestingServer zkServer;
   private static TestKafkaServer kafkaServer;
 
-  private TransactionBatchingKafkaProducer transactionBatchingKafkaProducer;
+  private BulkIngestKafkaProducer bulkIngestKafkaProducer;
 
   static String INDEX_NAME = "testtransactionindex";
 
@@ -95,11 +94,10 @@ class TransactionBatchingKafkaProducerTest {
     // Create an entry while init. Update the entry on every test run
     datasetMetadataStore.createSync(datasetMetadata);
 
-    transactionBatchingKafkaProducer =
-        new TransactionBatchingKafkaProducer(
-            datasetMetadataStore, preprocessorConfig, meterRegistry);
-    transactionBatchingKafkaProducer.startAsync();
-    transactionBatchingKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
@@ -118,7 +116,7 @@ class TransactionBatchingKafkaProducerTest {
     Map<String, List<Trace.Span>> indexDocs =
         Map.of(INDEX_NAME, List.of(doc1, doc2, doc3, doc4, doc5));
 
-    BatchRequest request1 = new BatchRequest(indexDocs);
+    BulkIngestRequest request1 = new BulkIngestRequest(indexDocs);
     Thread.ofVirtual()
         .start(
             () -> {
@@ -131,10 +129,7 @@ class TransactionBatchingKafkaProducerTest {
             });
     BulkIngestResponse responseObj =
         (BulkIngestResponse)
-            transactionBatchingKafkaProducer
-                .transactionCommit(List.of(request1))
-                .values()
-                .toArray()[0];
+            bulkIngestKafkaProducer.transactionCommit(List.of(request1)).values().toArray()[0];
     assertThat(responseObj.totalDocs()).isEqualTo(0);
     assertThat(responseObj.failedDocs()).isEqualTo(5);
     assertThat(responseObj.errorMsg()).isNotNull();
@@ -180,7 +175,7 @@ class TransactionBatchingKafkaProducerTest {
 
     indexDocs = Map.of(INDEX_NAME, List.of(doc6, doc7, doc8, doc9, doc10));
 
-    BatchRequest request2 = new BatchRequest(indexDocs);
+    BulkIngestRequest request2 = new BulkIngestRequest(indexDocs);
     Thread.ofVirtual()
         .start(
             () -> {
@@ -193,10 +188,7 @@ class TransactionBatchingKafkaProducerTest {
             });
     responseObj =
         (BulkIngestResponse)
-            transactionBatchingKafkaProducer
-                .transactionCommit(List.of(request2))
-                .values()
-                .toArray()[0];
+            bulkIngestKafkaProducer.transactionCommit(List.of(request2)).values().toArray()[0];
     assertThat(responseObj.totalDocs()).isEqualTo(5);
     assertThat(responseObj.failedDocs()).isEqualTo(0);
     assertThat(responseObj.errorMsg()).isNotNull();

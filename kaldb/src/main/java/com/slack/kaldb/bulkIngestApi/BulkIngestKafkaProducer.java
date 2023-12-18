@@ -33,10 +33,10 @@ import org.apache.kafka.common.errors.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TransactionBatchingKafkaProducer extends AbstractExecutionThreadService {
-  private static final Logger LOG = LoggerFactory.getLogger(TransactionBatchingKafkaProducer.class);
+public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
+  private static final Logger LOG = LoggerFactory.getLogger(BulkIngestKafkaProducer.class);
 
-  private final KafkaProducer kafkaProducer;
+  private final KafkaProducer<String, byte[]> kafkaProducer;
   private final KafkaClientMetrics kafkaMetrics;
 
   private final KaldbConfigs.PreprocessorConfig preprocessorConfig;
@@ -47,9 +47,10 @@ public class TransactionBatchingKafkaProducer extends AbstractExecutionThreadSer
 
   protected List<DatasetMetadata> throughputSortedDatasets;
 
-  private final BlockingQueue<BatchRequest> pendingRequests = new ArrayBlockingQueue<>(500);
+  // todo - parameterize the capacity option?
+  private final BlockingQueue<BulkIngestRequest> pendingRequests = new ArrayBlockingQueue<>(500);
 
-  public TransactionBatchingKafkaProducer(
+  public BulkIngestKafkaProducer(
       final DatasetMetadataStore datasetMetadataStore,
       final KaldbConfigs.PreprocessorConfig preprocessorConfig,
       final PrometheusMeterRegistry meterRegistry) {
@@ -95,7 +96,7 @@ public class TransactionBatchingKafkaProducer extends AbstractExecutionThreadSer
   @Override
   protected void run() throws Exception {
     while (isRunning()) {
-      List<BatchRequest> requests = new ArrayList<>();
+      List<BulkIngestRequest> requests = new ArrayList<>();
       pendingRequests.drainTo(requests);
       if (requests.isEmpty()) {
         try {
@@ -119,18 +120,19 @@ public class TransactionBatchingKafkaProducer extends AbstractExecutionThreadSer
     }
   }
 
-  public BatchRequest createRequest(Map<String, List<Trace.Span>> inputDocs) {
-    BatchRequest request = new BatchRequest(inputDocs);
+  public BulkIngestRequest createRequest(Map<String, List<Trace.Span>> inputDocs) {
+    BulkIngestRequest request = new BulkIngestRequest(inputDocs);
     // todo - add can throw exceptions
     pendingRequests.add(request);
     return request;
   }
 
-  protected Map<BatchRequest, BulkIngestResponse> transactionCommit(List<BatchRequest> requests) {
-    Map<BatchRequest, BulkIngestResponse> responseMap = new HashMap<>();
+  protected Map<BulkIngestRequest, BulkIngestResponse> transactionCommit(
+      List<BulkIngestRequest> requests) {
+    Map<BulkIngestRequest, BulkIngestResponse> responseMap = new HashMap<>();
     try {
       kafkaProducer.beginTransaction();
-      for (BatchRequest request : requests) {
+      for (BulkIngestRequest request : requests) {
         responseMap.put(request, produceDocuments(request.getInputDocs()));
       }
       kafkaProducer.commitTransaction();
@@ -142,7 +144,7 @@ public class TransactionBatchingKafkaProducer extends AbstractExecutionThreadSer
         LOG.error("Could not abort transaction", err);
       }
 
-      for (BatchRequest request : requests) {
+      for (BulkIngestRequest request : requests) {
         responseMap.put(
             request,
             new BulkIngestResponse(
@@ -152,8 +154,8 @@ public class TransactionBatchingKafkaProducer extends AbstractExecutionThreadSer
       }
     }
 
-    for (Map.Entry<BatchRequest, BulkIngestResponse> entry : responseMap.entrySet()) {
-      BatchRequest key = entry.getKey();
+    for (Map.Entry<BulkIngestRequest, BulkIngestResponse> entry : responseMap.entrySet()) {
+      BulkIngestRequest key = entry.getKey();
       BulkIngestResponse value = entry.getValue();
       key.setResponse(value);
     }

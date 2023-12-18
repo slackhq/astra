@@ -6,7 +6,6 @@ import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Post;
-import com.slack.kaldb.preprocessor.ingest.OpenSearchBulkApiRequestParser;
 import com.slack.service.murron.trace.Trace;
 import java.util.List;
 import java.util.Map;
@@ -16,14 +15,14 @@ import org.slf4j.LoggerFactory;
 
 public class BulkIngestApi {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestApi.class);
-  private final TransactionBatchingKafkaProducer transactionBatchingKafkaProducer;
+  private final BulkIngestKafkaProducer bulkIngestKafkaProducer;
   private final DatasetRateLimitingService datasetRateLimitingService;
 
   public BulkIngestApi(
-      TransactionBatchingKafkaProducer transactionBatchingKafkaProducer,
+      BulkIngestKafkaProducer bulkIngestKafkaProducer,
       DatasetRateLimitingService datasetRateLimitingService) {
 
-    this.transactionBatchingKafkaProducer = transactionBatchingKafkaProducer;
+    this.bulkIngestKafkaProducer = bulkIngestKafkaProducer;
     this.datasetRateLimitingService = datasetRateLimitingService;
   }
 
@@ -36,9 +35,9 @@ public class BulkIngestApi {
   public HttpResponse addDocument(String bulkRequest) {
     try {
       List<IndexRequest> indexRequests =
-          OpenSearchBulkApiRequestParser.parseBulkRequest(bulkRequest);
+          OpensearchBulkApiRequestParser.parseBulkRequest(bulkRequest);
       Map<String, List<Trace.Span>> docs =
-          OpenSearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+          OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
 
       // todo - our rate limiter doesn't have a way to acquire permits across multiple datasets
       // so today as a limitation we reject any request that has documents against multiple indexes
@@ -51,13 +50,12 @@ public class BulkIngestApi {
 
       for (Map.Entry<String, List<Trace.Span>> indexDocs : docs.entrySet()) {
         final String index = indexDocs.getKey();
-        if (!datasetRateLimitingService.test(index, indexDocs.getValue())) {
+        if (!datasetRateLimitingService.tryAcquire(index, indexDocs.getValue())) {
           BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");
           return HttpResponse.ofJson(TOO_MANY_REQUESTS, response);
         }
       }
-      BulkIngestResponse response =
-          transactionBatchingKafkaProducer.createRequest(docs).getResponse();
+      BulkIngestResponse response = bulkIngestKafkaProducer.createRequest(docs).getResponse();
       return HttpResponse.ofJson(response);
     } catch (Exception e) {
       LOG.error("Request failed ", e);

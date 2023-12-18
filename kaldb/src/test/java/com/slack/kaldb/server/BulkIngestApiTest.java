@@ -12,15 +12,15 @@ import brave.Tracing;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.slack.kaldb.bulkIngestApi.BulkIngestApi;
+import com.slack.kaldb.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.kaldb.bulkIngestApi.BulkIngestResponse;
 import com.slack.kaldb.bulkIngestApi.DatasetRateLimitingService;
-import com.slack.kaldb.bulkIngestApi.TransactionBatchingKafkaProducer;
+import com.slack.kaldb.bulkIngestApi.OpensearchBulkApiRequestParser;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.preprocessor.PreprocessorRateLimiter;
-import com.slack.kaldb.preprocessor.ingest.OpenSearchBulkApiRequestParser;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
@@ -58,7 +58,7 @@ public class BulkIngestApiTest {
   private static TestKafkaServer kafkaServer;
   private BulkIngestApi bulkApi;
 
-  private TransactionBatchingKafkaProducer transactionBatchingKafkaProducer;
+  private BulkIngestKafkaProducer bulkIngestKafkaProducer;
   private DatasetRateLimitingService datasetRateLimitingService;
 
   static String INDEX_NAME = "testindex";
@@ -112,17 +112,16 @@ public class BulkIngestApiTest {
 
     datasetRateLimitingService =
         new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
-    transactionBatchingKafkaProducer =
-        new TransactionBatchingKafkaProducer(
-            datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
 
     datasetRateLimitingService.startAsync();
-    transactionBatchingKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.startAsync();
 
     datasetRateLimitingService.awaitRunning(DEFAULT_START_STOP_DURATION);
-    transactionBatchingKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    bulkApi = new BulkIngestApi(transactionBatchingKafkaProducer, datasetRateLimitingService);
+    bulkApi = new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService);
   }
 
   // I looked at making this a @BeforeEach. it's possible if you annotate a test with a @Tag and
@@ -162,9 +161,9 @@ public class BulkIngestApiTest {
       datasetRateLimitingService.stopAsync();
       datasetRateLimitingService.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
-    if (transactionBatchingKafkaProducer != null) {
-      transactionBatchingKafkaProducer.stopAsync();
-      transactionBatchingKafkaProducer.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    if (bulkIngestKafkaProducer != null) {
+      bulkIngestKafkaProducer.stopAsync();
+      bulkIngestKafkaProducer.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     kafkaServer.close();
     curatorFramework.unwrap().close();
@@ -197,9 +196,9 @@ public class BulkIngestApiTest {
                 """;
     // get num bytes that can be used to create the dataset. When we make 2 successive calls the
     // second one should fail
-    List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(request1);
+    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(request1);
     Map<String, List<Trace.Span>> indexDocs =
-        OpenSearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("testindex").size()).isEqualTo(1);
     assertThat(indexDocs.get("testindex").get(0).getId().toStringUtf8()).isEqualTo("1");
@@ -287,9 +286,9 @@ public class BulkIngestApiTest {
                     { "index": {"_index": "testindex", "_id": "2"} }
                     { "field1" : "value2" }
                     """;
-    List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(request1);
+    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(request1);
     Map<String, List<Trace.Span>> indexDocs =
-        OpenSearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("testindex").size()).isEqualTo(2);
     int throughputBytes = PreprocessorRateLimiter.getSpanBytes(indexDocs.get("testindex"));

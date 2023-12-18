@@ -1,4 +1,4 @@
-package com.slack.kaldb.preprocessor.ingest;
+package com.slack.kaldb.bulkIngestApi;
 
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.writer.SpanFormatter;
@@ -22,11 +22,11 @@ import org.opensearch.ingest.IngestDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenSearchBulkApiRequestParser {
+public class OpensearchBulkApiRequestParser {
 
-  public static final Logger LOG = LoggerFactory.getLogger(OpenSearchBulkApiRequestParser.class);
+  public static final Logger LOG = LoggerFactory.getLogger(OpensearchBulkApiRequestParser.class);
 
-  private static String SERVICE_NAME_KEY = "service_name";
+  private static final String SERVICE_NAME_KEY = "service_name";
 
   public static Trace.Span fromIngestDocument(IngestDocument ingestDocument) {
     ZonedDateTime timestamp =
@@ -81,7 +81,7 @@ public class OpenSearchBulkApiRequestParser {
       }
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
       List<Trace.Span> docs = indexDocs.computeIfAbsent(index, key -> new ArrayList<>());
-      docs.add(OpenSearchBulkApiRequestParser.fromIngestDocument(ingestDocument));
+      docs.add(OpensearchBulkApiRequestParser.fromIngestDocument(ingestDocument));
     }
     return indexDocs;
   }

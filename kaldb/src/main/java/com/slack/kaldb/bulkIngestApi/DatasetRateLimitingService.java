@@ -64,7 +64,7 @@ public class DatasetRateLimitingService extends AbstractIdleService {
     datasetMetadataStore.removeListener(datasetListener);
   }
 
-  public boolean test(String index, List<Trace.Span> value) {
+  public boolean tryAcquire(String index, List<Trace.Span> value) {
     return rateLimiterPredicate.test(index, value);
   }
 }

@@ -6,8 +6,8 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
 import com.slack.kaldb.bulkIngestApi.BulkIngestApi;
+import com.slack.kaldb.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.kaldb.bulkIngestApi.DatasetRateLimitingService;
-import com.slack.kaldb.bulkIngestApi.TransactionBatchingKafkaProducer;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.clusterManager.ClusterHpaMetricService;
@@ -391,16 +391,15 @@ public class Kaldb {
               KaldbConfigs.NodeRole.PREPROCESSOR, List.of(datasetMetadataStore)));
 
       if (preprocessorConfig.getUseBulkApi()) {
-        TransactionBatchingKafkaProducer transactionBatchingKafkaProducer =
-            new TransactionBatchingKafkaProducer(
-                datasetMetadataStore, preprocessorConfig, meterRegistry);
-        services.add(transactionBatchingKafkaProducer);
+        BulkIngestKafkaProducer bulkIngestKafkaProducer =
+            new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+        services.add(bulkIngestKafkaProducer);
         DatasetRateLimitingService datasetRateLimitingService =
             new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
         services.add(datasetRateLimitingService);
 
         BulkIngestApi openSearchBulkApiService =
-            new BulkIngestApi(transactionBatchingKafkaProducer, datasetRateLimitingService);
+            new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService);
         armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
       } else {
         PreprocessorService preprocessorService =
