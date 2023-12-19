@@ -12,6 +12,7 @@ import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.AuthorizationException;
@@ -43,12 +45,24 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
 
   private final DatasetMetadataStore datasetMetadataStore;
   private final KaldbMetadataStoreChangeListener<DatasetMetadata> datasetListener =
-      (datasetMetadata) -> cacheSortedDataset();
+      (_) -> cacheSortedDataset();
 
   protected List<DatasetMetadata> throughputSortedDatasets;
 
-  // todo - parameterize the capacity option?
-  private final BlockingQueue<BulkIngestRequest> pendingRequests = new ArrayBlockingQueue<>(500);
+  private final BlockingQueue<BulkIngestRequest> pendingRequests;
+
+  private final Integer producerSleep;
+
+  public static final String FAILED_SET_RESPONSE_COUNTER =
+      "bulk_ingest_producer_failed_set_response";
+  private final Counter failedSetResponseCounter;
+
+  public static final String OVER_LIMIT_PENDING_REQUESTS =
+      "bulk_ingest_producer_over_limit_pending";
+  private final Counter overLimitPendingRequests;
+
+  public static final String BATCH_SIZE_GAUGE = "bulk_ingest_producer_batch_size";
+  private final AtomicInteger batchSizeGauge;
 
   public BulkIngestKafkaProducer(
       final DatasetMetadataStore datasetMetadataStore,
@@ -65,6 +79,14 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     this.preprocessorConfig = preprocessorConfig;
     this.datasetMetadataStore = datasetMetadataStore;
 
+    // todo - consider making these a configurable value, or determine a way to derive a reasonable
+    // value automatically
+    this.pendingRequests =
+        new ArrayBlockingQueue<>(
+            Integer.parseInt(System.getProperty("kalDb.bulkIngest.pendingLimit", "500")));
+    this.producerSleep =
+        Integer.parseInt(System.getProperty("kalDb.bulkIngest.producerSleep", "2000"));
+
     // since we use a new transaction ID every time we start a preprocessor there can be some zombie
     // transactions?
     // I think they will remain in kafka till they expire. They should never be readable if the
@@ -74,6 +96,10 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
 
     this.kafkaMetrics = new KafkaClientMetrics(kafkaProducer);
     this.kafkaMetrics.bindTo(meterRegistry);
+
+    this.failedSetResponseCounter = meterRegistry.counter(FAILED_SET_RESPONSE_COUNTER);
+    this.overLimitPendingRequests = meterRegistry.counter(OVER_LIMIT_PENDING_REQUESTS);
+    this.batchSizeGauge = meterRegistry.gauge(BATCH_SIZE_GAUGE, new AtomicInteger(0));
 
     this.kafkaProducer.initTransactions();
   }
@@ -98,9 +124,10 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     while (isRunning()) {
       List<BulkIngestRequest> requests = new ArrayList<>();
       pendingRequests.drainTo(requests);
+      batchSizeGauge.set(requests.size());
       if (requests.isEmpty()) {
         try {
-          Thread.sleep(2000);
+          Thread.sleep(producerSleep);
         } catch (InterruptedException e) {
           return;
         }
@@ -120,10 +147,14 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     }
   }
 
-  public BulkIngestRequest createRequest(Map<String, List<Trace.Span>> inputDocs) {
+  public BulkIngestRequest submitRequest(Map<String, List<Trace.Span>> inputDocs) {
     BulkIngestRequest request = new BulkIngestRequest(inputDocs);
-    // todo - add can throw exceptions
-    pendingRequests.add(request);
+    try {
+      pendingRequests.add(request);
+    } catch (IllegalStateException e) {
+      overLimitPendingRequests.increment();
+      throw e;
+    }
     return request;
   }
 
@@ -157,7 +188,10 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     for (Map.Entry<BulkIngestRequest, BulkIngestResponse> entry : responseMap.entrySet()) {
       BulkIngestRequest key = entry.getKey();
       BulkIngestResponse value = entry.getValue();
-      key.setResponse(value);
+      if (!key.setResponse(value)) {
+        LOG.warn("Failed to add result to the bulk ingest request, consumer thread went away?");
+        failedSetResponseCounter.increment();
+      }
     }
     return responseMap;
   }

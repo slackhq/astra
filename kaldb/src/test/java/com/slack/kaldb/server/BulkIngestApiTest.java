@@ -15,12 +15,10 @@ import com.slack.kaldb.bulkIngestApi.BulkIngestApi;
 import com.slack.kaldb.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.kaldb.bulkIngestApi.BulkIngestResponse;
 import com.slack.kaldb.bulkIngestApi.DatasetRateLimitingService;
-import com.slack.kaldb.bulkIngestApi.OpensearchBulkApiRequestParser;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
-import com.slack.kaldb.preprocessor.PreprocessorRateLimiter;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
@@ -29,10 +27,10 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import org.apache.curator.test.TestingServer;
@@ -44,7 +42,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.opensearch.action.index.IndexRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -194,16 +191,7 @@ public class BulkIngestApiTest {
                 { "index": {"_index": "testindex", "_id": "1"} }
                 { "field1" : "value1" }
                 """;
-    // get num bytes that can be used to create the dataset. When we make 2 successive calls the
-    // second one should fail
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(request1);
-    Map<String, List<Trace.Span>> indexDocs =
-        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
-    assertThat(indexDocs.keySet().size()).isEqualTo(1);
-    assertThat(indexDocs.get("testindex").size()).isEqualTo(1);
-    assertThat(indexDocs.get("testindex").get(0).getId().toStringUtf8()).isEqualTo("1");
-    int throughputBytes = PreprocessorRateLimiter.getSpanBytes(indexDocs.get("testindex"));
-    updateDatasetThroughput(throughputBytes);
+    updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
 
     // test with empty causes a parse exception
     AggregatedHttpResponse response = bulkApi.addDocument("{}\n").aggregate().join();
@@ -286,13 +274,7 @@ public class BulkIngestApiTest {
                     { "index": {"_index": "testindex", "_id": "2"} }
                     { "field1" : "value2" }
                     """;
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(request1);
-    Map<String, List<Trace.Span>> indexDocs =
-        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
-    assertThat(indexDocs.keySet().size()).isEqualTo(1);
-    assertThat(indexDocs.get("testindex").size()).isEqualTo(2);
-    int throughputBytes = PreprocessorRateLimiter.getSpanBytes(indexDocs.get("testindex"));
-    updateDatasetThroughput(throughputBytes);
+    updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
 

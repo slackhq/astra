@@ -6,13 +6,18 @@ import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Post;
+import com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.service.murron.trace.Trace;
 import java.util.List;
 import java.util.Map;
-import org.opensearch.action.index.IndexRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * This class is responsible for defining the http endpoint behavior for the bulk ingest. It is
+ * expected to handle appropriate rate limiting, error handling, and submit the parsed messages to
+ * Kafka for ingestion.
+ */
 public class BulkIngestApi {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestApi.class);
   private final BulkIngestKafkaProducer bulkIngestKafkaProducer;
@@ -26,18 +31,13 @@ public class BulkIngestApi {
     this.datasetRateLimitingService = datasetRateLimitingService;
   }
 
-  /**
-   * 1. Kaldb does not support the concept of "updates". It's always an add 2. The "index" is used
-   * as the span name
-   */
   @Blocking
   @Post("/_bulk")
   public HttpResponse addDocument(String bulkRequest) {
+    // 1. Kaldb does not support the concept of "updates". It's always an add.
+    // 2. The "index" is used as the span name
     try {
-      List<IndexRequest> indexRequests =
-          OpensearchBulkApiRequestParser.parseBulkRequest(bulkRequest);
-      Map<String, List<Trace.Span>> docs =
-          OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+      Map<String, List<Trace.Span>> docs = BulkApiRequestParser.parseRequest(bulkRequest);
 
       // todo - our rate limiter doesn't have a way to acquire permits across multiple datasets
       // so today as a limitation we reject any request that has documents against multiple indexes
@@ -55,7 +55,10 @@ public class BulkIngestApi {
           return HttpResponse.ofJson(TOO_MANY_REQUESTS, response);
         }
       }
-      BulkIngestResponse response = bulkIngestKafkaProducer.createRequest(docs).getResponse();
+
+      // getResponse will cause this thread to wait until the batch producer submits or it hits
+      // Armeria timeout
+      BulkIngestResponse response = bulkIngestKafkaProducer.submitRequest(docs).getResponse();
       return HttpResponse.ofJson(response);
     } catch (Exception e) {
       LOG.error("Request failed ", e);

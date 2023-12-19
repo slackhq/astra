@@ -1,6 +1,6 @@
-package com.slack.kaldb.bulkIngestApi;
+package com.slack.kaldb.bulkIngestApi.opensearch;
 
-import static com.slack.kaldb.bulkIngestApi.OpensearchBulkApiRequestParser.convertRequestToDocument;
+import static com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser.convertRequestToDocument;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.common.io.Resources;
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.ingest.IngestDocument;
 
-public class OpensearchBulkApiRequestParserTest {
+public class BulkApiRequestParserTest {
 
   private String getRawQueryString(String filename) throws IOException {
     return Resources.toString(
@@ -28,14 +28,14 @@ public class OpensearchBulkApiRequestParserTest {
   public void testSimpleIndexRequest() throws Exception {
     String rawRequest = getRawQueryString("index_simple");
 
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
     assertThat(indexRequests.get(0).index()).isEqualTo("test");
     assertThat(indexRequests.get(0).id()).isEqualTo("1");
     assertThat(indexRequests.get(0).sourceAsMap().size()).isEqualTo(2);
 
     Map<String, List<Trace.Span>> indexDocs =
-        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -55,10 +55,10 @@ public class OpensearchBulkApiRequestParserTest {
   public void testIndexNoFields() throws Exception {
     String rawRequest = getRawQueryString("index_no_fields");
 
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
 
     Map<String, List<Trace.Span>> indexDocs =
-        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -78,10 +78,10 @@ public class OpensearchBulkApiRequestParserTest {
   public void testIndexNoFieldsNoId() throws Exception {
     String rawRequest = getRawQueryString("index_no_fields_no_id");
 
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
 
     Map<String, List<Trace.Span>> indexDocs =
-        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -101,27 +101,27 @@ public class OpensearchBulkApiRequestParserTest {
   public void testIndexEmptyRequest() throws Exception {
     String rawRequest = getRawQueryString("index_empty_request");
 
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
 
     Map<String, List<Trace.Span>> indexDocs =
-        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
     assertThat(indexDocs.keySet().size()).isEqualTo(0);
   }
 
   @Test
   public void testOtherBulkRequests() throws Exception {
     String rawRequest = getRawQueryString("non_index");
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(0);
   }
 
   @Test
   public void testIndexRequestWithSpecialChars() throws Exception {
     String rawRequest = getRawQueryString("index_request_with_special_chars");
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
     Map<String, List<Trace.Span>> indexDocs =
-        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("index_name").size()).isEqualTo(1);
 
@@ -140,11 +140,11 @@ public class OpensearchBulkApiRequestParserTest {
   @Test
   public void testBulkRequests() throws Exception {
     String rawRequest = getRawQueryString("bulk_requests");
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
 
     Map<String, List<Trace.Span>> indexDocs =
-        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -163,11 +163,11 @@ public class OpensearchBulkApiRequestParserTest {
   @Test
   public void testUpdatesAgainstTwoIndexes() throws Exception {
     String rawRequest = getRawQueryString("two_indexes");
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(2);
 
     Map<String, List<Trace.Span>> indexDocs =
-        OpensearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
     assertThat(indexDocs.keySet().size()).isEqualTo(2);
     assertThat(indexDocs.get("test1").size()).isEqualTo(1);
     assertThat(indexDocs.get("test2").size()).isEqualTo(1);
@@ -180,11 +180,11 @@ public class OpensearchBulkApiRequestParserTest {
   public void testTraceSpanGeneratedTimestamp() throws IOException {
     String rawRequest = getRawQueryString("index_simple");
 
-    List<IndexRequest> indexRequests = OpensearchBulkApiRequestParser.parseBulkRequest(rawRequest);
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
 
     IngestDocument ingestDocument = convertRequestToDocument(indexRequests.get(0));
-    Trace.Span span = OpensearchBulkApiRequestParser.fromIngestDocument(ingestDocument);
+    Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument);
 
     // timestamp is in microseconds based on the trace.proto definition
     Instant ingestDocumentTime =

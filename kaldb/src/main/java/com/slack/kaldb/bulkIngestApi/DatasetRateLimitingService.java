@@ -12,10 +12,14 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.util.List;
 import java.util.function.BiPredicate;
 
+/**
+ * Guava service that maintains an rate limiting object consistent with the value stored in the
+ * dataset metadata store.
+ */
 public class DatasetRateLimitingService extends AbstractIdleService {
   private final DatasetMetadataStore datasetMetadataStore;
   private final KaldbMetadataStoreChangeListener<DatasetMetadata> datasetListener =
-      (datasetMetadata) -> updateRateLimiter();
+      (_) -> updateRateLimiter();
 
   private final PreprocessorRateLimiter rateLimiter;
   private BiPredicate<String, List<Trace.Span>> rateLimiterPredicate;
