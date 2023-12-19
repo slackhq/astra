@@ -258,8 +258,9 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
     props.put("transactional.id", transactionId);
-    props.put("linger.ms", 250);
-    props.put("max.block.ms", "10000");
+    props.put("linger.ms", 500);
+    props.put("batch.size", 128000);
+    props.put("max.block.ms", 10000);
     props.put("compression.type", "snappy");
     return new KafkaProducer<>(props);
   }
