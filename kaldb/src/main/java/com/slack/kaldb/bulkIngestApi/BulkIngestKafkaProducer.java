@@ -167,6 +167,22 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
         responseMap.put(request, produceDocuments(request.getInputDocs()));
       }
       kafkaProducer.commitTransaction();
+    } catch (TimeoutException te) {
+      LOG.error("Commit transaction timeout", te);
+      // the commitTransaction waits till "max.block.ms" after which it will time out
+      // in that case we cannot call abort exception because that throws the following error
+      // "Cannot attempt operation `abortTransaction` because the previous
+      // call to `commitTransaction` timed out and must be retried"
+      // so for now we just restart the preprocessor
+      new RuntimeHalterImpl()
+          .handleFatal(
+              new Throwable(
+                  "KafkaProducer needs to shutdown as we don't have retry yet and we cannot call abortTxn on timeout",
+                  te));
+    } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
+      // We can't recover from these exceptions, so our only option is to close the producer and
+      // exit.
+      new RuntimeHalterImpl().handleFatal(new Throwable("KafkaProducer needs to shutdown ", e));
     } catch (Exception e) {
       LOG.warn("failed transaction with error", e);
       try {
@@ -221,33 +237,15 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
       // Till we fix the producer design to allow for multiple /_bulk requests to be able to
       // write to the same txn
       // we will limit producing documents 1 thread at a time
-      try {
-        for (Trace.Span doc : indexDoc.getValue()) {
-          ProducerRecord<String, byte[]> producerRecord =
-              new ProducerRecord<>(
-                  preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
+      for (Trace.Span doc : indexDoc.getValue()) {
+        ProducerRecord<String, byte[]> producerRecord =
+            new ProducerRecord<>(
+                preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
 
-          // we intentionally supress FutureReturnValueIgnored here in errorprone - this is because
-          // we wrap this in a transaction, which is responsible for flushing all of the pending
-          // messages
-          kafkaProducer.send(producerRecord);
-        }
-      } catch (TimeoutException te) {
-        LOG.error("Commit transaction timeout", te);
-        // the commitTransaction waits till "max.block.ms" after which it will time out
-        // in that case we cannot call abort exception because that throws the following error
-        // "Cannot attempt operation `abortTransaction` because the previous
-        // call to `commitTransaction` timed out and must be retried"
-        // so for now we just restart the preprocessor
-        new RuntimeHalterImpl()
-            .handleFatal(
-                new Throwable(
-                    "KafkaProducer needs to shutdown as we don't have retry yet and we cannot call abortTxn on timeout",
-                    te));
-      } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
-        // We can't recover from these exceptions, so our only option is to close the producer and
-        // exit.
-        new RuntimeHalterImpl().handleFatal(new Throwable("KafkaProducer needs to shutdown ", e));
+        // we intentionally supress FutureReturnValueIgnored here in errorprone - this is because
+        // we wrap this in a transaction, which is responsible for flushing all of the pending
+        // messages
+        kafkaProducer.send(producerRecord);
       }
     }
 
