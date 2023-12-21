@@ -7,6 +7,7 @@ import com.google.common.io.Resources;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -18,15 +19,16 @@ import org.opensearch.ingest.IngestDocument;
 
 public class BulkApiRequestParserTest {
 
-  private String getRawQueryString(String filename) throws IOException {
+  private byte[] getRawQueryBytes(String filename) throws IOException {
     return Resources.toString(
-        Resources.getResource(String.format("opensearchRequest/bulk/%s.ndjson", filename)),
-        Charset.defaultCharset());
+            Resources.getResource(String.format("opensearchRequest/bulk/%s.ndjson", filename)),
+            Charset.defaultCharset())
+        .getBytes(StandardCharsets.UTF_8);
   }
 
   @Test
   public void testSimpleIndexRequest() throws Exception {
-    String rawRequest = getRawQueryString("index_simple");
+    byte[] rawRequest = getRawQueryBytes("index_simple");
 
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
@@ -53,7 +55,7 @@ public class BulkApiRequestParserTest {
 
   @Test
   public void testIndexNoFields() throws Exception {
-    String rawRequest = getRawQueryString("index_no_fields");
+    byte[] rawRequest = getRawQueryBytes("index_no_fields");
 
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
 
@@ -76,7 +78,7 @@ public class BulkApiRequestParserTest {
 
   @Test
   public void testIndexNoFieldsNoId() throws Exception {
-    String rawRequest = getRawQueryString("index_no_fields_no_id");
+    byte[] rawRequest = getRawQueryBytes("index_no_fields_no_id");
 
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
 
@@ -99,7 +101,7 @@ public class BulkApiRequestParserTest {
 
   @Test
   public void testIndexEmptyRequest() throws Exception {
-    String rawRequest = getRawQueryString("index_empty_request");
+    byte[] rawRequest = getRawQueryBytes("index_empty_request");
 
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
 
@@ -110,14 +112,14 @@ public class BulkApiRequestParserTest {
 
   @Test
   public void testOtherBulkRequests() throws Exception {
-    String rawRequest = getRawQueryString("non_index");
+    byte[] rawRequest = getRawQueryBytes("non_index");
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(0);
   }
 
   @Test
   public void testIndexRequestWithSpecialChars() throws Exception {
-    String rawRequest = getRawQueryString("index_request_with_special_chars");
+    byte[] rawRequest = getRawQueryBytes("index_request_with_special_chars");
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
     Map<String, List<Trace.Span>> indexDocs =
@@ -139,7 +141,7 @@ public class BulkApiRequestParserTest {
 
   @Test
   public void testBulkRequests() throws Exception {
-    String rawRequest = getRawQueryString("bulk_requests");
+    byte[] rawRequest = getRawQueryBytes("bulk_requests");
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
 
@@ -162,7 +164,7 @@ public class BulkApiRequestParserTest {
 
   @Test
   public void testUpdatesAgainstTwoIndexes() throws Exception {
-    String rawRequest = getRawQueryString("two_indexes");
+    byte[] rawRequest = getRawQueryBytes("two_indexes");
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(2);
 
@@ -178,7 +180,7 @@ public class BulkApiRequestParserTest {
 
   @Test
   public void testTraceSpanGeneratedTimestamp() throws IOException {
-    String rawRequest = getRawQueryString("index_simple");
+    byte[] rawRequest = getRawQueryBytes("index_simple");
 
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);

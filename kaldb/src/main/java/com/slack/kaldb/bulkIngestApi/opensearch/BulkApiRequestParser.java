@@ -4,7 +4,6 @@ import com.google.protobuf.ByteString;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -33,7 +32,7 @@ public class BulkApiRequestParser {
 
   private static final String SERVICE_NAME_KEY = "service_name";
 
-  public static Map<String, List<Trace.Span>> parseRequest(String postBody) throws IOException {
+  public static Map<String, List<Trace.Span>> parseRequest(byte[] postBody) throws IOException {
     return convertIndexRequestToTraceFormat(parseBulkRequest(postBody));
   }
 
@@ -110,12 +109,11 @@ public class BulkApiRequestParser {
     // and transform it
   }
 
-  protected static List<IndexRequest> parseBulkRequest(String postBody) throws IOException {
+  protected static List<IndexRequest> parseBulkRequest(byte[] postBody) throws IOException {
     List<IndexRequest> indexRequests = new ArrayList<>();
     BulkRequest bulkRequest = new BulkRequest();
     // calls parse under the hood
-    byte[] bytes = postBody.getBytes(StandardCharsets.UTF_8);
-    bulkRequest.add(bytes, 0, bytes.length, null, MediaTypeRegistry.JSON);
+    bulkRequest.add(postBody, 0, postBody.length, null, MediaTypeRegistry.JSON);
     List<DocWriteRequest<?>> requests = bulkRequest.requests();
     for (DocWriteRequest<?> request : requests) {
       if (request.opType() == DocWriteRequest.OpType.INDEX) {

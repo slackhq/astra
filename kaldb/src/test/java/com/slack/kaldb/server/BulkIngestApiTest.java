@@ -118,7 +118,7 @@ public class BulkIngestApiTest {
     datasetRateLimitingService.awaitRunning(DEFAULT_START_STOP_DURATION);
     bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    bulkApi = new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService);
+    bulkApi = new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService, meterRegistry);
   }
 
   // I looked at making this a @BeforeEach. it's possible if you annotate a test with a @Tag and

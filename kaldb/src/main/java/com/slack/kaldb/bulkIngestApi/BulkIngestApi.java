@@ -8,6 +8,9 @@ import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -22,13 +25,17 @@ public class BulkIngestApi {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestApi.class);
   private final BulkIngestKafkaProducer bulkIngestKafkaProducer;
   private final DatasetRateLimitingService datasetRateLimitingService;
+  private final Counter incomingByteTotal;
+  private final String BULK_INGEST_INCOMING_BYTE_TOTAL = "kaldb_preprocessor_incoming_byte";
 
   public BulkIngestApi(
       BulkIngestKafkaProducer bulkIngestKafkaProducer,
-      DatasetRateLimitingService datasetRateLimitingService) {
+      DatasetRateLimitingService datasetRateLimitingService,
+      MeterRegistry meterRegistry) {
 
     this.bulkIngestKafkaProducer = bulkIngestKafkaProducer;
     this.datasetRateLimitingService = datasetRateLimitingService;
+    this.incomingByteTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_TOTAL);
   }
 
   @Blocking
@@ -37,7 +44,9 @@ public class BulkIngestApi {
     // 1. Kaldb does not support the concept of "updates". It's always an add.
     // 2. The "index" is used as the span name
     try {
-      Map<String, List<Trace.Span>> docs = BulkApiRequestParser.parseRequest(bulkRequest);
+      byte[] bulkRequestBytes = bulkRequest.getBytes(StandardCharsets.UTF_8);
+      incomingByteTotal.increment(bulkRequestBytes.length);
+      Map<String, List<Trace.Span>> docs = BulkApiRequestParser.parseRequest(bulkRequestBytes);
 
       // todo - our rate limiter doesn't have a way to acquire permits across multiple datasets
       // so today as a limitation we reject any request that has documents against multiple indexes
