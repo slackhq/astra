@@ -11,6 +11,7 @@ import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
+import com.slack.kaldb.writer.KafkaUtils;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
@@ -21,12 +22,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.OutOfOrderSequenceException;
@@ -41,7 +44,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   private final KafkaProducer<String, byte[]> kafkaProducer;
   private final KafkaClientMetrics kafkaMetrics;
 
-  private final KaldbConfigs.PreprocessorConfig preprocessorConfig;
+  private final KaldbConfigs.KafkaConfig kafkaConfig;
 
   private final DatasetMetadataStore datasetMetadataStore;
   private final KaldbMetadataStoreChangeListener<DatasetMetadata> datasetListener =
@@ -64,19 +67,28 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   public static final String BATCH_SIZE_GAUGE = "bulk_ingest_producer_batch_size";
   private final AtomicInteger batchSizeGauge;
 
+  private static final Set<String> OVERRIDABLE_CONFIGS =
+      Set.of(
+          ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+          ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+          ProducerConfig.LINGER_MS_CONFIG,
+          ProducerConfig.BATCH_SIZE_CONFIG,
+          ProducerConfig.MAX_BLOCK_MS_CONFIG,
+          ProducerConfig.COMPRESSION_TYPE_CONFIG);
+
   public BulkIngestKafkaProducer(
       final DatasetMetadataStore datasetMetadataStore,
       final KaldbConfigs.PreprocessorConfig preprocessorConfig,
       final PrometheusMeterRegistry meterRegistry) {
+
+    this.kafkaConfig = preprocessorConfig.getKafkaConfig();
+
     checkArgument(
-        !preprocessorConfig.getBootstrapServers().isEmpty(),
+        !kafkaConfig.getKafkaBootStrapServers().isEmpty(),
         "Kafka bootstrapServers must be provided");
 
-    checkArgument(
-        !preprocessorConfig.getDownstreamTopic().isEmpty(),
-        "Kafka downstreamTopic must be provided");
+    checkArgument(!kafkaConfig.getKafkaTopic().isEmpty(), "Kafka topic must be provided");
 
-    this.preprocessorConfig = preprocessorConfig;
     this.datasetMetadataStore = datasetMetadataStore;
 
     // todo - consider making these a configurable value, or determine a way to derive a reasonable
@@ -239,8 +251,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
       // we will limit producing documents 1 thread at a time
       for (Trace.Span doc : indexDoc.getValue()) {
         ProducerRecord<String, byte[]> producerRecord =
-            new ProducerRecord<>(
-                preprocessorConfig.getDownstreamTopic(), partition, index, doc.toByteArray());
+            new ProducerRecord<>(kafkaConfig.getKafkaTopic(), partition, index, doc.toByteArray());
 
         // we intentionally supress FutureReturnValueIgnored here in errorprone - this is because
         // we wrap this in a transaction, which is responsible for flushing all of the pending
@@ -254,14 +265,29 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
 
   private KafkaProducer<String, byte[]> createKafkaTransactionProducer(String transactionId) {
     Properties props = new Properties();
-    props.put("bootstrap.servers", preprocessorConfig.getBootstrapServers());
-    props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-    props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
-    props.put("transactional.id", transactionId);
-    props.put("linger.ms", 500);
-    props.put("batch.size", 128000);
-    props.put("max.block.ms", 10000);
-    props.put("compression.type", "snappy");
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.getKafkaBootStrapServers());
+    props.put(
+        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringSerializer");
+    props.put(
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.ByteArraySerializer");
+    props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
+    props.put(ProducerConfig.LINGER_MS_CONFIG, 500);
+    props.put(ProducerConfig.BATCH_SIZE_CONFIG, 128000);
+    props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 10000);
+    props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+
+    // don't override the properties that we have already set explicitly using named properties
+    for (Map.Entry<String, String> additionalProp :
+        kafkaConfig.getAdditionalPropsMap().entrySet()) {
+      props =
+          KafkaUtils.maybeOverrideProps(
+              props,
+              additionalProp.getKey(),
+              additionalProp.getValue(),
+              OVERRIDABLE_CONFIGS.contains(additionalProp.getKey()));
+    }
     return new KafkaProducer<>(props);
   }
 

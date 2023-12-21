@@ -2,7 +2,6 @@ package com.slack.kaldb.preprocessor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumer.maybeOverride;
 
 import com.google.common.util.concurrent.AbstractService;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
@@ -10,6 +9,7 @@ import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.writer.KafkaUtils;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -313,7 +313,9 @@ public class PreprocessorService extends AbstractService {
     // don't override any property we already set
     for (Map.Entry<String, String> additionalProp :
         kafkaStreamConfig.getAdditionalPropsMap().entrySet()) {
-      maybeOverride(props, additionalProp.getKey(), additionalProp.getValue(), false);
+      props =
+          KafkaUtils.maybeOverrideProps(
+              props, additionalProp.getKey(), additionalProp.getValue(), false);
     }
 
     return props;

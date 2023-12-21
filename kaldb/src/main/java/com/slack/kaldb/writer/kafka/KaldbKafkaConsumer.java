@@ -9,6 +9,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.KaldbConfig;
+import com.slack.kaldb.writer.KafkaUtils;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -82,38 +83,14 @@ public class KaldbKafkaConsumer {
     // don't override the properties that we have already set explicitly using named properties
     for (Map.Entry<String, String> additionalProp :
         kafkaConfig.getAdditionalPropsMap().entrySet()) {
-      maybeOverride(
-          props,
-          additionalProp.getKey(),
-          additionalProp.getValue(),
-          OVERRIDABLE_CONFIGS.contains(additionalProp.getKey()));
+      props =
+          KafkaUtils.maybeOverrideProps(
+              props,
+              additionalProp.getKey(),
+              additionalProp.getValue(),
+              OVERRIDABLE_CONFIGS.contains(additionalProp.getKey()));
     }
     return props;
-  }
-
-  @VisibleForTesting
-  public static boolean maybeOverride(
-      Properties props, String key, String value, boolean override) {
-    boolean overridden = false;
-    String userValue = props.getProperty(key);
-    if (userValue != null) {
-      if (override) {
-        LOG.warn(
-            String.format(
-                "Property %s is provided but will be overridden from %s to %s",
-                key, userValue, value));
-        props.setProperty(key, value);
-        overridden = true;
-      } else {
-        LOG.warn(
-            String.format(
-                "Property %s is provided but won't be overridden from %s to %s",
-                key, userValue, value));
-      }
-    } else {
-      props.setProperty(key, value);
-    }
-    return overridden;
   }
 
   private KafkaConsumer<String, byte[]> kafkaConsumer;

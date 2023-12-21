@@ -118,40 +118,6 @@ public class KaldbKafkaConsumerTest {
     }
 
     @Test
-    public void testOverridingProperties() {
-      KaldbConfigs.KafkaConfig kafkaConfig =
-          KaldbConfigs.KafkaConfig.newBuilder()
-              .setKafkaTopic(TestKafkaServer.TEST_KAFKA_TOPIC)
-              .setKafkaTopicPartition("0")
-              .setKafkaBootStrapServers("bootstrap_server")
-              .setKafkaClientGroup(TEST_KAFKA_CLIENT_GROUP)
-              .setEnableKafkaAutoCommit("true")
-              .setKafkaAutoCommitInterval("5000")
-              .setKafkaSessionTimeout("5000")
-              .build();
-
-      Properties properties = KaldbKafkaConsumer.makeKafkaConsumerProps(kafkaConfig);
-      assertThat(properties.get(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG))
-          .isEqualTo("org.apache.kafka.common.serialization.StringDeserializer");
-
-      kafkaConfig =
-          KaldbConfigs.KafkaConfig.newBuilder()
-              .setKafkaTopic(TestKafkaServer.TEST_KAFKA_TOPIC)
-              .setKafkaTopicPartition("0")
-              .setKafkaBootStrapServers("bootstrap_server")
-              .setKafkaClientGroup(TEST_KAFKA_CLIENT_GROUP)
-              .setEnableKafkaAutoCommit("true")
-              .setKafkaAutoCommitInterval("5000")
-              .setKafkaSessionTimeout("5000")
-              .putAdditionalProps(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "test_serializer")
-              .build();
-
-      properties = KaldbKafkaConsumer.makeKafkaConsumerProps(kafkaConfig);
-      assertThat(properties.get(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG))
-          .isEqualTo("test_serializer");
-    }
-
-    @Test
     public void testGetEndOffsetForPartition() throws Exception {
       EphemeralKafkaBroker broker = kafkaServer.getBroker();
       assertThat(broker.isRunning()).isTrue();

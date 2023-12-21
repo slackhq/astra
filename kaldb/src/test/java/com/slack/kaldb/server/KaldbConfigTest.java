@@ -295,7 +295,11 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
     assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(false);
-    assertThat(preprocessorConfig.getBootstrapServers()).isEqualTo("localhost:9092");
+
+    final KaldbConfigs.KafkaConfig preprocessorKafkaConfig =
+        config.getPreprocessorConfig().getKafkaConfig();
+    assertThat(preprocessorKafkaConfig.getKafkaBootStrapServers()).isEqualTo("localhost:9092");
+    assertThat(preprocessorKafkaConfig.getKafkaTopic()).isEqualTo("test-topic");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
@@ -466,8 +470,12 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
 
+    final KaldbConfigs.KafkaConfig preprocessorKafkaConfig =
+        config.getPreprocessorConfig().getKafkaConfig();
+    assertThat(preprocessorKafkaConfig.getKafkaBootStrapServers()).isEqualTo("localhost:9092");
+    assertThat(preprocessorKafkaConfig.getKafkaTopic()).isEqualTo("test-topic");
+
     assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(true);
-    assertThat(preprocessorConfig.getBootstrapServers()).isEqualTo("localhost:9092");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);

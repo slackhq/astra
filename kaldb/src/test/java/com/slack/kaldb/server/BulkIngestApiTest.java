@@ -86,14 +86,18 @@ public class BulkIngestApiTest {
             .setServerPort(8080)
             .setServerAddress("localhost")
             .build();
+    KaldbConfigs.KafkaConfig kafkaConfig =
+        KaldbConfigs.KafkaConfig.newBuilder()
+            .setKafkaBootStrapServers(kafkaServer.getBroker().getBrokerList().get())
+            .setKafkaTopic(DOWNSTREAM_TOPIC)
+            .build();
     preprocessorConfig =
         KaldbConfigs.PreprocessorConfig.newBuilder()
-            .setBootstrapServers(kafkaServer.getBroker().getBrokerList().get())
+            .setKafkaConfig(kafkaConfig)
             .setUseBulkApi(true)
             .setServerConfig(serverConfig)
             .setPreprocessorInstanceCount(1)
             .setRateLimiterMaxBurstSeconds(1)
-            .setDownstreamTopic(DOWNSTREAM_TOPIC)
             .build();
 
     datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
