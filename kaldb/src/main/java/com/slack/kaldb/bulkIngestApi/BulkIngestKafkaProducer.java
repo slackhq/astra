@@ -69,12 +69,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
 
   private static final Set<String> OVERRIDABLE_CONFIGS =
       Set.of(
-          ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-          ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-          ProducerConfig.LINGER_MS_CONFIG,
-          ProducerConfig.BATCH_SIZE_CONFIG,
-          ProducerConfig.MAX_BLOCK_MS_CONFIG,
-          ProducerConfig.COMPRESSION_TYPE_CONFIG);
+          ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
 
   public BulkIngestKafkaProducer(
       final DatasetMetadataStore datasetMetadataStore,
@@ -273,10 +268,6 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
         ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.ByteArraySerializer");
     props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
-    props.put(ProducerConfig.LINGER_MS_CONFIG, 500);
-    props.put(ProducerConfig.BATCH_SIZE_CONFIG, 128000);
-    props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 10000);
-    props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
 
     // don't override the properties that we have already set explicitly using named properties
     for (Map.Entry<String, String> additionalProp :
