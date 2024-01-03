@@ -10,6 +10,7 @@ import com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -25,8 +26,11 @@ public class BulkIngestApi {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestApi.class);
   private final BulkIngestKafkaProducer bulkIngestKafkaProducer;
   private final DatasetRateLimitingService datasetRateLimitingService;
+  private final MeterRegistry meterRegistry;
   private final Counter incomingByteTotal;
+  private final Timer bulkIngestTimer;
   private final String BULK_INGEST_INCOMING_BYTE_TOTAL = "kaldb_preprocessor_incoming_byte";
+  private final String BULK_INGEST_TIMER = "kaldb_preprocessor_bulk_ingest";
 
   public BulkIngestApi(
       BulkIngestKafkaProducer bulkIngestKafkaProducer,
@@ -35,7 +39,9 @@ public class BulkIngestApi {
 
     this.bulkIngestKafkaProducer = bulkIngestKafkaProducer;
     this.datasetRateLimitingService = datasetRateLimitingService;
+    this.meterRegistry = meterRegistry;
     this.incomingByteTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_TOTAL);
+    this.bulkIngestTimer = meterRegistry.timer(BULK_INGEST_TIMER);
   }
 
   @Blocking
@@ -43,6 +49,7 @@ public class BulkIngestApi {
   public HttpResponse addDocument(String bulkRequest) {
     // 1. Kaldb does not support the concept of "updates". It's always an add.
     // 2. The "index" is used as the span name
+    Timer.Sample sample = Timer.start(meterRegistry);
     try {
       byte[] bulkRequestBytes = bulkRequest.getBytes(StandardCharsets.UTF_8);
       incomingByteTotal.increment(bulkRequestBytes.length);
@@ -73,6 +80,8 @@ public class BulkIngestApi {
       LOG.error("Request failed ", e);
       BulkIngestResponse response = new BulkIngestResponse(0, 0, e.getMessage());
       return HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response);
+    } finally {
+      sample.stop(bulkIngestTimer);
     }
   }
 }
