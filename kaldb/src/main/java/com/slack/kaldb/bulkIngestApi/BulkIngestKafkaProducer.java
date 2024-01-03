@@ -64,6 +64,9 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
       "bulk_ingest_producer_over_limit_pending";
   private final Counter overLimitPendingRequests;
 
+  public static final String STALL_COUNTER = "bulk_ingest_producer_stall_counter";
+  private final Counter stallCounter;
+
   public static final String BATCH_SIZE_GAUGE = "bulk_ingest_producer_batch_size";
   private final AtomicInteger batchSizeGauge;
 
@@ -106,6 +109,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
 
     this.failedSetResponseCounter = meterRegistry.counter(FAILED_SET_RESPONSE_COUNTER);
     this.overLimitPendingRequests = meterRegistry.counter(OVER_LIMIT_PENDING_REQUESTS);
+    this.stallCounter = meterRegistry.counter(STALL_COUNTER);
     this.batchSizeGauge = meterRegistry.gauge(BATCH_SIZE_GAUGE, new AtomicInteger(0));
 
     this.kafkaProducer.initTransactions();
@@ -134,6 +138,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
       batchSizeGauge.set(requests.size());
       if (requests.isEmpty()) {
         try {
+          stallCounter.increment();
           Thread.sleep(producerSleep);
         } catch (InterruptedException e) {
           return;
