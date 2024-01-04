@@ -26,9 +26,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.pool2.BasePooledObjectFactory;
@@ -76,6 +76,9 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
       "bulk_ingest_producer_over_limit_pending";
   private final Counter overLimitPendingRequests;
 
+  public static final String PENDING_REQUEST_QUEUE_SIZE = "bulk_ingest_pending_request_queue_size";
+  private AtomicInteger pendingRequestQueueSize;
+
   public static final String STALL_COUNTER = "bulk_ingest_producer_stall_counter";
   private final Counter stallCounter;
 
@@ -85,6 +88,8 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   private static final Set<String> OVERRIDABLE_CONFIGS =
       Set.of(
           ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
+
+  public final int maxBatchSize;
 
   public BulkIngestKafkaProducer(
       final DatasetMetadataStore datasetMetadataStore,
@@ -103,11 +108,13 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
 
     // todo - consider making these a configurable value, or determine a way to derive a reasonable
     // value automatically
-    this.pendingRequests =
-        new ArrayBlockingQueue<>(
-            Integer.parseInt(System.getProperty("kalDb.bulkIngest.pendingLimit", "500")));
+    this.pendingRequests = new LinkedBlockingQueue<>();
+    //        new ArrayBlockingQueue<>(
+    //            Integer.parseInt(System.getProperty("kalDb.bulkIngest.pendingLimit", "500")));
     this.producerSleep =
-        Integer.parseInt(System.getProperty("kalDb.bulkIngest.producerSleep", "2000"));
+        Integer.parseInt(System.getProperty("kalDb.bulkIngest.producerSleep", "200"));
+    this.maxBatchSize =
+        Integer.parseInt(System.getProperty("kalDb.bulkIngest.maxBatchSize", "1000"));
 
     // since we use a new transaction ID every time we start a preprocessor there can be some zombie
     // transactions?
@@ -116,7 +123,10 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     // see "zombie fencing" https://www.confluent.io/blog/transactions-apache-kafka/
     GenericObjectPoolConfig<KafkaProducer<String, byte[]>> config = new GenericObjectPoolConfig<>();
     config.setMaxTotal(
-        Integer.parseInt(System.getProperty("kalDb.bulkIngest.pooledKafkaProducers", "16")));
+        Integer.parseInt(
+            System.getProperty(
+                "kalDb.bulkIngest.pooledKafkaProducers",
+                String.valueOf(Runtime.getRuntime().availableProcessors()))));
     this.kafkaProducerPool =
         new GenericObjectPool<>(
             new BasePooledObjectFactory<>() {
@@ -147,6 +157,8 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     this.overLimitPendingRequests = meterRegistry.counter(OVER_LIMIT_PENDING_REQUESTS);
     this.stallCounter = meterRegistry.counter(STALL_COUNTER);
     this.batchSizeGauge = meterRegistry.gauge(BATCH_SIZE_GAUGE, new AtomicInteger(0));
+    this.pendingRequestQueueSize =
+        meterRegistry.gauge(PENDING_REQUEST_QUEUE_SIZE, new AtomicInteger(0));
   }
 
   private void cacheSortedDataset() {
@@ -167,8 +179,10 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   @Override
   protected void run() throws Exception {
     while (isRunning()) {
+      pendingRequestQueueSize.set(pendingRequests.size());
+
       List<BulkIngestRequest> requests = new ArrayList<>();
-      pendingRequests.drainTo(requests);
+      pendingRequests.drainTo(requests, maxBatchSize);
       batchSizeGauge.set(requests.size());
       if (requests.isEmpty()) {
         try {
