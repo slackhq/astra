@@ -115,6 +115,8 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     // consumer sets isolation.level as "read_committed"
     // see "zombie fencing" https://www.confluent.io/blog/transactions-apache-kafka/
     GenericObjectPoolConfig<KafkaProducer<String, byte[]>> config = new GenericObjectPoolConfig<>();
+    config.setMaxTotal(
+        Integer.parseInt(System.getProperty("kalDb.bulkIngest.pooledKafkaProducers", "16")));
     this.kafkaProducerPool =
         new GenericObjectPool<>(
             new BasePooledObjectFactory<>() {
