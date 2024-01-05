@@ -96,11 +96,6 @@ public class ArmeriaService extends AbstractIdleService {
       return this;
     }
 
-    public Builder withBlockingTaskExecutorThreads(int numThreads) {
-      serverBuilder.blockingTaskExecutor(numThreads);
-      return this;
-    }
-
     public Builder withTracing(KaldbConfigs.TracingConfig tracingConfig) {
       // span handlers is an ordered list, so we need to be careful with ordering
       if (tracingConfig.getCommonTagsCount() > 0) {

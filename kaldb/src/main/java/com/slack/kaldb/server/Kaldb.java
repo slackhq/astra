@@ -401,15 +401,6 @@ public class Kaldb {
         BulkIngestApi openSearchBulkApiService =
             new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService, meterRegistry);
         armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
-
-        // todo - consider making this a configurable value or determine an automatic value
-        // reasonably
-        int blockingTaskExecutorThreads =
-            Integer.parseInt(System.getProperty("kalDb.bulkIngest.blockingExecutorThreads", "0"));
-        if (blockingTaskExecutorThreads > 0) {
-          LOG.info("kalDb.bulkIngest.blockingExecutorThreads={}", blockingTaskExecutorThreads);
-          armeriaServiceBuilder.withBlockingTaskExecutorThreads(blockingTaskExecutorThreads);
-        }
       } else {
         PreprocessorService preprocessorService =
             new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
