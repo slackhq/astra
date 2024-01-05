@@ -4,7 +4,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
@@ -15,7 +14,6 @@ import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.KafkaUtils;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.util.ArrayList;
@@ -27,16 +25,9 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.commons.pool2.BasePooledObjectFactory;
-import org.apache.commons.pool2.ObjectPool;
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.impl.DefaultPooledObject;
-import org.apache.commons.pool2.impl.GenericObjectPool;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -50,11 +41,9 @@ import org.slf4j.LoggerFactory;
 public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestKafkaProducer.class);
 
-  private final ObjectPool<KafkaProducer<String, byte[]>> kafkaProducerPool;
+  private final KafkaProducer<String, byte[]> kafkaProducer;
 
-  private final AtomicInteger poolCounter = new AtomicInteger(0);
-
-  private final Map<Integer, KafkaClientMetrics> metricsMap = new ConcurrentHashMap<>();
+  private final KafkaClientMetrics kafkaMetrics;
 
   private final KaldbConfigs.KafkaConfig kafkaConfig;
 
@@ -71,14 +60,6 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   public static final String FAILED_SET_RESPONSE_COUNTER =
       "bulk_ingest_producer_failed_set_response";
   private final Counter failedSetResponseCounter;
-
-  public static final String OVER_LIMIT_PENDING_REQUESTS =
-      "bulk_ingest_producer_over_limit_pending";
-  private final Counter overLimitPendingRequests;
-
-  public static final String PENDING_REQUEST_QUEUE_SIZE = "bulk_ingest_pending_request_queue_size";
-  private AtomicInteger pendingRequestQueueSize;
-
   public static final String STALL_COUNTER = "bulk_ingest_producer_stall_counter";
   private final Counter stallCounter;
 
@@ -88,8 +69,6 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   private static final Set<String> OVERRIDABLE_CONFIGS =
       Set.of(
           ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
-
-  public final int maxBatchSize;
 
   public BulkIngestKafkaProducer(
       final DatasetMetadataStore datasetMetadataStore,
@@ -105,60 +84,26 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     checkArgument(!kafkaConfig.getKafkaTopic().isEmpty(), "Kafka topic must be provided");
 
     this.datasetMetadataStore = datasetMetadataStore;
-
-    // todo - consider making these a configurable value, or determine a way to derive a reasonable
-    // value automatically
     this.pendingRequests = new LinkedBlockingQueue<>();
-    //        new ArrayBlockingQueue<>(
-    //            Integer.parseInt(System.getProperty("kalDb.bulkIngest.pendingLimit", "500")));
+
+    // todo - consider making this a configurable value or removing the config
     this.producerSleep =
-        Integer.parseInt(System.getProperty("kalDb.bulkIngest.producerSleep", "200"));
-    this.maxBatchSize =
-        Integer.parseInt(System.getProperty("kalDb.bulkIngest.maxBatchSize", "1000"));
+        Integer.parseInt(System.getProperty("kalDb.bulkIngest.producerSleep", "50"));
 
     // since we use a new transaction ID every time we start a preprocessor there can be some zombie
     // transactions?
     // I think they will remain in kafka till they expire. They should never be readable if the
     // consumer sets isolation.level as "read_committed"
     // see "zombie fencing" https://www.confluent.io/blog/transactions-apache-kafka/
-    GenericObjectPoolConfig<KafkaProducer<String, byte[]>> config = new GenericObjectPoolConfig<>();
-    config.setMaxTotal(
-        Integer.parseInt(
-            System.getProperty(
-                "kalDb.bulkIngest.pooledKafkaProducers",
-                String.valueOf(Runtime.getRuntime().availableProcessors()))));
-    this.kafkaProducerPool =
-        new GenericObjectPool<>(
-            new BasePooledObjectFactory<>() {
-              @Override
-              public KafkaProducer<String, byte[]> create() {
-                KafkaProducer<String, byte[]> producer =
-                    createKafkaTransactionProducer(UUID.randomUUID().toString());
-                int metricsCounter = poolCounter.getAndIncrement();
-                KafkaClientMetrics clientMetrics =
-                    new KafkaClientMetrics(
-                        producer,
-                        List.of(Tag.of("bulk_instance_id", String.valueOf(metricsCounter))));
-                clientMetrics.bindTo(meterRegistry);
-                metricsMap.put(metricsCounter, clientMetrics);
-                producer.initTransactions();
-                return producer;
-              }
-
-              @Override
-              public PooledObject<KafkaProducer<String, byte[]>> wrap(
-                  KafkaProducer<String, byte[]> stringKafkaProducer) {
-                return new DefaultPooledObject<>(stringKafkaProducer);
-              }
-            },
-            config);
+    this.kafkaProducer = createKafkaTransactionProducer(UUID.randomUUID().toString());
+    this.kafkaMetrics = new KafkaClientMetrics(kafkaProducer);
+    this.kafkaMetrics.bindTo(meterRegistry);
 
     this.failedSetResponseCounter = meterRegistry.counter(FAILED_SET_RESPONSE_COUNTER);
-    this.overLimitPendingRequests = meterRegistry.counter(OVER_LIMIT_PENDING_REQUESTS);
     this.stallCounter = meterRegistry.counter(STALL_COUNTER);
     this.batchSizeGauge = meterRegistry.gauge(BATCH_SIZE_GAUGE, new AtomicInteger(0));
-    this.pendingRequestQueueSize =
-        meterRegistry.gauge(PENDING_REQUEST_QUEUE_SIZE, new AtomicInteger(0));
+
+    this.kafkaProducer.initTransactions();
   }
 
   private void cacheSortedDataset() {
@@ -179,10 +124,8 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   @Override
   protected void run() throws Exception {
     while (isRunning()) {
-      pendingRequestQueueSize.set(pendingRequests.size());
-
       List<BulkIngestRequest> requests = new ArrayList<>();
-      pendingRequests.drainTo(requests, maxBatchSize);
+      pendingRequests.drainTo(requests);
       batchSizeGauge.set(requests.size());
       if (requests.isEmpty()) {
         try {
@@ -192,21 +135,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
           return;
         }
       } else {
-        try {
-          KafkaProducer<String, byte[]> kafkaProducer = kafkaProducerPool.borrowObject();
-          Thread.ofVirtual()
-              .start(
-                  () -> {
-                    transactionCommit(requests, kafkaProducer);
-                    try {
-                      kafkaProducerPool.returnObject(kafkaProducer);
-                    } catch (Exception e) {
-                      LOG.error("Error attempting to return kafka producer to pool", e);
-                    }
-                  });
-        } catch (Exception e) {
-          LOG.error("Error attempting to borrow kafka producer from pool", e);
-        }
+        transactionCommit(requests);
       }
     }
   }
@@ -214,34 +143,21 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   @Override
   protected void shutDown() throws Exception {
     datasetMetadataStore.removeListener(datasetListener);
-    kafkaProducerPool.close();
-    metricsMap.forEach((_, kafkaMetrics) -> kafkaMetrics.close());
+
+    kafkaProducer.close();
+    if (kafkaMetrics != null) {
+      kafkaMetrics.close();
+    }
   }
 
   public BulkIngestRequest submitRequest(Map<String, List<Trace.Span>> inputDocs) {
     BulkIngestRequest request = new BulkIngestRequest(inputDocs);
-    try {
-      pendingRequests.add(request);
-    } catch (IllegalStateException e) {
-      overLimitPendingRequests.increment();
-      throw e;
-    }
+    pendingRequests.add(request);
     return request;
   }
 
-  @Deprecated
-  @VisibleForTesting
   protected Map<BulkIngestRequest, BulkIngestResponse> transactionCommit(
-      List<BulkIngestRequest> requests) throws Exception {
-    KafkaProducer<String, byte[]> kafkaProducer = kafkaProducerPool.borrowObject();
-    Map<BulkIngestRequest, BulkIngestResponse> response =
-        transactionCommit(requests, kafkaProducer);
-    kafkaProducerPool.returnObject(kafkaProducer);
-    return response;
-  }
-
-  protected Map<BulkIngestRequest, BulkIngestResponse> transactionCommit(
-      List<BulkIngestRequest> requests, KafkaProducer<String, byte[]> kafkaProducer) {
+      List<BulkIngestRequest> requests) {
     Map<BulkIngestRequest, BulkIngestResponse> responseMap = new HashMap<>();
 
     // KafkaProducer<String, byte[]> kafkaProducer = null;

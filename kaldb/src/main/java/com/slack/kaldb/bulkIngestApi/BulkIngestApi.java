@@ -50,6 +50,8 @@ public class BulkIngestApi {
     // 2. The "index" is used as the span name
     CompletableFuture<HttpResponse> future = new CompletableFuture<>();
     Timer.Sample sample = Timer.start(meterRegistry);
+    future.thenRun(() -> sample.stop(bulkIngestTimer));
+
     try {
       byte[] bulkRequestBytes = bulkRequest.getBytes(StandardCharsets.UTF_8);
       incomingByteTotal.increment(bulkRequestBytes.length);
@@ -64,6 +66,7 @@ public class BulkIngestApi {
         BulkIngestResponse response =
             new BulkIngestResponse(0, 0, "request must contain only 1 unique index");
         future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
+        return HttpResponse.of(future);
       }
 
       for (Map.Entry<String, List<Trace.Span>> indexDocs : docs.entrySet()) {
@@ -71,11 +74,10 @@ public class BulkIngestApi {
         if (!datasetRateLimitingService.tryAcquire(index, indexDocs.getValue())) {
           BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");
           future.complete(HttpResponse.ofJson(TOO_MANY_REQUESTS, response));
+          return HttpResponse.of(future);
         }
       }
 
-      // getResponse will cause this thread to wait until the batch producer submits or it
-      // hits Armeria timeout
       Thread.ofVirtual()
           .start(
               () -> {
@@ -95,7 +97,6 @@ public class BulkIngestApi {
       BulkIngestResponse response = new BulkIngestResponse(0, 0, e.getMessage());
       future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
     }
-    future.thenRun(() -> sample.stop(bulkIngestTimer));
 
     return HttpResponse.of(future);
   }
