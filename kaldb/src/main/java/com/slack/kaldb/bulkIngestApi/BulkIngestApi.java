@@ -78,6 +78,8 @@ public class BulkIngestApi {
         }
       }
 
+      // todo - explore the possibility of using the blocking task executor backed by virtual
+      // threads to fulfill this
       Thread.ofVirtual()
           .start(
               () -> {

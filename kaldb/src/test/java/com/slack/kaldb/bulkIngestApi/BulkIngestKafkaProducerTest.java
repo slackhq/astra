@@ -133,7 +133,10 @@ class BulkIngestKafkaProducerTest {
             });
     BulkIngestResponse responseObj =
         (BulkIngestResponse)
-            bulkIngestKafkaProducer.transactionCommit(List.of(request1)).values().toArray()[0];
+            bulkIngestKafkaProducer
+                .produceDocumentsAndCommit(List.of(request1))
+                .values()
+                .toArray()[0];
     assertThat(responseObj.totalDocs()).isEqualTo(0);
     assertThat(responseObj.failedDocs()).isEqualTo(5);
     assertThat(responseObj.errorMsg()).isNotNull();
@@ -192,7 +195,10 @@ class BulkIngestKafkaProducerTest {
             });
     responseObj =
         (BulkIngestResponse)
-            bulkIngestKafkaProducer.transactionCommit(List.of(request2)).values().toArray()[0];
+            bulkIngestKafkaProducer
+                .produceDocumentsAndCommit(List.of(request2))
+                .values()
+                .toArray()[0];
     assertThat(responseObj.totalDocs()).isEqualTo(5);
     assertThat(responseObj.failedDocs()).isEqualTo(0);
     assertThat(responseObj.errorMsg()).isNotNull();

@@ -55,7 +55,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
 
   private final BlockingQueue<BulkIngestRequest> pendingRequests;
 
-  private final Integer producerSleep;
+  private final Integer producerSleepMs;
 
   public static final String FAILED_SET_RESPONSE_COUNTER =
       "bulk_ingest_producer_failed_set_response";
@@ -87,8 +87,8 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     this.pendingRequests = new LinkedBlockingQueue<>();
 
     // todo - consider making this a configurable value or removing the config
-    this.producerSleep =
-        Integer.parseInt(System.getProperty("kalDb.bulkIngest.producerSleep", "50"));
+    this.producerSleepMs =
+        Integer.parseInt(System.getProperty("kalDb.bulkIngest.producerSleepMs", "50"));
 
     // since we use a new transaction ID every time we start a preprocessor there can be some zombie
     // transactions?
@@ -130,12 +130,12 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
       if (requests.isEmpty()) {
         try {
           stallCounter.increment();
-          Thread.sleep(producerSleep);
+          Thread.sleep(producerSleepMs);
         } catch (InterruptedException e) {
           return;
         }
       } else {
-        transactionCommit(requests);
+        produceDocumentsAndCommit(requests);
       }
     }
   }
@@ -156,7 +156,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     return request;
   }
 
-  protected Map<BulkIngestRequest, BulkIngestResponse> transactionCommit(
+  protected Map<BulkIngestRequest, BulkIngestResponse> produceDocumentsAndCommit(
       List<BulkIngestRequest> requests) {
     Map<BulkIngestRequest, BulkIngestResponse> responseMap = new HashMap<>();
 
@@ -247,7 +247,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
         ProducerRecord<String, byte[]> producerRecord =
             new ProducerRecord<>(kafkaConfig.getKafkaTopic(), partition, index, doc.toByteArray());
 
-        // we intentionally supress FutureReturnValueIgnored here in errorprone - this is because
+        // we intentionally suppress FutureReturnValueIgnored here in errorprone - this is because
         // we wrap this in a transaction, which is responsible for flushing all of the pending
         // messages
         kafkaProducer.send(producerRecord);
