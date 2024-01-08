@@ -142,6 +142,10 @@
       "numStreamThreads": 2,
       "processingGuarantee": "at_least_once"
     },
+    "kafkaConfig": {
+      "kafkaTopic": "test-topic",
+      "kafkaBootStrapServers": "localhost:9092"
+    },
     "serverConfig": {
       "serverPort": 8085,
       "serverAddress": "localhost",

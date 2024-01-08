@@ -125,6 +125,10 @@ preprocessorConfig:
     numStreamThreads: ${KAFKA_STREAM_THREADS:-2}
     processingGuarantee: ${KAFKA_STREAM_PROCESSING_GUARANTEE:-at_least_once}
     additionalProps: ${KAFKA_ADDITIONAL_PROPS:-}
+  kafkaConfig:
+    kafkaTopic: ${KAFKA_TOPIC:-test-topic}
+    kafkaBootStrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+    additionalProps: ${KAFKA_ADDITIONAL_PROPS:-}
 
   serverConfig:
     serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
@@ -136,5 +140,4 @@ preprocessorConfig:
   dataTransformer: ${PREPROCESSOR_TRANSFORMER:-json}
   rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}
   kafkaPartitionStickyTimeoutMs: ${KAFKA_PARTITION_STICKY_TIMEOUT_MS:-0}
-  bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
   useBulkApi: ${KALDB_PREPROCESSOR_USE_BULK_API:-false}

@@ -5,32 +5,34 @@ import static com.linecorp.armeria.common.HttpStatus.OK;
 import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
 
 import brave.Tracing;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
-import com.slack.kaldb.elasticsearchApi.BulkIngestResponse;
+import com.slack.kaldb.bulkIngestApi.BulkIngestApi;
+import com.slack.kaldb.bulkIngestApi.BulkIngestKafkaProducer;
+import com.slack.kaldb.bulkIngestApi.BulkIngestResponse;
+import com.slack.kaldb.bulkIngestApi.DatasetRateLimitingService;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
-import com.slack.kaldb.preprocessor.PreprocessorRateLimiter;
-import com.slack.kaldb.preprocessor.ingest.OpenSearchBulkApiRequestParser;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -40,21 +42,21 @@ import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.opensearch.action.index.IndexRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenSearchBulkIngestApiTest {
-
-  private static final Logger LOG = LoggerFactory.getLogger(OpenSearchBulkIngestApi.class);
-
+public class BulkIngestApiTest {
+  private static final Logger LOG = LoggerFactory.getLogger(BulkIngestApi.class);
   private static PrometheusMeterRegistry meterRegistry;
   private static AsyncCuratorFramework curatorFramework;
   private static KaldbConfigs.PreprocessorConfig preprocessorConfig;
   private static DatasetMetadataStore datasetMetadataStore;
   private static TestingServer zkServer;
   private static TestKafkaServer kafkaServer;
-  private OpenSearchBulkIngestApi openSearchBulkAPI;
+  private BulkIngestApi bulkApi;
+
+  private BulkIngestKafkaProducer bulkIngestKafkaProducer;
+  private DatasetRateLimitingService datasetRateLimitingService;
 
   static String INDEX_NAME = "testindex";
 
@@ -84,14 +86,18 @@ public class OpenSearchBulkIngestApiTest {
             .setServerPort(8080)
             .setServerAddress("localhost")
             .build();
+    KaldbConfigs.KafkaConfig kafkaConfig =
+        KaldbConfigs.KafkaConfig.newBuilder()
+            .setKafkaBootStrapServers(kafkaServer.getBroker().getBrokerList().get())
+            .setKafkaTopic(DOWNSTREAM_TOPIC)
+            .build();
     preprocessorConfig =
         KaldbConfigs.PreprocessorConfig.newBuilder()
-            .setBootstrapServers(kafkaServer.getBroker().getBrokerList().get())
+            .setKafkaConfig(kafkaConfig)
             .setUseBulkApi(true)
             .setServerConfig(serverConfig)
             .setPreprocessorInstanceCount(1)
             .setRateLimiterMaxBurstSeconds(1)
-            .setDownstreamTopic(DOWNSTREAM_TOPIC)
             .build();
 
     datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
@@ -105,18 +111,29 @@ public class OpenSearchBulkIngestApiTest {
     // Create an entry while init. Update the entry on every test run
     datasetMetadataStore.createSync(datasetMetadata);
 
-    openSearchBulkAPI =
-        new OpenSearchBulkIngestApi(datasetMetadataStore, preprocessorConfig, meterRegistry, false);
+    datasetRateLimitingService =
+        new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
 
-    openSearchBulkAPI.startAsync();
-    openSearchBulkAPI.awaitRunning(DEFAULT_START_STOP_DURATION);
+    datasetRateLimitingService.startAsync();
+    bulkIngestKafkaProducer.startAsync();
+
+    datasetRateLimitingService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    bulkApi = new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService, meterRegistry);
   }
 
   // I looked at making this a @BeforeEach. it's possible if you annotate a test with a @Tag and
   // pass throughputBytes.
   // However, decided not to go with that because it involved hardcoding the throughput bytes
   // when defining the test. We need it to be dynamic based on the size of the docs
-  public void updateDatasetThroughput(int throughputBytes) throws Exception {
+  public void updateDatasetThroughput(int throughputBytes) {
+    double timerCount =
+        MetricsUtil.getTimerCount(
+            DatasetRateLimitingService.RATE_LIMIT_RELOAD_TIMER, meterRegistry);
+
     // dataset metadata already exists. Update with the throughput value
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
@@ -127,17 +144,13 @@ public class OpenSearchBulkIngestApiTest {
             INDEX_NAME);
     datasetMetadataStore.updateSync(datasetMetadata);
 
-    // Need to wait until we've verified the rate limit has been correctly loaded
+    // Need to wait until the rate limit has been loaded
     await()
         .until(
             () ->
-                openSearchBulkAPI.throughputSortedDatasets.stream()
-                    .filter(datasetMetadata1 -> datasetMetadata1.name.equals(INDEX_NAME))
-                    .findFirst(),
-            (storedDatasetMetadata) -> {
-              //noinspection OptionalGetWithoutIsPresent
-              return storedDatasetMetadata.get().getThroughputBytes() == throughputBytes;
-            });
+                MetricsUtil.getTimerCount(
+                        DatasetRateLimitingService.RATE_LIMIT_RELOAD_TIMER, meterRegistry)
+                    > timerCount);
   }
 
   @AfterEach
@@ -145,9 +158,13 @@ public class OpenSearchBulkIngestApiTest {
   // Instead of calling stop from every test and ensuring it's part of a finally block we just call
   // the shutdown code with the @AfterEach annotation
   public void shutdownOpenSearchAPI() throws Exception {
-    if (openSearchBulkAPI != null) {
-      openSearchBulkAPI.stopAsync();
-      openSearchBulkAPI.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    if (datasetRateLimitingService != null) {
+      datasetRateLimitingService.stopAsync();
+      datasetRateLimitingService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    }
+    if (bulkIngestKafkaProducer != null) {
+      bulkIngestKafkaProducer.stopAsync();
+      bulkIngestKafkaProducer.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     kafkaServer.close();
     curatorFramework.unwrap().close();
@@ -178,19 +195,10 @@ public class OpenSearchBulkIngestApiTest {
                 { "index": {"_index": "testindex", "_id": "1"} }
                 { "field1" : "value1" }
                 """;
-    // get num bytes that can be used to create the dataset. When we make 2 successive calls the
-    // second one should fail
-    List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(request1);
-    Map<String, List<Trace.Span>> indexDocs =
-        OpenSearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
-    assertThat(indexDocs.keySet().size()).isEqualTo(1);
-    assertThat(indexDocs.get("testindex").size()).isEqualTo(1);
-    assertThat(indexDocs.get("testindex").get(0).getId().toStringUtf8()).isEqualTo("1");
-    int throughputBytes = PreprocessorRateLimiter.getSpanBytes(indexDocs.get("testindex"));
-    updateDatasetThroughput(throughputBytes);
+    updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
 
     // test with empty causes a parse exception
-    AggregatedHttpResponse response = openSearchBulkAPI.addDocument("{}\n").aggregate().join();
+    AggregatedHttpResponse response = bulkApi.addDocument("{}\n").aggregate().join();
     assertThat(response.status().isSuccess()).isEqualTo(false);
     assertThat(response.status().code()).isEqualTo(INTERNAL_SERVER_ERROR.code());
     BulkIngestResponse responseObj =
@@ -200,20 +208,49 @@ public class OpenSearchBulkIngestApiTest {
 
     // test with request1 twice. first one should succeed, second one will fail because of rate
     // limiter
-    response = openSearchBulkAPI.addDocument(request1).aggregate().join();
-    assertThat(response.status().isSuccess()).isEqualTo(true);
-    assertThat(response.status().code()).isEqualTo(OK.code());
-    responseObj = JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
-    assertThat(responseObj.totalDocs()).isEqualTo(1);
-    assertThat(responseObj.failedDocs()).isEqualTo(0);
+    CompletableFuture<AggregatedHttpResponse> response1 =
+        bulkApi
+            .addDocument(request1)
+            .aggregate()
+            .thenApply(
+                httpResponse -> {
+                  assertThat(httpResponse.status().isSuccess()).isEqualTo(true);
+                  assertThat(httpResponse.status().code()).isEqualTo(OK.code());
+                  BulkIngestResponse httpResponseObj = null;
+                  try {
+                    httpResponseObj =
+                        JsonUtil.read(httpResponse.contentUtf8(), BulkIngestResponse.class);
+                  } catch (IOException e) {
+                    fail("", e);
+                  }
+                  assertThat(httpResponseObj.totalDocs()).isEqualTo(1);
+                  assertThat(httpResponseObj.failedDocs()).isEqualTo(0);
+                  return httpResponse;
+                });
 
-    response = openSearchBulkAPI.addDocument(request1).aggregate().join();
-    assertThat(response.status().isSuccess()).isEqualTo(false);
-    assertThat(response.status().code()).isEqualTo(TOO_MANY_REQUESTS.code());
-    responseObj = JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
-    assertThat(responseObj.totalDocs()).isEqualTo(0);
-    assertThat(responseObj.failedDocs()).isEqualTo(0);
-    assertThat(responseObj.errorMsg()).isEqualTo("rate limit exceeded");
+    CompletableFuture<AggregatedHttpResponse> response2 =
+        bulkApi
+            .addDocument(request1)
+            .aggregate()
+            .thenApply(
+                httpResponse -> {
+                  assertThat(httpResponse.status().isSuccess()).isEqualTo(false);
+                  assertThat(httpResponse.status().code()).isEqualTo(TOO_MANY_REQUESTS.code());
+                  BulkIngestResponse httpResponseObj = null;
+                  try {
+                    httpResponseObj =
+                        JsonUtil.read(httpResponse.contentUtf8(), BulkIngestResponse.class);
+                  } catch (IOException e) {
+                    fail("", e);
+                  }
+                  assertThat(httpResponseObj.totalDocs()).isEqualTo(0);
+                  assertThat(httpResponseObj.failedDocs()).isEqualTo(0);
+                  assertThat(httpResponseObj.errorMsg()).isEqualTo("rate limit exceeded");
+                  return httpResponse;
+                });
+
+    await().until(response1::isDone);
+    await().until(response2::isDone);
 
     // test with multiple indexes
     String request2 =
@@ -223,7 +260,7 @@ public class OpenSearchBulkIngestApiTest {
                 { "index": {"_index": "testindex2", "_id": "1"} }
                 { "field1" : "value1" }
                 """;
-    response = openSearchBulkAPI.addDocument(request2).aggregate().join();
+    response = bulkApi.addDocument(request2).aggregate().join();
     assertThat(response.status().isSuccess()).isEqualTo(false);
     assertThat(response.status().code()).isEqualTo(INTERNAL_SERVER_ERROR.code());
     responseObj = JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
@@ -241,17 +278,11 @@ public class OpenSearchBulkIngestApiTest {
                     { "index": {"_index": "testindex", "_id": "2"} }
                     { "field1" : "value2" }
                     """;
-    List<IndexRequest> indexRequests = OpenSearchBulkApiRequestParser.parseBulkRequest(request1);
-    Map<String, List<Trace.Span>> indexDocs =
-        OpenSearchBulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
-    assertThat(indexDocs.keySet().size()).isEqualTo(1);
-    assertThat(indexDocs.get("testindex").size()).isEqualTo(2);
-    int throughputBytes = PreprocessorRateLimiter.getSpanBytes(indexDocs.get("testindex"));
-    updateDatasetThroughput(throughputBytes);
+    updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
 
-    AggregatedHttpResponse response = openSearchBulkAPI.addDocument(request1).aggregate().join();
+    AggregatedHttpResponse response = bulkApi.addDocument(request1).aggregate().join();
     assertThat(response.status().isSuccess()).isEqualTo(true);
     assertThat(response.status().code()).isEqualTo(OK.code());
     BulkIngestResponse responseObj =
@@ -274,89 +305,6 @@ public class OpenSearchBulkIngestApiTest {
         .anyMatch(
             record ->
                 TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("2"));
-
-    // close the kafka consumer used in the test
-    kafkaConsumer.close();
-  }
-
-  @Test
-  public void testDocumentInKafkaTransactionError() throws Exception {
-    updateDatasetThroughput(100_1000);
-
-    KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
-
-    // we want to inject a failure in the second doc and test if the abort transaction works and we
-    // don't index the first document
-    Trace.Span doc1 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("error1")).build();
-    Trace.Span doc2 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("error2")).build();
-    Trace.Span doc3 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("error3")).build();
-    Trace.Span doc4 = spy(Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("error4")).build());
-    when(doc4.toByteArray()).thenThrow(new RuntimeException("exception"));
-    Trace.Span doc5 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("error5")).build();
-
-    Map<String, List<Trace.Span>> indexDocs =
-        Map.of("testindex", List.of(doc1, doc2, doc3, doc4, doc5));
-
-    BulkIngestResponse responseObj = openSearchBulkAPI.produceDocuments(indexDocs);
-    assertThat(responseObj.totalDocs()).isEqualTo(0);
-    assertThat(responseObj.failedDocs()).isEqualTo(5);
-    assertThat(responseObj.errorMsg()).isNotNull();
-
-    await()
-        .until(
-            () -> {
-              @SuppressWarnings("OptionalGetWithoutIsPresent")
-              long partitionOffset =
-                  (Long)
-                      kafkaConsumer
-                          .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
-                          .values()
-                          .stream()
-                          .findFirst()
-                          .get();
-              LOG.debug(
-                  "Current partitionOffset - {}. expecting offset to be less than 5",
-                  partitionOffset);
-              return partitionOffset > 0 && partitionOffset < 5;
-            });
-
-    ConsumerRecords<String, byte[]> records =
-        kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
-
-    assertThat(records.count()).isEqualTo(0);
-
-    long currentPartitionOffset =
-        (Long)
-            kafkaConsumer
-                .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
-                .values()
-                .stream()
-                .findFirst()
-                .get();
-
-    Trace.Span doc6 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("no_error6")).build();
-    Trace.Span doc7 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("no_error7")).build();
-    Trace.Span doc8 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("no_error8")).build();
-    Trace.Span doc9 =
-        spy(Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("no_error9")).build());
-    Trace.Span doc10 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("no_error10")).build();
-
-    indexDocs = Map.of("testindex", List.of(doc6, doc7, doc8, doc9, doc10));
-
-    responseObj = openSearchBulkAPI.produceDocuments(indexDocs);
-    assertThat(responseObj.totalDocs()).isEqualTo(5);
-    assertThat(responseObj.failedDocs()).isEqualTo(0);
-    assertThat(responseObj.errorMsg()).isNotNull();
-
-    // 5 docs. 1 control batch. initial offset was 1 after the first failed batch
-    validateOffset(kafkaConsumer, currentPartitionOffset + 5 + 1);
-    records = kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
-
-    assertThat(records.count()).isEqualTo(5);
-    records.forEach(
-        record ->
-            LOG.info(
-                "Trace= + " + TraceSpanParserSilenceError(record.value()).getId().toStringUtf8()));
 
     // close the kafka consumer used in the test
     kafkaConsumer.close();

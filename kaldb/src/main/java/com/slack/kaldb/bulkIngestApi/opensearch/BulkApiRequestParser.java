@@ -1,10 +1,9 @@
-package com.slack.kaldb.preprocessor.ingest;
+package com.slack.kaldb.bulkIngestApi.opensearch;
 
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -22,13 +21,22 @@ import org.opensearch.ingest.IngestDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenSearchBulkApiRequestParser {
+/**
+ * This class uses the Opensearch libraries to parse the bulk ingest request into documents which
+ * can be inserted into Kafka. The goal of this is to leverage Opensearch where possible, while
+ * preventing opensearch abstractions from leaking further into KalDB.
+ */
+public class BulkApiRequestParser {
 
-  public static final Logger LOG = LoggerFactory.getLogger(OpenSearchBulkApiRequestParser.class);
+  private static final Logger LOG = LoggerFactory.getLogger(BulkApiRequestParser.class);
 
-  private static String SERVICE_NAME_KEY = "service_name";
+  private static final String SERVICE_NAME_KEY = "service_name";
 
-  public static Trace.Span fromIngestDocument(IngestDocument ingestDocument) {
+  public static Map<String, List<Trace.Span>> parseRequest(byte[] postBody) throws IOException {
+    return convertIndexRequestToTraceFormat(parseBulkRequest(postBody));
+  }
+
+  protected static Trace.Span fromIngestDocument(IngestDocument ingestDocument) {
     ZonedDateTime timestamp =
         (ZonedDateTime)
             ingestDocument
@@ -69,9 +77,9 @@ public class OpenSearchBulkApiRequestParser {
     return spanBuilder.build();
   }
 
-  // key - index. value - list of docs to be indexed
-  public static Map<String, List<Trace.Span>> convertIndexRequestToTraceFormat(
+  protected static Map<String, List<Trace.Span>> convertIndexRequestToTraceFormat(
       List<IndexRequest> indexRequests) {
+    // key - index. value - list of docs to be indexed
     Map<String, List<Trace.Span>> indexDocs = new HashMap<>();
 
     for (IndexRequest indexRequest : indexRequests) {
@@ -81,7 +89,7 @@ public class OpenSearchBulkApiRequestParser {
       }
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
       List<Trace.Span> docs = indexDocs.computeIfAbsent(index, key -> new ArrayList<>());
-      docs.add(OpenSearchBulkApiRequestParser.fromIngestDocument(ingestDocument));
+      docs.add(BulkApiRequestParser.fromIngestDocument(ingestDocument));
     }
     return indexDocs;
   }
@@ -101,12 +109,11 @@ public class OpenSearchBulkApiRequestParser {
     // and transform it
   }
 
-  public static List<IndexRequest> parseBulkRequest(String postBody) throws IOException {
+  protected static List<IndexRequest> parseBulkRequest(byte[] postBody) throws IOException {
     List<IndexRequest> indexRequests = new ArrayList<>();
     BulkRequest bulkRequest = new BulkRequest();
     // calls parse under the hood
-    byte[] bytes = postBody.getBytes(StandardCharsets.UTF_8);
-    bulkRequest.add(bytes, 0, bytes.length, null, MediaTypeRegistry.JSON);
+    bulkRequest.add(postBody, 0, postBody.length, null, MediaTypeRegistry.JSON);
     List<DocWriteRequest<?>> requests = bulkRequest.requests();
     for (DocWriteRequest<?> request : requests) {
       if (request.opType() == DocWriteRequest.OpType.INDEX) {
