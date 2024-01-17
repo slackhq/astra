@@ -14,6 +14,7 @@ import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.prometheus.PrometheusConfig;
@@ -23,12 +24,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.TimeoutException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -102,6 +105,67 @@ class BulkIngestKafkaProducerTest {
         new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
     bulkIngestKafkaProducer.startAsync();
     bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+  }
+
+  @Test
+  public void testKafkaCanRestartOnError() {
+    Trace.Span doc1 = spy(Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("error1")).build());
+    Map<String, List<Trace.Span>> indexDocsError = Map.of(INDEX_NAME, List.of(doc1));
+
+    // this isn't exactly where the kafka timeout exception is thrown from, but will get trapped in
+    // the same manner
+    when(doc1.toByteArray()).thenThrow(TimeoutException.class);
+
+    assertThat(
+            MetricsUtil.getTimerCount(BulkIngestKafkaProducer.KAFKA_RESTART_COUNTER, meterRegistry))
+        .isEqualTo(0);
+
+    BulkIngestRequest request = bulkIngestKafkaProducer.submitRequest(indexDocsError);
+    AtomicReference<BulkIngestResponse> response = new AtomicReference<>();
+
+    // need a consumer thread for reading synchronous queue
+    Thread.ofVirtual()
+        .start(
+            () -> {
+              try {
+                response.set(request.getResponse());
+              } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    await().until(() -> response.get() != null);
+    assertThat(
+            MetricsUtil.getTimerCount(BulkIngestKafkaProducer.KAFKA_RESTART_COUNTER, meterRegistry))
+        .isEqualTo(1);
+    assertThat(response.get().failedDocs()).isEqualTo(1);
+
+    // try to put a doc successfully after restarting
+    Trace.Span doc2 = Trace.Span.newBuilder().setId(ByteString.copyFromUtf8("noerror")).build();
+    Map<String, List<Trace.Span>> indexDocsNoError = Map.of(INDEX_NAME, List.of(doc2));
+
+    BulkIngestRequest requestOk = bulkIngestKafkaProducer.submitRequest(indexDocsNoError);
+    AtomicReference<BulkIngestResponse> responseOk = new AtomicReference<>();
+
+    // need a consumer thread for reading synchronous queue
+    Thread.ofVirtual()
+        .start(
+            () -> {
+              try {
+                responseOk.set(requestOk.getResponse());
+              } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    await().until(() -> responseOk.get() != null);
+    assertThat(responseOk.get().totalDocs()).isEqualTo(1);
+    assertThat(responseOk.get().failedDocs()).isEqualTo(0);
+
+    // restart should still be at one
+    assertThat(
+            MetricsUtil.getTimerCount(BulkIngestKafkaProducer.KAFKA_RESTART_COUNTER, meterRegistry))
+        .isEqualTo(1);
   }
 
   @Test

@@ -10,12 +10,14 @@ import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.KafkaUtils;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -41,9 +43,9 @@ import org.slf4j.LoggerFactory;
 public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestKafkaProducer.class);
 
-  private final KafkaProducer<String, byte[]> kafkaProducer;
+  private KafkaProducer<String, byte[]> kafkaProducer;
 
-  private final KafkaClientMetrics kafkaMetrics;
+  private KafkaClientMetrics kafkaMetrics;
 
   private final KaldbConfigs.KafkaConfig kafkaConfig;
 
@@ -63,8 +65,14 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   public static final String STALL_COUNTER = "bulk_ingest_producer_stall_counter";
   private final Counter stallCounter;
 
+  public static final String KAFKA_RESTART_COUNTER = "bulk_ingest_producer_kafka_restart_timer";
+
+  private final Timer kafkaRestartTimer;
+
   public static final String BATCH_SIZE_GAUGE = "bulk_ingest_producer_batch_size";
   private final AtomicInteger batchSizeGauge;
+
+  private final MeterRegistry meterRegistry;
 
   private static final Set<String> OVERRIDABLE_CONFIGS =
       Set.of(
@@ -74,15 +82,14 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
       final DatasetMetadataStore datasetMetadataStore,
       final KaldbConfigs.PreprocessorConfig preprocessorConfig,
       final PrometheusMeterRegistry meterRegistry) {
-
     this.kafkaConfig = preprocessorConfig.getKafkaConfig();
 
     checkArgument(
         !kafkaConfig.getKafkaBootStrapServers().isEmpty(),
         "Kafka bootstrapServers must be provided");
-
     checkArgument(!kafkaConfig.getKafkaTopic().isEmpty(), "Kafka topic must be provided");
 
+    this.meterRegistry = meterRegistry;
     this.datasetMetadataStore = datasetMetadataStore;
     this.pendingRequests = new LinkedBlockingQueue<>();
 
@@ -90,6 +97,15 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     this.producerSleepMs =
         Integer.parseInt(System.getProperty("kalDb.bulkIngest.producerSleepMs", "50"));
 
+    this.failedSetResponseCounter = meterRegistry.counter(FAILED_SET_RESPONSE_COUNTER);
+    this.stallCounter = meterRegistry.counter(STALL_COUNTER);
+    this.kafkaRestartTimer = meterRegistry.timer(KAFKA_RESTART_COUNTER);
+    this.batchSizeGauge = meterRegistry.gauge(BATCH_SIZE_GAUGE, new AtomicInteger(0));
+
+    startKafkaProducer();
+  }
+
+  private void startKafkaProducer() {
     // since we use a new transaction ID every time we start a preprocessor there can be some zombie
     // transactions?
     // I think they will remain in kafka till they expire. They should never be readable if the
@@ -98,12 +114,29 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     this.kafkaProducer = createKafkaTransactionProducer(UUID.randomUUID().toString());
     this.kafkaMetrics = new KafkaClientMetrics(kafkaProducer);
     this.kafkaMetrics.bindTo(meterRegistry);
-
-    this.failedSetResponseCounter = meterRegistry.counter(FAILED_SET_RESPONSE_COUNTER);
-    this.stallCounter = meterRegistry.counter(STALL_COUNTER);
-    this.batchSizeGauge = meterRegistry.gauge(BATCH_SIZE_GAUGE, new AtomicInteger(0));
-
     this.kafkaProducer.initTransactions();
+  }
+
+  private void stopKafkaProducer() {
+    try {
+      if (this.kafkaProducer != null) {
+        this.kafkaProducer.close(Duration.ZERO);
+      }
+
+      if (this.kafkaMetrics != null) {
+        this.kafkaMetrics.close();
+      }
+    } catch (Exception e) {
+      LOG.error("Error attempting to stop the Kafka producer", e);
+    }
+  }
+
+  private void restartKafkaProducer() {
+    Timer.Sample restartTimer = Timer.start(meterRegistry);
+    stopKafkaProducer();
+    startKafkaProducer();
+    LOG.info("Restarted the kafka producer");
+    restartTimer.stop(kafkaRestartTimer);
   }
 
   private void cacheSortedDataset() {
@@ -159,40 +192,50 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   protected Map<BulkIngestRequest, BulkIngestResponse> produceDocumentsAndCommit(
       List<BulkIngestRequest> requests) {
     Map<BulkIngestRequest, BulkIngestResponse> responseMap = new HashMap<>();
-
-    // KafkaProducer<String, byte[]> kafkaProducer = null;
     try {
-      // kafkaProducer = kafkaProducerPool.borrowObject();
       kafkaProducer.beginTransaction();
       for (BulkIngestRequest request : requests) {
         responseMap.put(request, produceDocuments(request.getInputDocs(), kafkaProducer));
       }
       kafkaProducer.commitTransaction();
-      // kafkaProducerPool.returnObject(kafkaProducer);
     } catch (TimeoutException te) {
-      LOG.error("Commit transaction timeout", te);
-      // the commitTransaction waits till "max.block.ms" after which it will time out
-      // in that case we cannot call abort exception because that throws the following error
-      // "Cannot attempt operation `abortTransaction` because the previous
-      // call to `commitTransaction` timed out and must be retried"
-      // so for now we just restart the preprocessor
-      new RuntimeHalterImpl()
-          .handleFatal(
-              new Throwable(
-                  "KafkaProducer needs to shutdown as we don't have retry yet and we cannot call abortTxn on timeout",
-                  te));
+      // todo - consider collapsing these exceptions into a common implementation
+
+      // In the event of a timeout, we cannot abort but must either retry or restart the producer
+      // See org.apache.kafka.clients.producer.KafkaProducer.abortTransaction docblock
+      LOG.error("Commit transaction timeout, must restart producer", te);
+      restartKafkaProducer();
+
+      for (BulkIngestRequest request : requests) {
+        responseMap.put(
+            request,
+            new BulkIngestResponse(
+                0,
+                request.getInputDocs().values().stream().mapToInt(List::size).sum(),
+                te.getMessage()));
+      }
     } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
       // We can't recover from these exceptions, so our only option is to close the producer and
       // exit.
-      new RuntimeHalterImpl().handleFatal(new Throwable("KafkaProducer needs to shutdown ", e));
+      LOG.error("Unrecoverable kafka error, must restart producer", e);
+      restartKafkaProducer();
+
+      for (BulkIngestRequest request : requests) {
+        responseMap.put(
+            request,
+            new BulkIngestResponse(
+                0,
+                request.getInputDocs().values().stream().mapToInt(List::size).sum(),
+                e.getMessage()));
+      }
     } catch (Exception e) {
       LOG.warn("failed transaction with error", e);
       if (kafkaProducer != null) {
         try {
           kafkaProducer.abortTransaction();
-          // kafkaProducerPool.returnObject(kafkaProducer);
         } catch (ProducerFencedException err) {
-          LOG.error("Could not abort transaction", err);
+          LOG.error("Could not abort transaction, must restart producer", err);
+          restartKafkaProducer();
         }
       }
 
