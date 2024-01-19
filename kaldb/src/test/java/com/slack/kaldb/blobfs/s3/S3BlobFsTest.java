@@ -57,6 +57,9 @@ public class S3BlobFsTest {
 
   private void createEmptyFile(String folderName, String fileName) {
     String fileNameWithFolder = folderName + DELIMITER + fileName;
+    if (folderName.isEmpty()) {
+      fileNameWithFolder = fileName;
+    }
     s3Client.putObject(
         S3TestUtils.getPutObjectRequest(bucket, fileNameWithFolder),
         RequestBody.fromBytes(new byte[0]));
@@ -196,7 +199,7 @@ public class S3BlobFsTest {
         s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
     String[] actualResponse =
         listObjectsV2Response.contents().stream()
-            .map(x -> x.key().substring(1))
+            .map(S3Object::key)
             .filter(x -> x.contains("delete"))
             .toArray(String[]::new);
 
