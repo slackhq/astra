@@ -116,7 +116,8 @@ public class BulkApiRequestParser {
     bulkRequest.add(postBody, 0, postBody.length, null, MediaTypeRegistry.JSON);
     List<DocWriteRequest<?>> requests = bulkRequest.requests();
     for (DocWriteRequest<?> request : requests) {
-      if (request.opType() == DocWriteRequest.OpType.INDEX) {
+      if (request.opType() == DocWriteRequest.OpType.INDEX
+          | request.opType() == DocWriteRequest.OpType.CREATE) {
 
         // The client makes a DocWriteRequest and sends it to the server
         // IngestService#innerExecute is where the server eventually reads when request is an

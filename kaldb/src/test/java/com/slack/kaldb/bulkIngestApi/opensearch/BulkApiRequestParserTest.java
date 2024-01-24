@@ -143,21 +143,37 @@ public class BulkApiRequestParserTest {
   public void testBulkRequests() throws Exception {
     byte[] rawRequest = getRawQueryBytes("bulk_requests");
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
-    assertThat(indexRequests.size()).isEqualTo(1);
+    assertThat(indexRequests.size()).isEqualTo(2);
 
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
-    assertThat(indexDocs.keySet().size()).isEqualTo(1);
-    assertThat(indexDocs.get("test").size()).isEqualTo(1);
+    assertThat(indexDocs.keySet().size()).isEqualTo(2);
+    assertThat(indexDocs.get("test1").size()).isEqualTo(1);
+    assertThat(indexDocs.get("test3").size()).isEqualTo(1);
 
-    assertThat(indexDocs.get("test").get(0).getId().toStringUtf8()).isEqualTo("1");
-    assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(2);
+    Trace.Span indexDoc1 = indexDocs.get("test1").get(0);
+    Trace.Span indexDoc3 = indexDocs.get("test3").get(0);
+
+    assertThat(indexDoc1.getId().toStringUtf8()).isEqualTo("1");
+    assertThat(indexDoc3.getId().toStringUtf8()).isEqualTo("3");
+
+    assertThat(indexDoc1.getTagsList().size()).isEqualTo(2);
     assertThat(
-            indexDocs.get("test").get(0).getTagsList().stream()
+            indexDoc1.getTagsList().stream()
                 .filter(
                     keyValue ->
                         keyValue.getKey().equals("service_name")
-                            && keyValue.getVStr().equals("test"))
+                            && keyValue.getVStr().equals("test1"))
+                .count())
+        .isEqualTo(1);
+
+    assertThat(indexDoc3.getTagsList().size()).isEqualTo(2);
+    assertThat(
+            indexDoc3.getTagsList().stream()
+                .filter(
+                    keyValue ->
+                        keyValue.getKey().equals("service_name")
+                            && keyValue.getVStr().equals("test3"))
                 .count())
         .isEqualTo(1);
   }
