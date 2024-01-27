@@ -28,13 +28,13 @@ public class BulkApiRequestParserTest {
 
   @Test
   public void testSimpleIndexRequest() throws Exception {
-    byte[] rawRequest = getRawQueryBytes("index_simple");
+    byte[] rawRequest = getRawQueryBytes("index_simple_with_ts");
 
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
     assertThat(indexRequests.get(0).index()).isEqualTo("test");
     assertThat(indexRequests.get(0).id()).isEqualTo("1");
-    assertThat(indexRequests.get(0).sourceAsMap().size()).isEqualTo(2);
+    assertThat(indexRequests.get(0).sourceAsMap().size()).isEqualTo(3);
 
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
@@ -42,7 +42,7 @@ public class BulkApiRequestParserTest {
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
     assertThat(indexDocs.get("test").get(0).getId().toStringUtf8()).isEqualTo("1");
-    assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(3);
+    assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(4);
     assertThat(
             indexDocs.get("test").get(0).getTagsList().stream()
                 .filter(
@@ -51,6 +51,7 @@ public class BulkApiRequestParserTest {
                             && keyValue.getVStr().equals("test"))
                 .count())
         .isEqualTo(1);
+    assertThat(indexDocs.get("test").get(0).getTimestamp()).isEqualTo(4739680479544000L);
   }
 
   @Test
@@ -210,5 +211,8 @@ public class BulkApiRequestParserTest {
             TimeUnit.MILLISECONDS.convert(span.getTimestamp(), TimeUnit.MICROSECONDS));
     Instant oneMinuteBefore = Instant.now().minus(1, ChronoUnit.MINUTES);
     assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
+
+    Instant oneMinuteAfter = Instant.now().plus(1, ChronoUnit.MINUTES);
+    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
   }
 }
