@@ -28,8 +28,10 @@ public class BulkIngestApi {
   private final DatasetRateLimitingService datasetRateLimitingService;
   private final MeterRegistry meterRegistry;
   private final Counter incomingByteTotal;
+  private final Counter incomingDocsTotal;
   private final Timer bulkIngestTimer;
   private final String BULK_INGEST_INCOMING_BYTE_TOTAL = "kaldb_preprocessor_incoming_byte";
+  private final String BULK_INGEST_INCOMING_BYTE_DOCS = "kaldb_preprocessor_incoming_docs";
   private final String BULK_INGEST_TIMER = "kaldb_preprocessor_bulk_ingest";
 
   public BulkIngestApi(
@@ -41,6 +43,7 @@ public class BulkIngestApi {
     this.datasetRateLimitingService = datasetRateLimitingService;
     this.meterRegistry = meterRegistry;
     this.incomingByteTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_TOTAL);
+    this.incomingDocsTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_DOCS);
     this.bulkIngestTimer = meterRegistry.timer(BULK_INGEST_TIMER);
   }
 
@@ -70,6 +73,7 @@ public class BulkIngestApi {
       }
 
       for (Map.Entry<String, List<Trace.Span>> indexDocs : docs.entrySet()) {
+        incomingDocsTotal.increment(indexDocs.getValue().size());
         final String index = indexDocs.getKey();
         if (!datasetRateLimitingService.tryAcquire(index, indexDocs.getValue())) {
           BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");

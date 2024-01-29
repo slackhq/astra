@@ -284,7 +284,7 @@ public class IndexingChunkManagerTest {
             metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
 
     KaldbConfigs.IndexerConfig indexerConfig =
-        KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100, -1, 0);
+        KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100, -1, 10_000);
     initChunkManager(
         chunkRollOverStrategy,
         S3_TEST_BUCKET,
@@ -312,8 +312,7 @@ public class IndexingChunkManagerTest {
 
     // Get the count of the amount of indices so that we can confirm we've cleaned them up
     // after the rollover
-    final File dataDirectory = new File(indexerConfig.getDataDirectory());
-    final File indexDirectory = new File(dataDirectory.getAbsolutePath() + "/indices");
+    final File indexDirectory = tmpPath.resolve("indices").toFile();
 
     // files before rollover may or may-not be null, depending on other test timing
     int filesBeforeRollover =
