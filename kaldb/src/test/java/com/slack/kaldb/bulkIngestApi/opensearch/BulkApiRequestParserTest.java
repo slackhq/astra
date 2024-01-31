@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.index.VersionType;
 import org.opensearch.ingest.IngestDocument;
 
 public class BulkApiRequestParserTest {
@@ -28,13 +29,13 @@ public class BulkApiRequestParserTest {
 
   @Test
   public void testSimpleIndexRequest() throws Exception {
-    byte[] rawRequest = getRawQueryBytes("index_simple");
+    byte[] rawRequest = getRawQueryBytes("index_simple_with_ts");
 
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
     assertThat(indexRequests.get(0).index()).isEqualTo("test");
     assertThat(indexRequests.get(0).id()).isEqualTo("1");
-    assertThat(indexRequests.get(0).sourceAsMap().size()).isEqualTo(2);
+    assertThat(indexRequests.get(0).sourceAsMap().size()).isEqualTo(3);
 
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
@@ -51,6 +52,7 @@ public class BulkApiRequestParserTest {
                             && keyValue.getVStr().equals("test"))
                 .count())
         .isEqualTo(1);
+    assertThat(indexDocs.get("test").get(0).getTimestamp()).isEqualTo(4739680479544000L);
   }
 
   @Test
@@ -210,5 +212,53 @@ public class BulkApiRequestParserTest {
             TimeUnit.MILLISECONDS.convert(span.getTimestamp(), TimeUnit.MICROSECONDS));
     Instant oneMinuteBefore = Instant.now().minus(1, ChronoUnit.MINUTES);
     assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
+
+    Instant oneMinuteAfter = Instant.now().plus(1, ChronoUnit.MINUTES);
+    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
+  }
+
+  @Test
+  public void testTimestampParsingFromIngestDocument() {
+    IngestDocument ingestDocument =
+        new IngestDocument("index", "1", "routing", 1L, VersionType.INTERNAL, Map.of());
+    long timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    Instant ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
+
+    // this tests that the parser inserted a timestamp close to the current time
+    Instant oneMinuteBefore = Instant.now().minus(1, ChronoUnit.MINUTES);
+    Instant oneMinuteAfter = Instant.now().plus(1, ChronoUnit.MINUTES);
+    assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
+    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
+
+    // We respect the user provided @timestamp field
+    String ts = "2024-01-01T00:00:00Z";
+    Instant providedTimeStamp = Instant.parse(ts);
+    ingestDocument =
+        new IngestDocument(
+            "index", "1", "routing", 1L, VersionType.INTERNAL, Map.of("@timestamp", ts));
+    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
+
+    ingestDocument =
+        new IngestDocument(
+            "index",
+            "1",
+            "routing",
+            1L,
+            VersionType.INTERNAL,
+            Map.of("timestamp", providedTimeStamp.toEpochMilli()));
+    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
+
+    ingestDocument =
+        new IngestDocument(
+            "index",
+            "1",
+            "routing",
+            1L,
+            VersionType.INTERNAL,
+            Map.of("_timestamp", providedTimeStamp.toEpochMilli()));
+    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
   }
 }

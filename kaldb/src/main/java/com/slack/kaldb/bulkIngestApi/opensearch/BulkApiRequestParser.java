@@ -4,8 +4,11 @@ import com.google.protobuf.ByteString;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -36,12 +39,43 @@ public class BulkApiRequestParser {
     return convertIndexRequestToTraceFormat(parseBulkRequest(postBody));
   }
 
-  protected static Trace.Span fromIngestDocument(IngestDocument ingestDocument) {
-    ZonedDateTime timestamp =
-        (ZonedDateTime)
+  /**
+   * We need users to be able to specify the timestamp field and unit. For now we will do the
+   * following: 1. Check to see if the "timestamp" field exists and if it does parse that as a long
+   * in millis 2. Check if a field called `@timestamp` exists and parse that as a date (since
+   * logstash sets that) 3. Use the current time from the ingestMetadata
+   */
+  public static long getTimestampFromIngestDocument(IngestDocument ingestDocument) {
+    // assumption that the provided timestamp is in millis
+    // at some point both th unit and field need to be configurable
+    // when we do that, remember to change the called to appropriately remove the field
+    if (ingestDocument.hasField("timestamp")) {
+      return ingestDocument.getFieldValue("timestamp", Long.class);
+    }
+
+    if (ingestDocument.hasField("_timestamp")) {
+      return ingestDocument.getFieldValue("_timestamp", Long.class);
+    }
+
+    if (ingestDocument.hasField("@timestamp")) {
+      String dateString = ingestDocument.getFieldValue("@timestamp", String.class);
+      LocalDateTime localDateTime =
+          LocalDateTime.parse(dateString, DateTimeFormatter.ISO_DATE_TIME);
+      Instant instant = localDateTime.toInstant(ZoneOffset.UTC);
+      return instant.toEpochMilli();
+    }
+
+    return ((ZonedDateTime)
             ingestDocument
                 .getIngestMetadata()
-                .getOrDefault("timestamp", ZonedDateTime.now(ZoneOffset.UTC));
+                .getOrDefault("timestamp", ZonedDateTime.now(ZoneOffset.UTC)))
+        .toInstant()
+        .toEpochMilli();
+  }
+
+  protected static Trace.Span fromIngestDocument(IngestDocument ingestDocument) {
+
+    long timestampInMillis = getTimestampFromIngestDocument(ingestDocument);
 
     Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
     String id = (String) sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName());
@@ -56,15 +90,19 @@ public class BulkApiRequestParser {
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
     // Trace.Span proto expects duration in microseconds today
     spanBuilder.setTimestamp(
-        TimeUnit.MICROSECONDS.convert(timestamp.toInstant().toEpochMilli(), TimeUnit.MILLISECONDS));
+        TimeUnit.MICROSECONDS.convert(timestampInMillis, TimeUnit.MILLISECONDS));
 
     // Remove the following internal metadata fields that OpenSearch adds
     sourceAndMetadata.remove(IngestDocument.Metadata.ROUTING.getFieldName());
     sourceAndMetadata.remove(IngestDocument.Metadata.VERSION.getFieldName());
     sourceAndMetadata.remove(IngestDocument.Metadata.VERSION_TYPE.getFieldName());
-    // these two fields don't need to be tags as they have been explicitly set already
+
+    // these fields don't need to be tags as they have been explicitly set already
     sourceAndMetadata.remove(IngestDocument.Metadata.ID.getFieldName());
     sourceAndMetadata.remove(IngestDocument.Metadata.INDEX.getFieldName());
+    sourceAndMetadata.remove("timestamp");
+    sourceAndMetadata.remove("_timestamp");
+    sourceAndMetadata.remove("@timestamp");
 
     sourceAndMetadata.forEach(
         (key, value) -> spanBuilder.addTags(SpanFormatter.convertKVtoProto(key, value)));
