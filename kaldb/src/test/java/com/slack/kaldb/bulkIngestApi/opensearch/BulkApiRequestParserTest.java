@@ -239,6 +239,41 @@ public class BulkApiRequestParserTest {
     timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
     assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
 
+    // we put a long in the @timestamp field, which today we don't parse
+    // so it won't be 2024-01-01 but be the current timestamp
+    ingestDocument =
+        new IngestDocument(
+            "index",
+            "1",
+            "routing",
+            1L,
+            VersionType.INTERNAL,
+            Map.of("@timestamp", providedTimeStamp.toEpochMilli()));
+    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
+    assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
+    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
+
+    // we put a string in the timestamp field, which today we don't parse
+    // so it won't be 2024-01-01 but be the current timestamp
+    ingestDocument =
+        new IngestDocument(
+            "index", "1", "routing", 1L, VersionType.INTERNAL, Map.of("_timestamp", ts));
+    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
+    assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
+    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
+
+    // we put a string in the _timestamp field, which today we don't parse
+    // so it won't be 2024-01-01 but be the current timestamp
+    ingestDocument =
+        new IngestDocument(
+            "index", "1", "routing", 1L, VersionType.INTERNAL, Map.of("timestamp", ts));
+    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
+    assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
+    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
+
     ingestDocument =
         new IngestDocument(
             "index",
