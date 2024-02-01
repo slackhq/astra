@@ -440,7 +440,15 @@ public class OpenSearchRequest {
   }
 
   private static String getDateHistogramInterval(JsonNode dateHistogram) {
-    return dateHistogram.get("interval").asText();
+    if (dateHistogram.has("interval")) {
+      return dateHistogram.get("interval").asText();
+    }
+    if (dateHistogram.has("fixed_interval")) {
+      return dateHistogram.get("fixed_interval").asText();
+    }
+
+    // else defualt
+    return "30s";
   }
 
   private static String getHistogramInterval(JsonNode dateHistogram) {
