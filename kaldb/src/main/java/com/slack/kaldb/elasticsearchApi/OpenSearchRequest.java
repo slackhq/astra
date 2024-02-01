@@ -98,7 +98,7 @@ public class OpenSearchRequest {
   }
 
   private static KaldbSearch.SearchRequest.SearchAggregation getAggregations(JsonNode body) {
-    if (body.get("aggs") == null) {
+    if (!body.has("aggs") || body.get("aggs") == null) {
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build();
     }
     if (Iterators.size(body.get("aggs").fieldNames()) != 1) {
