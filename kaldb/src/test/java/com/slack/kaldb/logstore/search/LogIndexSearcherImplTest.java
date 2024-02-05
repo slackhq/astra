@@ -87,6 +87,23 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
+  public void testIndexSearch() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchResult<LogMessage> index =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(index.hits.size()).isEqualTo(1);
+  }
+
+  @Test
   public void testTimeBoundSearch() {
     Instant time =
         LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC)

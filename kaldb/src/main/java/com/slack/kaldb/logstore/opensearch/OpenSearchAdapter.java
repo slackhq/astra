@@ -57,6 +57,7 @@ import org.opensearch.index.fielddata.IndexFieldDataService;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.IdsQueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
@@ -156,51 +157,57 @@ public class OpenSearchAdapter {
             similarityService,
             mapperService);
     try {
-      BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
 
-      // only add a range filter if either start or end time is provided
-      if (startTimeMsEpoch != null || endTimeMsEpoch != null) {
-        RangeQueryBuilder rangeQueryBuilder =
-            new RangeQueryBuilder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+      IdsQueryBuilder idsQueryBuilder = new IdsQueryBuilder();
+      idsQueryBuilder.addIds("1");
+      return idsQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
 
-        // todo - consider supporting something other than GTE/LTE (ie GT/LT?)
-        if (startTimeMsEpoch != null) {
-          rangeQueryBuilder.gte(startTimeMsEpoch);
-        }
-
-        if (endTimeMsEpoch != null) {
-          rangeQueryBuilder.lte(endTimeMsEpoch);
-        }
-
-        boolQueryBuilder.filter(rangeQueryBuilder);
-      }
-
-      // todo - dataset?
-
-      // Only add the query string clause if this is not attempting to fetch all records
-      // Since we do analyze the wildcard this can cause unexpected behavior if only a wildcard is
-      // provided
-      if (queryStr != null
-          && !queryStr.isEmpty()
-          && !queryStr.equals("*:*")
-          && !queryStr.equals("*")) {
-        QueryStringQueryBuilder queryStringQueryBuilder = new QueryStringQueryBuilder(queryStr);
-
-        if (queryShardContext.getMapperService().fieldType(LogMessage.SystemField.ALL.fieldName)
-            != null) {
-          queryStringQueryBuilder.defaultField(LogMessage.SystemField.ALL.fieldName);
-          // setting lenient=false will not throw error when the query fails to parse against
-          // numeric fields
-          queryStringQueryBuilder.lenient(false);
-        } else {
-          queryStringQueryBuilder.lenient(true);
-        }
-
-        queryStringQueryBuilder.analyzeWildcard(true);
-
-        boolQueryBuilder.filter(queryStringQueryBuilder);
-      }
-      return boolQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
+//      BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+//
+//      // only add a range filter if either start or end time is provided
+//      if (startTimeMsEpoch != null || endTimeMsEpoch != null) {
+//        RangeQueryBuilder rangeQueryBuilder =
+//            new RangeQueryBuilder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+//
+//        // todo - consider supporting something other than GTE/LTE (ie GT/LT?)
+//        if (startTimeMsEpoch != null) {
+//          rangeQueryBuilder.gte(startTimeMsEpoch);
+//        }
+//
+//        if (endTimeMsEpoch != null) {
+//          rangeQueryBuilder.lte(endTimeMsEpoch);
+//        }
+//
+//        boolQueryBuilder.filter(rangeQueryBuilder);
+//      }
+//
+//      // todo - dataset?
+//
+//      // Only add the query string clause if this is not attempting to fetch all records
+//      // Since we do analyze the wildcard this can cause unexpected behavior if only a wildcard is
+//      // provided
+//      if (queryStr != null
+//          && !queryStr.isEmpty()
+//          && !queryStr.equals("*:*")
+//          && !queryStr.equals("*")) {
+//        QueryStringQueryBuilder queryStringQueryBuilder = new QueryStringQueryBuilder(queryStr);
+//
+//        if (queryShardContext.getMapperService().fieldType(LogMessage.SystemField.ALL.fieldName)
+//            != null) {
+//          queryStringQueryBuilder.defaultField(LogMessage.SystemField.ALL.fieldName);
+//          // setting lenient=false will not throw error when the query fails to parse against
+//          // numeric fields
+//          queryStringQueryBuilder.lenient(false);
+//        } else {
+//          queryStringQueryBuilder.lenient(true);
+//        }
+//
+//        queryStringQueryBuilder.analyzeWildcard(true);
+//
+//
+//        boolQueryBuilder.filter(queryStringQueryBuilder);
+//      }
+//      return boolQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
     } catch (Exception e) {
       LOG.error("Query parse exception", e);
       throw new IllegalArgumentException(e);
@@ -428,7 +435,7 @@ public class OpenSearchAdapter {
       String fieldName,
       CheckedConsumer<XContentBuilder, IOException> buildField) {
     MappedFieldType fieldType = mapperService.fieldType(fieldName);
-    if (mapperService.isMetadataField(fieldName)) {
+    if (fieldName.equals("_index")) {
       LOG.trace("Skipping metadata field '{}'", fieldName);
       return false;
     } else if (fieldType != null) {

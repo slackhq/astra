@@ -14,6 +14,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
 import org.slf4j.Logger;
@@ -74,8 +75,15 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     };
 
     for (String fieldName : fieldsAsString) {
-      fieldDefBuilder.put(
-          fieldName, new LuceneFieldDef(fieldName, FieldType.STRING.name, false, true, true));
+      if (fieldName.equals(LogMessage.SystemField.ID.fieldName)) {
+        fieldDefBuilder.put(
+            fieldName, new LuceneFieldDef(fieldName, FieldType.STRING.name, true, true, true));
+      } else {
+        fieldDefBuilder.put(
+            fieldName, new LuceneFieldDef(fieldName, FieldType.STRING.name, false, true, true));
+      }
+
+
     }
 
     String[] fieldsAsLong = {
@@ -233,7 +241,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             defaultPropDescription.isIndexed,
             defaultPropDescription.storeDocValue);
     // add the document to this field.
-    totalFieldsCounter.increment();
+    totalFieldsGauge.incrementAndGet();
     fieldDefMap.put(key, newFieldDef);
     indexTypedField(doc, key, value, newFieldDef);
   }
@@ -311,6 +319,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   static final String CONVERT_FIELD_VALUE_COUNTER = "convert_field_value";
   static final String CONVERT_AND_DUPLICATE_FIELD_COUNTER = "convert_and_duplicate_field";
   public static final String TOTAL_FIELDS_COUNTER = "total_fields";
+  public static final String TOTAL_FIELDS_GAUGE = "index_fields";
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
   private final boolean enableFullTextSearch;
@@ -319,7 +328,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private final Counter convertErrorCounter;
   private final Counter convertFieldValueCounter;
   private final Counter convertAndDuplicateFieldCounter;
-  private final Counter totalFieldsCounter;
+  private final AtomicInteger totalFieldsGauge;
 
   SchemaAwareLogDocumentBuilderImpl(
       FieldConflictPolicy indexFieldConflictPolicy,
@@ -333,9 +342,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     convertFieldValueCounter = meterRegistry.counter(CONVERT_FIELD_VALUE_COUNTER);
     convertAndDuplicateFieldCounter = meterRegistry.counter(CONVERT_AND_DUPLICATE_FIELD_COUNTER);
     convertErrorCounter = meterRegistry.counter(CONVERT_ERROR_COUNTER);
-    totalFieldsCounter = meterRegistry.counter(TOTAL_FIELDS_COUNTER);
+    totalFieldsGauge =
+        meterRegistry.gauge(TOTAL_FIELDS_GAUGE, new AtomicInteger(initialFields.size()));
 
-    totalFieldsCounter.increment(initialFields.size());
     fieldDefMap.putAll(initialFields);
   }
 
