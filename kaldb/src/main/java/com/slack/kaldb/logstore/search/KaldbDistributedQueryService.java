@@ -98,7 +98,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
   private final KaldbMetadataStoreChangeListener<SearchMetadata> searchMetadataListener =
       (searchMetadata) -> triggerStubUpdate();
 
-  private final int SCHEMA_TIMEOUT_MS = Integer.parseInt(System.getProperty("kalDb.query.schemaTimeoutMs", "500"));
+  private final int SCHEMA_TIMEOUT_MS =
+      Integer.parseInt(System.getProperty("kalDb.query.schemaTimeoutMs", "500"));
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -507,8 +508,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
                                       getStub(searchNode.getKey());
 
                                   if (stub == null) {
-                                    // TODO: insert a failed result in the results object that we
-                                    // return from this method
                                     return null;
                                   }
 
@@ -536,27 +535,25 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
         }
 
         KaldbSearch.SchemaResult.Builder schemaBuilder = KaldbSearch.SchemaResult.newBuilder();
-        // List<KaldbSearch.SchemaResult> response = new ArrayList(searchSubtasks.size());
         for (StructuredTaskScope.Subtask<KaldbSearch.SchemaResult> schemaResult : searchSubtasks) {
           try {
             if (schemaResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
               if (schemaResult.get() != null) {
                 schemaBuilder.putAllFieldDefinition(schemaResult.get().getFieldDefinitionMap());
               } else {
-                // todo - log
+                LOG.error("Schema result was unexpectedly null {}", schemaResult);
               }
             } else {
-              // todo - log
+              LOG.error("Schema query result state was not success {}", schemaResult);
             }
           } catch (Exception e) {
             LOG.error("Error fetching search result", e);
-            // todo
           }
         }
         return schemaBuilder.build();
       }
     } catch (Exception e) {
-      LOG.error("Search failed with ", e);
+      LOG.error("Schema failed with ", e);
       span.error(e);
       return KaldbSearch.SchemaResult.newBuilder().build();
     } finally {
