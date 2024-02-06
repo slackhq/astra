@@ -98,6 +98,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
   private final KaldbMetadataStoreChangeListener<SearchMetadata> searchMetadataListener =
       (searchMetadata) -> triggerStubUpdate();
 
+  private final int SCHEMA_TIMEOUT_MS = Integer.parseInt(System.getProperty("kalDb.query.schemaTimeoutMs", "500"));
+
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
   // So this should be replaced cache/index metadata store when that info is present in ZK
@@ -516,7 +518,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
                                           .build();
 
                                   return stub.withDeadlineAfter(
-                                          defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
+                                          SCHEMA_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                                       .withInterceptors(
                                           GrpcTracing.newBuilder(Tracing.current())
                                               .build()
@@ -527,7 +529,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
                 .toList();
 
         try {
-          scope.joinUntil(Instant.now().plusSeconds(defaultQueryTimeout.toSeconds()));
+          scope.joinUntil(Instant.now().plusMillis(SCHEMA_TIMEOUT_MS));
         } catch (TimeoutException timeoutException) {
           scope.shutdown();
           scope.join();
