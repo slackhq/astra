@@ -30,8 +30,10 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.IndexSortSortedNumericDocValuesRangeQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.util.BytesRef;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.opensearch.index.mapper.Uid;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
@@ -402,6 +404,19 @@ public class OpenSearchAdapterTest {
 
     assertThatExceptionOfType(IllegalArgumentException.class)
         .isThrownBy(() -> collectorManager.newCollector());
+  }
+
+  @Test
+  public void shouldParseIdFieldSearch() throws Exception {
+    String idField = "_id";
+    String idValue = "1";
+    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+    Query idQuery =
+        openSearchAdapter.buildQuery("foo", STR."\{idField}:\{idValue}", null, null, indexSearcher);
+    BytesRef queryStrBytes = new BytesRef(Uid.encodeId("1").bytes);
+    // idQuery.toString="#_id:([fe 1f])"
+    // queryStrBytes.toString="[fe 1f]"
+    assertThat(idQuery.toString()).contains(queryStrBytes.toString());
   }
 
   @Test

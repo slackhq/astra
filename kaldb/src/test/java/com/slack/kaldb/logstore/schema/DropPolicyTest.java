@@ -50,7 +50,7 @@ public class DropPolicyTest {
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     // Only string fields have doc values not text fields.
-    assertThat(docBuilder.getSchema().get("_id").fieldType.name).isEqualTo(FieldType.STRING.name);
+    assertThat(docBuilder.getSchema().get("_id").fieldType.name).isEqualTo(FieldType.ID.name);
     assertThat(
             testDocument.getFields().stream()
                 .filter(
@@ -96,7 +96,7 @@ public class DropPolicyTest {
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     // Only string fields have doc values not text fields.
-    assertThat(docBuilder.getSchema().get("_id").fieldType.name).isEqualTo(FieldType.STRING.name);
+    assertThat(docBuilder.getSchema().get("_id").fieldType.name).isEqualTo(FieldType.ID.name);
     assertThat(
             testDocument.getFields().stream()
                 .filter(

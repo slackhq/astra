@@ -1725,4 +1725,20 @@ public class LogIndexSearcherImplTest {
     assertThat(searchFailures.get()).isEqualTo(0);
     assertThat(successfulRuns.get()).isEqualTo(200);
   }
+
+  @Test
+  public void testSearchById() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+    SearchResult<LogMessage> index =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "_id:1",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(index.hits.size()).isEqualTo(1);
+  }
 }

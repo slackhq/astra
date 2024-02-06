@@ -28,6 +28,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.index.mapper.Uid;
 
 /** The FieldType enum describes the types of fields in a chunk. */
 public enum FieldType {
@@ -67,6 +68,32 @@ public enum FieldType {
       }
       if (fieldDef.storeDocValue) {
         doc.add(new SortedDocValuesField(name, new BytesRef((String) value)));
+      }
+    }
+
+    @Override
+    public Query termQuery(String field, String queryText, Analyzer analyzer) {
+      final Term term = new Term(field, queryText);
+      return new TermQuery(term);
+    }
+
+    @Override
+    public Analyzer getAnalyzer(boolean quoted) {
+      return KEYWORD_ANALYZER;
+    }
+  },
+  ID("id") {
+    @Override
+    public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
+      BytesRef id = Uid.encodeId((String) value);
+      if (fieldDef.isIndexed) {
+        doc.add(new StringField(name, id, getStoreEnum(fieldDef.isStored)));
+      }
+      if (fieldDef.isStored) {
+        doc.add(new StoredField(name, (String) value));
+      }
+      if (fieldDef.storeDocValue) {
+        doc.add(new SortedDocValuesField(name, id));
       }
     }
 
@@ -373,7 +400,7 @@ public enum FieldType {
   // Aliased Field Types are FieldTypes that can be considered as same type from a field conflict
   // detection perspective
   public static final List<Set<FieldType>> ALIASED_FIELD_TYPES =
-      ImmutableList.of(ImmutableSet.of(FieldType.STRING, FieldType.TEXT));
+      ImmutableList.of(ImmutableSet.of(FieldType.STRING, FieldType.TEXT, FieldType.ID));
 
   public static boolean areTypeAliasedFieldTypes(FieldType type1, FieldType type2) {
     for (Set<FieldType> s : ALIASED_FIELD_TYPES) {
