@@ -9,7 +9,7 @@ services:
       - ALLOW_ANONYMOUS_LOGIN=yes
 
   kafka:
-    image: 'bitnami/kafka:3.2.3'
+    image: 'bitnami/kafka:latest'
     container_name: kaldb_kafka
     ports:
       - '9092:9092'

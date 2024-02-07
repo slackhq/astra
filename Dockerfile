@@ -5,4 +5,4 @@ RUN cd /work; mvn package -DskipTests
 FROM amazoncorretto:21
 COPY --from=build /work/kaldb/target/kaldb.jar /
 COPY --from=build /work/config/config.yaml /
-ENTRYPOINT [ "java", "-jar", "./kaldb.jar", "config.yaml" ]
+ENTRYPOINT [ "java", "--enable-preview", "-jar", "./kaldb.jar", "config.yaml" ]
