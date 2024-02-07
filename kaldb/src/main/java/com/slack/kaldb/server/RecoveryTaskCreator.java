@@ -218,6 +218,10 @@ public class RecoveryTaskCreator {
       } else if (indexerConfig.getCreateRecoveryTasksOnStart()
           && indexerConfig.getReadFromLocationOnStart()
               == KaldbConfigs.KafkaOffsetLocation.LATEST) {
+        // Todo - this appears to be able to create recovery tasks that have a start and end
+        // position of 0, which is invalid. This seems to occur when new clusters are initialized,
+        // and is  especially problematic when indexers are created but never get assigned (ie,
+        // deploy 5, only assign 3).
         LOG.info(
             "CreateRecoveryTasksOnStart is set and ReadLocationOnStart is set to current. Reading from current and"
                 + " spinning up recovery tasks");

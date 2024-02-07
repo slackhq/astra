@@ -655,6 +655,61 @@ public class RecoveryServiceTest {
     assertThat(offsets.endOffset).isEqualTo(kafkaEndOffset);
   }
 
+  @Test
+  public void shouldHandleInvalidRecoveryTasks() throws Exception {
+    KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig(TEST_S3_BUCKET);
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+
+    // Start recovery service
+    recoveryService = new RecoveryService(kaldbCfg, curatorFramework, meterRegistry, blobFs);
+    recoveryService.startAsync();
+    recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // Create a recovery task
+    RecoveryTaskMetadataStore recoveryTaskMetadataStore =
+        new RecoveryTaskMetadataStore(curatorFramework, false);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size()).isZero();
+    RecoveryTaskMetadata recoveryTask =
+        new RecoveryTaskMetadata("testRecoveryTask", "0", 0, 0, Instant.now().toEpochMilli());
+    recoveryTaskMetadataStore.createSync(recoveryTask);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size())
+        .isEqualTo(1);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).get(0))
+        .isEqualTo(recoveryTask);
+
+    // Assign the recovery task to node.
+    RecoveryNodeMetadataStore recoveryNodeMetadataStore =
+        new RecoveryNodeMetadataStore(curatorFramework, false);
+    List<RecoveryNodeMetadata> recoveryNodes =
+        KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore);
+    assertThat(recoveryNodes.size()).isEqualTo(1);
+    RecoveryNodeMetadata recoveryNodeMetadata = recoveryNodes.get(0);
+    assertThat(recoveryNodeMetadata.recoveryNodeState)
+        .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+    recoveryNodeMetadataStore.updateSync(
+        new RecoveryNodeMetadata(
+            recoveryNodeMetadata.getName(),
+            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
+            recoveryTask.getName(),
+            Instant.now().toEpochMilli()));
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size())
+        .isEqualTo(1);
+
+    await().until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry) == 1);
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry)).isZero();
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry)).isEqualTo(1);
+
+    // Post recovery checks
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).size())
+        .isEqualTo(1);
+    assertThat(
+            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore)
+                .get(0)
+                .recoveryNodeState)
+        .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+  }
+
   // returns startOffset or endOffset based on the supplied OffsetSpec
   private static AdminClient getAdminClient(long startOffset, long endOffset) {
     AdminClient adminClient = mock(AdminClient.class);
