@@ -218,6 +218,8 @@ public class RecoveryTaskCreator {
       } else if (indexerConfig.getCreateRecoveryTasksOnStart()
           && indexerConfig.getReadFromLocationOnStart()
               == KaldbConfigs.KafkaOffsetLocation.LATEST) {
+        // todo - this appears to be able to create recovery tasks that have a start and end
+        // position of 0, which is invalid
         LOG.info(
             "CreateRecoveryTasksOnStart is set and ReadLocationOnStart is set to current. Reading from current and"
                 + " spinning up recovery tasks");
