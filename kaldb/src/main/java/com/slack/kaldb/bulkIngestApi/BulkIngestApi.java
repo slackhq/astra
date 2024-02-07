@@ -1,9 +1,9 @@
 package com.slack.kaldb.bulkIngestApi;
 
 import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
-import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.service.murron.trace.Trace;
@@ -33,11 +33,13 @@ public class BulkIngestApi {
   private final String BULK_INGEST_INCOMING_BYTE_TOTAL = "kaldb_preprocessor_incoming_byte";
   private final String BULK_INGEST_INCOMING_BYTE_DOCS = "kaldb_preprocessor_incoming_docs";
   private final String BULK_INGEST_TIMER = "kaldb_preprocessor_bulk_ingest";
+  private final int rateLimitExceededErrorCode;
 
   public BulkIngestApi(
       BulkIngestKafkaProducer bulkIngestKafkaProducer,
       DatasetRateLimitingService datasetRateLimitingService,
-      MeterRegistry meterRegistry) {
+      MeterRegistry meterRegistry,
+      int rateLimitExceededErrorCode) {
 
     this.bulkIngestKafkaProducer = bulkIngestKafkaProducer;
     this.datasetRateLimitingService = datasetRateLimitingService;
@@ -45,6 +47,11 @@ public class BulkIngestApi {
     this.incomingByteTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_TOTAL);
     this.incomingDocsTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_DOCS);
     this.bulkIngestTimer = meterRegistry.timer(BULK_INGEST_TIMER);
+    if (rateLimitExceededErrorCode <= 0 || rateLimitExceededErrorCode > 599) {
+      this.rateLimitExceededErrorCode = 400;
+    } else {
+      this.rateLimitExceededErrorCode = rateLimitExceededErrorCode;
+    }
   }
 
   @Post("/_bulk")
@@ -77,7 +84,8 @@ public class BulkIngestApi {
         final String index = indexDocs.getKey();
         if (!datasetRateLimitingService.tryAcquire(index, indexDocs.getValue())) {
           BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");
-          future.complete(HttpResponse.ofJson(TOO_MANY_REQUESTS, response));
+          future.complete(
+              HttpResponse.ofJson(HttpStatus.valueOf(rateLimitExceededErrorCode), response));
           return HttpResponse.of(future);
         }
       }

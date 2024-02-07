@@ -128,6 +128,7 @@ preprocessorConfig:
   rateLimiterMaxBurstSeconds: 2
   bootstrapServers: localhost:9092
   useBulkApi: true
+  rateLimitExceededErrorCode: 429
 
 clusterConfig:
   clusterName: "test_kaldb_cluster"
