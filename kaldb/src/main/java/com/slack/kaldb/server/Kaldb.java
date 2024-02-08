@@ -399,7 +399,11 @@ public class Kaldb {
         services.add(datasetRateLimitingService);
 
         BulkIngestApi openSearchBulkApiService =
-            new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService, meterRegistry);
+            new BulkIngestApi(
+                bulkIngestKafkaProducer,
+                datasetRateLimitingService,
+                meterRegistry,
+                preprocessorConfig.getRateLimitExceededErrorCode());
         armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
       } else {
         PreprocessorService preprocessorService =

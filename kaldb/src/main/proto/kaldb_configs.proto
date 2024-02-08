@@ -270,4 +270,10 @@ message PreprocessorConfig {
   // we plan on moving everything to the bulk API and removing KafkaStreamConfig in the future
   KafkaConfig kafka_config = 9;
   bool use_bulk_api = 10;
+
+  // Make the rate limit exceeded error code confugurable
+  // We default to 400 to prioritize fresh logs and drop excess logs
+  // Set this to 429 for clients to retry the request after a delay
+  // Only used when we use the bulk API
+  int32 rate_limit_exceeded_error_code = 11;
 }
