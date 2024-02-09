@@ -15,14 +15,17 @@ import com.slack.kaldb.bulkIngestApi.BulkIngestApi;
 import com.slack.kaldb.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.kaldb.bulkIngestApi.BulkIngestResponse;
 import com.slack.kaldb.bulkIngestApi.DatasetRateLimitingService;
+import com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.kaldb.preprocessor.PreprocessorRateLimiter;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.util.JsonUtil;
+import com.slack.kaldb.util.TestingZKServer;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
@@ -31,8 +34,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -67,7 +70,7 @@ public class BulkIngestApiTest {
     Tracing.newBuilder().build();
     meterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
 
-    zkServer = new TestingServer();
+    zkServer = TestingZKServer.createTestingServer();
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
@@ -122,7 +125,8 @@ public class BulkIngestApiTest {
     datasetRateLimitingService.awaitRunning(DEFAULT_START_STOP_DURATION);
     bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    bulkApi = new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService, meterRegistry);
+    bulkApi =
+        new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService, meterRegistry, 400);
   }
 
   // I looked at making this a @BeforeEach. it's possible if you annotate a test with a @Tag and
@@ -195,7 +199,12 @@ public class BulkIngestApiTest {
                 { "index": {"_index": "testindex", "_id": "1"} }
                 { "field1" : "value1" }
                 """;
-    updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
+    // use the way we calculate the throughput in the rate limiter to get the exact bytes
+    Map<String, List<Trace.Span>> docs =
+        BulkApiRequestParser.parseRequest(request1.getBytes(StandardCharsets.UTF_8));
+    int limit = PreprocessorRateLimiter.getSpanBytes(docs.get("testindex"));
+    // for some reason if we pass the exact limit, the rate limiter doesn't work as expected
+    updateDatasetThroughput(limit / 2);
 
     // test with empty causes a parse exception
     AggregatedHttpResponse response = bulkApi.addDocument("{}\n").aggregate().join();
@@ -208,49 +217,30 @@ public class BulkIngestApiTest {
 
     // test with request1 twice. first one should succeed, second one will fail because of rate
     // limiter
-    CompletableFuture<AggregatedHttpResponse> response1 =
-        bulkApi
-            .addDocument(request1)
-            .aggregate()
-            .thenApply(
-                httpResponse -> {
-                  assertThat(httpResponse.status().isSuccess()).isEqualTo(true);
-                  assertThat(httpResponse.status().code()).isEqualTo(OK.code());
-                  BulkIngestResponse httpResponseObj = null;
-                  try {
-                    httpResponseObj =
-                        JsonUtil.read(httpResponse.contentUtf8(), BulkIngestResponse.class);
-                  } catch (IOException e) {
-                    fail("", e);
-                  }
-                  assertThat(httpResponseObj.totalDocs()).isEqualTo(1);
-                  assertThat(httpResponseObj.failedDocs()).isEqualTo(0);
-                  return httpResponse;
-                });
+    AggregatedHttpResponse httpResponse = bulkApi.addDocument(request1).aggregate().join();
+    assertThat(httpResponse.status().isSuccess()).isEqualTo(true);
+    assertThat(httpResponse.status().code()).isEqualTo(OK.code());
+    try {
+      BulkIngestResponse httpResponseObj =
+          JsonUtil.read(httpResponse.contentUtf8(), BulkIngestResponse.class);
+      assertThat(httpResponseObj.totalDocs()).isEqualTo(1);
+      assertThat(httpResponseObj.failedDocs()).isEqualTo(0);
+    } catch (IOException e) {
+      fail("", e);
+    }
 
-    CompletableFuture<AggregatedHttpResponse> response2 =
-        bulkApi
-            .addDocument(request1)
-            .aggregate()
-            .thenApply(
-                httpResponse -> {
-                  assertThat(httpResponse.status().isSuccess()).isEqualTo(false);
-                  assertThat(httpResponse.status().code()).isEqualTo(TOO_MANY_REQUESTS.code());
-                  BulkIngestResponse httpResponseObj = null;
-                  try {
-                    httpResponseObj =
-                        JsonUtil.read(httpResponse.contentUtf8(), BulkIngestResponse.class);
-                  } catch (IOException e) {
-                    fail("", e);
-                  }
-                  assertThat(httpResponseObj.totalDocs()).isEqualTo(0);
-                  assertThat(httpResponseObj.failedDocs()).isEqualTo(0);
-                  assertThat(httpResponseObj.errorMsg()).isEqualTo("rate limit exceeded");
-                  return httpResponse;
-                });
-
-    await().until(response1::isDone);
-    await().until(response2::isDone);
+    httpResponse = bulkApi.addDocument(request1).aggregate().join();
+    assertThat(httpResponse.status().isSuccess()).isEqualTo(false);
+    assertThat(httpResponse.status().code()).isEqualTo(400);
+    try {
+      BulkIngestResponse httpResponseObj =
+          JsonUtil.read(httpResponse.contentUtf8(), BulkIngestResponse.class);
+      assertThat(httpResponseObj.totalDocs()).isEqualTo(0);
+      assertThat(httpResponseObj.failedDocs()).isEqualTo(0);
+      assertThat(httpResponseObj.errorMsg()).isEqualTo("rate limit exceeded");
+    } catch (IOException e) {
+      fail("", e);
+    }
 
     // test with multiple indexes
     String request2 =
@@ -267,6 +257,25 @@ public class BulkIngestApiTest {
     assertThat(responseObj.totalDocs()).isEqualTo(0);
     assertThat(responseObj.failedDocs()).isEqualTo(0);
     assertThat(responseObj.errorMsg()).isEqualTo("request must contain only 1 unique index");
+
+    BulkIngestApi bulkApi2 =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            TOO_MANY_REQUESTS.code());
+    httpResponse = bulkApi2.addDocument(request1).aggregate().join();
+    assertThat(httpResponse.status().isSuccess()).isEqualTo(false);
+    assertThat(httpResponse.status().code()).isEqualTo(TOO_MANY_REQUESTS.code());
+    try {
+      BulkIngestResponse httpResponseObj =
+          JsonUtil.read(httpResponse.contentUtf8(), BulkIngestResponse.class);
+      assertThat(httpResponseObj.totalDocs()).isEqualTo(0);
+      assertThat(httpResponseObj.failedDocs()).isEqualTo(0);
+      assertThat(httpResponseObj.errorMsg()).isEqualTo("rate limit exceeded");
+    } catch (IOException e) {
+      fail("", e);
+    }
   }
 
   @Test

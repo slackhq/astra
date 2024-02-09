@@ -157,7 +157,8 @@
     "dataTransformer": "api_log",
     "rateLimiterMaxBurstSeconds": 2,
     "bootstrapServers": "localhost:9092",
-    "useBulkApi": false
+    "useBulkApi": false,
+    "rateLimitExceededErrorCode": 400
   },
   "clusterConfig": {
     "clusterName": "test_kaldb_json_cluster",

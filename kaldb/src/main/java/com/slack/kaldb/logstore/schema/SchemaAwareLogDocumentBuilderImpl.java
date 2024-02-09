@@ -59,7 +59,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     }
 
     String[] fieldsAsString = {
-      LogMessage.SystemField.ID.fieldName,
       LogMessage.SystemField.INDEX.fieldName,
       LogMessage.ReservedField.TYPE.fieldName,
       LogMessage.ReservedField.HOSTNAME.fieldName,
@@ -76,6 +75,14 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     for (String fieldName : fieldsAsString) {
       fieldDefBuilder.put(
           fieldName, new LuceneFieldDef(fieldName, FieldType.STRING.name, false, true, true));
+    }
+
+    String[] fieldsAsIds = {
+      LogMessage.SystemField.ID.fieldName,
+    };
+    for (String fieldName : fieldsAsIds) {
+      fieldDefBuilder.put(
+          fieldName, new LuceneFieldDef(fieldName, FieldType.ID.name, false, true, true));
     }
 
     String[] fieldsAsLong = {

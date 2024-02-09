@@ -141,3 +141,4 @@ preprocessorConfig:
   rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}
   kafkaPartitionStickyTimeoutMs: ${KAFKA_PARTITION_STICKY_TIMEOUT_MS:-0}
   useBulkApi: ${KALDB_PREPROCESSOR_USE_BULK_API:-false}
+  rateLimitExceededErrorCode: ${KALDB_PREPROCESSOR_RATE_LIMIT_EXCEEDED_ERROR_CODE:-400}

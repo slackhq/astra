@@ -46,23 +46,29 @@ public class BulkApiRequestParser {
    * logstash sets that) 3. Use the current time from the ingestMetadata
    */
   public static long getTimestampFromIngestDocument(IngestDocument ingestDocument) {
-    // assumption that the provided timestamp is in millis
-    // at some point both th unit and field need to be configurable
-    // when we do that, remember to change the called to appropriately remove the field
-    if (ingestDocument.hasField("timestamp")) {
-      return ingestDocument.getFieldValue("timestamp", Long.class);
-    }
 
-    if (ingestDocument.hasField("_timestamp")) {
-      return ingestDocument.getFieldValue("_timestamp", Long.class);
-    }
+    try {
+      if (ingestDocument.hasField("@timestamp")) {
+        String dateString = ingestDocument.getFieldValue("@timestamp", String.class);
+        LocalDateTime localDateTime =
+            LocalDateTime.parse(dateString, DateTimeFormatter.ISO_DATE_TIME);
+        Instant instant = localDateTime.toInstant(ZoneOffset.UTC);
+        return instant.toEpochMilli();
+      }
 
-    if (ingestDocument.hasField("@timestamp")) {
-      String dateString = ingestDocument.getFieldValue("@timestamp", String.class);
-      LocalDateTime localDateTime =
-          LocalDateTime.parse(dateString, DateTimeFormatter.ISO_DATE_TIME);
-      Instant instant = localDateTime.toInstant(ZoneOffset.UTC);
-      return instant.toEpochMilli();
+      // assumption that the provided timestamp is in millis
+      // at some point both th unit and field need to be configurable
+      // when we do that, remember to change the called to appropriately remove the field
+      if (ingestDocument.hasField("timestamp")) {
+        return ingestDocument.getFieldValue("timestamp", Long.class);
+      }
+
+      if (ingestDocument.hasField("_timestamp")) {
+        return ingestDocument.getFieldValue("_timestamp", Long.class);
+      }
+    } catch (Exception e) {
+      LOG.warn(
+          "Unable to parse timestamp from ingest document. Using current time as timestamp", e);
     }
 
     return ((ZonedDateTime)

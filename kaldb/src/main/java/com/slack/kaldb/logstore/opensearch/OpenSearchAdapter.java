@@ -220,6 +220,8 @@ public class OpenSearchAdapter {
           tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "text"));
         } else if (entry.getValue().fieldType == FieldType.STRING) {
           tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "keyword"));
+        } else if (entry.getValue().fieldType == FieldType.ID) {
+          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "keyword"));
         } else if (entry.getValue().fieldType == FieldType.INTEGER) {
           tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "integer"));
         } else if (entry.getValue().fieldType == FieldType.LONG) {
