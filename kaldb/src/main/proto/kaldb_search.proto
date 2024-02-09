@@ -247,6 +247,7 @@ enum FieldType {
   FLOAT = 4;
   BOOLEAN = 5;
   DOUBLE = 6;
+  ID = 7;
 }
 
 message SchemaDefinition {

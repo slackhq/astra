@@ -655,6 +655,8 @@ public class SearchResultUtils {
       return FieldType.BOOLEAN;
     } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.DOUBLE)) {
       return FieldType.DOUBLE;
+    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.ID)) {
+      return FieldType.ID;
     } else {
       throw new IllegalArgumentException(
           String.format("Field type %s is not a supported type", protoSchemaDefinition.getType()));
@@ -678,6 +680,8 @@ public class SearchResultUtils {
       schemaBuilder.setType(KaldbSearch.FieldType.BOOLEAN);
     } else if (fieldType.equals(FieldType.DOUBLE)) {
       schemaBuilder.setType(KaldbSearch.FieldType.DOUBLE);
+    } else if (fieldType.equals(FieldType.ID)) {
+      schemaBuilder.setType(KaldbSearch.FieldType.ID);
     } else {
       throw new IllegalArgumentException(
           String.format("Field type %s is not a supported type", fieldType));
