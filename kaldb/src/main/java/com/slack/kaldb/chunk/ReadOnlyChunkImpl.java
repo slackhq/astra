@@ -304,7 +304,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     try {
       cacheSlotMetadataStore
           .updateNonFreeCacheSlotState(cacheSlotMetadata, newState)
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.MILLISECONDS);
+          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
       return true;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Error setting chunk metadata state", e);
