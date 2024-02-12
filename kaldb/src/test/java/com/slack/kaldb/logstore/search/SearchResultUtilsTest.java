@@ -404,6 +404,16 @@ public class SearchResultUtilsTest {
             KaldbSearch.SchemaDefinition.newBuilder()
                 .setType(KaldbSearch.FieldType.INTEGER)
                 .build());
+
+    assertThat(
+            SearchResultUtils.fromSchemaDefinitionProto(
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.ID)
+                    .build()))
+        .isEqualTo(FieldType.ID);
+    assertThat(SearchResultUtils.toSchemaDefinitionProto(FieldType.ID))
+        .isEqualTo(
+            KaldbSearch.SchemaDefinition.newBuilder().setType(KaldbSearch.FieldType.ID).build());
   }
 
   @Test
