@@ -11,7 +11,7 @@ import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.CuratorEventType;
-import org.apache.curator.retry.RetryNTimes;
+import org.apache.curator.retry.RetryUntilElapsed;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
@@ -22,7 +22,6 @@ public class CuratorBuilder {
   private static final Logger LOG = LoggerFactory.getLogger(CuratorBuilder.class);
 
   public static final String METADATA_FAILED_COUNTER = "metadata.failed";
-  private static final int ZK_RETRY_COUNT = 3;
 
   public static AsyncCuratorFramework build(
       MeterRegistry meterRegistry, KaldbConfigs.ZookeeperConfig zkConfig) {
@@ -34,7 +33,10 @@ public class CuratorBuilder {
         zkConfig.getZkConnectionTimeoutMs() > 0, "connectionTimeoutMs should be a positive number");
 
     Counter failureCounter = meterRegistry.counter(METADATA_FAILED_COUNTER);
-    RetryPolicy retryPolicy = new RetryNTimes(ZK_RETRY_COUNT, zkConfig.getSleepBetweenRetriesMs());
+    // todo - consider making the retry until elapsed a separate config from the zk session timeout
+    RetryPolicy retryPolicy =
+        new RetryUntilElapsed(
+            zkConfig.getZkSessionTimeoutMs(), zkConfig.getSleepBetweenRetriesMs());
 
     // TODO: In future add ZK auth credentials can be passed in here.
     CuratorFramework curator =
