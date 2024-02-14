@@ -26,7 +26,6 @@ import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.server.EphemeralType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -210,7 +209,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_znodes")) {
+            "/partitioned_znodes",
+            meterRegistry)) {
 
       int size = 50_000;
 
@@ -243,7 +243,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_create")) {
+            "/partitioned_create",
+            meterRegistry)) {
 
       ExampleMetadata exampleMetadata = new ExampleMetadata("id");
       partitionedMetadataStore.createSync(exampleMetadata);
@@ -266,7 +267,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_update")) {
+            "/partitioned_update",
+            meterRegistry)) {
 
       ExampleMetadata exampleMetadata = new ExampleMetadata("id");
       partitionedMetadataStore.createAsync(exampleMetadata);
@@ -298,7 +300,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_delete")) {
+            "/partitioned_delete",
+            meterRegistry)) {
 
       ExampleMetadata exampleMetadata = new ExampleMetadata("id");
       partitionedMetadataStore.createSync(exampleMetadata);
@@ -324,7 +327,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_find")) {
+            "/partitioned_find",
+            meterRegistry)) {
 
       String nodeName = "findme";
       ExampleMetadata exampleMetadataToFindLater = new ExampleMetadata(nodeName);
@@ -346,7 +350,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_find_missing")) {
+            "/partitioned_find_missing",
+            meterRegistry)) {
 
       assertThatExceptionOfType(InternalMetadataStoreException.class)
           .isThrownBy(() -> partitionedMetadataStore.findSync("missing"));
@@ -360,7 +365,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_snapshot_duplicate_create")) {
+            "/partitioned_snapshot_duplicate_create",
+            meterRegistry)) {
       ExampleMetadata exampleMetadata = new ExampleMetadata("name", "field");
       partitionedMetadataStore.createSync(exampleMetadata);
       await().until(() -> partitionedMetadataStore.listSync().size() == 1);
@@ -378,7 +384,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_persistent");
+            "/partitioned_persistent",
+            meterRegistry);
       }
     }
 
@@ -388,7 +395,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.EPHEMERAL,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_ephemeral");
+            "/partitioned_ephemeral",
+            meterRegistry);
       }
     }
 
@@ -432,7 +440,6 @@ class KaldbPartitioningMetadataStoreTest {
   }
 
   @Test
-  @Disabled("ZK reconnect support currently disabled")
   void testListenersWithZkReconnect() throws Exception {
     class TestMetadataStore extends KaldbPartitioningMetadataStore<ExampleMetadata> {
       public TestMetadataStore() {
@@ -440,7 +447,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_zk_reconnect");
+            "/partitioned_zk_reconnect",
+            meterRegistry);
       }
     }
 
@@ -478,7 +486,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_snapshot_listeners")) {
+            "/partitioned_snapshot_listeners",
+            meterRegistry)) {
 
       AtomicInteger counter = new AtomicInteger(0);
       partitionedMetadataStore.addListener(
@@ -581,7 +590,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
-            "/partitioned_add_remove_listeners");
+            "/partitioned_add_remove_listeners",
+            meterRegistry);
       }
     }
 
@@ -625,7 +635,8 @@ class KaldbPartitioningMetadataStoreTest {
             curatorFramework,
             CreateMode.PERSISTENT,
             new FixedPartitionMetadataSerializer().toModelSerializer(),
-            "/partitioned_duplicate_listeners");
+            "/partitioned_duplicate_listeners",
+            meterRegistry);
       }
     }
 
