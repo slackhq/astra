@@ -154,8 +154,11 @@ public class ReadOnlyChunkImplTest {
 
     // ensure that the chunk was marked LIVE
     await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
-    assertThat(readOnlyChunk.getChunkMetadataState())
-        .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.LIVE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.LIVE);
 
     SearchResult<LogMessage> logMessageSearchResult =
         readOnlyChunk.query(
@@ -230,6 +233,10 @@ public class ReadOnlyChunkImplTest {
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(0);
 
+    cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
   }
 
@@ -300,6 +307,10 @@ public class ReadOnlyChunkImplTest {
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(1);
 
+    cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
   }
 
@@ -370,6 +381,10 @@ public class ReadOnlyChunkImplTest {
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(1);
 
+    cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
   }
 
@@ -473,6 +488,10 @@ public class ReadOnlyChunkImplTest {
       assertThat(files.findFirst().isPresent()).isFalse();
     }
 
+    cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
   }
 

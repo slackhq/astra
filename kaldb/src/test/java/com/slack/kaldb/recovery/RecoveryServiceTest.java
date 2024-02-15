@@ -184,6 +184,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -269,6 +271,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -357,6 +361,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -398,6 +404,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(1);
+
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -482,6 +490,10 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+
+    snapshotMetadataStore.close();
+    recoveryTaskMetadataStore.close();
+    recoveryNodeMetadataStore.close();
   }
 
   @Test
@@ -571,6 +583,10 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(1);
+
+    snapshotMetadataStore.close();
+    recoveryTaskMetadataStore.close();
+    recoveryNodeMetadataStore.close();
   }
 
   @Test
@@ -709,11 +725,17 @@ public class RecoveryServiceTest {
     // Post recovery checks
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).size())
         .isEqualTo(1);
-    assertThat(
-            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore)
-                .get(0)
-                .recoveryNodeState)
-        .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+
+    await()
+        .until(
+            () ->
+                KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore)
+                        .get(0)
+                        .recoveryNodeState
+                    == Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+
+    recoveryNodeMetadataStore.close();
+    recoveryTaskMetadataStore.close();
   }
 
   // returns startOffset or endOffset based on the supplied OffsetSpec

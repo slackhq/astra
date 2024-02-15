@@ -6,6 +6,7 @@ import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,6 +19,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.framework.recipes.nodes.PersistentNode;
+import org.apache.curator.framework.recipes.watch.PersistentWatcher;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.curator.x.async.api.CreateOption;
 import org.apache.curator.x.async.modeled.ModelSerializer;
@@ -27,6 +29,7 @@ import org.apache.curator.x.async.modeled.ZPath;
 import org.apache.curator.x.async.modeled.cached.CachedModeledFramework;
 import org.apache.curator.x.async.modeled.cached.ModeledCacheListener;
 import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +66,7 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
       new ConcurrentHashMap<>();
 
   private final Map<String, PersistentNode> persistentNodeMap = new ConcurrentHashMap<>();
+  private final Map<String, PersistentWatcher> persistentWatcherMap = new ConcurrentHashMap<>();
 
   public static final String PERSISTENT_NODE_RECREATED_COUNTER =
       "metadata_persistent_node_recreated";
@@ -112,34 +116,92 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   public CompletionStage<String> createAsync(T metadataNode) {
     if (createMode == CreateMode.EPHEMERAL && persistentEphemeralModeEnabled()) {
       String nodePath = resolvePath(metadataNode);
-      // persistent node already implements NodeDataChanged
-      PersistentNode node =
-          new PersistentNode(
-              curator.unwrap(),
-              createMode,
-              false,
-              nodePath,
-              modelSpec.serializer().serialize(metadataNode));
-      persistentNodeMap.put(nodePath, node);
-      node.start();
-      // todo - what happens when attempting to create over existing?
-      return CompletableFuture.supplyAsync(
-          () -> {
-            try {
-              node.waitForInitialCreate(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-              node.getListenable().addListener(_ -> persistentNodeRecreatedCounter.increment());
-              return nodePath;
-            } catch (Exception e) {
-              throw new CompletionException(e);
-            }
-          });
+      return hasAsync(metadataNode.name)
+          .thenApplyAsync(
+              (stat) -> {
+                // it is possible that we have a node that hasn't been yet async persisted to ZK
+                if (stat != null || persistentNodeMap.containsKey(nodePath)) {
+                  throw new CompletionException(
+                      new IllegalArgumentException(
+                          String.format("Node already exists at '%s'", nodePath)));
+                }
+
+                PersistentNode node =
+                    new PersistentNode(
+                        curator.unwrap(),
+                        createMode,
+                        false,
+                        nodePath,
+                        modelSpec.serializer().serialize(metadataNode));
+                persistentNodeMap.put(nodePath, node);
+                node.start();
+
+                try {
+                  node.waitForInitialCreate(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+                  node.getListenable().addListener(_ -> persistentNodeRecreatedCounter.increment());
+
+                  // add a persistent watcher for node data changes on this persistent ephemeral
+                  // node this is so when someone else updates a field on the ephemeral node, the
+                  // owner also updates their local copy
+                  PersistentWatcher persistentWatcher =
+                      new PersistentWatcher(curator.unwrap(), node.getActualPath(), false);
+                  persistentWatcher
+                      .getListenable()
+                      .addListener(
+                          event -> {
+                            try {
+                              if (event.getType() == Watcher.Event.EventType.NodeDataChanged) {
+                                node.waitForInitialCreate(
+                                    DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+                                modeledClient
+                                    .withPath(ZPath.parse(event.getPath()))
+                                    .read()
+                                    .thenAcceptAsync(
+                                        (updated) -> {
+                                          try {
+                                            if (node.getActualPath() != null) {
+                                              byte[] updatedBytes =
+                                                  modelSpec.serializer().serialize(updated);
+                                              if (!Arrays.equals(node.getData(), updatedBytes)) {
+                                                // only trigger a setData if something actually
+                                                // changed, otherwise
+                                                // we end up in a deathloop
+                                                node.setData(
+                                                    modelSpec.serializer().serialize(updated));
+                                              }
+                                            }
+                                          } catch (Exception e) {
+                                            LOG.error(
+                                                "Error attempting to set local node data - fatal ZK error",
+                                                e);
+                                            new RuntimeHalterImpl().handleFatal(e);
+                                          }
+                                        });
+                              }
+                            } catch (Exception e) {
+                              LOG.error(
+                                  "Error attempting to watch NodeDataChanged - fatal ZK error", e);
+                              new RuntimeHalterImpl().handleFatal(e);
+                            }
+                          });
+                  persistentWatcherMap.put(nodePath, persistentWatcher);
+                  persistentWatcher.start();
+                  return nodePath;
+                } catch (Exception e) {
+                  throw new CompletionException(e);
+                }
+              });
     } else {
       // by passing the version 0, this will throw if we attempt to create and it already exists
       return modeledClient.set(metadataNode, 0);
     }
   }
 
-  // resolveForSet
+  /**
+   * Based off of the private ModelFrameWorkImp resolveForSet
+   *
+   * @see org.apache.curator.x.async.modeled.details.ModeledFrameworkImpl.resolveForSet
+   */
   private String resolvePath(T model) {
     if (modelSpec.path().isResolved()) {
       return modelSpec.path().fullPath();
@@ -158,6 +220,11 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   }
 
   public CompletionStage<T> getAsync(String path) {
+    PersistentNode node = getPersistentNodeIfExists(path);
+    if (node != null) {
+      return CompletableFuture.supplyAsync(
+          () -> modelSpec.serializer().deserialize(node.getData()));
+    }
     if (cachedModeledFramework != null) {
       return cachedModeledFramework.withPath(zPath.resolved(path)).readThrough();
     }
@@ -173,6 +240,8 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   }
 
   public CompletionStage<Stat> hasAsync(String path) {
+    // We don't use the persist node here, as we want to get the actual stat details which isn't
+    // available on the persistentnode
     if (cachedModeledFramework != null) {
       awaitCacheInitialized();
       return cachedModeledFramework.withPath(zPath.resolved(path)).checkExists();
@@ -317,11 +386,23 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     return persistentNodeMap.getOrDefault(resolvePath(metadataNode), null);
   }
 
+  private PersistentNode getPersistentNodeIfExists(String path) {
+    return persistentNodeMap.getOrDefault(zPath.resolved(path).fullPath(), null);
+  }
+
   private PersistentNode removePersistentNodeIfExists(T metadataNode) {
+    PersistentWatcher watcher = persistentWatcherMap.remove(resolvePath(metadataNode));
+    if (watcher != null) {
+      watcher.close();
+    }
     return persistentNodeMap.remove(resolvePath(metadataNode));
   }
 
   private PersistentNode removePersistentNodeIfExists(String path) {
+    PersistentWatcher watcher = persistentWatcherMap.remove(zPath.resolved(path).fullPath());
+    if (watcher != null) {
+      watcher.close();
+    }
     return persistentNodeMap.remove(zPath.resolved(path).fullPath());
   }
 
@@ -342,11 +423,21 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
 
   @Override
   public void close() {
+    persistentWatcherMap.forEach(
+        (_, persistentWatcher) -> {
+          try {
+            persistentWatcher.close();
+          } catch (Exception e) {
+            LOG.error("Error removing persistent watchers", e);
+          }
+        });
+
     persistentNodeMap.forEach(
         (_, persistentNode) -> {
           try {
             persistentNode.close();
-          } catch (Exception ignored) {
+          } catch (Exception e) {
+            LOG.error("Error removing persistent nodes", e);
           }
         });
 

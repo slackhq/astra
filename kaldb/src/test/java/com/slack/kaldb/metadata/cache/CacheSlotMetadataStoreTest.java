@@ -52,6 +52,7 @@ public class CacheSlotMetadataStoreTest {
 
   @AfterEach
   public void tearDown() throws IOException {
+    store.close();
     curatorFramework.unwrap().close();
     testingServer.close();
     meterRegistry.close();

@@ -179,6 +179,13 @@ public class RecoveryService extends AbstractIdleService {
   private void recoveryNodeListener(RecoveryNodeMetadata recoveryNodeMetadata) {
     Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState =
         recoveryNodeMetadata.recoveryNodeState;
+    if (recoveryNodeLastKnownState.equals(recoveryNodeMetadata.recoveryNodeState)) {
+      // todo - consider moving this to a model where it deduplicates with a scheduled executor,
+      // similar to the manager
+      // This can fire duplicate events if the ephemeral node is re-created
+      LOG.info("Recovery node - listener fired with no state change, skipping event");
+      return;
+    }
 
     if (newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED)) {
       LOG.info("Recovery node - ASSIGNED received");
