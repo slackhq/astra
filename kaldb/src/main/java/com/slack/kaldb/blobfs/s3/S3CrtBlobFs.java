@@ -102,11 +102,23 @@ public class S3CrtBlobFs extends BlobFs {
         awsCredentialsProvider = DefaultCredentialsProvider.create();
       }
 
+      // default to 5% of the heap size for the max crt off-heap or 1GiB (min for client)
+      long jvmMaxHeapSizeBytes = Runtime.getRuntime().maxMemory();
+      long defaultCrtMemoryLimit = Math.max(Math.round(jvmMaxHeapSizeBytes * 0.05), 1073741824);
+      long maxNativeMemoryLimitBytes =
+          Long.parseLong(
+              System.getProperty(
+                  "kaldb.s3CrtBlobFs.maxNativeMemoryLimitBytes",
+                  String.valueOf(defaultCrtMemoryLimit)));
+      LOG.info(
+          "Using a maxNativeMemoryLimitInBytes for the S3AsyncClient of '{}' bytes",
+          maxNativeMemoryLimitBytes);
       S3CrtAsyncClientBuilder s3AsyncClient =
           S3AsyncClient.crtBuilder()
               .retryConfiguration(S3CrtRetryConfiguration.builder().numRetries(3).build())
               .targetThroughputInGbps(config.getS3TargetThroughputGbps())
               .region(Region.of(region))
+              .maxNativeMemoryLimitInBytes(maxNativeMemoryLimitBytes)
               .credentialsProvider(awsCredentialsProvider);
 
       // We add a healthcheck to prevent an error with the CRT client, where it will
