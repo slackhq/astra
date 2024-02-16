@@ -200,6 +200,8 @@ class KaldbPartitioningMetadataStoreTest {
     curatorFramework.unwrap().close();
     testingServer.close();
     meterRegistry.close();
+    // clear any overrides
+    System.clearProperty(KaldbMetadataStore.PERSISTENT_EPHEMERAL_PROPERTY);
   }
 
   @Test
@@ -441,6 +443,7 @@ class KaldbPartitioningMetadataStoreTest {
 
   @Test
   void testListenersWithZkReconnect() throws Exception {
+    System.setProperty(KaldbMetadataStore.PERSISTENT_EPHEMERAL_PROPERTY, "true");
     class TestMetadataStore extends KaldbPartitioningMetadataStore<ExampleMetadata> {
       public TestMetadataStore() {
         super(

@@ -14,6 +14,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.RetryPolicy;
@@ -62,8 +63,8 @@ public class KaldbMetadataStoreTest {
     testingServer.close();
     meterRegistry.close();
 
-    // reset to true
-    System.setProperty(KaldbMetadataStore.PERSISTENT_EPHEMERAL_PROPERTY, "true");
+    // clear any overrides
+    System.clearProperty(KaldbMetadataStore.PERSISTENT_EPHEMERAL_PROPERTY);
   }
 
   private static class TestMetadata extends KaldbMetadata {
@@ -528,7 +529,7 @@ public class KaldbMetadataStoreTest {
           .until(
               () ->
                   MetricsUtil.getCount(
-                          KaldbMetadataStore.PERSISTENT_NODE_RECREATED_COUNTER, meterRegistry)
+                          PersistentWatchedNode.PERSISTENT_NODE_RECREATED_COUNTER, meterRegistry)
                       >= 1);
 
       Stat afterStat = store.hasAsync(metadata1.name).toCompletableFuture().get();
@@ -596,7 +597,7 @@ public class KaldbMetadataStoreTest {
           .until(
               () ->
                   MetricsUtil.getCount(
-                          KaldbMetadataStore.PERSISTENT_NODE_RECREATED_COUNTER, meterRegistry)
+                          PersistentWatchedNode.PERSISTENT_NODE_RECREATED_COUNTER, meterRegistry)
                       >= 1);
 
       Stat afterStat = store.hasAsync(metadata1.name).toCompletableFuture().get();
@@ -655,7 +656,7 @@ public class KaldbMetadataStoreTest {
       assertThrows(InternalMetadataStoreException.class, () -> store.getSync(metadata1.name));
       assertThat(
               MetricsUtil.getCount(
-                  KaldbMetadataStore.PERSISTENT_NODE_RECREATED_COUNTER, meterRegistry))
+                  PersistentWatchedNode.PERSISTENT_NODE_RECREATED_COUNTER, meterRegistry))
           .isEqualTo(0);
     }
 
@@ -705,7 +706,7 @@ public class KaldbMetadataStoreTest {
       assertThrows(InternalMetadataStoreException.class, () -> store.getSync(metadata1.name));
       assertThat(
               MetricsUtil.getCount(
-                  KaldbMetadataStore.PERSISTENT_NODE_RECREATED_COUNTER, meterRegistry))
+                  PersistentWatchedNode.PERSISTENT_NODE_RECREATED_COUNTER, meterRegistry))
           .isEqualTo(0);
     }
 
@@ -878,6 +879,7 @@ public class KaldbMetadataStoreTest {
       }
 
       await()
+          .atMost(30, TimeUnit.SECONDS)
           .until(() -> curator1.getZookeeperClient().getZooKeeper().getSessionId() != sessionId1);
 
       // wait until the node shows back up on ZK
