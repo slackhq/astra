@@ -3,15 +3,12 @@ package com.slack.kaldb.writer;
 import static com.slack.kaldb.testlib.SpanUtil.BINARY_TAG_VALUE;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.service.murron.trace.Trace;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -59,10 +56,7 @@ public class SpanFormatterTest {
     assertThat(source.get("int")).isEqualTo(1000L);
     assertThat(source.get("float")).isEqualTo(1001.2);
     String binaryTagValue = (String) source.get("binary");
-    assertThat(binaryTagValue)
-        .isEqualTo(SpanFormatter.encodeBinaryTagValue(ByteString.copyFromUtf8(BINARY_TAG_VALUE)));
-    assertThat(new String(Base64.getDecoder().decode(binaryTagValue), StandardCharsets.UTF_8))
-        .isEqualTo(BINARY_TAG_VALUE);
+    assertThat(binaryTagValue).isEqualTo(BINARY_TAG_VALUE);
   }
 
   @Test
@@ -104,10 +98,7 @@ public class SpanFormatterTest {
     assertThat(source.get("int")).isEqualTo(1000L);
     assertThat(source.get("float")).isEqualTo(1001.2);
     String binaryTagValue = (String) source.get("binary");
-    assertThat(binaryTagValue)
-        .isEqualTo(SpanFormatter.encodeBinaryTagValue(ByteString.copyFromUtf8(BINARY_TAG_VALUE)));
-    assertThat(new String(Base64.getDecoder().decode(binaryTagValue), StandardCharsets.UTF_8))
-        .isEqualTo(BINARY_TAG_VALUE);
+    assertThat(binaryTagValue).isEqualTo(BINARY_TAG_VALUE);
   }
 
   @Test
@@ -180,10 +171,7 @@ public class SpanFormatterTest {
       assertThat(source.get("int")).isEqualTo(1000L);
       assertThat(source.get("float")).isEqualTo(1001.2);
       String binaryTagValue = (String) source.get("binary");
-      assertThat(binaryTagValue)
-          .isEqualTo(SpanFormatter.encodeBinaryTagValue(ByteString.copyFromUtf8(BINARY_TAG_VALUE)));
-      assertThat(new String(Base64.getDecoder().decode(binaryTagValue), StandardCharsets.UTF_8))
-          .isEqualTo(BINARY_TAG_VALUE);
+      assertThat(binaryTagValue).isEqualTo(BINARY_TAG_VALUE);
     }
   }
 
@@ -230,10 +218,7 @@ public class SpanFormatterTest {
     assertThat(source.get("int")).isEqualTo(1000L);
     assertThat(source.get("float")).isEqualTo(1001.2);
     String binaryTagValue = (String) source.get("binary");
-    assertThat(binaryTagValue)
-        .isEqualTo(SpanFormatter.encodeBinaryTagValue(ByteString.copyFromUtf8(BINARY_TAG_VALUE)));
-    assertThat(new String(Base64.getDecoder().decode(binaryTagValue), StandardCharsets.UTF_8))
-        .isEqualTo(BINARY_TAG_VALUE);
+    assertThat(binaryTagValue).isEqualTo(BINARY_TAG_VALUE);
   }
 
   @Test
