@@ -1,5 +1,6 @@
 package com.slack.kaldb.bulkIngestApi.opensearch;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
@@ -79,7 +80,8 @@ public class BulkApiRequestParser {
         .toEpochMilli();
   }
 
-  protected static Trace.Span fromIngestDocument(IngestDocument ingestDocument) {
+  @VisibleForTesting
+  public static Trace.Span fromIngestDocument(IngestDocument ingestDocument) {
 
     long timestampInMillis = getTimestampFromIngestDocument(ingestDocument);
 
@@ -139,7 +141,8 @@ public class BulkApiRequestParser {
   }
 
   // only parse IndexRequests
-  protected static IngestDocument convertRequestToDocument(IndexRequest indexRequest) {
+  @VisibleForTesting
+  public static IngestDocument convertRequestToDocument(IndexRequest indexRequest) {
     String index = indexRequest.index();
     String id = indexRequest.id();
     String routing = indexRequest.routing();
@@ -153,7 +156,8 @@ public class BulkApiRequestParser {
     // and transform it
   }
 
-  protected static List<IndexRequest> parseBulkRequest(byte[] postBody) throws IOException {
+  @VisibleForTesting
+  public static List<IndexRequest> parseBulkRequest(byte[] postBody) throws IOException {
     List<IndexRequest> indexRequests = new ArrayList<>();
     BulkRequest bulkRequest = new BulkRequest();
     // calls parse under the hood
