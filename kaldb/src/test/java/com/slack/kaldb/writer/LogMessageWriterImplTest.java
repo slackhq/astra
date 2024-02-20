@@ -1,5 +1,6 @@
 package com.slack.kaldb.writer;
 
+import static com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser.convertRequestToDocument;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
@@ -13,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
+import com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
@@ -24,6 +26,7 @@ import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -38,6 +41,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.ingest.IngestDocument;
 
 public class LogMessageWriterImplTest {
 
@@ -287,6 +292,69 @@ public class LogMessageWriterImplTest {
         .isEqualTo(0);
     assertThat(searchChunkManager(serviceName, "http_method:GET OR method:callbacks*").hits.size())
         .isEqualTo(1);
+  }
+
+  @Test
+  public void parseAndIndexBulkApiRequestTest() throws IOException {
+    // crux of the test - encoding and decoding of binary fields
+    //    ByteString inputBytes = ByteString.copyFrom("{\"key1\":
+    // \"value1\"}".toString().getBytes());
+    //
+    //    String output = SpanFormatter.encodeBinaryTagValue(inputBytes);
+    //    System.out.println(output);
+
+    String inputDocuments =
+        """
+    { "index" : { "_index" : "test", "_id" : "1" } }
+    { "field1" : "value1", "field2" : "value2", "tags" :  [] }
+    { "index" : { "_index" : "test", "_id" : "2" } }
+    { "field1" : "value1", "field2" : "value2", "tags" :  ["tagValue1", "tagValue2"] }
+    { "index" : { "_index" : "test", "_id" : "3" } }
+    { "field1" : "value1", "field2" : "value2", "message" :  {} }
+    { "index" : { "_index" : "test", "_id" : "4" } }
+    { "field1" : "value1", "field2" : "value2", "message" :  { "nestedField1" : "nestedValue1", "nestedField2" : "nestedValue2" } }
+            """;
+
+    byte[] rawRequest = inputDocuments.getBytes(StandardCharsets.UTF_8);
+
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(4);
+
+    for (IndexRequest indexRequest : indexRequests) {
+      IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
+      Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument);
+      ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
+      LogMessageWriterImpl messageWriter =
+          new LogMessageWriterImpl(
+              chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceSpanTransformer);
+      assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
+    }
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(4);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    chunkManagerUtil.chunkManager.getActiveChunk().commit();
+
+    SearchResult<LogMessage> results = searchChunkManager("test", "_id:1");
+    assertThat(results.hits.size()).isEqualTo(1);
+    Object value = results.hits.get(0).getSource().get("tags");
+    assertThat(value).isEqualTo("[]");
+
+    results = searchChunkManager("test", "_id:2");
+    assertThat(results.hits.size()).isEqualTo(1);
+    value = results.hits.get(0).getSource().get("tags");
+    // ArrayList#toString in SpanFormatter#convertKVtoProto for the binary field type case
+    assertThat(value).isEqualTo("[tagValue1, tagValue2]");
+
+    results = searchChunkManager("test", "_id:3");
+    assertThat(results.hits.size()).isEqualTo(1);
+    value = results.hits.get(0).getSource().get("message");
+    assertThat(value).isEqualTo("{}");
+
+    results = searchChunkManager("test", "_id:4");
+    assertThat(results.hits.size()).isEqualTo(1);
+    value = results.hits.get(0).getSource().get("message");
+    // HashMap#toString in SpanFormatter#convertKVtoProto for the binary field type case
+    assertThat(value).isEqualTo("{nestedField2=nestedValue2, nestedField1=nestedValue1}");
   }
 
   @Test

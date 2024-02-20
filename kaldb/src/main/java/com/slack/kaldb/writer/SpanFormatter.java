@@ -195,7 +195,7 @@ public class SpanFormatter {
       } else if (valueType == 3) {
         jsonMap.put(key, tag.getVFloat64());
       } else if (valueType == 4) {
-        jsonMap.put(key, encodeBinaryTagValue(tag.getVBinary()));
+        jsonMap.put(key, tag.getVBinary().toStringUtf8());
       } else {
         LOG.warn("Skipping field with unknown value type {} with key {}", valueType, key);
       }
