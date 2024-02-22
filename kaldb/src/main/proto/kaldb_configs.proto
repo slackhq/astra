@@ -274,4 +274,6 @@ message PreprocessorConfig {
   // Set this to 429 for clients to retry the request after a delay
   // Only used when we use the bulk API
   int32 rate_limit_exceeded_error_code = 11;
+
+  string schema_file = 12;
 }

@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.time.Duration;
@@ -94,26 +95,127 @@ public class SpanFormatter {
     return spanBuilder.build();
   }
 
+  public static Trace.KeyValue convertKVtoProto(
+      String key, Object value, Schema.PreprocessorSchema schema) {
+    if (schema.containsFields(key)) {
+      Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
+      tagBuilder.setKey(key);
+      try {
+        switch (schema.getFieldsMap().get(key).getType()) {
+          case KEYWORD -> {
+            tagBuilder.setVType(Trace.ValueType.STRING);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.KEYWORD);
+            tagBuilder.setVStr(value.toString());
+          }
+          case TEXT -> {
+            tagBuilder.setVType(Trace.ValueType.STRING);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.TEXT);
+            tagBuilder.setVStr(value.toString());
+          }
+          case IP -> {
+            tagBuilder.setVType(Trace.ValueType.STRING);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.IP);
+            tagBuilder.setVStr(value.toString());
+          }
+          case DATE -> {
+            tagBuilder.setVType(Trace.ValueType.STRING);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.DATE);
+            tagBuilder.setVStr(value.toString());
+          }
+          case BOOLEAN -> {
+            tagBuilder.setVType(Trace.ValueType.BOOL);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.BOOLEAN);
+            tagBuilder.setVBool(Boolean.parseBoolean(value.toString()));
+          }
+          case DOUBLE -> {
+            tagBuilder.setVType(Trace.ValueType.FLOAT64);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.DOUBLE);
+            tagBuilder.setVFloat64(Double.parseDouble(value.toString()));
+          }
+          case FLOAT -> {
+            tagBuilder.setVType(Trace.ValueType.FLOAT32);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.FLOAT);
+            tagBuilder.setVFloat32(Float.parseFloat(value.toString()));
+          }
+          case HALF_FLOAT -> {
+            tagBuilder.setVType(Trace.ValueType.FLOAT32);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.HALF_FLOAT);
+            tagBuilder.setVFloat32(Float.parseFloat(value.toString()));
+          }
+          case INTEGER -> {
+            tagBuilder.setVType(Trace.ValueType.INT32);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.INTEGER);
+            tagBuilder.setVInt32(Integer.parseInt(value.toString()));
+          }
+          case LONG -> {
+            tagBuilder.setVType(Trace.ValueType.INT64);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.LONG);
+            tagBuilder.setVInt64(Long.parseLong(value.toString()));
+          }
+          case SCALED_LONG -> {
+            tagBuilder.setVType(Trace.ValueType.INT64);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.SCALED_LONG);
+            tagBuilder.setVInt64(Long.parseLong(value.toString()));
+          }
+          case SHORT -> {
+            tagBuilder.setVType(Trace.ValueType.INT32);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.SHORT);
+            tagBuilder.setVInt32(Integer.parseInt(value.toString()));
+          }
+          case BYTE -> {
+            tagBuilder.setVType(Trace.ValueType.INT32);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.BYTE);
+            tagBuilder.setVInt32(Integer.parseInt(value.toString()));
+          }
+          case BINARY -> {
+            tagBuilder.setVType(Trace.ValueType.BINARY);
+            tagBuilder.setFieldType(Schema.SchemaFieldType.BINARY);
+            tagBuilder.setVBinary(ByteString.copyFrom(value.toString().getBytes()));
+          }
+        }
+        return tagBuilder.build();
+      } catch (Exception e) {
+        tagBuilder.setKey(STR."failed_\{key}");
+        tagBuilder.setVType(Trace.ValueType.STRING);
+        tagBuilder.setFieldType(Schema.SchemaFieldType.KEYWORD);
+        tagBuilder.setVStr(value.toString());
+        return tagBuilder.build();
+      }
+    } else {
+      return SpanFormatter.convertKVtoProto(key, value);
+    }
+  }
+
   public static Trace.KeyValue convertKVtoProto(String key, Object value) {
     Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
     tagBuilder.setKey(key);
     if (value instanceof String) {
       tagBuilder.setVType(Trace.ValueType.STRING);
+      tagBuilder.setFieldType(Schema.SchemaFieldType.KEYWORD);
       tagBuilder.setVStr(value.toString());
     } else if (value instanceof Boolean) {
       tagBuilder.setVType(Trace.ValueType.BOOL);
+      tagBuilder.setFieldType(Schema.SchemaFieldType.BOOLEAN);
       tagBuilder.setVBool((boolean) value);
     } else if (value instanceof Integer) {
+      tagBuilder.setVType(Trace.ValueType.INT32);
+      tagBuilder.setFieldType(Schema.SchemaFieldType.INTEGER);
+      tagBuilder.setVInt32((int) value);
+    } else if (value instanceof Long) {
       tagBuilder.setVType(Trace.ValueType.INT64);
-      tagBuilder.setVInt64((int) value);
+      tagBuilder.setFieldType(Schema.SchemaFieldType.LONG);
+      tagBuilder.setVInt64((long) value);
     } else if (value instanceof Float) {
-      tagBuilder.setVType(Trace.ValueType.FLOAT64);
-      tagBuilder.setVFloat64((float) value);
+      tagBuilder.setVType(Trace.ValueType.FLOAT32);
+      tagBuilder.setFieldType(Schema.SchemaFieldType.FLOAT);
+      tagBuilder.setVFloat32((float) value);
     } else if (value instanceof Double) {
       tagBuilder.setVType(Trace.ValueType.FLOAT64);
+      tagBuilder.setFieldType(Schema.SchemaFieldType.DOUBLE);
       tagBuilder.setVFloat64((double) value);
     } else if (value != null) {
       tagBuilder.setVType(Trace.ValueType.BINARY);
+      tagBuilder.setFieldType(Schema.SchemaFieldType.BINARY);
       tagBuilder.setVBinary(ByteString.copyFrom(value.toString().getBytes()));
     }
     return tagBuilder.build();

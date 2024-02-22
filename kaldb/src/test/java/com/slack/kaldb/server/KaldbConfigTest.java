@@ -275,6 +275,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
     assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(false);
     assertThat(preprocessorConfig.getRateLimitExceededErrorCode()).isEqualTo(400);
+    assertThat(preprocessorConfig.getSchemaFile()).isEqualTo("schema/test_schema.yaml");
 
     final KaldbConfigs.KafkaConfig preprocessorKafkaConfig =
         config.getPreprocessorConfig().getKafkaConfig();
@@ -455,6 +456,7 @@ public class KaldbConfigTest {
 
     assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(true);
     assertThat(preprocessorConfig.getRateLimitExceededErrorCode()).isEqualTo(429);
+    assertThat(preprocessorConfig.getSchemaFile()).isEqualTo("schema/test_schema.yaml");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);

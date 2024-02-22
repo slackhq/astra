@@ -23,6 +23,9 @@ public class MurronLogFormatterTest {
         if (valueType.equals(Trace.ValueType.STRING)) {
           return tag.getVStr();
         }
+        if (valueType.equals(Trace.ValueType.INT32)) {
+          return tag.getVInt32();
+        }
         if (valueType.equals(Trace.ValueType.INT64)) {
           return tag.getVInt64();
         }
@@ -66,7 +69,7 @@ public class MurronLogFormatterTest {
     assertThat(apiSpan.getTimestamp()).isEqualTo(timestamp / 1000);
     List<Trace.KeyValue> tags = apiSpan.getTagsList();
     assertThat(getTagValue(tags, "http_method")).isEqualTo("POST");
-    assertThat(getTagValue(tags, "mysql_conns_count")).isEqualTo(0L);
+    assertThat(getTagValue(tags, "mysql_conns_count")).isEqualTo(0);
     assertThat((boolean) getTagValue(tags, "method")).isTrue();
     assertThat(getTagValue(tags, API_LOG_DURATION_FIELD)).isNull();
     assertThat(getTagValue(tags, LogMessage.ReservedField.PARENT_ID.fieldName)).isNull();
@@ -102,7 +105,7 @@ public class MurronLogFormatterTest {
     assertThat(apiSpan.getTimestamp()).isEqualTo(timestamp / 1000);
     List<Trace.KeyValue> tags = apiSpan.getTagsList();
     assertThat(getTagValue(tags, "http_method")).isEqualTo("POST");
-    assertThat(getTagValue(tags, "mysql_conns_count")).isEqualTo(0L);
+    assertThat(getTagValue(tags, "mysql_conns_count")).isEqualTo(0);
     assertThat((boolean) getTagValue(tags, "method")).isTrue();
     assertThat(getTagValue(tags, API_LOG_DURATION_FIELD)).isNull();
     assertThat(getTagValue(tags, LogMessage.ReservedField.PARENT_ID.fieldName)).isNull();
@@ -161,12 +164,12 @@ public class MurronLogFormatterTest {
     List<Trace.KeyValue> tags = apiSpan.getTagsList();
     assertThat(getTagValue(tags, "tcpip_remote_ip")).isEqualTo("10.232.200.31");
     assertThat(getTagValue(tags, "req_method")).isEqualTo("POST");
-    assertThat(getTagValue(tags, "bytes_sent")).isEqualTo(69L);
+    assertThat(getTagValue(tags, "bytes_sent")).isEqualTo(69);
     assertThat(getTagValue(tags, "path")).isEqualTo("/api/eventlog.history");
     if (isDurationAsString) {
       assertThat(getTagValue(tags, ENVOY_DURATION_FIELD)).isEqualTo("36");
     } else {
-      assertThat(getTagValue(tags, ENVOY_DURATION_FIELD)).isEqualTo(36L);
+      assertThat(getTagValue(tags, ENVOY_DURATION_FIELD)).isEqualTo(36);
     }
     assertThat(getTagValue(tags, LogMessage.ReservedField.PARENT_ID.fieldName)).isNull();
     assertThat(getTagValue(tags, LogMessage.ReservedField.TRACE_ID.fieldName)).isNull();

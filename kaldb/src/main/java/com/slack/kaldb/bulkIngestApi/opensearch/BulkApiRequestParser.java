@@ -2,6 +2,7 @@ package com.slack.kaldb.bulkIngestApi.opensearch;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
@@ -36,8 +37,9 @@ public class BulkApiRequestParser {
 
   private static final String SERVICE_NAME_KEY = "service_name";
 
-  public static Map<String, List<Trace.Span>> parseRequest(byte[] postBody) throws IOException {
-    return convertIndexRequestToTraceFormat(parseBulkRequest(postBody));
+  public static Map<String, List<Trace.Span>> parseRequest(
+      byte[] postBody, Schema.PreprocessorSchema schema) throws IOException {
+    return convertIndexRequestToTraceFormat(parseBulkRequest(postBody), schema);
   }
 
   /**
@@ -81,7 +83,8 @@ public class BulkApiRequestParser {
   }
 
   @VisibleForTesting
-  public static Trace.Span fromIngestDocument(IngestDocument ingestDocument) {
+  public static Trace.Span fromIngestDocument(
+      IngestDocument ingestDocument, Schema.PreprocessorSchema schema) {
 
     long timestampInMillis = getTimestampFromIngestDocument(ingestDocument);
 
@@ -113,18 +116,19 @@ public class BulkApiRequestParser {
     sourceAndMetadata.remove("@timestamp");
 
     sourceAndMetadata.forEach(
-        (key, value) -> spanBuilder.addTags(SpanFormatter.convertKVtoProto(key, value)));
+        (key, value) -> spanBuilder.addTags(SpanFormatter.convertKVtoProto(key, value, schema)));
     spanBuilder.addTags(
         Trace.KeyValue.newBuilder()
             .setKey(SERVICE_NAME_KEY)
             .setVType(Trace.ValueType.STRING)
             .setVStr(index)
             .build());
+
     return spanBuilder.build();
   }
 
   protected static Map<String, List<Trace.Span>> convertIndexRequestToTraceFormat(
-      List<IndexRequest> indexRequests) {
+      List<IndexRequest> indexRequests, Schema.PreprocessorSchema schema) {
     // key - index. value - list of docs to be indexed
     Map<String, List<Trace.Span>> indexDocs = new HashMap<>();
 
@@ -135,7 +139,7 @@ public class BulkApiRequestParser {
       }
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
       List<Trace.Span> docs = indexDocs.computeIfAbsent(index, key -> new ArrayList<>());
-      docs.add(BulkApiRequestParser.fromIngestDocument(ingestDocument));
+      docs.add(BulkApiRequestParser.fromIngestDocument(ingestDocument, schema));
     }
     return indexDocs;
   }

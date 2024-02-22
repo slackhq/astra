@@ -31,11 +31,13 @@ import com.slack.kaldb.metadata.hpa.HpaMetricMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.schema.SchemaUtil;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.zipkinApi.ZipkinService;
@@ -398,12 +400,16 @@ public class Kaldb {
             new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
         services.add(datasetRateLimitingService);
 
+        Schema.PreprocessorSchema schema =
+            SchemaUtil.parseSchema(Path.of(preprocessorConfig.getSchemaFile()));
+
         BulkIngestApi openSearchBulkApiService =
             new BulkIngestApi(
                 bulkIngestKafkaProducer,
                 datasetRateLimitingService,
                 meterRegistry,
-                preprocessorConfig.getRateLimitExceededErrorCode());
+                preprocessorConfig.getRateLimitExceededErrorCode(),
+                schema);
         armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
       } else {
         PreprocessorService preprocessorService =

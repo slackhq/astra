@@ -19,6 +19,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.service.murron.trace.Trace;
@@ -253,7 +254,9 @@ public class LogMessageWriterImplTest {
 
     for (IndexRequest indexRequest : indexRequests) {
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
-      Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument);
+      Trace.Span span =
+          BulkApiRequestParser.fromIngestDocument(
+              ingestDocument, Schema.PreprocessorSchema.newBuilder().build());
       ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
       LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
       assertThat(messageWriter.insertRecord(spanRecord)).isTrue();

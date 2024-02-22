@@ -8,6 +8,7 @@ option java_package = "com.slack.service.murron.trace";
 option go_package = "com.slack/kaldb/gen/proto/tracepb";
 
 import "google/protobuf/empty.proto";
+import "schema.proto";
 
 // The KeyValue message defines a key and value pair.
 // The key is always a string. The value for the field is determined by the ValueType.
@@ -35,6 +36,7 @@ message KeyValue {
   bytes     v_binary  = 7;
   int32     v_int32   = 8;
   float     v_float32 = 9;
+  slack.proto.kaldb.schema.SchemaFieldType fieldType = 10;
 }
 
 // A span defines a single event in a trace.

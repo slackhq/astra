@@ -6,6 +6,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -34,12 +35,14 @@ public class BulkIngestApi {
   private final String BULK_INGEST_INCOMING_BYTE_DOCS = "kaldb_preprocessor_incoming_docs";
   private final String BULK_INGEST_TIMER = "kaldb_preprocessor_bulk_ingest";
   private final int rateLimitExceededErrorCode;
+  private final Schema.PreprocessorSchema schema;
 
   public BulkIngestApi(
       BulkIngestKafkaProducer bulkIngestKafkaProducer,
       DatasetRateLimitingService datasetRateLimitingService,
       MeterRegistry meterRegistry,
-      int rateLimitExceededErrorCode) {
+      int rateLimitExceededErrorCode,
+      Schema.PreprocessorSchema schema) {
 
     this.bulkIngestKafkaProducer = bulkIngestKafkaProducer;
     this.datasetRateLimitingService = datasetRateLimitingService;
@@ -52,6 +55,7 @@ public class BulkIngestApi {
     } else {
       this.rateLimitExceededErrorCode = rateLimitExceededErrorCode;
     }
+    this.schema = schema;
   }
 
   @Post("/_bulk")
@@ -65,7 +69,8 @@ public class BulkIngestApi {
     try {
       byte[] bulkRequestBytes = bulkRequest.getBytes(StandardCharsets.UTF_8);
       incomingByteTotal.increment(bulkRequestBytes.length);
-      Map<String, List<Trace.Span>> docs = BulkApiRequestParser.parseRequest(bulkRequestBytes);
+      Map<String, List<Trace.Span>> docs =
+          BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
 
       // todo - our rate limiter doesn't have a way to acquire permits across multiple
       // datasets
