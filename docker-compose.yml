@@ -65,19 +65,15 @@ services:
     ports:
       - 8086:8086
     environment:
+      # Node specific settings
+      - NODE_ROLES=PREPROCESSOR
+      - KALDB_PREPROCESSOR_USE_BULK_API=true
+      - KALDB_PREPROCESSOR_SERVER_ADDRESS=kaldb_preprocessor
+      # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - NODE_ROLES=PREPROCESSOR
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - KALDB_MANAGER_CONNECTION_STRING=kaldb_manager:8083
       - S3_ENDPOINT=http://dep_s3:9090
-      - KALDB_INDEX_SERVER_ADDRESS=kaldb_index
-      - KALDB_QUERY_SERVER_ADDRESS=kaldb_query
-      - KALDB_CACHE_SERVER_ADDRESS=kaldb_cache
-      - KALDB_MANAGER_SERVER_ADDRESS=kaldb_manager
-      - KALDB_RECOVERY_SERVER_ADDRESS=kaldb_recovery
-      - KALDB_PREPROCESSOR_SERVER_ADDRESS=kaldb_preprocessor
-      - KALDB_PREPROCESSOR_USE_BULK_API=true
     depends_on:
       - zookeeper
       - kafka
@@ -90,18 +86,14 @@ services:
     ports:
       - 8080:8080
     environment:
+      # Node specific settings
+      - NODE_ROLES=INDEX
+      - KALDB_INDEX_SERVER_ADDRESS=kaldb_index
+      # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - NODE_ROLES=INDEX
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - KALDB_MANAGER_CONNECTION_STRING=kaldb_manager:8083
       - S3_ENDPOINT=http://dep_s3:9090
-      - KALDB_INDEX_SERVER_ADDRESS=kaldb_index
-      - KALDB_QUERY_SERVER_ADDRESS=kaldb_query
-      - KALDB_CACHE_SERVER_ADDRESS=kaldb_cache
-      - KALDB_MANAGER_SERVER_ADDRESS=kaldb_manager
-      - KALDB_RECOVERY_SERVER_ADDRESS=kaldb_recovery
-      - KALDB_PREPROCESSOR_SERVER_ADDRESS=kaldb_preprocessor
     depends_on:
       - kaldb_preprocessor
 
@@ -111,18 +103,14 @@ services:
     ports:
       - 8083:8083
     environment:
+      # Node specific settings
+      - NODE_ROLES=MANAGER
+      - KALDB_MANAGER_SERVER_ADDRESS=kaldb_manager
+      # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - NODE_ROLES=MANAGER
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - KALDB_MANAGER_CONNECTION_STRING=kaldb_manager:8083
       - S3_ENDPOINT=http://dep_s3:9090
-      - KALDB_INDEX_SERVER_ADDRESS=kaldb_index
-      - KALDB_QUERY_SERVER_ADDRESS=kaldb_query
-      - KALDB_CACHE_SERVER_ADDRESS=kaldb_cache
-      - KALDB_MANAGER_SERVER_ADDRESS=kaldb_manager
-      - KALDB_RECOVERY_SERVER_ADDRESS=kaldb_recovery
-      - KALDB_PREPROCESSOR_SERVER_ADDRESS=kaldb_preprocessor
     depends_on:
       - kaldb_preprocessor
 
@@ -132,18 +120,15 @@ services:
     ports:
       - 8081:8081
     environment:
+      # Node specific settings
+      - NODE_ROLES=QUERY
+      - KALDB_QUERY_SERVER_ADDRESS=kaldb_query
+      - KALDB_MANAGER_CONNECTION_STRING=kaldb_manager:8083
+      # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - NODE_ROLES=QUERY
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - KALDB_MANAGER_CONNECTION_STRING=kaldb_manager:8083
       - S3_ENDPOINT=http://dep_s3:9090
-      - KALDB_INDEX_SERVER_ADDRESS=kaldb_index
-      - KALDB_QUERY_SERVER_ADDRESS=kaldb_query
-      - KALDB_CACHE_SERVER_ADDRESS=kaldb_cache
-      - KALDB_MANAGER_SERVER_ADDRESS=kaldb_manager
-      - KALDB_RECOVERY_SERVER_ADDRESS=kaldb_recovery
-      - KALDB_PREPROCESSOR_SERVER_ADDRESS=kaldb_preprocessor
     depends_on:
       - kaldb_preprocessor
 
@@ -153,18 +138,14 @@ services:
     ports:
       - 8082:8082
     environment:
+      # Node specific settings
+      - NODE_ROLES=CACHE
+      - KALDB_CACHE_SERVER_ADDRESS=kaldb_cache
+      # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - NODE_ROLES=CACHE
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - KALDB_MANAGER_CONNECTION_STRING=kaldb_manager:8083
       - S3_ENDPOINT=http://dep_s3:9090
-      - KALDB_INDEX_SERVER_ADDRESS=kaldb_index
-      - KALDB_QUERY_SERVER_ADDRESS=kaldb_query
-      - KALDB_CACHE_SERVER_ADDRESS=kaldb_cache
-      - KALDB_MANAGER_SERVER_ADDRESS=kaldb_manager
-      - KALDB_RECOVERY_SERVER_ADDRESS=kaldb_recovery
-      - KALDB_PREPROCESSOR_SERVER_ADDRESS=kaldb_preprocessor
     depends_on:
       - kaldb_preprocessor
 
@@ -174,17 +155,13 @@ services:
     ports:
       - 8085:8085
     environment:
+      # Node specific settings
+      - NODE_ROLES=RECOVERY
+      - KALDB_RECOVERY_SERVER_ADDRESS=kaldb_recovery
+      # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - NODE_ROLES=RECOVERY
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - KALDB_MANAGER_CONNECTION_STRING=kaldb_manager:8083
       - S3_ENDPOINT=http://dep_s3:9090
-      - KALDB_INDEX_SERVER_ADDRESS=kaldb_index
-      - KALDB_QUERY_SERVER_ADDRESS=kaldb_query
-      - KALDB_CACHE_SERVER_ADDRESS=kaldb_cache
-      - KALDB_MANAGER_SERVER_ADDRESS=kaldb_manager
-      - KALDB_RECOVERY_SERVER_ADDRESS=kaldb_recovery
-      - KALDB_PREPROCESSOR_SERVER_ADDRESS=kaldb_preprocessor
     depends_on:
       - kaldb_preprocessor
