@@ -77,6 +77,7 @@ services:
       - KALDB_MANAGER_SERVER_ADDRESS=kaldb_manager
       - KALDB_RECOVERY_SERVER_ADDRESS=kaldb_recovery
       - KALDB_PREPROCESSOR_SERVER_ADDRESS=kaldb_preprocessor
+      - KALDB_PREPROCESSOR_USE_BULK_API=true
     depends_on:
       - zookeeper
       - kafka
