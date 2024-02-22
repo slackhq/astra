@@ -58,9 +58,9 @@ services:
     ports:
       - 9411:9411
 
-  #to build this image run 'docker build -t aubreyt/kaldb .'
+  #to build this image run 'docker build -t slackhq/kaldb .'
   kaldb_preprocessor:
-    image: 'aubreyt/kaldb'
+    image: 'slackhq/kaldb'
     container_name: kaldb_preprocessor
     ports:
       - 8086:8086
@@ -81,7 +81,7 @@ services:
       - openzipkin
 
   kaldb_index:
-    image: 'aubreyt/kaldb'
+    image: 'slackhq/kaldb'
     container_name: kaldb_index
     ports:
       - 8080:8080
@@ -98,7 +98,7 @@ services:
       - kaldb_preprocessor
 
   kaldb_manager:
-    image: 'aubreyt/kaldb'
+    image: 'slackhq/kaldb'
     container_name: kaldb_manager
     ports:
       - 8083:8083
@@ -115,7 +115,7 @@ services:
       - kaldb_preprocessor
 
   kaldb_query:
-    image: 'aubreyt/kaldb'
+    image: 'slackhq/kaldb'
     container_name: kaldb_query
     ports:
       - 8081:8081
@@ -133,7 +133,7 @@ services:
       - kaldb_preprocessor
 
   kaldb_cache:
-    image: 'aubreyt/kaldb'
+    image: 'slackhq/kaldb'
     container_name: kaldb_cache
     ports:
       - 8082:8082
@@ -150,7 +150,7 @@ services:
       - kaldb_preprocessor
 
   kaldb_recovery:
-    image: 'aubreyt/kaldb'
+    image: 'slackhq/kaldb'
     container_name: kaldb_recovery
     ports:
       - 8085:8085
