@@ -85,14 +85,20 @@ public class OpenSearchRequest {
     return queryString;
   }
 
+  // This is required. consider returning a more useful error to the user than 500
+  // or setting a reasonable default (default seems a good option here)
   private static int getHowMany(JsonNode body) {
     return body.get("size").asInt();
   }
 
+  // This is required. consider returning a more useful error to the user than 500
+  // or setting a reasonable default (not sure what that would be)
   private static long getStartTimeEpochMs(JsonNode body) {
     return body.get("query").findValue("gte").asLong();
   }
 
+  // This is required. consider returning a more useful error to the user than 500
+  // or setting a reasonable default (not sure what that would be)
   private static long getEndTimeEpochMs(JsonNode body) {
     return body.get("query").findValue("lte").asLong();
   }
