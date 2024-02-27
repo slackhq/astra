@@ -52,7 +52,7 @@ public class RaiseErrorFieldValueTest {
                 conflictingFieldName,
                 1));
 
-    Document msg1Doc = docBuilder.fromMessage(msg1);
+    Document msg1Doc = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg1));
     assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
@@ -84,7 +84,7 @@ public class RaiseErrorFieldValueTest {
                 "newFieldValue",
                 conflictingFieldName,
                 "1"));
-    assertThatThrownBy(() -> docBuilder.fromMessage(msg2))
+    assertThatThrownBy(() -> docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg2)))
         .isInstanceOf(FieldDefMismatchException.class);
     // NOTE: When a document indexing fails, we still register the types of the fields in this doc.
     // So, the fieldMap may contain an additional item than before.
@@ -108,7 +108,7 @@ public class RaiseErrorFieldValueTest {
                 123,
                 "newFieldText",
                 "newFieldValue"));
-    assertThatThrownBy(() -> docBuilder.fromMessage(msg3))
+    assertThatThrownBy(() -> docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg3)))
         .isInstanceOf(FieldDefMismatchException.class);
     // NOTE: When a document indexing fails, we still register the types of the fields in this doc.
     // So, the fieldMap may contain an additional item than before.
@@ -153,7 +153,7 @@ public class RaiseErrorFieldValueTest {
                 hostNameField,
                 123));
 
-    assertThatThrownBy(() -> docBuilder.fromMessage(msg1))
+    assertThatThrownBy(() -> docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg1)))
         .isInstanceOf(FieldDefMismatchException.class);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
@@ -188,7 +188,7 @@ public class RaiseErrorFieldValueTest {
                 hostNameField,
                 123));
 
-    assertThatThrownBy(() -> docBuilder.fromMessage(msg1))
+    assertThatThrownBy(() -> docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg1)))
         .isInstanceOf(FieldDefMismatchException.class);
     assertThat(docBuilder.getSchema().size()).isEqualTo(16);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);

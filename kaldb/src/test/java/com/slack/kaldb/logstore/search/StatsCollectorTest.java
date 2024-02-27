@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.time.Instant;
@@ -48,11 +49,11 @@ public class StatsCollectorTest {
     LogMessage m5 =
         makeMessageWithIndexAndTimestamp(
             5, "apple baby car", TEST_DATASET_NAME, time.plusSeconds(4 * 60));
-    strictLogStore.logStore.addMessage(m1);
-    strictLogStore.logStore.addMessage(m2);
-    strictLogStore.logStore.addMessage(m3);
-    strictLogStore.logStore.addMessage(m4);
-    strictLogStore.logStore.addMessage(m5);
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(m1));
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(m2));
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(m3));
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(m4));
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(m5));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 

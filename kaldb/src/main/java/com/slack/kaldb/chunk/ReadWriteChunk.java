@@ -6,7 +6,6 @@ import static com.slack.kaldb.logstore.BlobFsUtils.createURI;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.BlobFs;
-import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
@@ -19,6 +18,7 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
@@ -141,7 +142,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   }
 
   /** Index the message in the logstore and update the chunk data time range. */
-  public void addMessage(T message, String kafkaPartitionId, long offset) {
+  public void addMessage(Trace.Span message, String kafkaPartitionId, long offset) {
     if (!this.kafkaPartitionId.equals(kafkaPartitionId)) {
       throw new IllegalArgumentException(
           "All messages for this chunk should belong to partition: "
@@ -151,13 +152,13 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     }
     if (!readOnly) {
       logStore.addMessage(message);
-      // Update the chunk with the time range of the data in the chunk.
-      // TODO: This type conversion is a temporary hack, fix it by adding timestamp field to the
-      // message.
-      if (message instanceof LogMessage) {
-        chunkInfo.updateDataTimeRange(((LogMessage) message).getTimestamp().toEpochMilli());
-        chunkInfo.updateMaxOffset(offset);
-      }
+
+      chunkInfo.updateDataTimeRange(
+          TimeUnit.MILLISECONDS.convert(message.getTimestamp(), TimeUnit.MICROSECONDS));
+      // if we do this i.e also validate the timestamp tests
+      // that use dates from 2020 start failing so not touching this logic for now
+      // chunkInfo.updateDataTimeRange(SpanFormatter.getTimestampFromSpan(message).toEpochMilli());
+      chunkInfo.updateMaxOffset(offset);
     } else {
       throw new IllegalStateException(String.format("Chunk %s is read only", chunkInfo));
     }

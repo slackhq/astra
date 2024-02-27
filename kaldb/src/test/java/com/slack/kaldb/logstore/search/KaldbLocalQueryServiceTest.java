@@ -111,7 +111,11 @@ public class KaldbLocalQueryServiceTest {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARITION_ID,
+          offset);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -179,7 +183,11 @@ public class KaldbLocalQueryServiceTest {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARITION_ID,
+          offset);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -225,7 +233,11 @@ public class KaldbLocalQueryServiceTest {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARITION_ID,
+          offset);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -273,7 +285,11 @@ public class KaldbLocalQueryServiceTest {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARITION_ID,
+          offset);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -329,7 +345,11 @@ public class KaldbLocalQueryServiceTest {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARITION_ID,
+          offset);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -364,7 +384,11 @@ public class KaldbLocalQueryServiceTest {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARITION_ID,
+          offset);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -443,7 +467,11 @@ public class KaldbLocalQueryServiceTest {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARITION_ID,
+          offset);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.

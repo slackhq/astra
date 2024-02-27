@@ -337,7 +337,11 @@ public class ElasticsearchApiServiceTest {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     chunkManager.getActiveChunk().commit();

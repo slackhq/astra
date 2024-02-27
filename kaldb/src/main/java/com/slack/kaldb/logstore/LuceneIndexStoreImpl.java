@@ -4,6 +4,7 @@ import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -52,7 +53,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   public static final String FINAL_MERGES_TIMER = "kaldb_index_final_merges";
 
   private final SearcherManager searcherManager;
-  private final DocumentBuilder<LogMessage> documentBuilder;
+  private final DocumentBuilder documentBuilder;
   private final FSDirectory indexDirectory;
   private final Timer timer;
   private final SnapshotDeletionPolicy snapshotDeletionPolicy;
@@ -108,9 +109,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   }
 
   public LuceneIndexStoreImpl(
-      LuceneIndexStoreConfig config,
-      DocumentBuilder<LogMessage> documentBuilder,
-      MeterRegistry registry)
+      LuceneIndexStoreConfig config, DocumentBuilder documentBuilder, MeterRegistry registry)
       throws IOException {
 
     this.documentBuilder = documentBuilder;
@@ -254,7 +253,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   }
 
   @Override
-  public void addMessage(LogMessage message) {
+  public void addMessage(Trace.Span message) {
     try {
       messagesReceivedCounter.increment();
       if (indexWriter.isPresent()) {

@@ -33,6 +33,7 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -153,7 +154,7 @@ public class IndexingChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -203,11 +204,15 @@ public class IndexingChunkImplTest {
     public void testAddAndSearchChunkInTimeRange() {
       final Instant startTime =
           LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-      final List<LogMessage> messages =
-          MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
-      final long messageStartTimeMs = messages.get(0).getTimestamp().toEpochMilli();
+      final List<Trace.Span> messages =
+          MessageUtil.makeMessagesWithTimeDifference1(1, 100, 1000, startTime);
+      final List<LogMessage> messages1 =
+              MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+      System.out.println(messages1);
+      final long messageStartTimeMs =
+          TimeUnit.MILLISECONDS.convert(messages.get(0).getTimestamp(), TimeUnit.MICROSECONDS);
       int offset = 1;
-      for (LogMessage m : messages) {
+      for (Trace.Span m : messages) {
         chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
@@ -249,7 +254,7 @@ public class IndexingChunkImplTest {
               1, 100, 1000, startTime.plus(2, ChronoUnit.DAYS));
       final long newMessageStartTimeEpochMs = newMessages.get(0).getTimestamp().toEpochMilli();
       for (LogMessage m : newMessages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -315,7 +320,7 @@ public class IndexingChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -348,7 +353,7 @@ public class IndexingChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -362,7 +367,7 @@ public class IndexingChunkImplTest {
           .isThrownBy(
               () ->
                   chunk.addMessage(
-                      MessageUtil.makeMessage(101), TEST_KAFKA_PARTITION_ID, finalOffset));
+                      MessageUtil.withMessageId(101), TEST_KAFKA_PARTITION_ID, finalOffset));
     }
 
     @Test
@@ -370,7 +375,7 @@ public class IndexingChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -384,7 +389,7 @@ public class IndexingChunkImplTest {
           .isThrownBy(
               () ->
                   chunk.addMessage(
-                      MessageUtil.makeMessage(101), "differentKafkaPartition", finalOffset));
+                      MessageUtil.withMessageId(101), "differentKafkaPartition", finalOffset));
     }
 
     @Test
@@ -392,7 +397,7 @@ public class IndexingChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       assertThat(chunk.isReadOnly()).isFalse();
@@ -496,7 +501,8 @@ public class IndexingChunkImplTest {
       LogMessage testMessage = MessageUtil.makeMessage(0, Map.of("username", 0));
 
       // An Invalid message is dropped but failure counter is incremented.
-      chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);
+      chunk.addMessage(
+          MessageUtil.convertLogMessageToSpan(testMessage), TEST_KAFKA_PARTITION_ID, 1);
       chunk.commit();
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
@@ -588,7 +594,7 @@ public class IndexingChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
 
@@ -650,7 +656,7 @@ public class IndexingChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
 

@@ -92,7 +92,7 @@ public class LuceneIndexStoreImplTest {
                   "duplicate1",
                   "nested",
                   Map.of("key1", "value1", "duplicateproperty", "2")));
-      logStore.logStore.addMessage(msg);
+      logStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg));
       logStore.logStore.commit();
       logStore.logStore.refresh();
 
@@ -159,7 +159,7 @@ public class LuceneIndexStoreImplTest {
     public void testIndexDocsWithUnsupportedPropertyTypes() {
       LogMessage msg =
           MessageUtil.makeMessage(100, Map.of("unsupportedProperty", Collections.emptyList()));
-      logStore.logStore.addMessage(msg);
+      logStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg));
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
@@ -173,7 +173,7 @@ public class LuceneIndexStoreImplTest {
     @Test
     public void testIndexDocsWithTypeMismatchErrors() {
       LogMessage msg = MessageUtil.makeMessage(100, Map.of(ReservedField.HOSTNAME.fieldName, 1));
-      logStore.logStore.addMessage(msg);
+      logStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg));
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
@@ -201,7 +201,7 @@ public class LuceneIndexStoreImplTest {
     public void failIndexingDocsWithListFieldType() {
       LogMessage msg =
           MessageUtil.makeMessage(100, Map.of("unsupportedProperty", Collections.emptyList()));
-      logStore.logStore.addMessage(msg);
+      logStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg));
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
@@ -216,7 +216,7 @@ public class LuceneIndexStoreImplTest {
     public void failIndexingDocsWithMismatchedTypeErrors() {
       LogMessage msg =
           MessageUtil.makeMessage(100, Map.of(ReservedField.HOSTNAME.fieldName, 20000));
-      logStore.logStore.addMessage(msg);
+      logStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg));
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
@@ -232,7 +232,7 @@ public class LuceneIndexStoreImplTest {
       String hugeField =
           IntStream.range(1, 10000).boxed().map(String::valueOf).collect(Collectors.joining(""));
       LogMessage msg = MessageUtil.makeMessage(1, Map.of("hugefield", hugeField));
-      logStore.logStore.addMessage(msg);
+      logStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg));
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);
       // UTF8 encoding is longer than the max length 32766
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);
@@ -256,7 +256,7 @@ public class LuceneIndexStoreImplTest {
                   "foo-bar",
                   ReservedField.HOSTNAME.fieldName,
                   "host1-dc2.abc.com"));
-      logStore.logStore.addMessage(msg);
+      logStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg));
       logStore.logStore.commit();
       logStore.logStore.refresh();
 

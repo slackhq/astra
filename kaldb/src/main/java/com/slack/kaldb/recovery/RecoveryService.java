@@ -1,7 +1,6 @@
 package com.slack.kaldb.recovery;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
 import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -22,7 +21,6 @@ import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
-import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.Counter;
@@ -305,10 +303,7 @@ public class RecoveryService extends AbstractIdleService {
                 kaldbConfig.getS3Config());
 
         // Ingest data in parallel
-        LogMessageTransformer messageTransformer =
-            INDEXER_DATA_TRANSFORMER_MAP.get(kaldbConfig.getIndexerConfig().getDataTransformer());
-        LogMessageWriterImpl logMessageWriterImpl =
-            new LogMessageWriterImpl(chunkManager, messageTransformer);
+        LogMessageWriterImpl logMessageWriterImpl = new LogMessageWriterImpl(chunkManager);
         KaldbKafkaConsumer kafkaConsumer =
             new KaldbKafkaConsumer(
                 makeKafkaConfig(

@@ -147,6 +147,15 @@ public class SpanFormatter {
     return true;
   }
 
+  public static Instant getTimestampFromSpan(Trace.Span span) {
+    Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / 1000);
+    if (isValidTimestamp(timestamp)) {
+      return timestamp;
+    } else {
+      return Instant.now();
+    }
+  }
+
   // TODO: Make this function more memory efficient?
   public static LogMessage toLogMessage(Trace.Span span) {
     if (span == null) return null;

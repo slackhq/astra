@@ -46,7 +46,7 @@ public class FieldConflictsTest {
                 "host1-dc2.abc.com",
                 conflictingFieldName,
                 "1"));
-    strictLogStore.logStore.addMessage(msg1);
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg1));
 
     LogMessage msg2 =
         new LogMessage(
@@ -63,7 +63,7 @@ public class FieldConflictsTest {
                 "host1-dc2.abc.com",
                 conflictingFieldName,
                 1));
-    strictLogStore.logStore.addMessage(msg2);
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg2));
 
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
@@ -119,7 +119,7 @@ public class FieldConflictsTest {
                 "host1-dc2.abc.com",
                 conflictingFieldName,
                 "1"));
-    strictLogStore.logStore.addMessage(msg0);
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg0));
 
     LogMessage msg1 =
         new LogMessage(
@@ -136,7 +136,7 @@ public class FieldConflictsTest {
                 "host1-dc2.abc.com",
                 conflictingFieldName,
                 "one"));
-    strictLogStore.logStore.addMessage(msg1);
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg1));
 
     LogMessage msg2 =
         new LogMessage(
@@ -153,7 +153,7 @@ public class FieldConflictsTest {
                 "host1-dc2.abc.com",
                 conflictingFieldName,
                 200));
-    strictLogStore.logStore.addMessage(msg2);
+    strictLogStore.logStore.addMessage(MessageUtil.convertLogMessageToSpan(msg2));
 
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();

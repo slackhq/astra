@@ -4,11 +4,11 @@ import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.
 
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.DocumentBuilder;
-import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
-import com.slack.kaldb.writer.LogMessageWriterImpl;
+import com.slack.kaldb.writer.MurronLogFormatter;
 import com.slack.service.murron.Murron;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -21,8 +21,6 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.Random;
 import java.util.stream.Stream;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.record.TimestampType;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriter;
 import org.openjdk.jmh.annotations.*;
@@ -37,9 +35,7 @@ public class IndexingBenchmark {
   private MeterRegistry registry;
   LuceneIndexStoreImpl logStore;
   private Random random;
-
-  private ConsumerRecord<String, byte[]> kafkaRecord;
-  private LogMessage logMessage;
+  private Trace.Span logMessage;
   private Document luceneDocument;
 
   @Setup(Level.Iteration)
@@ -130,22 +126,9 @@ public class IndexingBenchmark {
             .setTimestamp(timestamp)
             .build();
 
-    kafkaRecord =
-        new ConsumerRecord<>(
-            "testTopic",
-            1,
-            10,
-            0L,
-            TimestampType.CREATE_TIME,
-            0L,
-            0,
-            0,
-            "testKey",
-            testMurronMsg.toByteString().toByteArray());
+    logMessage = MurronLogFormatter.fromApiLog(testMurronMsg);
 
-    logMessage = LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord).get(0);
-
-    DocumentBuilder<LogMessage> documentBuilder =
+    DocumentBuilder documentBuilder =
         SchemaAwareLogDocumentBuilderImpl.build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, registry);
 
     luceneDocument = documentBuilder.fromMessage(logMessage);
@@ -158,14 +141,6 @@ public class IndexingBenchmark {
       walk.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
     }
     registry.close();
-  }
-
-  @Benchmark
-  public void measureIndexingAsKafkaSerializedDocument() throws Exception {
-    // Mimic LogMessageWriterImpl#insertRecord kinda without the chunk rollover logic
-    LogMessage localLogMessage =
-        LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord).get(0);
-    logStore.addMessage(localLogMessage);
   }
 
   @Benchmark

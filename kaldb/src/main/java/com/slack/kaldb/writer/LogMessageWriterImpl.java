@@ -6,7 +6,6 @@ import com.slack.kaldb.preprocessor.KaldbSerdes;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
-import java.util.List;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
@@ -74,37 +73,34 @@ public class LogMessageWriterImpl implements MessageWriter {
       };
 
   private final ChunkManager<LogMessage> chunkManager;
-  private final LogMessageTransformer dataTransformer;
 
-  public LogMessageWriterImpl(
-      ChunkManager<LogMessage> chunkManager, LogMessageTransformer dataTransformer) {
+  public LogMessageWriterImpl(ChunkManager<LogMessage> chunkManager) {
     this.chunkManager = chunkManager;
-    this.dataTransformer = dataTransformer;
   }
 
   @Override
   public boolean insertRecord(ConsumerRecord<String, byte[]> record) throws IOException {
     if (record == null) return false;
 
-    final List<LogMessage> logMessages;
+    final Trace.ListOfSpans listOfSpans;
     try {
-      logMessages = this.dataTransformer.toLogMessage(record);
-      // Ideally, we should return true when logMessages are empty. But, fail the record, since we
-      // don't expect any empty records or we may have a bug in earlier code.
-      if (logMessages.isEmpty()) return false;
+      final Trace.Span span = Trace.Span.parseFrom(record.value());
+      listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
+
+      if (listOfSpans.getSpansCount() == 0) return false;
     } catch (Exception e) {
       LOG.warn("Parsing consumer record: {} failed with an exception.", record, e);
       return false;
     }
 
-    final int avgMsgSize = record.serializedValueSize() / logMessages.size();
-    for (LogMessage logMessage : logMessages) {
+    final int avgMsgSize = record.serializedValueSize() / listOfSpans.getSerializedSize();
+    for (Trace.Span span : listOfSpans.getSpansList()) {
       // Currently, ChunkManager.addMessage increments a failure counter to indicate an ingestion
       // error. We decided to throw the exception to a higher level since in a batch ingestion
       // the upper layers of the stack can't take any further action. If this becomes an issue
       // in future, propagate the exception upwards here or return a value.
       chunkManager.addMessage(
-          logMessage, avgMsgSize, String.valueOf(record.partition()), record.offset());
+          span, avgMsgSize, String.valueOf(record.partition()), record.offset());
     }
     return true;
   }

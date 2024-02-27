@@ -59,6 +59,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -218,7 +219,11 @@ public class IndexingChunkManagerTest {
 
     int offset = 1;
     for (LogMessage m : messages.subList(0, 9)) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
@@ -230,7 +235,11 @@ public class IndexingChunkManagerTest {
     assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isZero();
 
     for (LogMessage m : messages.subList(9, 11)) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
 
@@ -299,7 +308,11 @@ public class IndexingChunkManagerTest {
 
     int offset = 1;
     for (LogMessage m : messages.subList(0, 9)) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
@@ -343,7 +356,8 @@ public class IndexingChunkManagerTest {
     int offset = 1;
     for (LogMessage m : messages) {
       final int msgSize = m.toString().length();
-      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m), msgSize, TEST_KAFKA_PARTITION_ID, offset);
       offset++;
       chunkManager.getActiveChunk().commit();
 
@@ -386,7 +400,8 @@ public class IndexingChunkManagerTest {
     int offset = 1;
     for (LogMessage m : messages) {
       final int msgSize = m.toString().length();
-      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m), msgSize, TEST_KAFKA_PARTITION_ID, offset);
       actualChunkSize += msgSize;
       offset++;
     }
@@ -451,7 +466,7 @@ public class IndexingChunkManagerTest {
     final int veryHighOffset = 1000;
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(offset - 1);
     assertThat(veryHighOffset - offset).isGreaterThan(100);
-    LogMessage messageWithHighOffset = MessageUtil.makeMessage(101);
+    Trace.Span messageWithHighOffset = MessageUtil.withMessageId(101);
     chunkManager.addMessage(
         messageWithHighOffset,
         messageWithHighOffset.toString().length(),
@@ -481,7 +496,7 @@ public class IndexingChunkManagerTest {
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
     assertThat(lowerOffset - offset).isGreaterThan(100);
     assertThat(veryHighOffset - lowerOffset).isGreaterThan(100);
-    LogMessage messageWithLowerOffset = MessageUtil.makeMessage(102);
+    Trace.Span messageWithLowerOffset = MessageUtil.withMessageId(102);
     chunkManager.addMessage(
         messageWithLowerOffset,
         messageWithLowerOffset.toString().length(),
@@ -507,7 +522,7 @@ public class IndexingChunkManagerTest {
         .isEqualTo(1);
 
     // Inserting a message from a different kafka partition fails
-    LogMessage messageWithInvalidTopic = MessageUtil.makeMessage(103);
+    Trace.Span messageWithInvalidTopic = MessageUtil.withMessageId(103);
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -609,7 +624,11 @@ public class IndexingChunkManagerTest {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 15);
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     chunkManager.getActiveChunk().commit();
@@ -638,7 +657,11 @@ public class IndexingChunkManagerTest {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 15);
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     chunkManager.getActiveChunk().commit();
@@ -728,13 +751,21 @@ public class IndexingChunkManagerTest {
     // Add a message
     int offset = 1;
     LogMessage msg1 = MessageUtil.makeMessage(1);
-    chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    chunkManager.addMessage(
+        MessageUtil.convertLogMessageToSpan(msg1),
+        msg1.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        offset);
     offset++;
 
     // Add an invalid message
     LogMessage msg100 =
         MessageUtil.makeMessage(100, Map.of(LogMessage.ReservedField.HOSTNAME.fieldName, 20000));
-    chunkManager.addMessage(msg100, msg100.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    chunkManager.addMessage(
+        MessageUtil.convertLogMessageToSpan(msg100),
+        msg100.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        offset);
     offset++;
 
     // Commit the new chunk so we can search it.
@@ -784,14 +815,22 @@ public class IndexingChunkManagerTest {
     LogMessage msg1 = msgs.get(0);
     LogMessage msg2 = msgs.get(1);
     int offset = 1;
-    chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    chunkManager.addMessage(
+        MessageUtil.convertLogMessageToSpan(msg1),
+        msg1.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        offset);
     offset++;
     ReadWriteChunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
 
-    chunkManager.addMessage(msg2, msg2.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    chunkManager.addMessage(
+        MessageUtil.convertLogMessageToSpan(msg2),
+        msg2.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        offset);
     offset++;
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
@@ -805,7 +844,11 @@ public class IndexingChunkManagerTest {
 
     LogMessage msg3 = msgs.get(2);
     LogMessage msg4 = msgs.get(3);
-    chunkManager.addMessage(msg3, msg3.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    chunkManager.addMessage(
+        MessageUtil.convertLogMessageToSpan(msg3),
+        msg3.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        offset);
     offset++;
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
 
@@ -820,7 +863,10 @@ public class IndexingChunkManagerTest {
     checkMetadata(3, 2, 1, 2, 1);
     // Inserting in an older chunk throws an exception. So, additions go to active chunks only.
     assertThatExceptionOfType(IllegalStateException.class)
-        .isThrownBy(() -> chunk1.addMessage(msg4, TEST_KAFKA_PARTITION_ID, 1));
+        .isThrownBy(
+            () ->
+                chunk1.addMessage(
+                    MessageUtil.convertLogMessageToSpan(msg4), TEST_KAFKA_PARTITION_ID, 1));
   }
 
   @Test
@@ -835,7 +881,11 @@ public class IndexingChunkManagerTest {
     // Add 11 messages to initiate first roll over.
     int offset = 1;
     for (LogMessage m : messages.subList(0, 11)) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
 
@@ -869,7 +919,11 @@ public class IndexingChunkManagerTest {
     // Add 11 messages to initiate first roll over.
     int offset = 1;
     for (LogMessage m : messages.subList(0, 11)) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
 
@@ -890,7 +944,11 @@ public class IndexingChunkManagerTest {
 
     // Add remaining messages to create a second chunk.
     for (LogMessage m : messages.subList(11, 25)) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     chunkManager.getActiveChunk().commit();
@@ -960,7 +1018,11 @@ public class IndexingChunkManagerTest {
     // Add 11 messages to initiate first roll over.
     int offset = 1;
     for (LogMessage m : messages.subList(0, 11)) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     // Main chunk is already committed. Commit the new chunk so we can search it.
@@ -979,7 +1041,11 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message21", 0, 2, 2);
 
     for (LogMessage m : messages.subList(11, 25)) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     chunkManager.getActiveChunk().commit();
@@ -1040,7 +1106,11 @@ public class IndexingChunkManagerTest {
 
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
 
@@ -1081,7 +1151,11 @@ public class IndexingChunkManagerTest {
 
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
 
@@ -1205,7 +1279,11 @@ public class IndexingChunkManagerTest {
             () -> {
               int offset = 1;
               for (LogMessage m : messages) {
-                chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+                chunkManager.addMessage(
+                    MessageUtil.convertLogMessageToSpan(m),
+                    m.toString().length(),
+                    TEST_KAFKA_PARTITION_ID,
+                    offset);
                 offset++;
               }
             })
@@ -1242,7 +1320,11 @@ public class IndexingChunkManagerTest {
     // rollover.
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     ListenableFuture<?> rollOverFuture = chunkManager.getRolloverFuture();
@@ -1294,7 +1376,11 @@ public class IndexingChunkManagerTest {
     // rollover.
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     await().until(() -> getCount(ROLLOVERS_FAILED, metricsRegistry) == 1);
@@ -1339,7 +1425,11 @@ public class IndexingChunkManagerTest {
 
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
 
@@ -1363,7 +1453,10 @@ public class IndexingChunkManagerTest {
                   MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
               for (LogMessage m : newMessage) {
                 chunkManager.addMessage(
-                    m, m.toString().length(), TEST_KAFKA_PARTITION_ID, newOffset);
+                    MessageUtil.convertLogMessageToSpan(m),
+                    m.toString().length(),
+                    TEST_KAFKA_PARTITION_ID,
+                    newOffset);
                 newOffset++;
               }
             })
@@ -1388,7 +1481,11 @@ public class IndexingChunkManagerTest {
     // exception.
     int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
 
@@ -1409,7 +1506,10 @@ public class IndexingChunkManagerTest {
                   MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
               for (LogMessage m : newMessage) {
                 chunkManager.addMessage(
-                    m, m.toString().length(), TEST_KAFKA_PARTITION_ID, newOffset);
+                    MessageUtil.convertLogMessageToSpan(m),
+                    m.toString().length(),
+                    TEST_KAFKA_PARTITION_ID,
+                    newOffset);
                 newOffset++;
               }
             })
@@ -1431,7 +1531,11 @@ public class IndexingChunkManagerTest {
 
     int offset = 1;
     for (LogMessage m : messages1) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
     chunkManager.getActiveChunk().commit();
@@ -1442,7 +1546,10 @@ public class IndexingChunkManagerTest {
     LogMessage logMessage =
         LogMessage.fromWireMessage(MessageUtil.makeWireMessage(11, Map.of("schemaTest", true)));
     chunkManager.addMessage(
-        logMessage, logMessage.toString().length(), TEST_KAFKA_PARTITION_ID, offset++);
+        MessageUtil.convertLogMessageToSpan(logMessage),
+        logMessage.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        offset++);
     chunkManager.rollOverActiveChunk();
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
 
@@ -1574,7 +1681,8 @@ public class IndexingChunkManagerTest {
     int offset = 1;
     for (LogMessage m : messages) {
       final int msgSize = m.toString().length();
-      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m), msgSize, TEST_KAFKA_PARTITION_ID, offset);
       offset++;
       actualMessagesGauge++;
       actualBytesGauge += msgSize;

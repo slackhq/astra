@@ -2,7 +2,6 @@ package com.slack.kaldb.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
 
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.slack.kaldb.chunkManager.ChunkRollOverException;
@@ -12,7 +11,6 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
-import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -67,10 +65,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     // Create a chunk manager
     this.chunkManager = chunkManager;
     // set up indexing pipelne
-    LogMessageTransformer messageTransformer =
-        INDEXER_DATA_TRANSFORMER_MAP.get(indexerConfig.getDataTransformer());
-    LogMessageWriterImpl logMessageWriterImpl =
-        new LogMessageWriterImpl(chunkManager, messageTransformer);
+    LogMessageWriterImpl logMessageWriterImpl = new LogMessageWriterImpl(chunkManager);
     this.kafkaConsumer = new KaldbKafkaConsumer(kafkaConfig, logMessageWriterImpl, meterRegistry);
   }
 

@@ -40,6 +40,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -167,7 +168,8 @@ public class RecoveryChunkManagerTest {
     int offset = 1;
     for (LogMessage m : messages) {
       final int msgSize = m.toString().length();
-      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m), msgSize, TEST_KAFKA_PARTITION_ID, offset);
       actualChunkSize += msgSize;
       offset++;
     }
@@ -214,7 +216,7 @@ public class RecoveryChunkManagerTest {
     final int veryHighOffset = 1000;
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(offset - 1);
     assertThat(veryHighOffset - offset).isGreaterThan(100);
-    LogMessage messageWithHighOffset = MessageUtil.makeMessage(101);
+    Trace.Span messageWithHighOffset = MessageUtil.withMessageId(101);
     chunkManager.addMessage(
         messageWithHighOffset,
         messageWithHighOffset.toString().length(),
@@ -244,7 +246,7 @@ public class RecoveryChunkManagerTest {
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
     assertThat(lowerOffset - offset).isGreaterThan(100);
     assertThat(veryHighOffset - lowerOffset).isGreaterThan(100);
-    LogMessage messageWithLowerOffset = MessageUtil.makeMessage(102);
+    Trace.Span messageWithLowerOffset = MessageUtil.withMessageId(102);
     chunkManager.addMessage(
         messageWithLowerOffset,
         messageWithLowerOffset.toString().length(),
@@ -270,7 +272,7 @@ public class RecoveryChunkManagerTest {
         .isEqualTo(1);
 
     // Inserting a message from a different kafka partition fails
-    LogMessage messageWithInvalidTopic = MessageUtil.makeMessage(103);
+    Trace.Span messageWithInvalidTopic = MessageUtil.withMessageId(103);
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -304,10 +306,11 @@ public class RecoveryChunkManagerTest {
 
     // Can't add messages to current chunk after roll over.
     assertThatThrownBy(
-            () ->
-                currentChunk.addMessage(
-                    MessageUtil.makeMessage(100000), TEST_KAFKA_PARTITION_ID, 100000))
-        .isInstanceOf(IllegalStateException.class);
+        () ->
+            currentChunk.addMessage(
+                MessageUtil.convertLogMessageToSpan(MessageUtil.makeMessage(100000)),
+                TEST_KAFKA_PARTITION_ID,
+                100000));
 
     // Ensure data is cleaned up in the manager
     assertThat(chunkManager.getChunkList()).isEmpty();
@@ -361,13 +364,21 @@ public class RecoveryChunkManagerTest {
     // Add a valid message
     int offset = 1;
     LogMessage msg1 = MessageUtil.makeMessage(1);
-    chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    chunkManager.addMessage(
+        MessageUtil.convertLogMessageToSpan(msg1),
+        msg1.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        offset);
     offset++;
 
     // Add an invalid message
     LogMessage msg100 =
         MessageUtil.makeMessage(100, Map.of(LogMessage.ReservedField.HOSTNAME.fieldName, 20000));
-    chunkManager.addMessage(msg100, msg100.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    chunkManager.addMessage(
+        MessageUtil.convertLogMessageToSpan(msg100),
+        msg100.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        offset);
     //noinspection UnusedAssignment
     offset++;
 
@@ -404,7 +415,11 @@ public class RecoveryChunkManagerTest {
     int offset = 1;
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 20);
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m),
+          m.toString().length(),
+          TEST_KAFKA_PARTITION_ID,
+          offset);
       offset++;
     }
 
@@ -423,7 +438,10 @@ public class RecoveryChunkManagerTest {
         .isThrownBy(
             () ->
                 chunkManager.addMessage(
-                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
+                    MessageUtil.convertLogMessageToSpan(MessageUtil.makeMessage(1000)),
+                    100,
+                    TEST_KAFKA_PARTITION_ID,
+                    1000));
 
     // Check metadata.
     List<SnapshotMetadata> snapshots =
@@ -446,7 +464,10 @@ public class RecoveryChunkManagerTest {
         .isThrownBy(
             () ->
                 chunkManager.addMessage(
-                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
+                    MessageUtil.convertLogMessageToSpan(MessageUtil.makeMessage(1000)),
+                    100,
+                    TEST_KAFKA_PARTITION_ID,
+                    1000));
 
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;

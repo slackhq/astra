@@ -64,7 +64,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     "nested",
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
-    Document testDocument = docBuilder.fromMessage(message);
+    Document testDocument = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(message));
     assertThat(testDocument.getFields().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().keySet())
@@ -120,7 +120,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     "nested",
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
-    Document testDocument = docBuilder.fromMessage(message);
+    Document testDocument = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(message));
     assertThat(testDocument.getFields().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
@@ -172,7 +172,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 "1"));
 
-    Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
+    Document msg1Doc = convertFieldBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg1));
     assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
@@ -202,7 +202,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "host1-dc2.abc.com",
                 conflictingFieldName,
                 1));
-    Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
+    Document msg2Doc = convertFieldBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg2));
     assertThat(msg2Doc.getFields().size()).isEqualTo(19);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.INTEGER);
     // Value converted and new field is added.
@@ -267,7 +267,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 true));
 
-    Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
+    Document msg1Doc = convertFieldBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg1));
     assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
@@ -297,7 +297,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "host1-dc2.abc.com",
                 conflictingFieldName,
                 "random"));
-    Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
+    Document msg2Doc = convertFieldBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg2));
     assertThat(msg2Doc.getFields().size()).isEqualTo(19);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.STRING);
     // Value converted and new field is added.
@@ -355,7 +355,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "host1-dc2.abc.com",
                 additionalCreatedFieldName,
                 true));
-    Document msg3Doc = convertFieldBuilder.fromMessage(msg3);
+    Document msg3Doc = convertFieldBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg3));
     assertThat(msg3Doc.getFields().size()).isEqualTo(19);
     assertThat(
             msg3Doc.getFields().stream()
@@ -410,7 +410,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 "1"));
 
-    Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
+    Document msg1Doc = convertFieldBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg1));
     assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
@@ -441,7 +441,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "host1-dc2.abc.com",
                 conflictingFieldName,
                 conflictingFloatValue));
-    Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
+    Document msg2Doc = convertFieldBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg2));
     assertThat(msg2Doc.getFields().size()).isEqualTo(19);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.FLOAT);
     // Value converted and new field is added.
@@ -511,7 +511,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     "nested",
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
-    Document testDocument1 = docBuilder.fromMessage(msg1);
+    Document testDocument1 = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg1));
     final int expectedDocFieldsAfterMsg1 = 23;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 23;
@@ -550,7 +550,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     "value1",
                     "nested",
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
-    Document testDocument2 = docBuilder.fromMessage(msg2);
+    Document testDocument2 = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg2));
     assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1 + 2);
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1 + 1);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
@@ -622,7 +622,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     "nested",
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
-    Document testDocument1 = docBuilder.fromMessage(msg1);
+    Document testDocument1 = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg1));
     final int expectedDocFieldsAfterMsg1 = 23;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 23;
@@ -671,7 +671,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of(
                         stringField, "nestedStringField", "leaf21", 3, "nestedList", List.of(1)))));
 
-    Document testDocument2 = docBuilder.fromMessage(msg2);
+    Document testDocument2 = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg2));
     // Nested string field adds 1 more sorted doc values field.
     assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1 + 1);

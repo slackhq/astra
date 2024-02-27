@@ -180,7 +180,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     boolean shouldCheckOnNextMessage = false;
     for (LogMessage m : messages) {
       final int msgSize = m.toString().length();
-      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m), msgSize, TEST_KAFKA_PARTITION_ID, offset);
       offset++;
       Thread.sleep(DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS);
       if (chunkManager.getActiveChunk() != null) {
@@ -268,7 +269,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     int offset = 1;
     for (LogMessage m : messages) {
       final int msgSize = m.toString().length();
-      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(
+          MessageUtil.convertLogMessageToSpan(m), msgSize, TEST_KAFKA_PARTITION_ID, offset);
       offset++;
       if (chunkManager.getActiveChunk() != null) {
         chunkManager.getActiveChunk().commit();
@@ -349,7 +351,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   @Test
   public void testDirectorySizeWithValidSegments() {
     strictLogStore.logStore.addMessage(
-        new LogMessage("foo", "bar", "baz", Instant.EPOCH, Map.of()));
+        MessageUtil.convertLogMessageToSpan(
+            new LogMessage("foo", "bar", "baz", Instant.EPOCH, Map.of())));
     strictLogStore.logStore.commit();
     FSDirectory directory = strictLogStore.logStore.getDirectory();
     long directorySize = DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(directory);

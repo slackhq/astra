@@ -157,7 +157,8 @@ public class CachingChunkManagerTest {
   public void testAddMessageIsUnsupported() throws TimeoutException {
     cachingChunkManager = initChunkManager();
     MessageUtil.makeMessage(1);
-    assertThatThrownBy(() -> cachingChunkManager.addMessage(MessageUtil.makeMessage(1), 10, "1", 1))
+    assertThatThrownBy(
+            () -> cachingChunkManager.addMessage(MessageUtil.withMessageId(1), 10, "1", 1))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 

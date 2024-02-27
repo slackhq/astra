@@ -40,7 +40,7 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     final LogMessage message = MessageUtil.makeMessage(0);
-    Document testDocument = docBuilder.fromMessage(message);
+    Document testDocument = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(message));
     assertThat(testDocument.getFields().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
@@ -86,7 +86,7 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().keySet())
         .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     final LogMessage message = MessageUtil.makeMessage(0);
-    Document testDocument = docBuilder.fromMessage(message);
+    Document testDocument = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(message));
     assertThat(testDocument.getFields().size()).isEqualTo(20);
     assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
@@ -148,7 +148,7 @@ public class DropPolicyTest {
                 "nested",
                 Map.of("nested1", "value1", "nested2", 2)));
 
-    Document testDocument = docBuilder.fromMessage(message);
+    Document testDocument = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(message));
     assertThat(testDocument.getFields().size()).isEqualTo(19);
     assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
@@ -199,7 +199,7 @@ public class DropPolicyTest {
                         "nested22",
                         Map.of("nested31", 31, "nested32", Map.of("nested41", 41))))));
 
-    Document testDocument = docBuilder.fromMessage(message);
+    Document testDocument = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(message));
     assertThat(testDocument.getFields().size()).isEqualTo(25);
     assertThat(docBuilder.getSchema().size()).isEqualTo(24);
     assertThat(docBuilder.getSchema().keySet())
@@ -251,7 +251,7 @@ public class DropPolicyTest {
                 "nested",
                 Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
 
-    Document testDocument = docBuilder.fromMessage(message);
+    Document testDocument = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(message));
     assertThat(testDocument.getFields().size()).isEqualTo(19);
     assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
@@ -294,7 +294,7 @@ public class DropPolicyTest {
                 "nested",
                 Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
 
-    Document testDocument = docBuilder.fromMessage(message);
+    Document testDocument = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(message));
     assertThat(testDocument.getFields().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().size()).isEqualTo(20);
     assertThat(docBuilder.getSchema().keySet())
@@ -339,7 +339,7 @@ public class DropPolicyTest {
                 conflictingFieldName,
                 "1"));
 
-    Document msg1Doc = docBuilder.fromMessage(msg1);
+    Document msg1Doc = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg1));
     assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
@@ -369,7 +369,7 @@ public class DropPolicyTest {
                 "host1-dc2.abc.com",
                 conflictingFieldName,
                 1));
-    Document msg2Doc = docBuilder.fromMessage(msg2);
+    Document msg2Doc = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg2));
     assertThat(msg2Doc.getFields().size()).isEqualTo(15);
     // Conflicting field is dropped.
     assertThat(
@@ -415,7 +415,7 @@ public class DropPolicyTest {
                     "nested",
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
-    Document testDocument = docBuilder.fromMessage(message);
+    Document testDocument = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(message));
     final int expectedFieldsInDocumentAfterMesssage = 23;
     assertThat(testDocument.getFields().size()).isEqualTo(expectedFieldsInDocumentAfterMesssage);
     final int fieldCountAfterIndexingFirstDocument = 23;
@@ -454,7 +454,7 @@ public class DropPolicyTest {
                     "value1",
                     "nested",
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
-    Document testDocument2 = docBuilder.fromMessage(msg2);
+    Document testDocument2 = docBuilder.fromMessage(MessageUtil.convertLogMessageToSpan(msg2));
     assertThat(testDocument2.getFields().size())
         .isEqualTo(
             expectedFieldsInDocumentAfterMesssage - 2); // 1 dropped field, 2 less indexed fields

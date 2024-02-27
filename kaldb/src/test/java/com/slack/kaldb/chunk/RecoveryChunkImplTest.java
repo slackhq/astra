@@ -139,7 +139,7 @@ public class RecoveryChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -197,7 +197,7 @@ public class RecoveryChunkImplTest {
       final long messageStartTimeMs = messages.get(0).getTimestamp().toEpochMilli();
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -238,7 +238,7 @@ public class RecoveryChunkImplTest {
               1, 100, 1000, startTime.plus(2, ChronoUnit.DAYS));
       final long newMessageStartTimeEpochMs = newMessages.get(0).getTimestamp().toEpochMilli();
       for (LogMessage m : newMessages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -304,7 +304,7 @@ public class RecoveryChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -337,7 +337,7 @@ public class RecoveryChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -351,7 +351,7 @@ public class RecoveryChunkImplTest {
           .isThrownBy(
               () ->
                   chunk.addMessage(
-                      MessageUtil.makeMessage(101), TEST_KAFKA_PARTITION_ID, finalOffset));
+                      MessageUtil.withMessageId(101), TEST_KAFKA_PARTITION_ID, finalOffset));
     }
 
     @Test
@@ -359,7 +359,7 @@ public class RecoveryChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -373,7 +373,7 @@ public class RecoveryChunkImplTest {
           .isThrownBy(
               () ->
                   chunk.addMessage(
-                      MessageUtil.makeMessage(101), "differentKafkaPartition", finalOffset));
+                      MessageUtil.withMessageId(101), "differentKafkaPartition", finalOffset));
     }
 
     @Test
@@ -381,7 +381,7 @@ public class RecoveryChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       assertThat(chunk.isReadOnly()).isFalse();
@@ -487,7 +487,8 @@ public class RecoveryChunkImplTest {
       LogMessage testMessage = MessageUtil.makeMessage(0, Map.of("username", 0));
 
       // An Invalid message is dropped but failure counter is incremented.
-      chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);
+      chunk.addMessage(
+          MessageUtil.convertLogMessageToSpan(testMessage), TEST_KAFKA_PARTITION_ID, 1);
       chunk.commit();
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
@@ -575,7 +576,7 @@ public class RecoveryChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
 
@@ -626,7 +627,7 @@ public class RecoveryChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(MessageUtil.convertLogMessageToSpan(m), TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
 

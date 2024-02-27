@@ -471,7 +471,7 @@ public class SearchResultAggregatorImplTest {
             tempFolder.getCanonicalPath(),
             false);
     MeterRegistry metricsRegistry = new SimpleMeterRegistry();
-    DocumentBuilder<LogMessage> documentBuilder =
+    DocumentBuilder documentBuilder =
         SchemaAwareLogDocumentBuilderImpl.build(
             SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD,
             true,
@@ -483,7 +483,7 @@ public class SearchResultAggregatorImplTest {
         new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
 
     for (LogMessage logMessage : logMessages) {
-      logStore.addMessage(logMessage);
+      logStore.addMessage(MessageUtil.convertLogMessageToSpan(logMessage));
     }
     logStore.commit();
     logStore.refresh();

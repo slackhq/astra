@@ -32,7 +32,7 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(low, high);
     for (LogMessage m : messages) {
-      logStore.addMessage(m);
+      logStore.addMessage(MessageUtil.convertLogMessageToSpan(m));
     }
     if (requireCommit) {
       logStore.commit();
