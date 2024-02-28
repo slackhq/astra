@@ -106,8 +106,6 @@ message IndexerConfig {
   // check will be executed every time we roll over a chunk.
   int64 stale_duration_secs = 4;
 
-  // Name of the data transformation pipeline to use when ingesting the data.
-  string data_transformer = 5;
   // Folder where data is persisted locally on disk.
   string data_directory = 6;
   // Indexer server config.

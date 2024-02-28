@@ -169,7 +169,7 @@ public class IndexingChunkManagerTest {
             listeningExecutorService,
             curatorFramework,
             searchContext,
-            KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100));
+            KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100));
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
@@ -203,7 +203,7 @@ public class IndexingChunkManagerTest {
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 
     KaldbConfigs.IndexerConfig indexerConfig =
-        KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100, 1, 1_000_000_000L);
+        KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100, 1, 1_000_000_000L);
     initChunkManager(
         chunkRollOverStrategy,
         S3_TEST_BUCKET,
@@ -284,7 +284,7 @@ public class IndexingChunkManagerTest {
             metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
 
     KaldbConfigs.IndexerConfig indexerConfig =
-        KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100, -1, 10_000);
+        KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100, -1, 10_000);
     initChunkManager(
         chunkRollOverStrategy,
         S3_TEST_BUCKET,

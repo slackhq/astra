@@ -2,13 +2,10 @@ package com.slack.kaldb.writer;
 
 import com.slack.kaldb.chunkManager.ChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.preprocessor.KaldbSerdes;
-import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.util.List;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,34 +49,10 @@ import org.slf4j.LoggerFactory;
 public class LogMessageWriterImpl implements MessageWriter {
   private static final Logger LOG = LoggerFactory.getLogger(LogMessageWriterImpl.class);
 
-  private static final Deserializer<Murron.MurronMessage> murronMessageDeserializer =
-      KaldbSerdes.MurronMurronMessage().deserializer();
-
-  // An apiLog message is a json blob wrapped in a murron message.
-  @Deprecated
-  public static final LogMessageTransformer apiLogTransformer =
-      (ConsumerRecord<String, byte[]> record) -> {
-        final Murron.MurronMessage murronMsg =
-            murronMessageDeserializer.deserialize("", record.value());
-        Trace.Span apiSpan = MurronLogFormatter.fromApiLog(murronMsg);
-        return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
-      };
-
-  // A protobuf Trace.Span
-  public static final LogMessageTransformer traceSpanTransformer =
-      (ConsumerRecord<String, byte[]> record) -> {
-        final Trace.Span span = Trace.Span.parseFrom(record.value());
-        final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
-        return SpanFormatter.toLogMessage(listOfSpans);
-      };
-
   private final ChunkManager<LogMessage> chunkManager;
-  private final LogMessageTransformer dataTransformer;
 
-  public LogMessageWriterImpl(
-      ChunkManager<LogMessage> chunkManager, LogMessageTransformer dataTransformer) {
+  public LogMessageWriterImpl(ChunkManager<LogMessage> chunkManager) {
     this.chunkManager = chunkManager;
-    this.dataTransformer = dataTransformer;
   }
 
   @Override
@@ -88,7 +61,9 @@ public class LogMessageWriterImpl implements MessageWriter {
 
     final List<LogMessage> logMessages;
     try {
-      logMessages = this.dataTransformer.toLogMessage(record);
+      final Trace.Span span = Trace.Span.parseFrom(record.value());
+      final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
+      logMessages = SpanFormatter.toLogMessage(listOfSpans);
       // Ideally, we should return true when logMessages are empty. But, fail the record, since we
       // don't expect any empty records or we may have a bug in earlier code.
       if (logMessages.isEmpty()) return false;

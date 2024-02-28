@@ -172,7 +172,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -216,7 +216,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -276,7 +276,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -325,7 +325,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -388,7 +388,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -453,7 +453,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
-            makeIndexerConfig(50, "api_log"),
+            makeIndexerConfig(50),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -526,7 +526,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
-            makeIndexerConfig(50, "api_log"),
+            makeIndexerConfig(50),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -603,7 +603,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -657,7 +657,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();

@@ -2,14 +2,9 @@ package com.slack.kaldb.server;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.writer.LogMessageTransformer;
-import com.slack.kaldb.writer.LogMessageWriterImpl;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 public class ValidateKaldbConfig {
 
@@ -32,7 +27,6 @@ public class ValidateKaldbConfig {
   }
 
   private static void validateIndexConfig(KaldbConfigs.IndexerConfig indexerConfig) {
-    validateDataTransformerConfig(indexerConfig.getDataTransformer());
     checkArgument(
         indexerConfig.getServerConfig().getRequestTimeoutMs() >= 3000,
         "IndexerConfig requestTimeoutMs cannot less than 3000ms");
@@ -69,23 +63,6 @@ public class ValidateKaldbConfig {
         cacheConfig.getServerConfig().getRequestTimeoutMs()
             > cacheConfig.getDefaultQueryTimeoutMs(),
         "CacheConfig requestTimeoutMs must be higher than defaultQueryTimeoutMs");
-  }
-
-  @VisibleForTesting
-  public static final Map<String, LogMessageTransformer> INDEXER_DATA_TRANSFORMER_MAP =
-      ImmutableMap.of(
-          "api_log",
-          LogMessageWriterImpl.apiLogTransformer,
-          "trace_span",
-          LogMessageWriterImpl.traceSpanTransformer);
-
-  public static void validateDataTransformerConfig(String dataTransformerConfig) {
-    checkArgument(
-        dataTransformerConfig != null && !dataTransformerConfig.isEmpty(),
-        "IndexerConfig can't have an empty dataTransformer config.");
-    checkArgument(
-        INDEXER_DATA_TRANSFORMER_MAP.containsKey(dataTransformerConfig),
-        "Invalid data transformer config: " + dataTransformerConfig);
   }
 
   public static void validateNodeRoles(List<KaldbConfigs.NodeRole> nodeRoleList) {

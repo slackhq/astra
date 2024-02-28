@@ -8,7 +8,6 @@ indexerConfig:
     refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
     enableFullTextSearch: ${INDEXER_ENABLE_FULL_TEXT_SEARCH:-false}
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
-  dataTransformer: ${INDEXER_DATA_TRANSFORMER:-trace_span}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
   maxOffsetDelayMessages: ${INDEXER_MAX_OFFSET_DELAY_MESSAGES:-10000000}
   defaultQueryTimeoutMs: ${KALDB_INDEX_DEFAULT_QUERY_TIMEOUT_MS:-2500}

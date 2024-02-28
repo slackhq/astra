@@ -181,7 +181,6 @@ public class KaldbTest {
         zkPathPrefix,
         nodeRole,
         maxOffsetDelay,
-        "api_log",
         recoveryPort,
         100);
   }

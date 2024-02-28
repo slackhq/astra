@@ -70,7 +70,7 @@ public class KaldbLocalQueryServiceTest {
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
             100,
-            KaldbConfigUtil.makeIndexerConfig(1000, 1000, "log_message", 100));
+            KaldbConfigUtil.makeIndexerConfig(1000, 1000, 100));
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     kaldbLocalQueryService =

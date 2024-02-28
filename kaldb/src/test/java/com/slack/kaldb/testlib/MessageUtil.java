@@ -4,8 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -167,11 +165,5 @@ public class MessageUtil {
           MessageUtil.makeMessage(low + i, start.plusNanos(1000 * 1000 * timeDeltaMills * i)));
     }
     return result;
-  }
-
-  // TODO: Move this to TestKafkaServer class.
-  public int getPort() throws IOException {
-    ServerSocket socket = new ServerSocket(0);
-    return socket.getLocalPort();
   }
 }
