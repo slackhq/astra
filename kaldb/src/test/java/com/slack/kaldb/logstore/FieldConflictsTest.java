@@ -6,11 +6,13 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.Map;
+import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -31,39 +33,41 @@ public class FieldConflictsTest {
   public void testFieldConflictingFieldTypeWithSameValue() {
     final String conflictingFieldName = "conflictingField";
 
-    LogMessage msg1 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                LogMessage.ReservedField.HOSTNAME.fieldName,
-                "host1-dc2.abc.com",
-                conflictingFieldName,
-                "1"));
-    strictLogStore.logStore.addMessage(msg1);
+    Trace.KeyValue hostField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+            .setVType(Trace.ValueType.STRING)
+            .setVStr("host1-dc2.abc.com")
+            .build();
 
-    LogMessage msg2 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "2",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                LogMessage.ReservedField.HOSTNAME.fieldName,
-                "host1-dc2.abc.com",
-                conflictingFieldName,
-                1));
-    strictLogStore.logStore.addMessage(msg2);
+    Trace.KeyValue tagField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.TAG.fieldName)
+            .setVType(Trace.ValueType.STRING)
+            .setVStr("foo-bar")
+            .build();
+
+    Trace.KeyValue conflictingTagStr =
+        Trace.KeyValue.newBuilder()
+            .setKey(conflictingFieldName)
+            .setVType(Trace.ValueType.STRING)
+            .setVStr("1")
+            .build();
+
+    Trace.KeyValue conflictingTagInt =
+        Trace.KeyValue.newBuilder()
+            .setKey(conflictingFieldName)
+            .setVType(Trace.ValueType.INT32)
+            .setVInt32(1)
+            .build();
+
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagStr)));
+
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            2, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagInt)));
 
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
@@ -104,56 +108,52 @@ public class FieldConflictsTest {
   public void testFieldConflictingFieldTypeWithDifferentValue() {
     final String conflictingFieldName = "conflictingField";
 
-    LogMessage msg0 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "0",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                LogMessage.ReservedField.HOSTNAME.fieldName,
-                "host1-dc2.abc.com",
-                conflictingFieldName,
-                "1"));
-    strictLogStore.logStore.addMessage(msg0);
+    Trace.KeyValue hostField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+            .setVStr("host1-dc2.abc.com")
+            .setVType(Trace.ValueType.STRING)
+            .build();
 
-    LogMessage msg1 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                LogMessage.ReservedField.HOSTNAME.fieldName,
-                "host1-dc2.abc.com",
-                conflictingFieldName,
-                "one"));
-    strictLogStore.logStore.addMessage(msg1);
+    Trace.KeyValue tagField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.TAG.fieldName)
+            .setVStr("foo-bar")
+            .setVType(Trace.ValueType.STRING)
+            .build();
 
-    LogMessage msg2 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "2",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                LogMessage.ReservedField.HOSTNAME.fieldName,
-                "host1-dc2.abc.com",
-                conflictingFieldName,
-                200));
-    strictLogStore.logStore.addMessage(msg2);
+    Trace.KeyValue conflictingTagStr1 =
+        Trace.KeyValue.newBuilder()
+            .setKey(conflictingFieldName)
+            .setVType(Trace.ValueType.STRING)
+            .setVStr("1")
+            .build();
+
+    Trace.KeyValue conflictingTagStr2 =
+        Trace.KeyValue.newBuilder()
+            .setKey(conflictingFieldName)
+            .setVType(Trace.ValueType.STRING)
+            .setVStr("one")
+            .build();
+
+    Trace.KeyValue conflictingTagInt =
+        Trace.KeyValue.newBuilder()
+            .setKey(conflictingFieldName)
+            .setVType(Trace.ValueType.INT32)
+            .setVInt32(200)
+            .build();
+
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagStr1)));
+
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            2, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagStr2)));
+
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            2, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagInt)));
 
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();

@@ -12,6 +12,8 @@ import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.SpanUtil;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -55,9 +57,17 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(1, 10, 1000 * 60, startTime1));
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(11, 20, 1000 * 60, startTime2));
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 0, 1, 1, 0, histogram1);
@@ -117,9 +127,17 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(1, 10, 1000 * 60, startTime1));
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(11, 20, 1000 * 60, startTime2));
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 0, 1, 1, 0, histogram1);
@@ -185,13 +203,29 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(31, 40, 1000 * 60, startTime4);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(1, 10, 1000 * 60, startTime1));
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(11, 20, 1000 * 60, startTime2));
     InternalAggregation histogram3 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages3);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(21, 30, 1000 * 60, startTime3));
     InternalAggregation histogram4 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages4);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(31, 40, 1000 * 60, startTime4));
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 0, 1, 1, 0, histogram1);
@@ -302,9 +336,17 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(1, 10, 1000 * 60, startTime1));
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(11, 20, 1000 * 60, startTime2));
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(Collections.emptyList(), tookMs, 0, 2, 2, 2, histogram1);
@@ -358,7 +400,12 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
-    InternalAggregation histogram1 = makeHistogram(startTimeMs, endTimeMs, "6m", messages1);
+    InternalAggregation histogram1 =
+        makeHistogram(
+            startTimeMs,
+            endTimeMs,
+            "6m",
+            SpanUtil.makeSpansWithTimeDifference(1, 10, 1000 * 60, startTime1));
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 1, 1, 1, 0, histogram1);
@@ -413,9 +460,17 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(1, 10, 1000 * 60, startTime1));
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
+        makeHistogram(
+            histogramStartMs,
+            histogramEndMs,
+            "10m",
+            SpanUtil.makeSpansWithTimeDifference(11, 20, 1000 * 60, startTime2));
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 0, 2, 2, 2, histogram1);
@@ -461,7 +516,7 @@ public class SearchResultAggregatorImplTest {
    * search, and then collect the results into an appropriate aggregation.
    */
   private InternalAggregation makeHistogram(
-      long histogramStartMs, long histogramEndMs, String interval, List<LogMessage> logMessages)
+      long histogramStartMs, long histogramEndMs, String interval, List<Trace.Span> logMessages)
       throws IOException {
     File tempFolder = Files.createTempDir();
     LuceneIndexStoreConfig indexStoreCfg =
@@ -471,18 +526,17 @@ public class SearchResultAggregatorImplTest {
             tempFolder.getCanonicalPath(),
             false);
     MeterRegistry metricsRegistry = new SimpleMeterRegistry();
-    DocumentBuilder<LogMessage> documentBuilder =
+    DocumentBuilder documentBuilder =
         SchemaAwareLogDocumentBuilderImpl.build(
             SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD,
             true,
             metricsRegistry);
 
-    LogStore<LogMessage> logStore =
-        new LuceneIndexStoreImpl(indexStoreCfg, documentBuilder, metricsRegistry);
+    LogStore logStore = new LuceneIndexStoreImpl(indexStoreCfg, documentBuilder, metricsRegistry);
     LogIndexSearcherImpl logSearcher =
         new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
 
-    for (LogMessage logMessage : logMessages) {
+    for (Trace.Span logMessage : logMessages) {
       logStore.addMessage(logMessage);
     }
     logStore.commit();

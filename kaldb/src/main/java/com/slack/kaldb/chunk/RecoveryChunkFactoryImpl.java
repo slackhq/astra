@@ -49,10 +49,9 @@ public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
     ensureNonNullString(kafkaPartitionId, "kafkaPartitionId can't be null and should be set.");
     ensureNonNullString(indexerConfig.getDataDirectory(), "The data directory shouldn't be empty");
     final File dataDirectory = new File(indexerConfig.getDataDirectory());
-    LogStore<T> logStore =
-        (LogStore<T>)
-            LuceneIndexStoreImpl.makeLogStore(
-                dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
+    LogStore logStore =
+        LuceneIndexStoreImpl.makeLogStore(
+            dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
 
     return new RecoveryChunkImpl<>(
         logStore,

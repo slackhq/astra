@@ -5,7 +5,6 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
-import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.time.Instant;
@@ -37,22 +37,11 @@ public class StatsCollectorTest {
   @Test
   public void testStatsCollectorWithPerMinuteMessages() {
     Instant time = Instant.ofEpochSecond(1593365471);
-    LogMessage m1 = makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time);
-    LogMessage m2 =
-        makeMessageWithIndexAndTimestamp(2, "baby", TEST_DATASET_NAME, time.plusSeconds(60));
-    LogMessage m3 =
-        makeMessageWithIndexAndTimestamp(
-            3, "apple baby", TEST_DATASET_NAME, time.plusSeconds(2 * 60));
-    LogMessage m4 =
-        makeMessageWithIndexAndTimestamp(4, "car", TEST_DATASET_NAME, time.plusSeconds(3 * 60));
-    LogMessage m5 =
-        makeMessageWithIndexAndTimestamp(
-            5, "apple baby car", TEST_DATASET_NAME, time.plusSeconds(4 * 60));
-    strictLogStore.logStore.addMessage(m1);
-    strictLogStore.logStore.addMessage(m2);
-    strictLogStore.logStore.addMessage(m3);
-    strictLogStore.logStore.addMessage(m4);
-    strictLogStore.logStore.addMessage(m5);
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(60)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, time.plusSeconds(2 * 60)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(4, time.plusSeconds(3 * 60)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(5, time.plusSeconds(4 * 60)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 

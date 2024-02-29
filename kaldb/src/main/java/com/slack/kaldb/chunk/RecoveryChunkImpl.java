@@ -23,7 +23,7 @@ public class RecoveryChunkImpl<T> extends ReadWriteChunk<T> {
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
 
   public RecoveryChunkImpl(
-      LogStore<T> logStore,
+      LogStore logStore,
       String chunkDataPrefix,
       MeterRegistry meterRegistry,
       SearchMetadataStore searchMetadataStore,

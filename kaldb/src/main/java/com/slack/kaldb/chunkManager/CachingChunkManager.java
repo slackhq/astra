@@ -9,6 +9,7 @@ import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -120,7 +121,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   }
 
   @Override
-  public void addMessage(T message, long msgSize, String kafkaPartitionId, long offset)
+  public void addMessage(Trace.Span message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     throw new UnsupportedOperationException(
         "Adding messages is not supported on a caching chunk manager");

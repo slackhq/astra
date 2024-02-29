@@ -1,11 +1,18 @@
 package com.slack.kaldb.writer;
 
+import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_FIELD_VALUE;
+import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.build;
 import static com.slack.kaldb.testlib.SpanUtil.BINARY_TAG_VALUE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.LogWireMessage;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.testlib.SpanUtil;
+import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -13,10 +20,20 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.apache.lucene.document.Document;
 import org.assertj.core.data.Offset;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class SpanFormatterTest {
+
+  private SimpleMeterRegistry meterRegistry;
+
+  @BeforeEach
+  public void setup() throws Exception {
+    meterRegistry = new SimpleMeterRegistry();
+  }
+
   @Test
   public void testNonRootSpanToLogMessage() {
     final String traceId = "t1";
@@ -230,5 +247,75 @@ public class SpanFormatterTest {
     assertThat(SpanFormatter.isValidTimestamp(Instant.now().minus(167, ChronoUnit.HOURS))).isTrue();
     assertThat(SpanFormatter.isValidTimestamp(Instant.now().minus(169, ChronoUnit.HOURS)))
         .isFalse();
+  }
+
+  @Test
+  public void testLogMessageToTraceSpanCorrectness() throws IOException {
+    Trace.Span span = SpanUtil.makeSpan(1);
+    SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
+        build(CONVERT_FIELD_VALUE, true, meterRegistry);
+    Document documentFromSpan = convertFieldBuilder.fromMessage(span);
+    assertThat(documentFromSpan.getFields().size()).isEqualTo(23);
+
+    LogMessage logMsg = SpanFormatter.toLogMessage(span);
+    Document documentFromOldLogMessage = convertFieldBuilder.fromLogMessageTEST(logMsg);
+
+    // why the +8?
+    // name, parent_id, trace_id, duration_ms were empty in the span
+    // the new method doesn't add empty fields which is the right thing to do.
+    // 4 fields X 2 ( DocValues ) = 8
+    // manually verified _source and _all are the same. Tough to compare since ordering of data is
+    // not the same
+    assertThat(documentFromSpan.getFields().size() + 8)
+        .isEqualTo(documentFromOldLogMessage.getFields().size());
+
+    LogWireMessage wireMessage =
+        JsonUtil.read(documentFromSpan.get("_source"), LogWireMessage.class);
+    LogMessage logMessageReturn =
+        new LogMessage(
+            wireMessage.getIndex(),
+            wireMessage.getType(),
+            wireMessage.getId(),
+            wireMessage.getTimestamp(),
+            wireMessage.getSource());
+    assertThat(wireMessage.getId()).isEqualTo(span.getId().toStringUtf8());
+    assertThat(logMessageReturn.getId()).isEqualTo(span.getId().toStringUtf8());
+  }
+
+  @Test
+  public void testEncodingAndDecoding() throws IOException {
+    String error_message =
+        """
+                Unexpected character (' ' (code 32)) in numeric value: expected digit (0-9) to follow minus sign, for valid numeric value\n at [Source: (byte[])\"+ NEBULA_HOST_DIR=/etc/nebula/host\"; line: 1, column: 3]
+            """;
+    Trace.Span span = SpanUtil.makeSpan(1, error_message, Instant.now());
+    SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
+        build(CONVERT_FIELD_VALUE, true, meterRegistry);
+    Document documentFromSpan = convertFieldBuilder.fromMessage(span);
+
+    assertThat(documentFromSpan.getFields().size()).isEqualTo(23);
+
+    LogMessage logMsg = SpanFormatter.toLogMessage(span);
+    Document documentFromOldLogMessage = convertFieldBuilder.fromLogMessageTEST(logMsg);
+
+    // why the +8?
+    // name, parent_id, trace_id, duration_ms were empty in the span
+    // the new method doesn't add empty fields which is the right thing to do.
+    // 4 fields X 2 ( DocValues ) = 8
+    // manually verified _source and _all are the same. Tough to compare since ordering of data is
+    // not the same
+    assertThat(documentFromSpan.getFields().size() + 8)
+        .isEqualTo(documentFromOldLogMessage.getFields().size());
+
+    LogWireMessage wireMessage =
+        JsonUtil.read(documentFromSpan.get("_source"), LogWireMessage.class);
+    LogMessage logMessageReturn =
+        new LogMessage(
+            wireMessage.getIndex(),
+            wireMessage.getType(),
+            wireMessage.getId(),
+            wireMessage.getTimestamp(),
+            wireMessage.getSource());
+    assertThat(logMessageReturn.getSource().get("message")).isEqualTo(error_message);
   }
 }

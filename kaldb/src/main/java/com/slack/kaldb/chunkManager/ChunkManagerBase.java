@@ -134,7 +134,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                             // result we throw back an error to the user
                             throw new IllegalArgumentException(throwable);
                           }
-                          LOG.warn("Chunk Query Exception: {}", throwable.getMessage());
+                          LOG.warn("Chunk Query Exception", throwable);
                         }
                         // else UNAVAILABLE (ie, timedout)
                         return errorResult;

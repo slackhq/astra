@@ -27,7 +27,9 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,8 +38,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -174,11 +174,9 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
     int totalMessages = 10;
-    List<LogMessage> messages =
-        MessageUtil.makeMessagesWithTimeDifference(1, totalMessages, 1000, startTime);
     int offset = 1;
     boolean shouldCheckOnNextMessage = false;
-    for (LogMessage m : messages) {
+    for (Trace.Span m : SpanUtil.makeSpansWithTimeDifference(1, totalMessages, 1000, startTime)) {
       final int msgSize = m.toString().length();
       chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
       offset++;
@@ -263,10 +261,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
     int totalMessages = 10;
-    List<LogMessage> messages =
-        MessageUtil.makeMessagesWithTimeDifference(1, totalMessages, 1000, startTime);
     int offset = 1;
-    for (LogMessage m : messages) {
+    for (Trace.Span m : SpanUtil.makeSpansWithTimeDifference(1, totalMessages, 1000, startTime)) {
       final int msgSize = m.toString().length();
       chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
       offset++;
@@ -348,8 +344,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
 
   @Test
   public void testDirectorySizeWithValidSegments() {
-    strictLogStore.logStore.addMessage(
-        new LogMessage("foo", "bar", "baz", Instant.EPOCH, Map.of()));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1));
     strictLogStore.logStore.commit();
     FSDirectory directory = strictLogStore.logStore.getDirectory();
     long directorySize = DiskOrMessageCountBasedRolloverStrategy.calculateDirectorySize(directory);

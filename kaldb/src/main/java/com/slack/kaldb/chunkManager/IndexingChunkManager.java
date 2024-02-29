@@ -25,6 +25,7 @@ import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -166,7 +167,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
    *     <p>TODO: Indexer should stop cleanly if the roll over fails or an exception.
    */
   @Override
-  public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
+  public void addMessage(
+      final Trace.Span message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     if (stopIngestion) {
       // Currently, this flag is set on only a chunkRollOverException.
@@ -258,10 +260,9 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       String kafkaPartitionId, KaldbConfigs.IndexerConfig indexerConfig) throws IOException {
     if (activeChunk == null) {
       @SuppressWarnings("unchecked")
-      LogStore<T> logStore =
-          (LogStore<T>)
-              LuceneIndexStoreImpl.makeLogStore(
-                  dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
+      LogStore logStore =
+          LuceneIndexStoreImpl.makeLogStore(
+              dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
 
       chunkRollOverStrategy.setActiveChunkDirectory(logStore.getDirectory());
 
