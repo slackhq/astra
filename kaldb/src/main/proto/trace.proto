@@ -21,6 +21,8 @@ enum ValueType {
   INT64   = 2;
   FLOAT64 = 3;
   BINARY  = 4;
+  INT32   = 5;
+  FLOAT32 = 6;
 };
 
 message KeyValue {
@@ -31,6 +33,8 @@ message KeyValue {
   int64     v_int64   = 5;
   double    v_float64 = 6;
   bytes     v_binary  = 7;
+  int32     v_int32   = 8;
+  float     v_float32 = 9;
 }
 
 // A span defines a single event in a trace.
