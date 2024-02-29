@@ -2,14 +2,10 @@ package com.slack.kaldb.testlib;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.google.common.util.concurrent.Futures;
-import com.google.protobuf.ByteString;
-import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.util.JsonUtil;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
-import com.slack.service.murron.Murron;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,34 +35,29 @@ public class TestKafkaServer {
 
   public static final String TEST_KAFKA_TOPIC = "test-topic";
 
-  // Create messages, format them into murron protobufs, write them to kafka
   public static int produceMessagesToKafka(
       EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId, int count)
       throws Exception {
-    List<LogMessage> messages =
-        MessageUtil.makeMessagesWithTimeDifference(1, count, 1000, startTime);
+    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, count, 1000, startTime);
     return produceMessagesToKafka(broker, kafkaTopic, partitionId, messages);
   }
 
   public static int produceMessagesToKafka(
-      EphemeralKafkaBroker broker, String kafkaTopic, int partitionId, List<LogMessage> messages)
+      EphemeralKafkaBroker broker, String kafkaTopic, int partitionId, List<Trace.Span> messages)
       throws Exception {
 
     int indexedCount = 0;
     // Insert messages into Kafka.
     try (KafkaProducer<String, byte[]> producer =
         broker.createProducer(new StringSerializer(), new ByteArraySerializer(), null)) {
-      for (LogMessage msg : messages) {
+      for (Trace.Span msg : messages) {
 
         // Kafka producer creates only a partition 0 on first message. So, set the partition to 0
         // always.
         Future<RecordMetadata> result =
             producer.send(
                 new ProducerRecord<>(
-                    kafkaTopic,
-                    partitionId,
-                    String.valueOf(indexedCount),
-                    fromLogMessage(msg, indexedCount).toByteArray()));
+                    kafkaTopic, partitionId, String.valueOf(indexedCount), msg.toByteArray()));
 
         RecordMetadata metadata = result.get(500L, TimeUnit.MILLISECONDS);
         assertThat(metadata).isNotNull();
@@ -89,19 +80,6 @@ public class TestKafkaServer {
   public static int produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
       throws Exception {
     return produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, 0);
-  }
-
-  public static Murron.MurronMessage fromLogMessage(LogMessage message, int offset)
-      throws JsonProcessingException {
-    String jsonStr = JsonUtil.writeAsString(message.getSource());
-    return Murron.MurronMessage.newBuilder()
-        .setTimestamp(message.getTimestamp().toEpochMilli() * 1000 * 1000)
-        .setType(MessageUtil.TEST_DATASET_NAME)
-        .setHost("localhost")
-        .setPid(100)
-        .setOffset(offset)
-        .setMessage(ByteString.copyFromUtf8(jsonStr))
-        .build();
   }
 
   private final EphemeralKafkaBroker broker;

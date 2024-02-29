@@ -28,7 +28,6 @@
       "refreshDurationSecs": 11,
       "enableFullTextSearch": true
     },
-    "dataTransformer": "api_log",
     "dataDirectory": "/tmp",
     "maxOffsetDelayMessages" : 10002,
     "serverConfig": {

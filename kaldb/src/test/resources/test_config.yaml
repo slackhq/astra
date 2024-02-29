@@ -8,7 +8,6 @@ indexerConfig:
     refreshDurationSecs: 11
     enableFullTextSearch: true
   staleDurationSecs: 7200
-  dataTransformer: "api_log"
   dataDirectory: "/tmp"
   maxOffsetDelayMessages: 10001
   defaultQueryTimeoutMs: 1500

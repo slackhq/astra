@@ -13,7 +13,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.google.protobuf.ByteString;
 import com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
@@ -22,7 +21,6 @@ import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
-import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -97,11 +95,6 @@ public class LogMessageWriterImplTest {
         Duration.ofMillis(3000));
   }
 
-  private static ConsumerRecord<String, byte[]> consumerRecordWithMurronMessage(
-      Murron.MurronMessage testMurronMsg) {
-    return consumerRecordWithValue(testMurronMsg.toByteString().toByteArray());
-  }
-
   private static ConsumerRecord<String, byte[]> consumerRecordWithValue(byte[] recordValue) {
     return new ConsumerRecord<>(
         "testTopic", 1, 10, 0L, TimestampType.CREATE_TIME, 0L, 0, 0, "testKey", recordValue);
@@ -109,29 +102,9 @@ public class LogMessageWriterImplTest {
 
   @Test
   public void insertNullRecord() throws IOException {
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.apiLogTransformer);
+    LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
 
     assertThat(messageWriter.insertRecord(null)).isFalse();
-  }
-
-  @Test
-  public void testMalformedMurronApiRecord() throws IOException {
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.apiLogTransformer);
-
-    ConsumerRecord<String, byte[]> apiRecord =
-        consumerRecordWithMurronMessage(
-            Murron.MurronMessage.newBuilder()
-                .setMessage(ByteString.copyFromUtf8("malformedMurronMessage"))
-                .setType("testIndex")
-                .setHost("testHost")
-                .setTimestamp(1612550512340953000L)
-                .build());
-
-    assertThat(messageWriter.insertRecord(apiRecord)).isFalse();
   }
 
   // TODO: Add a unit test where message fails to index. Can't do it now since the field conflict
@@ -174,8 +147,7 @@ public class LogMessageWriterImplTest {
             .collect(Collectors.toList());
 
     IndexingChunkManager<LogMessage> chunkManager = localChunkManagerUtil.chunkManager;
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(chunkManager, LogMessageWriterImpl.traceSpanTransformer);
+    LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManager);
 
     for (Trace.Span span : spans) {
       ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
@@ -209,45 +181,6 @@ public class LogMessageWriterImplTest {
   }
 
   @Test
-  public void testUseIncorrectDataTransformer() throws IOException {
-    // Data Prep: Span -> ListOfSpans -> MurronMessage -> ConsumerReord
-    final String traceId = "t1";
-    final String id = "i2";
-    final String parentId = "p2";
-    final long timestampMicros = 1612550512340953L;
-    final long durationMicros = 500000L;
-    final String serviceName = "testService";
-    final String name = "testSpanName";
-
-    final Trace.Span span =
-        makeSpan(
-            traceId,
-            id,
-            parentId,
-            timestampMicros,
-            durationMicros,
-            name,
-            serviceName,
-            SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
-
-    Murron.MurronMessage testMurronMsg =
-        Murron.MurronMessage.newBuilder()
-            .setMessage(
-                Trace.ListOfSpans.newBuilder().addAllSpans(List.of(span)).build().toByteString())
-            .setType("test")
-            .setHost("testHost")
-            .setTimestamp(timestampMicros)
-            .build();
-    ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithMurronMessage(testMurronMsg);
-
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.apiLogTransformer);
-
-    assertThat(messageWriter.insertRecord(spanRecord)).isFalse();
-  }
-
-  @Test
   public void testIngestTraceSpan() throws IOException {
     final String traceId = "t1";
     final String id = "i1";
@@ -269,9 +202,7 @@ public class LogMessageWriterImplTest {
             msgType);
     ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
 
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceSpanTransformer);
+    LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
 
     assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
@@ -324,9 +255,7 @@ public class LogMessageWriterImplTest {
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
       Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument);
       ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
-      LogMessageWriterImpl messageWriter =
-          new LogMessageWriterImpl(
-              chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceSpanTransformer);
+      LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
       assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
     }
 
@@ -359,9 +288,7 @@ public class LogMessageWriterImplTest {
 
   @Test
   public void testNullTraceSpan() throws IOException {
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceSpanTransformer);
+    LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
 
     assertThat(messageWriter.insertRecord(null)).isFalse();
   }

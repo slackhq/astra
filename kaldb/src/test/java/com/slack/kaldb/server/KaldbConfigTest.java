@@ -44,21 +44,6 @@ public class KaldbConfigTest {
   }
 
   @Test
-  public void testMissingDataTransformerConfig() throws JsonProcessingException {
-    ObjectMapper mapper = new ObjectMapper();
-    ObjectNode indexerConfig =
-        mapper.createObjectNode().put("maxMessagesPerChunk", 1).put("maxBytesPerChunk", 100);
-    ObjectNode node = mapper.createObjectNode();
-    node.set("nodeRoles", mapper.createArrayNode().add("INDEX"));
-    node.set("indexerConfig", indexerConfig);
-    final String missingRequiredField =
-        mapper.writerWithDefaultPrettyPrinter().writeValueAsString(node);
-
-    assertThatIllegalArgumentException()
-        .isThrownBy(() -> KaldbConfig.fromJsonConfig(missingRequiredField));
-  }
-
-  @Test
   public void testIntToStrTypeConversionForWrongJsonType()
       throws InvalidProtocolBufferException, JsonProcessingException {
     ObjectMapper mapper = new ObjectMapper();
@@ -68,7 +53,6 @@ public class KaldbConfigTest {
             .createObjectNode()
             .put("maxMessagesPerChunk", 1)
             .put("maxBytesPerChunk", 100)
-            .put("dataTransformer", "api_log")
             .put("defaultQueryTimeoutMs", "2500")
             .set("serverConfig", serverConfig);
     ObjectNode kafkaConfig =
@@ -99,7 +83,6 @@ public class KaldbConfigTest {
             .put("maxMessagesPerChunk", 1)
             .put("maxBytesPerChunk", 100)
             .put("defaultQueryTimeoutMs", "2500")
-            .put("dataTransformer", "api_log")
             .set("serverConfig", serverConfig);
     ObjectNode node = mapper.createObjectNode();
     node.set("nodeRoles", mapper.createArrayNode().add("INDEX"));
@@ -129,10 +112,8 @@ public class KaldbConfigTest {
             .createObjectNode()
             .put("maxMessagesPerChunk", 1)
             .put("maxBytesPerChunk", 100)
-            .put("dataTransformer", "api_log")
             .put("ignoredField", "ignore")
             .put("defaultQueryTimeoutMs", "2500")
-            .put("dataTransformer", "api_log")
             .set("serverConfig", serverConfig);
     indexerConfig.set("kafkaConfig", kafkaConfig);
 
@@ -208,7 +189,6 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getEnableFullTextSearch()).isTrue();
     assertThat(indexerConfig.getMaxChunksOnDisk()).isEqualTo(3);
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
-    assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
@@ -292,7 +272,6 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isEqualTo(1);
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
     assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
-    assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
     assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(false);
     assertThat(preprocessorConfig.getRateLimitExceededErrorCode()).isEqualTo(400);
@@ -385,7 +364,6 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getEnableFullTextSearch()).isTrue();
     assertThat(indexerConfig.getMaxChunksOnDisk()).isEqualTo(3);
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
-    assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isEqualTo(10001);
     assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
@@ -468,7 +446,6 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isEqualTo(1);
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
     assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
-    assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
 
     final KaldbConfigs.KafkaConfig preprocessorKafkaConfig =
@@ -515,8 +492,6 @@ public class KaldbConfigTest {
     assertThat(config.getNodeRolesList()).containsOnly(KaldbConfigs.NodeRole.CACHE);
     assertThat(config.getCacheConfig().getServerConfig().getRequestTimeoutMs()).isEqualTo(3000);
     assertThat(config.getCacheConfig().getDefaultQueryTimeoutMs()).isEqualTo(2500);
-    final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
-    assertThat(indexerConfig.getDataTransformer()).isEmpty();
   }
 
   @Test
@@ -524,7 +499,7 @@ public class KaldbConfigTest {
     KaldbConfigs.KaldbConfig config =
         KaldbConfig.fromJsonConfig(
             "{nodeRoles: [INDEX], "
-                + "indexerConfig:{dataTransformer:api_log,defaultQueryTimeoutMs:2500,serverConfig:{requestTimeoutMs:3000}}}");
+                + "indexerConfig:{defaultQueryTimeoutMs:2500,serverConfig:{requestTimeoutMs:3000}}}");
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
 
@@ -557,7 +532,6 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDefaultQueryTimeoutMs()).isEqualTo(2500);
-    assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
@@ -640,7 +614,6 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isZero();
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
     assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
-    assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
     assertThat(preprocessorConfig.getUseBulkApi()).isFalse();
 
@@ -662,7 +635,6 @@ public class KaldbConfigTest {
     String yamlCfgString =
         "nodeRoles: [INDEX]\n"
             + "indexerConfig:\n"
-            + "  dataTransformer: api_log\n"
             + "  defaultQueryTimeoutMs: 2500\n"
             + "  serverConfig:\n"
             + "    requestTimeoutMs: 3000\n";
@@ -698,7 +670,6 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getMaxChunksOnDisk()).isZero();
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
-    assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
@@ -771,7 +742,6 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isZero();
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
     assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
-    assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
@@ -798,7 +768,6 @@ public class KaldbConfigTest {
     String yamlCfgString =
         "nodeRoles: [INDEX]\n"
             + "indexerConfig:\n"
-            + "  dataTransformer: api_log\n"
             + "  defaultQueryTimeoutMs: 2500\n"
             + "  serverConfig:\n"
             + "    requestTimeoutMs: 3000\n"
@@ -816,7 +785,6 @@ public class KaldbConfigTest {
     final String yamlCfgString =
         "nodeRoles: [INDEX]\n"
             + "indexerConfig:\n"
-            + "  dataTransformer: api_log\n"
             + "  defaultQueryTimeoutMs: 3500\n"
             + "  serverConfig:\n"
             + "    requestTimeoutMs: 3000\n"
@@ -828,7 +796,6 @@ public class KaldbConfigTest {
     final String yamlCfgString1 =
         "nodeRoles: [INDEX]\n"
             + "indexerConfig:\n"
-            + "  dataTransformer: api_log\n"
             + "  defaultQueryTimeoutMs: 2500\n"
             + "  serverConfig:\n"
             + "    requestTimeoutMs: 2999\n"

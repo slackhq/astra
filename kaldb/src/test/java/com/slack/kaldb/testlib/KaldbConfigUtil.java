@@ -16,7 +16,6 @@ public class KaldbConfigUtil {
       String metadataZkPathPrefix,
       KaldbConfigs.NodeRole nodeRole,
       int maxOffsetDelay,
-      String dataTransformerConfig,
       int recoveryPort,
       int maxMessagesPerChunk) {
     KaldbConfigs.KafkaConfig kafkaConfig =
@@ -57,7 +56,6 @@ public class KaldbConfigUtil {
                     .build())
             .setMaxChunksOnDisk(3)
             .setStaleDurationSecs(7200)
-            .setDataTransformer(dataTransformerConfig)
             .setMaxOffsetDelayMessages(maxOffsetDelay)
             .setDefaultQueryTimeoutMs(2500)
             .setKafkaConfig(kafkaConfig)
@@ -122,16 +120,15 @@ public class KaldbConfigUtil {
   public static int TEST_INDEXER_PORT = 10000;
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig() {
-    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, "log_message", 100);
+    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, 100);
+  }
+
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig(int maxOffsetDelay) {
+    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, 100);
   }
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig(
-      int maxOffsetDelay, String dataTransformer) {
-    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, dataTransformer, 100);
-  }
-
-  public static KaldbConfigs.IndexerConfig makeIndexerConfig(
-      int indexerPort, int maxOffsetDelay, String dataTransformer, int maxMessagesPerChunk) {
+      int indexerPort, int maxOffsetDelay, int maxMessagesPerChunk) {
     return KaldbConfigs.IndexerConfig.newBuilder()
         .setServerConfig(
             KaldbConfigs.ServerConfig.newBuilder()
@@ -149,14 +146,12 @@ public class KaldbConfigUtil {
         .setMaxChunksOnDisk(3)
         .setStaleDurationSecs(7200)
         .setMaxOffsetDelayMessages(maxOffsetDelay)
-        .setDataTransformer(dataTransformer)
         .build();
   }
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig(
       int indexerPort,
       int maxOffsetDelay,
-      String dataTransformer,
       int maxMessagesPerChunk,
       int maxChunksOnDisk,
       long staleDuration) {
@@ -177,7 +172,6 @@ public class KaldbConfigUtil {
         .setMaxChunksOnDisk(maxChunksOnDisk)
         .setStaleDurationSecs(staleDuration)
         .setMaxOffsetDelayMessages(maxOffsetDelay)
-        .setDataTransformer(dataTransformer)
         .build();
   }
 }
