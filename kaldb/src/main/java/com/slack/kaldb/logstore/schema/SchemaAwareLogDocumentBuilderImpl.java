@@ -418,7 +418,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
             .map(keyValue -> Map.entry(keyValue.getKey(), keyValue))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    // TODO: this should just be top level Trace.Span fields. This is error prone - what if type is
+    // This should just be top level Trace.Span fields. This is error prone - what if type is
     // not a string?
     // Also in BulkApiRequestParser we basically take the index field and put it as a tag. So we're
     // just doing more work on both sides
@@ -489,7 +489,8 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
   // testing
   // Once we get rid of LogMessage we can remove this and the associated test
   @VisibleForTesting
-  public Document fromLogMessageTEST(LogMessage message) throws JsonProcessingException {
+  @Deprecated
+  public Document fromMessage(LogMessage message) throws JsonProcessingException {
     Document doc = new Document();
     addField(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex(), "", 0);
     addField(

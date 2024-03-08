@@ -32,6 +32,7 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.protobuf.ByteString;
 import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.chunk.Chunk;
@@ -721,42 +722,47 @@ public class IndexingChunkManagerTest {
   // TODO: Add a unit test where the chunk manager uses a different field conflict policy like
   // RAISE_ERROR.
 
-  //  @Test
-  //  public void testAddMessageWithPropertyTypeConflicts() throws Exception {
-  //    ChunkRollOverStrategy chunkRollOverStrategy =
-  //        new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L,
-  // 10L);
-  //
-  //    ListeningExecutorService rollOverExecutor =
-  // IndexingChunkManager.makeDefaultRollOverExecutor();
-  //    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, rollOverExecutor);
-  //
-  //    // Add a message
-  //    int offset = 1;
-  //    Trace.Span msg1 = SpanUtil.makeSpan(1);
-  //    chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
-  //    offset++;
-  //
-  //    // Add an invalid message
-  //    LogMessage msg100 =
-  //        MessageUtil.makeMessage(100, Map.of(LogMessage.ReservedField.HOSTNAME.fieldName,
-  // 20000));
-  //    chunkManager.addMessage(msg100, msg100.toString().length(), TEST_KAFKA_PARTITION_ID,
-  // offset);
-  //    offset++;
-  //
-  //    // Commit the new chunk so we can search it.
-  //    chunkManager.getActiveChunk().commit();
-  //
-  //    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
-  //    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
-  //    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-  //    testChunkManagerSearch(chunkManager, "Message1", 1, 1, 1);
-  //    testChunkManagerSearch(chunkManager, "Message100", 1, 1, 1);
-  //
-  //    // Check metadata.
-  //    checkMetadata(1, 1, 0, 1, 1);
-  //  }
+  @Test
+  public void testAddMessageWithPropertyTypeConflicts() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
+
+    ListeningExecutorService rollOverExecutor = IndexingChunkManager.makeDefaultRollOverExecutor();
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, rollOverExecutor);
+
+    // Add a message
+    int offset = 1;
+    Trace.Span msg1 = SpanUtil.makeSpan(1);
+    chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    offset++;
+
+    // Add an invalid message
+    Trace.Span invalidSpan =
+        Trace.Span.newBuilder()
+            .setId(ByteString.copyFromUtf8("Message100"))
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVInt32(20000)
+                    .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+                    .setVType(Trace.ValueType.INT32)
+                    .build())
+            .build();
+    chunkManager.addMessage(
+        invalidSpan, invalidSpan.getSerializedSize(), TEST_KAFKA_PARTITION_ID, offset);
+    offset++;
+
+    // Commit the new chunk so we can search it.
+    chunkManager.getActiveChunk().commit();
+
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 1, 1);
+    testChunkManagerSearch(chunkManager, "Message100", 1, 1, 1);
+
+    // Check metadata.
+    checkMetadata(1, 1, 0, 1, 1);
+  }
 
   private void checkMetadata(
       int expectedSnapshotSize,
@@ -1330,7 +1336,7 @@ public class IndexingChunkManagerTest {
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, startTime);
+    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 10, 1, startTime);
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
@@ -1362,7 +1368,7 @@ public class IndexingChunkManagerTest {
             () -> {
               int newOffset = 1;
               List<Trace.Span> newMessage =
-                  SpanUtil.makeSpansWithTimeDifference(11, 22, 1000, startTime);
+                  SpanUtil.makeSpansWithTimeDifference(11, 12, 1000, startTime);
               for (Trace.Span m : newMessage) {
                 chunkManager.addMessage(
                     m, m.toString().length(), TEST_KAFKA_PARTITION_ID, newOffset);
@@ -1376,7 +1382,7 @@ public class IndexingChunkManagerTest {
   @Test
   public void testRollOverFailureWithDirectExecutor()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, Instant.now());
+    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 10, 1000, Instant.now());
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);

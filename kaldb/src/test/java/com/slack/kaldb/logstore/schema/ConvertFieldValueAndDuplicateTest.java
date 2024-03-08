@@ -12,14 +12,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.schema.FieldType;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
+import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.util.BytesRef;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,12 +39,114 @@ public class ConvertFieldValueAndDuplicateTest {
 
   @Test
   public void testListTypeInDocument() throws IOException {
-    // TODO:
+    SchemaAwareLogDocumentBuilderImpl docBuilder =
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy())
+        .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+
+    LogMessage message =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Instant.now(),
+            Map.of(
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                "duplicateproperty",
+                "duplicate1",
+                "listType",
+                Collections.emptyList(),
+                "nested",
+                Map.of(
+                    "leaf1",
+                    "value1",
+                    "nested",
+                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
+
+    Document testDocument = docBuilder.fromMessage(message);
+    assertThat(testDocument.getFields().size()).isEqualTo(23);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            List.of(
+                "duplicateproperty",
+                "listType",
+                "nested.nested.nestedList",
+                "nested.leaf1",
+                "nested.nested.leaf2",
+                "nested.nested.leaf21"));
+    assertThat(docBuilder.getSchema().get("listType").fieldType).isEqualTo(FieldType.STRING);
+    assertThat(docBuilder.getSchema().get("nested.nested.nestedList").fieldType)
+        .isEqualTo(FieldType.STRING);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+    assertThat(
+            testDocument.getFields().stream()
+                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                .count())
+        .isEqualTo(1);
   }
 
   @Test
   public void testListTypeInDocumentWithoutFullTextSearch() throws IOException {
-    // TODO:
+    SchemaAwareLogDocumentBuilderImpl docBuilder =
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, false, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy())
+        .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(16);
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
+
+    LogMessage message =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Instant.now(),
+            Map.of(
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                "duplicateproperty",
+                "duplicate1",
+                "listType",
+                Collections.emptyList(),
+                "nested",
+                Map.of(
+                    "leaf1",
+                    "value1",
+                    "nested",
+                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
+
+    Document testDocument = docBuilder.fromMessage(message);
+    assertThat(testDocument.getFields().size()).isEqualTo(22);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            List.of(
+                "duplicateproperty",
+                "listType",
+                "nested.nested.nestedList",
+                "nested.leaf1",
+                "nested.nested.leaf2",
+                "nested.nested.leaf21"));
+    assertThat(docBuilder.getSchema().get("listType").fieldType).isEqualTo(FieldType.STRING);
+    assertThat(docBuilder.getSchema().get("nested.nested.nestedList").fieldType)
+        .isEqualTo(FieldType.STRING);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
+    assertThat(
+            testDocument.getFields().stream()
+                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                .count())
+        .isZero();
   }
 
   @Test
@@ -386,11 +493,228 @@ public class ConvertFieldValueAndDuplicateTest {
 
   @Test
   public void testConversionInConvertAndDuplicateField() throws IOException {
-    // TODO:
+    SchemaAwareLogDocumentBuilderImpl docBuilder =
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy())
+        .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+
+    final String floatStrConflictField = "floatStrConflictField";
+    LogMessage msg1 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Instant.now(),
+            Map.of(
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                "duplicateproperty",
+                "duplicate1",
+                floatStrConflictField,
+                3.0f,
+                "nested",
+                Map.of(
+                    "leaf1",
+                    "value1",
+                    "nested",
+                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
+
+    Document testDocument1 = docBuilder.fromMessage(msg1);
+    final int expectedDocFieldsAfterMsg1 = 23;
+    assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
+    final int expectedFieldsAfterMsg1 = 23;
+    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
+    assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
+        .isEqualTo(FieldType.FLOAT);
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            List.of(
+                "duplicateproperty",
+                floatStrConflictField,
+                "nested.nested.nestedList",
+                "nested.leaf1",
+                "nested.nested.leaf2",
+                "nested.nested.leaf21"));
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+
+    LogMessage msg2 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Instant.now(),
+            Map.of(
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                "duplicateproperty",
+                "duplicate1",
+                floatStrConflictField,
+                "blah",
+                "nested",
+                Map.of(
+                    "leaf1",
+                    "value1",
+                    "nested",
+                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
+    Document testDocument2 = docBuilder.fromMessage(msg2);
+    assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1 + 2);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1 + 1);
+    assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
+        .isEqualTo(FieldType.FLOAT);
+    String additionalCreatedFieldName = makeNewFieldOfType(floatStrConflictField, FieldType.STRING);
+    assertThat(docBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
+        .isEqualTo(FieldType.STRING);
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            List.of(
+                "duplicateproperty",
+                floatStrConflictField,
+                additionalCreatedFieldName,
+                "nested.nested.nestedList",
+                "nested.leaf1",
+                "nested.nested.leaf2",
+                "nested.nested.leaf21"));
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
+        .isEqualTo(1);
+    assertThat(
+            testDocument1.getFields().stream()
+                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                .count())
+        .isEqualTo(1);
+    assertThat(
+            testDocument2.getFields().stream()
+                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                .count())
+        .isEqualTo(1);
+    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
   }
 
   @Test
   public void testStringTextAliasing() throws JsonProcessingException {
-    // TODO:
+    SchemaAwareLogDocumentBuilderImpl docBuilder =
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy())
+        .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+
+    // Set stringField is a String
+    final String stringField = "stringField";
+    docBuilder
+        .getSchema()
+        .put(
+            stringField, new LuceneFieldDef(stringField, FieldType.STRING.name, false, true, true));
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+
+    LogMessage msg1 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Instant.now(),
+            Map.of(
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                "duplicateproperty",
+                "duplicate1",
+                stringField,
+                "strFieldValue",
+                "nested",
+                Map.of(
+                    "leaf1",
+                    "value1",
+                    "nested",
+                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
+
+    Document testDocument1 = docBuilder.fromMessage(msg1);
+    final int expectedDocFieldsAfterMsg1 = 23;
+    assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
+    final int expectedFieldsAfterMsg1 = 23;
+    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
+    assertThat(docBuilder.getSchema().get(stringField).fieldType).isEqualTo(FieldType.STRING);
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            List.of(stringField, "nested.leaf1", "nested.nested.leaf2", "nested.nested.leaf21"));
+    // The new field is identified as text, but indexed as String.
+    assertThat(
+            testDocument1.getFields().stream()
+                .filter(f -> f.name().equals(stringField) && f instanceof SortedDocValuesField)
+                .count())
+        .isEqualTo(1);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+
+    // Set stringField in a nested field
+    final String nestedStringField = "nested.nested.stringField";
+    docBuilder
+        .getSchema()
+        .put(
+            nestedStringField,
+            new LuceneFieldDef(nestedStringField, FieldType.STRING.name, false, true, true));
+    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1 + 1);
+
+    LogMessage msg2 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "2",
+            Instant.now(),
+            Map.of(
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message2",
+                "duplicateproperty",
+                "duplicate1",
+                stringField,
+                "strFieldValue2",
+                "nested",
+                Map.of(
+                    "leaf1",
+                    "value1",
+                    "nested",
+                    Map.of(
+                        stringField, "nestedStringField", "leaf21", 3, "nestedList", List.of(1)))));
+
+    Document testDocument2 = docBuilder.fromMessage(msg2);
+    // Nested string field adds 1 more sorted doc values field.
+    assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1 + 1);
+    assertThat(docBuilder.getSchema().get(nestedStringField).fieldType).isEqualTo(FieldType.STRING);
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            List.of(
+                "duplicateproperty",
+                stringField,
+                nestedStringField,
+                "nested.nested.nestedList",
+                "nested.leaf1",
+                "nested.nested.leaf2",
+                "nested.nested.leaf21"));
+    assertThat(
+            testDocument2.getFields().stream()
+                .filter(
+                    f -> f.name().equals(nestedStringField) && f instanceof SortedDocValuesField)
+                .count())
+        .isEqualTo(1);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+    assertThat(
+            testDocument1.getFields().stream()
+                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                .count())
+        .isEqualTo(1);
+    assertThat(
+            testDocument2.getFields().stream()
+                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                .count())
+        .isEqualTo(1);
+    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
   }
 }

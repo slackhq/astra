@@ -8,6 +8,7 @@ import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.testlib.MetricsUtil;
@@ -120,6 +121,143 @@ public class ConvertFieldValueTest {
 
   @Test
   public void testConversionUsingConvertField() throws IOException {
-    // TODO:
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(CONVERT_FIELD_VALUE, true, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_FIELD_VALUE);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+
+    final String floatStrConflictField = "floatStrConflictField";
+
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .setId(ByteString.copyFromUtf8("1"))
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVStr("Test message")
+                    .setKey(LogMessage.ReservedField.MESSAGE.fieldName)
+                    .setVType(Trace.ValueType.STRING)
+                    .build())
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVStr("duplicate1")
+                    .setKey("duplicateproperty")
+                    .setVType(Trace.ValueType.STRING)
+                    .build())
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVFloat32(3.0f)
+                    .setKey(floatStrConflictField)
+                    .setVType(Trace.ValueType.FLOAT32)
+                    .build())
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVStr("value1")
+                    .setKey("nested.leaf1")
+                    .setVType(Trace.ValueType.STRING)
+                    .build())
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVStr("value2")
+                    .setKey("nested.nested.leaf1")
+                    .setVType(Trace.ValueType.STRING)
+                    .build())
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVInt32(3)
+                    .setKey("nested.nested.leaf21")
+                    .setVType(Trace.ValueType.INT32)
+                    .build())
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVInt32(1)
+                    .setKey("nested.nested.nestedList")
+                    .setVType(Trace.ValueType.INT32)
+                    .build())
+            .build();
+
+    Document testDocument1 = docBuilder.fromMessage(span);
+    final int expectedDocFieldsAfterMsg1 = 25;
+    assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
+    final int expectedFieldsAfterMsg1 = 23;
+    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
+    assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
+        .isEqualTo(FieldType.FLOAT);
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            List.of(
+                "duplicateproperty",
+                floatStrConflictField,
+                "nested.nested.nestedList",
+                "nested.leaf1",
+                "nested.nested.leaf2",
+                "nested.nested.leaf21"));
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+
+    //    LogMessage msg2 =
+    //            new LogMessage(
+    //                    MessageUtil.TEST_DATASET_NAME,
+    //                    "INFO",
+    //                    "1",
+    //                    Instant.now(),
+    //                    Map.of(
+    //                            LogMessage.ReservedField.MESSAGE.fieldName,
+    //                            "Test message",
+    //                            "duplicateproperty",
+    //                            "duplicate1",
+    //                            floatStrConflictField,
+    //                            "blah",
+    //                            "nested",
+    //                            Map.of(
+    //                                    "leaf1",
+    //                                    "value1",
+    //                                    "nested",
+    //                                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList",
+    // List.of(1)))));
+    //    Document testDocument2 = docBuilder.fromMessage(msg2);
+    //    assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
+    //    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
+    //    assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
+    //            .isEqualTo(FieldType.FLOAT);
+    //    String additionalCreatedFieldName = makeNewFieldOfType(floatStrConflictField,
+    // FieldType.TEXT);
+    //    assertThat(
+    //            testDocument2.getFields().stream()
+    //                    .filter(f -> f.name().equals(additionalCreatedFieldName))
+    //                    .count())
+    //            .isZero();
+    //    assertThat(
+    //            testDocument2.getFields().stream()
+    //                    .filter(f -> f.name().equals(floatStrConflictField))
+    //                    .count())
+    //            .isEqualTo(2);
+    //    assertThat(docBuilder.getSchema().containsKey(additionalCreatedFieldName)).isFalse();
+    //    assertThat(docBuilder.getSchema().keySet())
+    //            .containsAll(
+    //                    List.of(
+    //                            "duplicateproperty",
+    //                            floatStrConflictField,
+    //                            "nested.nested.nestedList",
+    //                            "nested.leaf1",
+    //                            "nested.nested.leaf2",
+    //                            "nested.nested.leaf21"));
+    //    assertThat(docBuilder.getSchema().containsKey(additionalCreatedFieldName)).isFalse();
+    //    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    //    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isEqualTo(1);
+    //    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER,
+    // meterRegistry)).isZero();
+    //    assertThat(
+    //            testDocument1.getFields().stream()
+    //                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+    //                    .count())
+    //            .isEqualTo(1);
+    //    assertThat(
+    //            testDocument2.getFields().stream()
+    //                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+    //                    .count())
+    //            .isEqualTo(1);
+    //
+    // assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
   }
 }

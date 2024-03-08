@@ -15,6 +15,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
+import com.google.protobuf.ByteString;
 import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.LogMessage;
@@ -482,20 +483,28 @@ public class RecoveryChunkImplTest {
       registry.close();
     }
 
-    // TODO
-    //    @Test
-    //    public void testAddInvalidMessagesToChunk() {
-    //      LogMessage testMessage = MessageUtil.makeMessage(0, Map.of("username", 0));
-    //
-    //      // An Invalid message is dropped but failure counter is incremented.
-    //      chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);
-    //      chunk.commit();
-    //
-    //      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
-    //      assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(1);
-    //      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
-    //      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
-    //    }
+    @Test
+    public void testAddInvalidMessagesToChunk() {
+
+      // An Invalid message is dropped but failure counter is incremented.
+      Trace.Span invalidSpan =
+          Trace.Span.newBuilder()
+              .setId(ByteString.copyFromUtf8("1"))
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVInt32(123)
+                      .setKey(LogMessage.ReservedField.MESSAGE.fieldName)
+                      .setVType(Trace.ValueType.INT32)
+                      .build())
+              .build();
+      chunk.addMessage(invalidSpan, TEST_KAFKA_PARTITION_ID, 1);
+      chunk.commit();
+
+      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
+      assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+    }
   }
 
   @RegisterExtension

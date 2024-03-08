@@ -10,6 +10,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_CO
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.findAllMessages;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,12 +18,15 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
+import com.google.protobuf.ByteString;
 import com.slack.kaldb.blobfs.LocalBlobFs;
 import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.LogMessage.ReservedField;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
+import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
@@ -75,8 +79,71 @@ public class LuceneIndexStoreImplTest {
     }
 
     @Test
-    public void testSearchAndQueryDocsWithNestedJson() throws InterruptedException {
-      // TODO: Trace.Span does not support nested objects
+    public void testSearchAndQueryDocsWithNestedJson() {
+      Trace.Span span =
+          Trace.Span.newBuilder()
+              .setId(ByteString.copyFromUtf8("1"))
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("Test message")
+                      .setKey("message")
+                      .setVType(Trace.ValueType.STRING)
+                      .build())
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("duplicate1")
+                      .setKey("duplicateproperty")
+                      .setVType(Trace.ValueType.STRING)
+                      .build())
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("value1")
+                      .setKey("nested.key1")
+                      .setVType(Trace.ValueType.STRING)
+                      .build())
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("2")
+                      .setKey("nested.duplicateproperty")
+                      .setVType(Trace.ValueType.STRING)
+                      .build())
+              .build();
+      logStore.logStore.addMessage(span);
+      logStore.logStore.commit();
+      logStore.logStore.refresh();
+
+      SearchResult<LogMessage> result1 =
+          logStore.logSearcher.search(
+              MessageUtil.TEST_DATASET_NAME,
+              "nested.key1:value1",
+              0L,
+              MAX_TIME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+      assertThat(result1.hits.size()).isEqualTo(1);
+
+      SearchResult<LogMessage> result2 =
+          logStore.logSearcher.search(
+              MessageUtil.TEST_DATASET_NAME,
+              "duplicateproperty:duplicate1",
+              0L,
+              MAX_TIME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+      assertThat(result2.hits.size()).isEqualTo(1);
+
+      SearchResult<LogMessage> result3 =
+          logStore.logSearcher.search(
+              MessageUtil.TEST_DATASET_NAME,
+              "nested.duplicateproperty:2",
+              0L,
+              MAX_TIME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+      assertThat(result3.hits.size()).isEqualTo(1);
     }
 
     @Test

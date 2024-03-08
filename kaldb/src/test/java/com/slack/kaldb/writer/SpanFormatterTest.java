@@ -258,7 +258,7 @@ public class SpanFormatterTest {
     assertThat(documentFromSpan.getFields().size()).isEqualTo(23);
 
     LogMessage logMsg = SpanFormatter.toLogMessage(span);
-    Document documentFromOldLogMessage = convertFieldBuilder.fromLogMessageTEST(logMsg);
+    Document documentFromOldLogMessage = convertFieldBuilder.fromMessage(logMsg);
 
     // why the +8?
     // name, parent_id, trace_id, duration_ms were empty in the span
@@ -296,7 +296,7 @@ public class SpanFormatterTest {
     assertThat(documentFromSpan.getFields().size()).isEqualTo(23);
 
     LogMessage logMsg = SpanFormatter.toLogMessage(span);
-    Document documentFromOldLogMessage = convertFieldBuilder.fromLogMessageTEST(logMsg);
+    Document documentFromOldLogMessage = convertFieldBuilder.fromMessage(logMsg);
 
     // why the +8?
     // name, parent_id, trace_id, duration_ms were empty in the span
