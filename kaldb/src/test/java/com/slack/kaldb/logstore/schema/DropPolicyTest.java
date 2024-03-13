@@ -13,8 +13,6 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
-import com.slack.kaldb.testlib.SpanUtil;
-import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
@@ -41,12 +39,13 @@ public class DropPolicyTest {
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
-    Document testDocument = docBuilder.fromMessage(SpanUtil.makeSpan(0));
-    assertThat(testDocument.getFields().size()).isEqualTo(23);
+    final LogMessage message = MessageUtil.makeMessage(0);
+    Document testDocument = docBuilder.fromMessage(message);
+    assertThat(testDocument.getFields().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            List.of("longproperty", "floatproperty", "intproperty", "message", "doubleproperty"));
+            .containsAll(
+                    List.of("longproperty", "floatproperty", "intproperty", "message", "doubleproperty"));
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -54,29 +53,29 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().get("_id").fieldType.name).isEqualTo(FieldType.ID.name);
     assertThat(
             testDocument.getFields().stream()
-                .filter(
-                    f ->
-                        f.name().equals(LogMessage.SystemField.ID.fieldName)
-                            && f instanceof SortedDocValuesField)
-                .count())
-        .isEqualTo(1);
+                    .filter(
+                            f ->
+                                    f.name().equals(LogMessage.SystemField.ID.fieldName)
+                                            && f instanceof SortedDocValuesField)
+                    .count())
+            .isEqualTo(1);
     assertThat(docBuilder.getSchema().get("_index").fieldType.name)
-        .isEqualTo(FieldType.STRING.name);
+            .isEqualTo(FieldType.STRING.name);
     assertThat(
             testDocument.getFields().stream()
-                .filter(f -> f.name().equals("_index") && f instanceof SortedDocValuesField)
-                .count())
-        .isEqualTo(1);
+                    .filter(f -> f.name().equals("_index") && f instanceof SortedDocValuesField)
+                    .count())
+            .isEqualTo(1);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
             testDocument.getFields().stream()
-                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
-                .count())
-        .isEqualTo(1);
+                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                    .count())
+            .isEqualTo(1);
     // Ensure lucene field name and the name in schema match.
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            docBuilder.getSchema().values().stream().map(f -> f.name).collect(Collectors.toList()));
+            .containsAll(
+                    docBuilder.getSchema().values().stream().map(f -> f.name).collect(Collectors.toList()));
   }
 
   @Test
@@ -85,13 +84,14 @@ public class DropPolicyTest {
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(16);
     assertThat(docBuilder.getSchema().keySet())
-        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
-    Document testDocument = docBuilder.fromMessage(SpanUtil.makeSpan(0));
-    assertThat(testDocument.getFields().size()).isEqualTo(22);
+            .doesNotContain(LogMessage.SystemField.ALL.fieldName);
+    final LogMessage message = MessageUtil.makeMessage(0);
+    Document testDocument = docBuilder.fromMessage(message);
+    assertThat(testDocument.getFields().size()).isEqualTo(20);
     assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            List.of("longproperty", "floatproperty", "intproperty", "message", "doubleproperty"));
+            .containsAll(
+                    List.of("longproperty", "floatproperty", "intproperty", "message", "doubleproperty"));
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -99,30 +99,30 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().get("_id").fieldType.name).isEqualTo(FieldType.ID.name);
     assertThat(
             testDocument.getFields().stream()
-                .filter(
-                    f ->
-                        f.name().equals(LogMessage.SystemField.ID.fieldName)
-                            && f instanceof SortedDocValuesField)
-                .count())
-        .isEqualTo(1);
+                    .filter(
+                            f ->
+                                    f.name().equals(LogMessage.SystemField.ID.fieldName)
+                                            && f instanceof SortedDocValuesField)
+                    .count())
+            .isEqualTo(1);
     assertThat(docBuilder.getSchema().get("_index").fieldType.name)
-        .isEqualTo(FieldType.STRING.name);
+            .isEqualTo(FieldType.STRING.name);
     assertThat(
             testDocument.getFields().stream()
-                .filter(f -> f.name().equals("_index") && f instanceof SortedDocValuesField)
-                .count())
-        .isEqualTo(1);
+                    .filter(f -> f.name().equals("_index") && f instanceof SortedDocValuesField)
+                    .count())
+            .isEqualTo(1);
     assertThat(docBuilder.getSchema().keySet())
-        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
+            .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     assertThat(
             testDocument.getFields().stream()
-                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
-                .count())
-        .isZero();
+                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                    .count())
+            .isZero();
     // Ensure lucene field name and the name in schema match.
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            docBuilder.getSchema().values().stream().map(f -> f.name).collect(Collectors.toList()));
+            .containsAll(
+                    docBuilder.getSchema().values().stream().map(f -> f.name).collect(Collectors.toList()));
   }
 
   @Test
@@ -133,38 +133,38 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                "duplicateproperty",
-                "duplicate1",
-                "booleanproperty",
-                true,
-                "nested",
-                Map.of("nested1", "value1", "nested2", 2)));
+            new LogMessage(
+                    MessageUtil.TEST_DATASET_NAME,
+                    "INFO",
+                    "1",
+                    Instant.now(),
+                    Map.of(
+                            LogMessage.ReservedField.MESSAGE.fieldName,
+                            "Test message",
+                            "duplicateproperty",
+                            "duplicate1",
+                            "booleanproperty",
+                            true,
+                            "nested",
+                            Map.of("nested1", "value1", "nested2", 2)));
 
     Document testDocument = docBuilder.fromMessage(message);
     assertThat(testDocument.getFields().size()).isEqualTo(19);
     assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            List.of("duplicateproperty", "nested.nested1", "nested.nested2", "booleanproperty"));
+            .containsAll(
+                    List.of("duplicateproperty", "nested.nested1", "nested.nested2", "booleanproperty"));
     assertThat(docBuilder.getSchema().get("booleanproperty").fieldType)
-        .isEqualTo(FieldType.BOOLEAN);
+            .isEqualTo(FieldType.BOOLEAN);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
             testDocument.getFields().stream()
-                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
-                .count())
-        .isEqualTo(1);
+                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                    .count())
+            .isEqualTo(1);
   }
 
   @Test
@@ -174,60 +174,60 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
 
     LogMessage message =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                "duplicateproperty",
-                "duplicate1",
-                "booleanproperty",
-                true,
-                "nested",
-                Map.of(
-                    "nested1",
-                    "value1",
-                    "nested11",
-                    2,
-                    "nested12",
+            new LogMessage(
+                    MessageUtil.TEST_DATASET_NAME,
+                    "INFO",
+                    "1",
+                    Instant.now(),
                     Map.of(
-                        "nested21",
-                        21,
-                        "nested22",
-                        Map.of("nested31", 31, "nested32", Map.of("nested41", 41))))));
+                            LogMessage.ReservedField.MESSAGE.fieldName,
+                            "Test message",
+                            "duplicateproperty",
+                            "duplicate1",
+                            "booleanproperty",
+                            true,
+                            "nested",
+                            Map.of(
+                                    "nested1",
+                                    "value1",
+                                    "nested11",
+                                    2,
+                                    "nested12",
+                                    Map.of(
+                                            "nested21",
+                                            21,
+                                            "nested22",
+                                            Map.of("nested31", 31, "nested32", Map.of("nested41", 41))))));
 
     Document testDocument = docBuilder.fromMessage(message);
     assertThat(testDocument.getFields().size()).isEqualTo(25);
     assertThat(docBuilder.getSchema().size()).isEqualTo(24);
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            List.of(
-                "duplicateproperty",
-                "nested.nested1",
-                "nested.nested11",
-                "nested.nested12.nested21",
-                "nested.nested12.nested22.nested31",
-                "nested.nested12.nested22.nested32",
-                "booleanproperty"));
+            .containsAll(
+                    List.of(
+                            "duplicateproperty",
+                            "nested.nested1",
+                            "nested.nested11",
+                            "nested.nested12.nested21",
+                            "nested.nested12.nested22.nested31",
+                            "nested.nested12.nested22.nested32",
+                            "booleanproperty"));
     assertThat(docBuilder.getSchema().keySet())
-        .doesNotContainAnyElementsOf(
-            List.of("nested.nested12", "nested.nested12.nested22.nested32.nested41"));
+            .doesNotContainAnyElementsOf(
+                    List.of("nested.nested12", "nested.nested12.nested22.nested32.nested41"));
     assertThat(docBuilder.getSchema().get("booleanproperty").fieldType)
-        .isEqualTo(FieldType.BOOLEAN);
+            .isEqualTo(FieldType.BOOLEAN);
     assertThat(docBuilder.getSchema().get("nested.nested12.nested22.nested32").fieldType)
-        .isEqualTo(FieldType.STRING);
+            .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
             testDocument.getFields().stream()
-                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
-                .count())
-        .isEqualTo(1);
+                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                    .count())
+            .isEqualTo(1);
   }
 
   @Test
@@ -238,38 +238,38 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                "duplicateproperty",
-                "duplicate1",
-                "nested",
-                Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
+            new LogMessage(
+                    MessageUtil.TEST_DATASET_NAME,
+                    "INFO",
+                    "1",
+                    Instant.now(),
+                    Map.of(
+                            LogMessage.ReservedField.MESSAGE.fieldName,
+                            "Test message",
+                            "duplicateproperty",
+                            "duplicate1",
+                            "nested",
+                            Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
 
     Document testDocument = docBuilder.fromMessage(message);
     assertThat(testDocument.getFields().size()).isEqualTo(19);
     assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            List.of(
-                "duplicateproperty",
-                "nested.leaf1",
-                "nested.nested.leaf2",
-                "nested.nested.leaf21"));
+            .containsAll(
+                    List.of(
+                            "duplicateproperty",
+                            "nested.leaf1",
+                            "nested.nested.leaf2",
+                            "nested.nested.leaf21"));
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
             testDocument.getFields().stream()
-                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
-                .count())
-        .isEqualTo(1);
+                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                    .count())
+            .isEqualTo(1);
   }
 
   @Test
@@ -278,42 +278,42 @@ public class DropPolicyTest {
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(16);
     assertThat(docBuilder.getSchema().keySet())
-        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
+            .doesNotContain(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                "duplicateproperty",
-                "duplicate1",
-                "nested",
-                Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
+            new LogMessage(
+                    MessageUtil.TEST_DATASET_NAME,
+                    "INFO",
+                    "1",
+                    Instant.now(),
+                    Map.of(
+                            LogMessage.ReservedField.MESSAGE.fieldName,
+                            "Test message",
+                            "duplicateproperty",
+                            "duplicate1",
+                            "nested",
+                            Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
 
     Document testDocument = docBuilder.fromMessage(message);
     assertThat(testDocument.getFields().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().size()).isEqualTo(20);
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            List.of(
-                "duplicateproperty",
-                "nested.leaf1",
-                "nested.nested.leaf2",
-                "nested.nested.leaf21"));
+            .containsAll(
+                    List.of(
+                            "duplicateproperty",
+                            "nested.leaf1",
+                            "nested.nested.leaf2",
+                            "nested.nested.leaf21"));
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(docBuilder.getSchema().keySet())
-        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
+            .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     assertThat(
             testDocument.getFields().stream()
-                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
-                .count())
-        .isZero();
+                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                    .count())
+            .isZero();
   }
 
   @Test
@@ -323,67 +323,64 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     String conflictingFieldName = "conflictingField";
 
-    Trace.KeyValue hostField =
-        Trace.KeyValue.newBuilder()
-            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
-            .setVType(Trace.ValueType.STRING)
-            .setVStr("host1-dc2.abc.com")
-            .build();
-    Trace.KeyValue tagField =
-        Trace.KeyValue.newBuilder()
-            .setKey(LogMessage.ReservedField.TAG.fieldName)
-            .setVType(Trace.ValueType.STRING)
-            .setVStr("foo-bar")
-            .build();
-
-    Trace.KeyValue conflictingTagStr =
-        Trace.KeyValue.newBuilder()
-            .setKey(conflictingFieldName)
-            .setVType(Trace.ValueType.STRING)
-            .setVStr("1")
-            .build();
-
-    Trace.KeyValue conflictingTagInt =
-        Trace.KeyValue.newBuilder()
-            .setKey(conflictingFieldName)
-            .setVType(Trace.ValueType.INT32)
-            .setVInt32(1)
-            .build();
-
-    Trace.Span msg1 =
-        SpanUtil.makeSpan(
-            1, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagStr));
+    LogMessage msg1 =
+            new LogMessage(
+                    MessageUtil.TEST_DATASET_NAME,
+                    "INFO",
+                    "1",
+                    Instant.now(),
+                    Map.of(
+                            LogMessage.ReservedField.MESSAGE.fieldName,
+                            "Test message",
+                            LogMessage.ReservedField.TAG.fieldName,
+                            "foo-bar",
+                            LogMessage.ReservedField.HOSTNAME.fieldName,
+                            "host1-dc2.abc.com",
+                            conflictingFieldName,
+                            "1"));
 
     Document msg1Doc = docBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(29);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
-                .filter(f -> f.name().equals(conflictingFieldName))
-                .findFirst())
-        .isNotEmpty();
-    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
+                    .filter(f -> f.name().equals(conflictingFieldName))
+                    .findFirst())
+            .isNotEmpty();
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.STRING);
+            .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
 
-    Trace.Span msg2 =
-        SpanUtil.makeSpan(
-            1, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagInt));
+    LogMessage msg2 =
+            new LogMessage(
+                    MessageUtil.TEST_DATASET_NAME,
+                    "INFO",
+                    "2",
+                    Instant.now(),
+                    Map.of(
+                            LogMessage.ReservedField.MESSAGE.fieldName,
+                            "Test message",
+                            LogMessage.ReservedField.TAG.fieldName,
+                            "foo-bar",
+                            LogMessage.ReservedField.HOSTNAME.fieldName,
+                            "host1-dc2.abc.com",
+                            conflictingFieldName,
+                            1));
     Document msg2Doc = docBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(27);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(15);
     // Conflicting field is dropped.
     assertThat(
             msg2Doc.getFields().stream()
-                .filter(f -> f.name().equals(conflictingFieldName))
-                .findFirst())
-        .isEmpty();
-    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
+                    .filter(f -> f.name().equals(conflictingFieldName))
+                    .findFirst())
+            .isEmpty();
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.STRING);
+            .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isEqualTo(1);
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -399,24 +396,24 @@ public class DropPolicyTest {
 
     final String floatStrConflictField = "floatStrConflictField";
     LogMessage message =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                "duplicateproperty",
-                "duplicate1",
-                floatStrConflictField,
-                3.0f,
-                "nested",
-                Map.of(
-                    "leaf1",
-                    "value1",
-                    "nested",
-                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
+            new LogMessage(
+                    MessageUtil.TEST_DATASET_NAME,
+                    "INFO",
+                    "1",
+                    Instant.now(),
+                    Map.of(
+                            LogMessage.ReservedField.MESSAGE.fieldName,
+                            "Test message",
+                            "duplicateproperty",
+                            "duplicate1",
+                            floatStrConflictField,
+                            3.0f,
+                            "nested",
+                            Map.of(
+                                    "leaf1",
+                                    "value1",
+                                    "nested",
+                                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
     final int expectedFieldsInDocumentAfterMesssage = 23;
@@ -424,81 +421,81 @@ public class DropPolicyTest {
     final int fieldCountAfterIndexingFirstDocument = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(fieldCountAfterIndexingFirstDocument);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
-        .isEqualTo(FieldType.FLOAT);
+            .isEqualTo(FieldType.FLOAT);
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            List.of(
-                "duplicateproperty",
-                floatStrConflictField,
-                "nested.nested.nestedList",
-                "nested.leaf1",
-                "nested.nested.leaf2",
-                "nested.nested.leaf21"));
+            .containsAll(
+                    List.of(
+                            "duplicateproperty",
+                            floatStrConflictField,
+                            "nested.nested.nestedList",
+                            "nested.leaf1",
+                            "nested.nested.leaf2",
+                            "nested.nested.leaf21"));
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
 
     LogMessage msg2 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                "duplicateproperty",
-                "duplicate1",
-                floatStrConflictField,
-                "blah",
-                "nested",
-                Map.of(
-                    "leaf1",
-                    "value1",
-                    "nested",
-                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
+            new LogMessage(
+                    MessageUtil.TEST_DATASET_NAME,
+                    "INFO",
+                    "1",
+                    Instant.now(),
+                    Map.of(
+                            LogMessage.ReservedField.MESSAGE.fieldName,
+                            "Test message",
+                            "duplicateproperty",
+                            "duplicate1",
+                            floatStrConflictField,
+                            "blah",
+                            "nested",
+                            Map.of(
+                                    "leaf1",
+                                    "value1",
+                                    "nested",
+                                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
     Document testDocument2 = docBuilder.fromMessage(msg2);
     assertThat(testDocument2.getFields().size())
-        .isEqualTo(
-            expectedFieldsInDocumentAfterMesssage - 2); // 1 dropped field, 2 less indexed fields
+            .isEqualTo(
+                    expectedFieldsInDocumentAfterMesssage - 2); // 1 dropped field, 2 less indexed fields
     assertThat(docBuilder.getSchema().size()).isEqualTo(fieldCountAfterIndexingFirstDocument);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
-        .isEqualTo(FieldType.FLOAT);
+            .isEqualTo(FieldType.FLOAT);
     String additionalCreatedFieldName = makeNewFieldOfType(floatStrConflictField, FieldType.TEXT);
     assertThat(
             testDocument2.getFields().stream()
-                .filter(f -> f.name().equals(additionalCreatedFieldName))
-                .count())
-        .isZero();
+                    .filter(f -> f.name().equals(additionalCreatedFieldName))
+                    .count())
+            .isZero();
     assertThat(
             testDocument2.getFields().stream()
-                .filter(f -> f.name().equals(floatStrConflictField))
-                .count())
-        .isZero();
+                    .filter(f -> f.name().equals(floatStrConflictField))
+                    .count())
+            .isZero();
     assertThat(docBuilder.getSchema().containsKey(additionalCreatedFieldName)).isFalse();
     assertThat(docBuilder.getSchema().keySet())
-        .containsAll(
-            List.of(
-                "duplicateproperty",
-                floatStrConflictField,
-                "nested.nested.nestedList",
-                "nested.leaf1",
-                "nested.nested.leaf2",
-                "nested.nested.leaf21"));
+            .containsAll(
+                    List.of(
+                            "duplicateproperty",
+                            floatStrConflictField,
+                            "nested.nested.nestedList",
+                            "nested.leaf1",
+                            "nested.nested.leaf2",
+                            "nested.nested.leaf21"));
     assertThat(docBuilder.getSchema().containsKey(additionalCreatedFieldName)).isFalse();
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isEqualTo(1);
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(
             testDocument.getFields().stream()
-                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
-                .count())
-        .isEqualTo(1);
+                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                    .count())
+            .isEqualTo(1);
     assertThat(
             testDocument2.getFields().stream()
-                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
-                .count())
-        .isEqualTo(1);
+                    .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                    .count())
+            .isEqualTo(1);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
   }
 }
