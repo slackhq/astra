@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore.schema;
 import static com.slack.kaldb.logstore.LogMessage.computedIndexName;
 import static com.slack.kaldb.writer.SpanFormatter.DEFAULT_INDEX_NAME;
 import static com.slack.kaldb.writer.SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE;
+import static com.slack.kaldb.writer.SpanFormatter.isValidTimestamp;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
@@ -405,11 +406,20 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
       throw new IllegalArgumentException("Span id is empty");
     }
 
-    // TODO: this interferes in tests
-    // Instant timestamp = SpanFormatter.getTimestampFromSpan(message);
     Instant timestamp =
         Instant.ofEpochMilli(
             TimeUnit.MILLISECONDS.convert(message.getTimestamp(), TimeUnit.MICROSECONDS));
+    if (!isValidTimestamp(timestamp)) {
+      timestamp = Instant.now();
+      addField(
+          doc,
+          LogMessage.ReservedField.KALDB_INVALID_TIMESTAMP.fieldName,
+          message.getTimestamp(),
+          "",
+          0);
+      jsonMap.put(
+          LogMessage.ReservedField.KALDB_INVALID_TIMESTAMP.fieldName, message.getTimestamp());
+    }
     addField(
         doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, timestamp.toEpochMilli(), "", 0);
 

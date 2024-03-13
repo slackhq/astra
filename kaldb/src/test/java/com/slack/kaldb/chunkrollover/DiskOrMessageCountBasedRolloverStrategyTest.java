@@ -257,8 +257,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
 
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
 
     int totalMessages = 10;
     int offset = 1;

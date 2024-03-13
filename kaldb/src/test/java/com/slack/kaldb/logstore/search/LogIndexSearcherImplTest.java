@@ -29,8 +29,7 @@ import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -82,10 +81,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testTimeBoundSearch() {
-    Instant time =
-        LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC)
-            .atZone(ZoneOffset.UTC)
-            .toInstant();
+    Instant time = Instant.now();
     strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
     strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
     strictLogStore.logStore.commit();
@@ -236,7 +232,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchMultipleItemsAndIndices() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
@@ -560,7 +556,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testTopKQuery() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
 
     SearchResult<LogMessage> apples =
@@ -587,7 +583,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchMultipleCommits() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
 
     strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time));
     strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, "apple baby", time.plusSeconds(2)));
@@ -691,8 +687,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testFullIndexSearch() {
-    Instant time = Instant.ofEpochSecond(1593365471);
-    loadTestData(time);
+    loadTestData(Instant.now());
 
     SearchResult<LogMessage> allIndexItems =
         strictLogStore.logSearcher.search(
@@ -755,7 +750,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testFilterAggregations() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
 
     SearchResult<LogMessage> scriptNull =
@@ -800,7 +795,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testFullIndexSearchForMinAgg() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
 
     SearchResult<LogMessage> allIndexItems =
@@ -818,14 +813,12 @@ public class LogIndexSearcherImplTest {
     InternalMin internalMin =
         (InternalMin) Objects.requireNonNull(allIndexItems.internalAggregation);
 
-    // NOTE: 1.593365471E12 is the epoch seconds above but in milliseconds and in scientific
-    // notation
-    assertThat(internalMin.getValue()).isEqualTo(Double.parseDouble("1.593365471E12"));
+    assertThat(Double.valueOf(internalMin.getValue()).longValue()).isEqualTo(time.toEpochMilli());
   }
 
   @Test
   public void testFullIndexSearchForMaxAgg() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
 
     SearchResult<LogMessage> allIndexItems =
@@ -843,11 +836,9 @@ public class LogIndexSearcherImplTest {
     InternalMax internalMax =
         (InternalMax) Objects.requireNonNull(allIndexItems.internalAggregation);
 
-    // NOTE: 1.593365475E12 is the epoch seconds above, with 4 more seconds added on due to the
-    // test
-    // data, but in
-    // milliseconds and in scientific notation
-    assertThat(internalMax.getValue()).isEqualTo(Double.parseDouble("1.593365475E12"));
+    // 4 seconds because of test data
+    assertThat(Double.valueOf(internalMax.getValue()).longValue())
+        .isEqualTo(time.plus(4, ChronoUnit.SECONDS).toEpochMilli());
   }
 
   @Test
@@ -1512,7 +1503,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchAndNoStats() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
     SearchResult<LogMessage> results =
         strictLogStore.logSearcher.search(
@@ -1528,7 +1519,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchOnlyHistogram() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
@@ -1757,7 +1748,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchById() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
     SearchResult<LogMessage> index =
         strictLogStore.logSearcher.search(

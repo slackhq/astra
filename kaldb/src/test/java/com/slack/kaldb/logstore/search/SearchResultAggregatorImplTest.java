@@ -20,8 +20,6 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,8 +43,8 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 13;
     int howMany = 1;
-    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
-    Instant startTime2 = LocalDateTime.of(2020, 1, 1, 2, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime1 = Instant.now();
+    Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
     long histogramStartMs = startTime1.toEpochMilli();
     long histogramEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
 
@@ -116,7 +114,7 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 13;
     int howMany = 10;
-    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime1 = Instant.now();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
     long histogramStartMs = startTime1.toEpochMilli();
     long histogramEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
@@ -186,7 +184,7 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 25;
     int howMany = 10;
-    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime1 = Instant.now();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
     Instant startTime3 = startTime1.plus(2, ChronoUnit.HOURS);
     Instant startTime4 = startTime1.plus(3, ChronoUnit.HOURS);
@@ -275,7 +273,7 @@ public class SearchResultAggregatorImplTest {
   public void testSimpleSearchResultsAggWithNoHistograms() throws IOException {
     long tookMs = 10;
     int howMany = 10;
-    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime1 = Instant.now();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
     long searchStartMs = startTime1.toEpochMilli();
     long searchEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
@@ -325,7 +323,7 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 13;
     int howMany = 0;
-    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime1 = Instant.now();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
     long histogramStartMs = startTime1.toEpochMilli();
     long histogramEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
@@ -390,7 +388,7 @@ public class SearchResultAggregatorImplTest {
   public void testSearchResultsAggIgnoresBucketsInSearchResultsSafely() throws IOException {
     long tookMs = 10;
     int howMany = 10;
-    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime1 = Instant.now();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
     long startTimeMs = startTime1.toEpochMilli();
     long endTimeMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
@@ -449,7 +447,7 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 13;
     int howMany = 0;
-    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime1 = Instant.now();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
     long histogramStartMs = startTime1.toEpochMilli();
     long histogramEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();

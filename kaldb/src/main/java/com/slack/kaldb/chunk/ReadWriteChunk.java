@@ -3,6 +3,7 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 import static com.slack.kaldb.logstore.BlobFsUtils.createURI;
+import static com.slack.kaldb.writer.SpanFormatter.isValidTimestamp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.BlobFs;
@@ -153,11 +154,13 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     if (!readOnly) {
       logStore.addMessage(message);
 
-      chunkInfo.updateDataTimeRange(
-          TimeUnit.MILLISECONDS.convert(message.getTimestamp(), TimeUnit.MICROSECONDS));
-      // if we do this i.e also validate the timestamp tests
-      // that use dates from 2020 start failing so not touching this logic for now
-      // chunkInfo.updateDataTimeRange(SpanFormatter.getTimestampFromSpan(message).toEpochMilli());
+      Instant timestamp =
+          Instant.ofEpochMilli(
+              TimeUnit.MILLISECONDS.convert(message.getTimestamp(), TimeUnit.MICROSECONDS));
+      if (!isValidTimestamp(timestamp)) {
+        timestamp = Instant.now();
+      }
+      chunkInfo.updateDataTimeRange(timestamp.toEpochMilli());
 
       chunkInfo.updateMaxOffset(offset);
     } else {

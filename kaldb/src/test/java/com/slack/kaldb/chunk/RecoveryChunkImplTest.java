@@ -40,8 +40,6 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
@@ -192,8 +190,7 @@ public class RecoveryChunkImplTest {
 
     @Test
     public void testAddAndSearchChunkInTimeRange() {
-      final Instant startTime =
-          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+      final Instant startTime = Instant.now();
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
       final long messageStartTimeMs =
           TimeUnit.MILLISECONDS.convert(messages.get(0).getTimestamp(), TimeUnit.MICROSECONDS);
@@ -212,7 +209,11 @@ public class RecoveryChunkImplTest {
       final long expectedEndTimeEpochMs =
           TimeUnit.MILLISECONDS.convert(messages.get(99).getTimestamp(), TimeUnit.MICROSECONDS);
       // Ensure chunk info is correct.
-      assertThat(chunk.info().getDataStartTimeEpochMs()).isEqualTo(messageStartTimeMs);
+      Instant oneMinBefore = Instant.now().minus(1, ChronoUnit.MINUTES);
+      Instant oneMinBeforeAfter = Instant.now().plus(1, ChronoUnit.MINUTES);
+      assertThat(chunk.info().getDataStartTimeEpochMs()).isGreaterThan(oneMinBefore.toEpochMilli());
+      assertThat(chunk.info().getDataStartTimeEpochMs())
+          .isLessThan(oneMinBeforeAfter.toEpochMilli());
       assertThat(chunk.info().getDataEndTimeEpochMs()).isEqualTo(expectedEndTimeEpochMs);
       assertThat(chunk.info().chunkId).contains(CHUNK_DATA_PREFIX);
       assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isZero();
@@ -238,9 +239,12 @@ public class RecoveryChunkImplTest {
       // Add more messages in other time range and search again with new time ranges.
 
       List<Trace.Span> newMessages =
-          SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime.plus(2, ChronoUnit.DAYS));
+          SpanUtil.makeSpansWithTimeDifference(
+              1, 100, 1000, startTime.plus(10, ChronoUnit.MINUTES));
       final long newMessageStartTimeEpochMs =
           TimeUnit.MILLISECONDS.convert(newMessages.get(0).getTimestamp(), TimeUnit.MICROSECONDS);
+      final long newMessageEndTimeEpochMs =
+          TimeUnit.MILLISECONDS.convert(newMessages.get(99).getTimestamp(), TimeUnit.MICROSECONDS);
       for (Trace.Span m : newMessages) {
         chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
@@ -252,9 +256,10 @@ public class RecoveryChunkImplTest {
       assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(2);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(2);
 
-      assertThat(chunk.info().getDataStartTimeEpochMs()).isEqualTo(messageStartTimeMs);
-      assertThat(chunk.info().getDataEndTimeEpochMs())
-          .isEqualTo(newMessageStartTimeEpochMs + (99 * 1000));
+      assertThat(chunk.info().getDataStartTimeEpochMs()).isGreaterThan(oneMinBefore.toEpochMilli());
+      assertThat(chunk.info().getDataStartTimeEpochMs())
+          .isLessThan(oneMinBeforeAfter.toEpochMilli());
+      assertThat(chunk.info().getDataEndTimeEpochMs()).isEqualTo(newMessageEndTimeEpochMs);
 
       // Search for message in expected time range.
       searchChunk("Message1", messageStartTimeMs, expectedEndTimeEpochMs, 1);

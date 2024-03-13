@@ -33,8 +33,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.AfterEach;
@@ -108,8 +106,7 @@ public class KaldbLocalQueryServiceTest {
   public void testKalDbSearch() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
@@ -176,8 +173,7 @@ public class KaldbLocalQueryServiceTest {
   public void testKalDbSearchNoData() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
@@ -222,8 +218,7 @@ public class KaldbLocalQueryServiceTest {
   public void testKalDbSearchNoHits() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
@@ -270,8 +265,7 @@ public class KaldbLocalQueryServiceTest {
   public void testKalDbSearchNoHistogram() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
@@ -326,8 +320,7 @@ public class KaldbLocalQueryServiceTest {
   public void testKalDbBadArgSearch() throws Throwable {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
@@ -361,8 +354,7 @@ public class KaldbLocalQueryServiceTest {
     // Load test data into chunk manager.
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
@@ -440,8 +432,7 @@ public class KaldbLocalQueryServiceTest {
     // Load test data into chunk manager.
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {

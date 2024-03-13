@@ -1071,16 +1071,15 @@ public class IndexingChunkManagerTest {
 
   @Test
   public void testMultiChunkSearch() throws Exception {
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
 
     final List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 10, 1000, startTime);
     messages.addAll(
-        SpanUtil.makeSpansWithTimeDifference(11, 20, 1000, startTime.plus(2, ChronoUnit.HOURS)));
+        SpanUtil.makeSpansWithTimeDifference(11, 20, 1000, startTime.plus(2, ChronoUnit.MINUTES)));
     messages.addAll(
-        SpanUtil.makeSpansWithTimeDifference(21, 30, 1000, startTime.plus(4, ChronoUnit.HOURS)));
+        SpanUtil.makeSpansWithTimeDifference(21, 30, 1000, startTime.plus(4, ChronoUnit.MINUTES)));
     messages.addAll(
-        SpanUtil.makeSpansWithTimeDifference(31, 35, 1000, startTime.plus(6, ChronoUnit.HOURS)));
+        SpanUtil.makeSpansWithTimeDifference(31, 35, 1000, startTime.plus(6, ChronoUnit.MINUTES)));
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
@@ -1148,7 +1147,7 @@ public class IndexingChunkManagerTest {
                 chunkManager, "Message11", messagesStartTimeMs, messagesStartTimeMs + 10000))
         .isEqualTo(0);
 
-    final long chunk2StartTimeMs = chunk1StartTimeMs + Duration.ofHours(2).toMillis();
+    final long chunk2StartTimeMs = chunk1StartTimeMs + Duration.ofMinutes(2).toMillis();
     final long chunk2EndTimeMs = chunk2StartTimeMs + 10000;
 
     assertThat(searchAndGetHitCount(chunkManager, "Message11", chunk2StartTimeMs, chunk2EndTimeMs))
@@ -1161,7 +1160,7 @@ public class IndexingChunkManagerTest {
         .isEqualTo(0);
 
     // Chunk 3
-    final long chunk3StartTimeMs = chunk1StartTimeMs + Duration.ofHours(4).toMillis();
+    final long chunk3StartTimeMs = chunk1StartTimeMs + Duration.ofMinutes(4).toMillis();
     final long chunk3EndTimeMs = chunk3StartTimeMs + 10000;
 
     assertThat(searchAndGetHitCount(chunkManager, "Message21", chunk3StartTimeMs, chunk3EndTimeMs))
@@ -1174,7 +1173,7 @@ public class IndexingChunkManagerTest {
         .isEqualTo(0);
 
     // Chunk 4
-    final long chunk4StartTimeMs = chunk1StartTimeMs + Duration.ofHours(6).toMillis();
+    final long chunk4StartTimeMs = chunk1StartTimeMs + Duration.ofMinutes(6).toMillis();
     final long chunk4EndTimeMs = chunk4StartTimeMs + 10000;
 
     assertThat(searchAndGetHitCount(chunkManager, "Message31", chunk4StartTimeMs, chunk4EndTimeMs))
