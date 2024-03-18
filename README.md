@@ -4,7 +4,7 @@
 [![release pipeline](https://img.shields.io/github/actions/workflow/status/slackhq/astra/maven.yml?branch=master)](https://github.com/slackhq/astra/actions/workflows/maven.yml)
 [![license](https://img.shields.io/github/license/slackhq/astra)](https://github.com/slackhq/astra/blob/master/LICENSE)
 
-Astra (previously KalDB) is a cloud-native search and analytics engine for log, trace, and audit data. It is designed to be easy to operate, 
+Awstra (previously KalDB) is a cloud-native search and analytics engine for log, trace, and audit data. It is designed to be easy to operate, 
 cost-effective, and scale to petabytes of data.
 
 ## Goals
