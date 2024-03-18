@@ -58,17 +58,17 @@ services:
     ports:
       - 9411:9411
 
-  #to build this image run 'docker build -t slackhq/kaldb .'
-  kaldb_preprocessor:
-    image: 'slackhq/kaldb'
-    container_name: kaldb_preprocessor
+  #to build this image run 'docker build -t slackhq/astra .'
+  astra_preprocessor:
+    image: 'slackhq/astra'
+    container_name: astra_preprocessor
     ports:
       - 8086:8086
     environment:
       # Node specific settings
       - NODE_ROLES=PREPROCESSOR
       - KALDB_PREPROCESSOR_USE_BULK_API=true
-      - KALDB_PREPROCESSOR_SERVER_ADDRESS=kaldb_preprocessor
+      - KALDB_PREPROCESSOR_SERVER_ADDRESS=astra_preprocessor
       # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
@@ -80,88 +80,88 @@ services:
       - s3
       - openzipkin
 
-  kaldb_index:
-    image: 'slackhq/kaldb'
-    container_name: kaldb_index
+  astra_index:
+    image: 'slackhq/astra'
+    container_name: astra_index
     ports:
       - 8080:8080
     environment:
       # Node specific settings
       - NODE_ROLES=INDEX
-      - KALDB_INDEX_SERVER_ADDRESS=kaldb_index
+      - KALDB_INDEX_SERVER_ADDRESS=astra_index
       # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
-      - kaldb_preprocessor
+      - astra_preprocessor
 
-  kaldb_manager:
-    image: 'slackhq/kaldb'
-    container_name: kaldb_manager
+  astra_manager:
+    image: 'slackhq/astra'
+    container_name: astra_manager
     ports:
       - 8083:8083
     environment:
       # Node specific settings
       - NODE_ROLES=MANAGER
-      - KALDB_MANAGER_SERVER_ADDRESS=kaldb_manager
+      - KALDB_MANAGER_SERVER_ADDRESS=astra_manager
       # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
-      - kaldb_preprocessor
+      - astra_preprocessor
 
-  kaldb_query:
-    image: 'slackhq/kaldb'
-    container_name: kaldb_query
+  astra_query:
+    image: 'slackhq/astra'
+    container_name: astra_query
     ports:
       - 8081:8081
     environment:
       # Node specific settings
       - NODE_ROLES=QUERY
-      - KALDB_QUERY_SERVER_ADDRESS=kaldb_query
-      - KALDB_MANAGER_CONNECTION_STRING=kaldb_manager:8083
+      - KALDB_QUERY_SERVER_ADDRESS=astra_query
+      - KALDB_MANAGER_CONNECTION_STRING=astra_manager:8083
       # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
-      - kaldb_preprocessor
+      - astra_preprocessor
 
-  kaldb_cache:
-    image: 'slackhq/kaldb'
-    container_name: kaldb_cache
+  astra_cache:
+    image: 'slackhq/astra'
+    container_name: astra_cache
     ports:
       - 8082:8082
     environment:
       # Node specific settings
       - NODE_ROLES=CACHE
-      - KALDB_CACHE_SERVER_ADDRESS=kaldb_cache
+      - KALDB_CACHE_SERVER_ADDRESS=astra_cache
       # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
-      - kaldb_preprocessor
+      - astra_preprocessor
 
-  kaldb_recovery:
-    image: 'slackhq/kaldb'
-    container_name: kaldb_recovery
+  astra_recovery:
+    image: 'slackhq/astra'
+    container_name: astra_recovery
     ports:
       - 8085:8085
     environment:
       # Node specific settings
       - NODE_ROLES=RECOVERY
-      - KALDB_RECOVERY_SERVER_ADDRESS=kaldb_recovery
+      - KALDB_RECOVERY_SERVER_ADDRESS=astra_recovery
       # Shared settings
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
-      - kaldb_preprocessor
+      - astra_preprocessor
