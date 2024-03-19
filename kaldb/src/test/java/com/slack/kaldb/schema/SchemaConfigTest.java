@@ -82,7 +82,7 @@ public class SchemaConfigTest {
                 assertThat(schema.getFieldsMap().get("ip").getType())
                     .isEqualTo(Schema.SchemaFieldType.IP);
 
-                assertThat(schema.getFieldsMap().get("timestamp").getType())
+                assertThat(schema.getFieldsMap().get("my_date").getType())
                     .isEqualTo(Schema.SchemaFieldType.DATE);
 
                 assertThat(schema.getFieldsMap().get("success").getType())

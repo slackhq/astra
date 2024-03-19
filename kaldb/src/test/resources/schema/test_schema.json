@@ -9,7 +9,7 @@
     "ip": {
       "type": "IP"
     },
-    "timestamp": {
+    "my_date": {
       "type": "DATE"
     },
     "success": {

@@ -402,7 +402,12 @@ public class Kaldb {
 
         Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
         if (!preprocessorConfig.getSchemaFile().isEmpty()) {
+          LOG.info("Loading schema file: {}", preprocessorConfig.getSchemaFile());
           schema = SchemaUtil.parseSchema(Path.of(preprocessorConfig.getSchemaFile()));
+          LOG.info(
+              "Loaded schema from file: {} with total fields: {}", schema, schema.getFieldsCount());
+        } else {
+          LOG.info("No schema file provided, using default schema");
         }
         BulkIngestApi openSearchBulkApiService =
             new BulkIngestApi(
