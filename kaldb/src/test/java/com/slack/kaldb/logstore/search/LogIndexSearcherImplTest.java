@@ -7,7 +7,6 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_SOURCE_LONG_PROPERTY;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
-import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
@@ -25,11 +24,12 @@ import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
+import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -69,32 +69,21 @@ public class LogIndexSearcherImplTest {
   }
 
   private void loadTestData(Instant time) {
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, "apple baby", time.plusSeconds(2)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(4, "car", time.plusSeconds(3)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(5, "apple baby car", time.plusSeconds(4)));
+    // when we enable multi-tenancy, we can add messages to different indices
 
-    // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
-    // strictLogStore.logStore.addMessage(
-    // makeMessageWithIndexAndTimestamp(2, "baby", "new" + TEST_INDEX_NAME, time.plusSeconds(1)));
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(3, "apple baby", TEST_DATASET_NAME, time.plusSeconds(2)));
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(4, "car", TEST_DATASET_NAME, time.plusSeconds(3)));
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(
-            5, "apple baby car", TEST_DATASET_NAME, time.plusSeconds(4)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
   }
 
   @Test
   public void testTimeBoundSearch() {
-    Instant time =
-        LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC)
-            .atZone(ZoneOffset.UTC)
-            .toInstant();
-    strictLogStore.logStore.addMessage(makeMessageWithIndexAndTimestamp(1, "test1", "test", time));
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(1, "test1", "test", time.plusSeconds(100)));
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
@@ -107,8 +96,8 @@ public class LogIndexSearcherImplTest {
             strictLogStore
                 .logSearcher
                 .search(
-                    "test",
-                    "test1",
+                    TEST_DATASET_NAME,
+                    "Message1",
                     time.toEpochMilli(),
                     time.plusSeconds(10).toEpochMilli(),
                     1000,
@@ -123,8 +112,8 @@ public class LogIndexSearcherImplTest {
             strictLogStore
                 .logSearcher
                 .search(
-                    "test",
-                    "test1",
+                    TEST_DATASET_NAME,
+                    "Message1",
                     time.minusSeconds(1).toEpochMilli(),
                     time.plusSeconds(90).toEpochMilli(),
                     1000,
@@ -139,8 +128,8 @@ public class LogIndexSearcherImplTest {
             strictLogStore
                 .logSearcher
                 .search(
-                    "test",
-                    "test1",
+                    TEST_DATASET_NAME,
+                    "_id:Message1 OR Message2",
                     time.toEpochMilli(),
                     time.plusSeconds(100).toEpochMilli(),
                     1000,
@@ -155,8 +144,8 @@ public class LogIndexSearcherImplTest {
             strictLogStore
                 .logSearcher
                 .search(
-                    "test",
-                    "test1",
+                    TEST_DATASET_NAME,
+                    "_id:Message1 OR Message2",
                     time.minusSeconds(1).toEpochMilli(),
                     time.plusSeconds(1000).toEpochMilli(),
                     1000,
@@ -171,8 +160,8 @@ public class LogIndexSearcherImplTest {
   @Disabled // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
   public void testIndexBoundSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
-    strictLogStore.logStore.addMessage(makeMessageWithIndexAndTimestamp(1, "test1", "idx", time));
-    strictLogStore.logStore.addMessage(makeMessageWithIndexAndTimestamp(1, "test1", "idx1", time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
@@ -243,12 +232,12 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchMultipleItemsAndIndices() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
-            "baby",
+            "Message1",
             time.toEpochMilli(),
             time.plusSeconds(2).toEpochMilli(),
             10,
@@ -265,9 +254,15 @@ public class LogIndexSearcherImplTest {
   @Test
   public void testAllQueryWithFullTextSearchEnabled() {
     Instant time = Instant.now();
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(
-            1, "apple", TEST_DATASET_NAME, time, Map.of("customField", "value")));
+
+    Trace.KeyValue customField =
+        Trace.KeyValue.newBuilder()
+            .setVStr("value")
+            .setKey("customField")
+            .setVType(Trace.ValueType.STRING)
+            .build();
+
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time, List.of(customField)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
@@ -296,7 +291,7 @@ public class LogIndexSearcherImplTest {
     SearchResult<LogMessage> noTermNumericQuery =
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
-            "1",
+            "Message1",
             time.toEpochMilli(),
             time.plusSeconds(2).toEpochMilli(),
             10,
@@ -308,9 +303,14 @@ public class LogIndexSearcherImplTest {
   @Test
   public void testAllQueryWithFullTextSearchDisabled() {
     Instant time = Instant.now();
+    Trace.KeyValue customField =
+        Trace.KeyValue.newBuilder()
+            .setVStr("value")
+            .setKey("customField")
+            .setVType(Trace.ValueType.STRING)
+            .build();
     strictLogStoreWithoutFts.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(
-            1, "apple", TEST_DATASET_NAME, time, Map.of("customField", "value")));
+        SpanUtil.makeSpan(1, "apple", time, List.of(customField)));
     strictLogStoreWithoutFts.logStore.commit();
     strictLogStoreWithoutFts.logStore.refresh();
 
@@ -351,12 +351,20 @@ public class LogIndexSearcherImplTest {
   @Test
   public void testExistsQuery() {
     Instant time = Instant.now();
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(
-            1, "apple", TEST_DATASET_NAME, time, Map.of("customField", "value")));
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(
-            1, "apple", TEST_DATASET_NAME, time, Map.of("customField1", "value")));
+    Trace.KeyValue customField =
+        Trace.KeyValue.newBuilder()
+            .setVStr("value")
+            .setKey("customField")
+            .setVType(Trace.ValueType.STRING)
+            .build();
+    Trace.KeyValue customField1 =
+        Trace.KeyValue.newBuilder()
+            .setVStr("value")
+            .setKey("customField1")
+            .setVType(Trace.ValueType.STRING)
+            .build();
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time, List.of(customField)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, "apple", time, List.of(customField1)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
@@ -397,12 +405,28 @@ public class LogIndexSearcherImplTest {
   @Test
   public void testRangeQuery() {
     Instant time = Instant.now();
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time, Map.of("val", 1)));
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(2, "bear", TEST_DATASET_NAME, time, Map.of("val", 2)));
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(3, "car", TEST_DATASET_NAME, time, Map.of("val", 3)));
+
+    Trace.KeyValue valTag1 =
+        Trace.KeyValue.newBuilder()
+            .setKey("val")
+            .setVType(Trace.ValueType.INT32)
+            .setVInt32(1)
+            .build();
+    Trace.KeyValue valTag2 =
+        Trace.KeyValue.newBuilder()
+            .setKey("val")
+            .setVType(Trace.ValueType.INT32)
+            .setVInt32(2)
+            .build();
+    Trace.KeyValue valTag3 =
+        Trace.KeyValue.newBuilder()
+            .setKey("val")
+            .setVType(Trace.ValueType.INT32)
+            .setVInt32(3)
+            .build();
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time, List.of(valTag1)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, "bear", time, List.of(valTag2)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, "car", time, List.of(valTag3)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
@@ -432,13 +456,45 @@ public class LogIndexSearcherImplTest {
   @Test
   public void testQueryParsingFieldTypes() {
     Instant time = Instant.now();
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(
-            1,
-            "apple",
-            TEST_DATASET_NAME,
-            time,
-            Map.of("boolval", true, "intval", 1, "longval", 2L, "floatval", 3F, "doubleval", 4D)));
+
+    Trace.KeyValue boolTag =
+        Trace.KeyValue.newBuilder()
+            .setVBool(true)
+            .setKey("boolval")
+            .setVType(Trace.ValueType.BOOL)
+            .build();
+
+    Trace.KeyValue intTag =
+        Trace.KeyValue.newBuilder()
+            .setVInt32(1)
+            .setKey("intval")
+            .setVType(Trace.ValueType.INT32)
+            .build();
+
+    Trace.KeyValue longTag =
+        Trace.KeyValue.newBuilder()
+            .setVInt64(2L)
+            .setKey("longval")
+            .setVType(Trace.ValueType.INT64)
+            .build();
+
+    Trace.KeyValue floatTag =
+        Trace.KeyValue.newBuilder()
+            .setVFloat32(3F)
+            .setKey("floatval")
+            .setVType(Trace.ValueType.FLOAT32)
+            .build();
+
+    Trace.KeyValue doubleTag =
+        Trace.KeyValue.newBuilder()
+            .setVFloat64(4D)
+            .setKey("doubleval")
+            .setVType(Trace.ValueType.FLOAT64)
+            .build();
+
+    Trace.Span span =
+        SpanUtil.makeSpan(1, "apple", time, List.of(boolTag, intTag, longTag, floatTag, doubleTag));
+    strictLogStore.logStore.addMessage(span);
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
@@ -500,7 +556,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testTopKQuery() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
 
     SearchResult<LogMessage> apples =
@@ -513,7 +569,7 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(apples.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
-        .isEqualTo(Arrays.asList("5", "3"));
+        .isEqualTo(Arrays.asList("Message5", "Message3"));
     assertThat(apples.hits.size()).isEqualTo(2);
 
     InternalDateHistogram histogram =
@@ -527,12 +583,10 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchMultipleCommits() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
 
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time));
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(2)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, "apple baby", time.plusSeconds(2)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
@@ -546,15 +600,14 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(baby.hits.size()).isEqualTo(1);
-    assertThat(baby.hits.get(0).getId()).isEqualTo("2");
+    assertThat(baby.hits.get(0).getId()).isEqualTo("Message2");
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
     assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
     assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
     // Add car but don't commit. So, no results for car.
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(3, "car", TEST_DATASET_NAME, time.plusSeconds(3)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, "car", time.plusSeconds(3)));
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(3);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
@@ -602,9 +655,7 @@ public class LogIndexSearcherImplTest {
         new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
 
     // Add another message to search, refresh but don't commit.
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(
-            4, "apple baby car", TEST_DATASET_NAME, time.plusSeconds(4)));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(4, "apple baby car", time.plusSeconds(4)));
     strictLogStore.logStore.refresh();
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(4);
@@ -624,7 +675,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(babies.hits.size()).isEqualTo(2);
     assertThat(babies.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
-        .isEqualTo(Arrays.asList("4", "2"));
+        .isEqualTo(Arrays.asList("Message4", "Message2"));
 
     // Commit now
     strictLogStore.logStore.commit();
@@ -636,8 +687,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testFullIndexSearch() {
-    Instant time = Instant.ofEpochSecond(1593365471);
-    loadTestData(time);
+    loadTestData(Instant.now());
 
     SearchResult<LogMessage> allIndexItems =
         strictLogStore.logSearcher.search(
@@ -700,7 +750,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testFilterAggregations() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
 
     SearchResult<LogMessage> scriptNull =
@@ -745,7 +795,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testFullIndexSearchForMinAgg() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
 
     SearchResult<LogMessage> allIndexItems =
@@ -763,14 +813,12 @@ public class LogIndexSearcherImplTest {
     InternalMin internalMin =
         (InternalMin) Objects.requireNonNull(allIndexItems.internalAggregation);
 
-    // NOTE: 1.593365471E12 is the epoch seconds above but in milliseconds and in scientific
-    // notation
-    assertThat(internalMin.getValue()).isEqualTo(Double.parseDouble("1.593365471E12"));
+    assertThat(Double.valueOf(internalMin.getValue()).longValue()).isEqualTo(time.toEpochMilli());
   }
 
   @Test
   public void testFullIndexSearchForMaxAgg() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
 
     SearchResult<LogMessage> allIndexItems =
@@ -788,10 +836,9 @@ public class LogIndexSearcherImplTest {
     InternalMax internalMax =
         (InternalMax) Objects.requireNonNull(allIndexItems.internalAggregation);
 
-    // NOTE: 1.593365475E12 is the epoch seconds above, with 4 more seconds added on due to the test
-    // data, but in
-    // milliseconds and in scientific notation
-    assertThat(internalMax.getValue()).isEqualTo(Double.parseDouble("1.593365475E12"));
+    // 4 seconds because of test data
+    assertThat(Double.valueOf(internalMax.getValue()).longValue())
+        .isEqualTo(time.plus(4, ChronoUnit.SECONDS).toEpochMilli());
   }
 
   @Test
@@ -979,10 +1026,15 @@ public class LogIndexSearcherImplTest {
   @Test
   public void testFullTextSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
-    final LogMessage msg1 =
-        makeMessageWithIndexAndTimestamp(
-            1, "apple", TEST_DATASET_NAME, time.plusSeconds(4), Map.of("field1", "1234"));
-    strictLogStore.logStore.addMessage(msg1);
+
+    Trace.KeyValue customField =
+        Trace.KeyValue.newBuilder()
+            .setVInt32(1234)
+            .setKey("field1")
+            .setVType(Trace.ValueType.INT32)
+            .build();
+
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time, List.of(customField)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
     // Search using _all field.
@@ -991,21 +1043,7 @@ public class LogIndexSearcherImplTest {
                 .logSearcher
                 .search(
                     TEST_DATASET_NAME,
-                    "_all:baby",
-                    0L,
-                    MAX_TIME,
-                    1000,
-                    new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
-                .hits
-                .size())
-        .isEqualTo(0);
-    assertThat(
-            strictLogStore
-                .logSearcher
-                .search(
-                    TEST_DATASET_NAME,
-                    "_all:1234",
+                    "_all:apple",
                     0L,
                     MAX_TIME,
                     1000,
@@ -1020,21 +1058,7 @@ public class LogIndexSearcherImplTest {
                 .logSearcher
                 .search(
                     TEST_DATASET_NAME,
-                    "baby",
-                    0L,
-                    MAX_TIME,
-                    1000,
-                    new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
-                .hits
-                .size())
-        .isEqualTo(0);
-    assertThat(
-            strictLogStore
-                .logSearcher
-                .search(
-                    TEST_DATASET_NAME,
-                    "1234",
+                    "Message1",
                     0L,
                     MAX_TIME,
                     1000,
@@ -1044,10 +1068,8 @@ public class LogIndexSearcherImplTest {
                 .size())
         .isEqualTo(1);
 
-    final LogMessage msg2 =
-        makeMessageWithIndexAndTimestamp(
-            2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(4), Map.of("field1", "1234"));
-    strictLogStore.logStore.addMessage(msg2);
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, "apple baby", time.plusSeconds(4), List.of(customField)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
     // Search using _all field.
@@ -1109,10 +1131,7 @@ public class LogIndexSearcherImplTest {
                 .size())
         .isEqualTo(2);
 
-    final LogMessage msg3 =
-        makeMessageWithIndexAndTimestamp(
-            3, "baby car 1234", TEST_DATASET_NAME, time.plusSeconds(4));
-    strictLogStore.logStore.addMessage(msg3);
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, "baby car 1234", time.plusSeconds(4)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
     // Search using _all field.
@@ -1256,20 +1275,21 @@ public class LogIndexSearcherImplTest {
   @Test
   public void testDisabledFullTextSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
-    final LogMessage msg1 =
-        makeMessageWithIndexAndTimestamp(
-            1, "apple", TEST_DATASET_NAME, time.plusSeconds(4), Map.of("field1", "1234"));
-    strictLogStoreWithoutFts.logStore.addMessage(msg1);
+    Trace.KeyValue field1Tag =
+        Trace.KeyValue.newBuilder()
+            .setVInt32(1234)
+            .setKey("field1")
+            .setVType(Trace.ValueType.INT32)
+            .build();
 
-    final LogMessage msg2 =
-        makeMessageWithIndexAndTimestamp(
-            2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(4), Map.of("field2", "1234"));
-    strictLogStoreWithoutFts.logStore.addMessage(msg2);
+    strictLogStoreWithoutFts.logStore.addMessage(
+        SpanUtil.makeSpan(1, "apple", time.plusSeconds(4), List.of(field1Tag)));
 
-    final LogMessage msg3 =
-        makeMessageWithIndexAndTimestamp(
-            3, "baby car 1234", TEST_DATASET_NAME, time.plusSeconds(4));
-    strictLogStoreWithoutFts.logStore.addMessage(msg3);
+    strictLogStoreWithoutFts.logStore.addMessage(
+        SpanUtil.makeSpan(2, "apple baby", time.plusSeconds(4), List.of(field1Tag)));
+
+    strictLogStoreWithoutFts.logStore.addMessage(
+        SpanUtil.makeSpan(3, "baby car 1234", time.plusSeconds(4)));
     strictLogStoreWithoutFts.logStore.commit();
     strictLogStoreWithoutFts.logStore.refresh();
 
@@ -1483,28 +1503,28 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchAndNoStats() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
-    SearchResult<LogMessage> babies =
+    SearchResult<LogMessage> results =
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
-            "baby",
+            "_id:Message3 OR _id:Message4",
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
             100,
             null);
-    assertThat(babies.hits.size()).isEqualTo(2);
-    assertThat(babies.internalAggregation).isNull();
+    assertThat(results.hits.size()).isEqualTo(2);
+    assertThat(results.internalAggregation).isNull();
   }
 
   @Test
   public void testSearchOnlyHistogram() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
-            "baby",
+            "_id:Message3 OR _id:Message4",
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
             0,
@@ -1697,7 +1717,7 @@ public class LogIndexSearcherImplTest {
               SearchResult<LogMessage> babies =
                   strictLogStore.logSearcher.search(
                       TEST_DATASET_NAME,
-                      "baby",
+                      "_id:Message3 OR _id:Message4",
                       0L,
                       MAX_TIME,
                       100,
@@ -1728,12 +1748,12 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchById() {
-    Instant time = Instant.ofEpochSecond(1593365471);
+    Instant time = Instant.now();
     loadTestData(time);
     SearchResult<LogMessage> index =
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
-            "_id:1",
+            "_id:Message1",
             time.toEpochMilli(),
             time.plusSeconds(2).toEpochMilli(),
             10,

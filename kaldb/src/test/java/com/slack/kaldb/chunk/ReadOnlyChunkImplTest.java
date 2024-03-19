@@ -181,6 +181,7 @@ public class ReadOnlyChunkImplTest {
     // ensure we registered a search node for this cache slot
     await().until(() -> searchMetadataStore.listSync().size() == 1);
     assertThat(searchMetadataStore.listSync().get(0).snapshotName).isEqualTo(snapshotId);
+
     assertThat(searchMetadataStore.listSync().get(0).url).isEqualTo("gproto+http://localhost:8080");
     assertThat(searchMetadataStore.listSync().get(0).name)
         .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
@@ -435,6 +436,7 @@ public class ReadOnlyChunkImplTest {
     // ensure we registered a search node for this cache slot
     await().until(() -> searchMetadataStore.listSync().size() == 1);
     assertThat(searchMetadataStore.listSync().get(0).snapshotName).isEqualTo(snapshotId);
+
     assertThat(searchMetadataStore.listSync().get(0).url).isEqualTo("gproto+http://localhost:8080");
     assertThat(searchMetadataStore.listSync().get(0).name)
         .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));

@@ -1,19 +1,32 @@
 package com.slack.kaldb.logstore.schema;
 
+import static com.slack.kaldb.logstore.LogMessage.computedIndexName;
+import static com.slack.kaldb.writer.SpanFormatter.DEFAULT_INDEX_NAME;
+import static com.slack.kaldb.writer.SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE;
+import static com.slack.kaldb.writer.SpanFormatter.isValidTimestamp;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.logstore.DocumentBuilder;
 import com.slack.kaldb.logstore.FieldDefMismatchException;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
 import org.slf4j.Logger;
@@ -31,7 +44,7 @@ import org.slf4j.LoggerFactory;
  * rarely an issue and helps with performance. If this is an issue, we need to scan the json twice
  * to ensure document is good to index.
  */
-public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
+public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
   private static final Logger LOG =
       LoggerFactory.getLogger(SchemaAwareLogDocumentBuilderImpl.class);
 
@@ -347,6 +360,146 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   @Override
+  public Document fromMessage(Trace.Span message) throws JsonProcessingException {
+    Document doc = new Document();
+
+    // today we rely on source to construct the document at search time so need to keep in
+    // consistent for now
+    Map<String, Object> jsonMap = new HashMap<>();
+    if (!message.getParentId().isEmpty()) {
+      jsonMap.put(
+          LogMessage.ReservedField.PARENT_ID.fieldName, message.getParentId().toStringUtf8());
+      addField(
+          doc,
+          LogMessage.ReservedField.PARENT_ID.fieldName,
+          message.getParentId().toStringUtf8(),
+          "",
+          0);
+    }
+    if (!message.getTraceId().isEmpty()) {
+      jsonMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, message.getTraceId().toStringUtf8());
+      addField(
+          doc,
+          LogMessage.ReservedField.TRACE_ID.fieldName,
+          message.getTraceId().toStringUtf8(),
+          "",
+          0);
+    }
+    if (!message.getName().isEmpty()) {
+      jsonMap.put(LogMessage.ReservedField.NAME.fieldName, message.getName());
+      addField(doc, LogMessage.ReservedField.NAME.fieldName, message.getName(), "", 0);
+    }
+    if (message.getDuration() != 0) {
+      jsonMap.put(
+          LogMessage.ReservedField.DURATION_MS.fieldName,
+          Duration.of(message.getDuration(), ChronoUnit.MICROS).toMillis());
+      addField(
+          doc,
+          LogMessage.ReservedField.DURATION_MS.fieldName,
+          Duration.of(message.getDuration(), ChronoUnit.MICROS).toMillis(),
+          "",
+          0);
+    }
+    if (!message.getId().isEmpty()) {
+      addField(doc, LogMessage.SystemField.ID.fieldName, message.getId().toStringUtf8(), "", 0);
+    } else {
+      throw new IllegalArgumentException("Span id is empty");
+    }
+
+    Instant timestamp =
+        Instant.ofEpochMilli(
+            TimeUnit.MILLISECONDS.convert(message.getTimestamp(), TimeUnit.MICROSECONDS));
+    if (!isValidTimestamp(timestamp)) {
+      timestamp = Instant.now();
+      addField(
+          doc,
+          LogMessage.ReservedField.KALDB_INVALID_TIMESTAMP.fieldName,
+          message.getTimestamp(),
+          "",
+          0);
+      jsonMap.put(
+          LogMessage.ReservedField.KALDB_INVALID_TIMESTAMP.fieldName, message.getTimestamp());
+    }
+    addField(
+        doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, timestamp.toEpochMilli(), "", 0);
+
+    Map<String, Trace.KeyValue> tags =
+        message.getTagsList().stream()
+            .map(keyValue -> Map.entry(keyValue.getKey(), keyValue))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    // This should just be top level Trace.Span fields. This is error prone - what if type is
+    // not a string?
+    // Also in BulkApiRequestParser we basically take the index field and put it as a tag. So we're
+    // just doing more work on both sides
+    String indexName =
+        tags.containsKey(LogMessage.ReservedField.SERVICE_NAME.fieldName)
+            ? tags.get(LogMessage.ReservedField.SERVICE_NAME.fieldName).getVStr()
+            : DEFAULT_INDEX_NAME;
+    // if we don't do this LogMessage#isValid will be unhappy when we recreate the message
+    // we need to fix this!!!
+    indexName = computedIndexName(indexName);
+    String msgType =
+        tags.containsKey(LogMessage.ReservedField.TYPE.fieldName)
+            ? tags.get(LogMessage.ReservedField.TYPE.fieldName).getVStr()
+            : DEFAULT_LOG_MESSAGE_TYPE;
+
+    addField(doc, LogMessage.ReservedField.TYPE.fieldName, msgType, "", 0);
+
+    jsonMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, indexName);
+    addField(doc, LogMessage.SystemField.INDEX.fieldName, indexName, "", 0);
+    addField(doc, LogMessage.ReservedField.SERVICE_NAME.fieldName, indexName, "", 0);
+
+    tags.remove(LogMessage.ReservedField.SERVICE_NAME.fieldName);
+    tags.remove(LogMessage.ReservedField.TYPE.fieldName);
+
+    for (Trace.KeyValue keyValue : tags.values()) {
+      if (keyValue.getVType() == Trace.ValueType.STRING) {
+        addField(doc, keyValue.getKey(), keyValue.getVStr(), "", 0);
+        jsonMap.put(keyValue.getKey(), keyValue.getVStr());
+      } else if (keyValue.getVType() == Trace.ValueType.BOOL) {
+        addField(doc, keyValue.getKey(), keyValue.getVBool(), "", 0);
+        jsonMap.put(keyValue.getKey(), keyValue.getVBool());
+      } else if (keyValue.getVType() == Trace.ValueType.INT32) {
+        addField(doc, keyValue.getKey(), keyValue.getVInt32(), "", 0);
+        jsonMap.put(keyValue.getKey(), keyValue.getVInt32());
+      } else if (keyValue.getVType() == Trace.ValueType.INT64) {
+        addField(doc, keyValue.getKey(), keyValue.getVInt64(), "", 0);
+        jsonMap.put(keyValue.getKey(), keyValue.getVInt64());
+      } else if (keyValue.getVType() == Trace.ValueType.FLOAT32) {
+        addField(doc, keyValue.getKey(), keyValue.getVFloat32(), "", 0);
+        jsonMap.put(keyValue.getKey(), keyValue.getVFloat32());
+      } else if (keyValue.getVType() == Trace.ValueType.FLOAT64) {
+        addField(doc, keyValue.getKey(), keyValue.getVFloat64(), "", 0);
+        jsonMap.put(keyValue.getKey(), keyValue.getVFloat64());
+      } else if (keyValue.getVType() == Trace.ValueType.BINARY) {
+        addField(doc, keyValue.getKey(), keyValue.getVBinary().toStringUtf8(), "", 0);
+        jsonMap.put(keyValue.getKey(), keyValue.getVBinary().toStringUtf8());
+      } else {
+        LOG.warn(
+            "Skipping field with unknown value type {} with key {}",
+            keyValue.getVType(),
+            keyValue.getKey());
+      }
+    }
+
+    LogWireMessage logWireMessage =
+        new LogWireMessage(indexName, msgType, message.getId().toStringUtf8(), timestamp, jsonMap);
+    final String msgString = JsonUtil.writeAsString(logWireMessage);
+    addField(doc, LogMessage.SystemField.SOURCE.fieldName, msgString, "", 0);
+    if (enableFullTextSearch) {
+      addField(doc, LogMessage.SystemField.ALL.fieldName, msgString, "", 0);
+    }
+
+    return doc;
+  }
+
+  // this should only have one reference from SpanFormatterTest
+  // We want to make sure none of our conversions changed subtly so keeping the old method alive for
+  // testing
+  // Once we get rid of LogMessage we can remove this and the associated test
+  @VisibleForTesting
+  @Deprecated
   public Document fromMessage(LogMessage message) throws JsonProcessingException {
     Document doc = new Document();
     addField(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex(), "", 0);

@@ -3,10 +3,10 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 import static com.slack.kaldb.logstore.BlobFsUtils.createURI;
+import static com.slack.kaldb.writer.SpanFormatter.isValidTimestamp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.BlobFs;
-import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
@@ -19,6 +19,7 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -30,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
@@ -70,7 +72,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public static final String LIVE_SNAPSHOT_PREFIX = SnapshotMetadata.LIVE_SNAPSHOT_PATH + "_";
   public static final String SCHEMA_FILE_NAME = "schema.json";
 
-  private final LogStore<T> logStore;
+  private final LogStore logStore;
   private final String kafkaPartitionId;
   private final Logger logger;
   private LogIndexSearcher<T> logSearcher;
@@ -89,7 +91,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   private boolean readOnly;
 
   protected ReadWriteChunk(
-      LogStore<T> logStore,
+      LogStore logStore,
       String chunkDataPrefix,
       MeterRegistry meterRegistry,
       SearchMetadataStore searchMetadataStore,
@@ -141,7 +143,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   }
 
   /** Index the message in the logstore and update the chunk data time range. */
-  public void addMessage(T message, String kafkaPartitionId, long offset) {
+  public void addMessage(Trace.Span message, String kafkaPartitionId, long offset) {
     if (!this.kafkaPartitionId.equals(kafkaPartitionId)) {
       throw new IllegalArgumentException(
           "All messages for this chunk should belong to partition: "
@@ -151,13 +153,16 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     }
     if (!readOnly) {
       logStore.addMessage(message);
-      // Update the chunk with the time range of the data in the chunk.
-      // TODO: This type conversion is a temporary hack, fix it by adding timestamp field to the
-      // message.
-      if (message instanceof LogMessage) {
-        chunkInfo.updateDataTimeRange(((LogMessage) message).getTimestamp().toEpochMilli());
-        chunkInfo.updateMaxOffset(offset);
+
+      Instant timestamp =
+          Instant.ofEpochMilli(
+              TimeUnit.MILLISECONDS.convert(message.getTimestamp(), TimeUnit.MICROSECONDS));
+      if (!isValidTimestamp(timestamp)) {
+        timestamp = Instant.now();
       }
+      chunkInfo.updateDataTimeRange(timestamp.toEpochMilli());
+
+      chunkInfo.updateMaxOffset(offset);
     } else {
       throw new IllegalStateException(String.format("Chunk %s is read only", chunkInfo));
     }

@@ -39,14 +39,17 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
@@ -161,10 +164,10 @@ public class RecoveryChunkManagerTest {
   public void testAddMessageAndRollover() throws Exception {
     initChunkManager(S3_TEST_BUCKET);
 
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
     int actualChunkSize = 0;
     int offset = 1;
-    for (LogMessage m : messages) {
+    for (Trace.Span m : messages) {
       final int msgSize = m.toString().length();
       chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
       actualChunkSize += msgSize;
@@ -205,15 +208,17 @@ public class RecoveryChunkManagerTest {
     assertThat(chunkInfo.chunkId).startsWith(CHUNK_DATA_PREFIX);
     assertThat(chunkInfo.getMaxOffset()).isEqualTo(offset - 1);
     assertThat(chunkInfo.getDataStartTimeEpochMs())
-        .isEqualTo(messages.get(0).getTimestamp().toEpochMilli());
+        .isEqualTo(
+            TimeUnit.MILLISECONDS.convert(messages.get(0).getTimestamp(), TimeUnit.MICROSECONDS));
     assertThat(chunkInfo.getDataEndTimeEpochMs())
-        .isEqualTo(messages.get(99).getTimestamp().toEpochMilli());
+        .isEqualTo(
+            TimeUnit.MILLISECONDS.convert(messages.get(99).getTimestamp(), TimeUnit.MICROSECONDS));
 
     // Add a message with a very high offset.
     final int veryHighOffset = 1000;
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(offset - 1);
     assertThat(veryHighOffset - offset).isGreaterThan(100);
-    LogMessage messageWithHighOffset = MessageUtil.makeMessage(101);
+    Trace.Span messageWithHighOffset = SpanUtil.makeSpan(101);
     chunkManager.addMessage(
         messageWithHighOffset,
         messageWithHighOffset.toString().length(),
@@ -243,7 +248,7 @@ public class RecoveryChunkManagerTest {
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
     assertThat(lowerOffset - offset).isGreaterThan(100);
     assertThat(veryHighOffset - lowerOffset).isGreaterThan(100);
-    LogMessage messageWithLowerOffset = MessageUtil.makeMessage(102);
+    Trace.Span messageWithLowerOffset = SpanUtil.makeSpan(102);
     chunkManager.addMessage(
         messageWithLowerOffset,
         messageWithLowerOffset.toString().length(),
@@ -269,7 +274,7 @@ public class RecoveryChunkManagerTest {
         .isEqualTo(1);
 
     // Inserting a message from a different kafka partition fails
-    LogMessage messageWithInvalidTopic = MessageUtil.makeMessage(103);
+    Trace.Span messageWithInvalidTopic = SpanUtil.makeSpan(103);
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -297,15 +302,16 @@ public class RecoveryChunkManagerTest {
         KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(1);
     assertThat(snapshots.get(0).startTimeEpochMs)
-        .isEqualTo(messages.get(0).getTimestamp().toEpochMilli());
+        .isEqualTo(
+            TimeUnit.MILLISECONDS.convert(messages.get(0).getTimestamp(), TimeUnit.MICROSECONDS));
     assertThat(snapshots.get(0).endTimeEpochMs)
-        .isGreaterThanOrEqualTo(messages.get(99).getTimestamp().toEpochMilli());
+        .isGreaterThanOrEqualTo(
+            TimeUnit.MILLISECONDS.convert(messages.get(99).getTimestamp(), TimeUnit.MICROSECONDS));
 
     // Can't add messages to current chunk after roll over.
     assertThatThrownBy(
             () ->
-                currentChunk.addMessage(
-                    MessageUtil.makeMessage(100000), TEST_KAFKA_PARTITION_ID, 100000))
+                currentChunk.addMessage(SpanUtil.makeSpan(100000), TEST_KAFKA_PARTITION_ID, 100000))
         .isInstanceOf(IllegalStateException.class);
 
     // Ensure data is cleaned up in the manager
@@ -339,7 +345,8 @@ public class RecoveryChunkManagerTest {
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
 
-    // Special case: if we're expecting this search to have no hits then it won't have any snapshots
+    // Special case: if we're expecting this search to have no hits then it won't have any
+    // snapshots
     // or replicas either
     if (expectedHitCount == 0) {
       assertThat(result.totalSnapshots).isEqualTo(0);
@@ -359,13 +366,18 @@ public class RecoveryChunkManagerTest {
 
     // Add a valid message
     int offset = 1;
-    LogMessage msg1 = MessageUtil.makeMessage(1);
+    Trace.Span msg1 = SpanUtil.makeSpan(1);
     chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
     offset++;
 
     // Add an invalid message
-    LogMessage msg100 =
-        MessageUtil.makeMessage(100, Map.of(LogMessage.ReservedField.HOSTNAME.fieldName, 20000));
+    Trace.KeyValue conflictTag =
+        Trace.KeyValue.newBuilder()
+            .setVInt32(20000)
+            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+            .setVType(Trace.ValueType.INT32)
+            .build();
+    Trace.Span msg100 = SpanUtil.makeSpan(100, "Message100", Instant.now(), List.of(conflictTag));
     chunkManager.addMessage(msg100, msg100.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
     //noinspection UnusedAssignment
     offset++;
@@ -401,8 +413,9 @@ public class RecoveryChunkManagerTest {
     initChunkManager("fakebucket");
 
     int offset = 1;
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 20);
-    for (LogMessage m : messages) {
+
+    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 20, 1, Instant.now());
+    for (Trace.Span m : messages) {
       chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
       offset++;
     }
@@ -422,7 +435,7 @@ public class RecoveryChunkManagerTest {
         .isThrownBy(
             () ->
                 chunkManager.addMessage(
-                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
+                    SpanUtil.makeSpan(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // Check metadata.
     List<SnapshotMetadata> snapshots =
@@ -445,7 +458,7 @@ public class RecoveryChunkManagerTest {
         .isThrownBy(
             () ->
                 chunkManager.addMessage(
-                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
+                    SpanUtil.makeSpan(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;

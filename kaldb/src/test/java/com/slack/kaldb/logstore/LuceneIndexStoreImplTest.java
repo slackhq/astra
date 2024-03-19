@@ -18,6 +18,7 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
+import com.google.protobuf.ByteString;
 import com.slack.kaldb.blobfs.LocalBlobFs;
 import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
@@ -27,7 +28,9 @@ import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.service.murron.trace.Trace;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -35,9 +38,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.lucene.index.IndexCommit;
@@ -78,21 +79,36 @@ public class LuceneIndexStoreImplTest {
     }
 
     @Test
-    public void testSearchAndQueryDocsWithNestedJson() throws InterruptedException {
-      LogMessage msg =
-          new LogMessage(
-              MessageUtil.TEST_DATASET_NAME,
-              "INFO",
-              "1",
-              Instant.now(),
-              Map.of(
-                  ReservedField.MESSAGE.fieldName,
-                  "Test message",
-                  "duplicateproperty",
-                  "duplicate1",
-                  "nested",
-                  Map.of("key1", "value1", "duplicateproperty", "2")));
-      logStore.logStore.addMessage(msg);
+    public void testSearchAndQueryDocsWithNestedJson() {
+      Trace.Span span =
+          Trace.Span.newBuilder()
+              .setId(ByteString.copyFromUtf8("1"))
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("Test message")
+                      .setKey("message")
+                      .setVType(Trace.ValueType.STRING)
+                      .build())
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("duplicate1")
+                      .setKey("duplicateproperty")
+                      .setVType(Trace.ValueType.STRING)
+                      .build())
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("value1")
+                      .setKey("nested.key1")
+                      .setVType(Trace.ValueType.STRING)
+                      .build())
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("2")
+                      .setKey("nested.duplicateproperty")
+                      .setVType(Trace.ValueType.STRING)
+                      .build())
+              .build();
+      logStore.logStore.addMessage(span);
       logStore.logStore.commit();
       logStore.logStore.refresh();
 
@@ -144,7 +160,7 @@ public class LuceneIndexStoreImplTest {
 
     @Test
     public void testTimestampOrdering() {
-      List<LogMessage> msgs = addMessages(logStore.logStore, 1, 100, true);
+      addMessages(logStore.logStore, 1, 100, true);
       List<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1);
       assertThat(results.size()).isEqualTo(1);
@@ -152,32 +168,23 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
       assertThat(getTimerCount(REFRESHES_TIMER, logStore.metricsRegistry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, logStore.metricsRegistry)).isEqualTo(1);
-      assertThat(results.get(0).getId()).isEqualTo(msgs.get(msgs.size() - 1).getId());
-    }
-
-    @Test
-    public void testIndexDocsWithUnsupportedPropertyTypes() {
-      LogMessage msg =
-          MessageUtil.makeMessage(100, Map.of("unsupportedProperty", Collections.emptyList()));
-      logStore.logStore.addMessage(msg);
-      addMessages(logStore.logStore, 1, 99, true);
-      Collection<LogMessage> results =
-          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
-      assertThat(results.size()).isEqualTo(100);
-      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
-      assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, logStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getTimerCount(COMMITS_TIMER, logStore.metricsRegistry)).isEqualTo(1);
+      assertThat(results.get(0).getId()).isEqualTo("Message100");
     }
 
     @Test
     public void testIndexDocsWithTypeMismatchErrors() {
-      LogMessage msg = MessageUtil.makeMessage(100, Map.of(ReservedField.HOSTNAME.fieldName, 1));
-      logStore.logStore.addMessage(msg);
+      Trace.KeyValue wrongField =
+          Trace.KeyValue.newBuilder()
+              .setKey(ReservedField.HOSTNAME.fieldName)
+              .setVInt32(1)
+              .setVType(Trace.ValueType.INT32)
+              .build();
+      logStore.logStore.addMessage(
+          SpanUtil.makeSpan(100, "test", Instant.now(), List.of(wrongField)));
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
-      assertThat(results.size()).isEqualTo(100);
+      assertThat(results.size()).isEqualTo(99);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
       assertThat(getTimerCount(REFRESHES_TIMER, logStore.metricsRegistry)).isEqualTo(1);
@@ -198,25 +205,16 @@ public class LuceneIndexStoreImplTest {
     public TestsWithRaiseErrorFieldConflictPolicy() throws IOException {}
 
     @Test
-    public void failIndexingDocsWithListFieldType() {
-      LogMessage msg =
-          MessageUtil.makeMessage(100, Map.of("unsupportedProperty", Collections.emptyList()));
-      logStore.logStore.addMessage(msg);
-      addMessages(logStore.logStore, 1, 99, true);
-      Collection<LogMessage> results =
-          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
-      assertThat(results.size()).isEqualTo(100);
-      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
-      assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, logStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getTimerCount(COMMITS_TIMER, logStore.metricsRegistry)).isEqualTo(1);
-    }
-
-    @Test
     public void failIndexingDocsWithMismatchedTypeErrors() {
-      LogMessage msg =
-          MessageUtil.makeMessage(100, Map.of(ReservedField.HOSTNAME.fieldName, 20000));
-      logStore.logStore.addMessage(msg);
+      Trace.KeyValue wrongField =
+          Trace.KeyValue.newBuilder()
+              .setKey(ReservedField.HOSTNAME.fieldName)
+              .setVType(Trace.ValueType.INT32)
+              .setVInt32(20000)
+              .build();
+
+      logStore.logStore.addMessage(
+          SpanUtil.makeSpan(100, "test", Instant.now(), List.of(wrongField)));
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
@@ -231,8 +229,12 @@ public class LuceneIndexStoreImplTest {
     public void indexLongUnbreakableField() {
       String hugeField =
           IntStream.range(1, 10000).boxed().map(String::valueOf).collect(Collectors.joining(""));
-      LogMessage msg = MessageUtil.makeMessage(1, Map.of("hugefield", hugeField));
-      logStore.logStore.addMessage(msg);
+
+      Trace.KeyValue hugeFieldTag =
+          Trace.KeyValue.newBuilder().setKey("hugefield").setVStr(hugeField).build();
+
+      logStore.logStore.addMessage(
+          SpanUtil.makeSpan(1, "Test message", Instant.now(), List.of(hugeFieldTag)));
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);
       // UTF8 encoding is longer than the max length 32766
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);
@@ -242,21 +244,21 @@ public class LuceneIndexStoreImplTest {
     }
 
     @Test
-    public void testFieldSearch() throws InterruptedException {
-      LogMessage msg =
-          new LogMessage(
-              MessageUtil.TEST_DATASET_NAME,
-              "INFO",
-              "1",
-              Instant.now(),
-              Map.of(
-                  ReservedField.MESSAGE.fieldName,
-                  "Test message",
-                  ReservedField.TAG.fieldName,
-                  "foo-bar",
-                  ReservedField.HOSTNAME.fieldName,
-                  "host1-dc2.abc.com"));
-      logStore.logStore.addMessage(msg);
+    public void testFieldSearch() {
+      Trace.KeyValue hostField =
+          Trace.KeyValue.newBuilder()
+              .setKey(ReservedField.HOSTNAME.fieldName)
+              .setVStr("host1-dc2.abc.com")
+              .build();
+
+      Trace.KeyValue tagField =
+          Trace.KeyValue.newBuilder()
+              .setKey(ReservedField.TAG.fieldName)
+              .setVStr("foo-bar")
+              .build();
+
+      logStore.logStore.addMessage(
+          SpanUtil.makeSpan(1, "Test message", Instant.now(), List.of(hostField, tagField)));
       logStore.logStore.commit();
       logStore.logStore.refresh();
 

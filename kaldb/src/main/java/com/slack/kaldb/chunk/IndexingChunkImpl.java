@@ -41,7 +41,7 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
   private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkImpl.class);
 
   public IndexingChunkImpl(
-      LogStore<T> logStore,
+      LogStore logStore,
       String chunkDataPrefix,
       MeterRegistry meterRegistry,
       SearchMetadataStore searchMetadataStore,

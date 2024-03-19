@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore;
 
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
+import com.slack.service.murron.trace.Trace;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -10,8 +11,8 @@ import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.store.FSDirectory;
 
 /* An interface that implements a read and write interface for the LogStore */
-public interface LogStore<T> extends Closeable {
-  void addMessage(T message);
+public interface LogStore extends Closeable {
+  void addMessage(Trace.Span message);
 
   // TODO: Instead of exposing the searcherManager, consider returning an instance of the searcher.
   SearcherManager getSearcherManager();

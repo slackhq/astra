@@ -19,6 +19,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
@@ -78,7 +79,8 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
   }
 
   @Override
-  public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
+  public void addMessage(
+      final Trace.Span message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     if (readOnly) {
       LOG.warn("Ingestion is stopped since the chunk is in read only mode.");
