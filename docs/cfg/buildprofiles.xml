@@ -2,12 +2,25 @@
 <buildprofiles xsi:noNamespaceSchemaLocation="https://resources.jetbrains.com/writerside/1.0/build-profiles.xsd"
                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
-    <variables></variables>
     <build-profile instance="astra">
         <variables>
-            <offline-docs>false</offline-docs>
-            <noindex-content>true</noindex-content>
+            <primary-color>purple</primary-color>
+            <color-preset>contrast</color-preset>
+            <header-logo>../assets/images/logo.svg</header-logo>
+            <custom-favicons>../assets/images/favicon-32.png</custom-favicons>
+            <product-web-url>https://slackhq.github.io/astra</product-web-url>
+            <download-title>Astra Github</download-title>
+            <download-page>https://github.com/slackhq/astra</download-page>
+            <showDownloadButton>true</showDownloadButton>
+            <offline-docs>true</offline-docs>
+            <noindex-content>false</noindex-content>
         </variables>
     </build-profile>
+    <footer>
+        <copyright>Slack 2024</copyright>
+        <social type="blog" href="https://slack.engineering/">Slack engineering</social>
+        <link href="https://github.com/slackhq">Slack Github</link>
+        <link href="https://github.com/slackhq/astra/issues">Issue tracker</link>
+    </footer>
 
 </buildprofiles>

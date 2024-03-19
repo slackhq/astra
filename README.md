@@ -7,6 +7,8 @@
 Astra is a cloud-native search and analytics engine for log, trace, and audit data. It is designed to be easy to operate, 
 cost-effective, and scale to petabytes of data.
 
+https://slackhq.github.io/astra/
+
 ## Goals
 - Native support for log, trace, audit use cases.
 - Aggressively prioritize ingest of recent data over older data.
@@ -28,9 +30,6 @@ cost-effective, and scale to petabytes of data.
 - Additional storage engines other than Lucene.
 - Support for JVM versions other than the current LTS.
 - Supporting multiple Lucene versions.
-
-## Wiki
-Project roadmap, architecture diagrams, runbooks, and more are available on the [project wiki](https://github.com/slackhq/astra/wiki).
 
 ## Contributing
 If you are interested in reporting/fixing issues and contributing directly to the code base, please see [CONTRIBUTING](.github/CONTRIBUTING.md) for more information on what we're looking for and how to get started.
