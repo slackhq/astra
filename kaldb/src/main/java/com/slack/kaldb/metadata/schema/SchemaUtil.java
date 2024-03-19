@@ -31,7 +31,7 @@ public class SchemaUtil {
         return Schema.IngestSchema.getDefaultInstance();
       }
     } catch (Exception e) {
-      LOG.warn("Failed to read schema file", e);
+      LOG.warn("Failed to read or parse schema file. Returning empty schema", e);
       return Schema.IngestSchema.getDefaultInstance();
     }
   }

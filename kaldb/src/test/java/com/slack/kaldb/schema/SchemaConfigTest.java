@@ -43,6 +43,19 @@ public class SchemaConfigTest {
   }
 
   @Test
+  public void testParseSchemaWithInvalidSyntax() throws IOException {
+    final File cfgFile =
+        new File(
+            getClass()
+                .getClassLoader()
+                .getResource("schema/test_schema_incorrect_syntax.yaml")
+                .getFile());
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(cfgFile.toPath());
+    assertThat(schema).isNotNull();
+    assertThat(schema.getFieldsCount()).isEqualTo(0);
+  }
+
+  @Test
   public void testParsingSchema() {
     List.of("json", "yaml")
         .forEach(
