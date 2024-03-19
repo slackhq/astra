@@ -1,5 +1,4 @@
-
-# Astra
+# Overview
 [![release version](https://img.shields.io/github/v/release/slackhq/astra?include_prereleases)](https://github.com/slackhq/astra/releases)
 [![release pipeline](https://img.shields.io/github/actions/workflow/status/slackhq/astra/maven.yml?branch=master)](https://github.com/slackhq/astra/actions/workflows/maven.yml)
 [![license](https://img.shields.io/github/license/slackhq/astra)](https://github.com/slackhq/astra/blob/master/LICENSE)
@@ -22,7 +21,7 @@ cost-effective, and scale to petabytes of data.
 - Drop-in replacement for most Opensearch log use cases.
 - Operate with multiple cloud providers.
 
-## Non-Goals
+## Non-goals
 - General-purpose search cases, such as for an ecommerce site.
 - Document mutability - records are expected to be appended only.
 - Additional storage engines other than Lucene.
