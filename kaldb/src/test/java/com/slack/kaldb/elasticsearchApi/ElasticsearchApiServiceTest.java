@@ -23,7 +23,8 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
-import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.SpanUtil;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -87,8 +88,7 @@ public class ElasticsearchApiServiceTest {
   // todo - test mapping
   @Test
   public void testResultsAreReturnedForValidQuery() throws Exception {
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
-    addMessagesToChunkManager(messages);
+    addMessagesToChunkManager(SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now()));
 
     String postBody =
         Resources.toString(
@@ -125,8 +125,7 @@ public class ElasticsearchApiServiceTest {
 
   @Test
   public void testSearchStringWithOneResult() throws Exception {
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
-    addMessagesToChunkManager(messages);
+    addMessagesToChunkManager(SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now()));
 
     String postBody =
         Resources.toString(
@@ -155,8 +154,7 @@ public class ElasticsearchApiServiceTest {
   @Test
   public void testSearchStringWithNoResult() throws Exception {
     // add 100 results around now
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
-    addMessagesToChunkManager(messages);
+    addMessagesToChunkManager(SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now()));
 
     // queries for 1 second duration in year 2056
     String postBody =
@@ -176,8 +174,7 @@ public class ElasticsearchApiServiceTest {
 
   @Test
   public void testResultSizeIsRespected() throws Exception {
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
-    addMessagesToChunkManager(messages);
+    addMessagesToChunkManager(SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now()));
 
     String postBody =
         Resources.toString(
@@ -214,8 +211,7 @@ public class ElasticsearchApiServiceTest {
 
   @Test
   public void testLargeSetOfQueries() throws Exception {
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
-    addMessagesToChunkManager(messages);
+    addMessagesToChunkManager(SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now()));
     String postBody =
         Resources.toString(
             Resources.getResource("elasticsearchApi/multisearch_query_10results.ndjson"),
@@ -333,10 +329,10 @@ public class ElasticsearchApiServiceTest {
     serviceUnderTest.mapping(Optional.of("bar"), Optional.empty(), Optional.empty());
   }
 
-  private void addMessagesToChunkManager(List<LogMessage> messages) throws IOException {
+  private void addMessagesToChunkManager(List<Trace.Span> messages) throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     int offset = 1;
-    for (LogMessage m : messages) {
+    for (Trace.Span m : messages) {
       chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
       offset++;
     }

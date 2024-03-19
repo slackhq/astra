@@ -4,10 +4,7 @@ import com.slack.kaldb.chunkManager.ChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
-import java.util.List;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A LogMessageWriter ingests ConsumerRecords into a ChunkManager.
@@ -47,7 +44,6 @@ import org.slf4j.LoggerFactory;
  * <p>TODO: In future, implement MessageWriter interfacce on ChunkManager.
  */
 public class LogMessageWriterImpl implements MessageWriter {
-  private static final Logger LOG = LoggerFactory.getLogger(LogMessageWriterImpl.class);
 
   private final ChunkManager<LogMessage> chunkManager;
 
@@ -59,28 +55,15 @@ public class LogMessageWriterImpl implements MessageWriter {
   public boolean insertRecord(ConsumerRecord<String, byte[]> record) throws IOException {
     if (record == null) return false;
 
-    final List<LogMessage> logMessages;
-    try {
-      final Trace.Span span = Trace.Span.parseFrom(record.value());
-      final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
-      logMessages = SpanFormatter.toLogMessage(listOfSpans);
-      // Ideally, we should return true when logMessages are empty. But, fail the record, since we
-      // don't expect any empty records or we may have a bug in earlier code.
-      if (logMessages.isEmpty()) return false;
-    } catch (Exception e) {
-      LOG.warn("Parsing consumer record: {} failed with an exception.", record, e);
-      return false;
-    }
-
-    final int avgMsgSize = record.serializedValueSize() / logMessages.size();
-    for (LogMessage logMessage : logMessages) {
-      // Currently, ChunkManager.addMessage increments a failure counter to indicate an ingestion
-      // error. We decided to throw the exception to a higher level since in a batch ingestion
-      // the upper layers of the stack can't take any further action. If this becomes an issue
-      // in future, propagate the exception upwards here or return a value.
-      chunkManager.addMessage(
-          logMessage, avgMsgSize, String.valueOf(record.partition()), record.offset());
-    }
+    // Currently, ChunkManager.addMessage increments a failure counter to indicate an ingestion
+    // error. We decided to throw the exception to a higher level since in a batch ingestion
+    // the upper layers of the stack can't take any further action. If this becomes an issue
+    // in future, propagate the exception upwards here or return a value.
+    chunkManager.addMessage(
+        Trace.Span.parseFrom(record.value()),
+        record.serializedValueSize(),
+        String.valueOf(record.partition()),
+        record.offset());
     return true;
   }
 }

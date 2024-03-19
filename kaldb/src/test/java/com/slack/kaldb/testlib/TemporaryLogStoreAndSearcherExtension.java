@@ -12,10 +12,12 @@ import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,18 +29,16 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
 
   public static final long MAX_TIME = Long.MAX_VALUE;
 
-  public static List<LogMessage> addMessages(
+  public static void addMessages(
       LuceneIndexStoreImpl logStore, int low, int high, boolean requireCommit) {
 
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(low, high);
-    for (LogMessage m : messages) {
+    for (Trace.Span m : SpanUtil.makeSpansWithTimeDifference(low, high, 1, Instant.now())) {
       logStore.addMessage(m);
     }
     if (requireCommit) {
       logStore.commit();
       logStore.refresh();
     }
-    return messages;
   }
 
   public static List<LogMessage> findAllMessages(

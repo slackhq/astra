@@ -12,11 +12,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.logstore.FieldDefMismatchException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.schema.FieldType;
-import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
+import com.slack.kaldb.testlib.SpanUtil;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
-import java.util.Map;
+import java.util.List;
 import org.apache.lucene.document.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,30 +37,58 @@ public class RaiseErrorFieldValueTest {
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     String conflictingFieldName = "conflictingField";
 
-    LogMessage msg1 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                LogMessage.ReservedField.HOSTNAME.fieldName,
-                "host1-dc2.abc.com",
-                conflictingFieldName,
-                1));
+    Trace.KeyValue hostField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+            .setVStr("host1-dc2.abc.com")
+            .build();
+
+    Trace.KeyValue hostFieldAsInt =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+            .setVType(Trace.ValueType.INT32)
+            .setVInt32(123)
+            .build();
+
+    Trace.KeyValue tagField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.TAG.fieldName)
+            .setVStr("foo-bar")
+            .build();
+
+    Trace.KeyValue conflictingTagStr =
+        Trace.KeyValue.newBuilder()
+            .setKey(conflictingFieldName)
+            .setVType(Trace.ValueType.STRING)
+            .setVStr("1")
+            .build();
+
+    Trace.KeyValue conflictingTagInt =
+        Trace.KeyValue.newBuilder()
+            .setKey(conflictingFieldName)
+            .setVType(Trace.ValueType.INT32)
+            .setVInt32(1)
+            .build();
+
+    Trace.KeyValue newFieldTextTag =
+        Trace.KeyValue.newBuilder()
+            .setKey("newFieldText")
+            .setVType(Trace.ValueType.STRING)
+            .setVStr("newFieldValue")
+            .build();
+
+    Trace.Span msg1 =
+        SpanUtil.makeSpan(
+            1, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagInt));
 
     Document msg1Doc = docBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(17);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(29);
     assertThat(
             msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.INTEGER);
@@ -67,23 +96,13 @@ public class RaiseErrorFieldValueTest {
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
 
-    LogMessage msg2 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "2",
+    Trace.Span msg2 =
+        SpanUtil.makeSpan(
+            2,
+            "Test message",
             Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                LogMessage.ReservedField.HOSTNAME.fieldName,
-                "host1-dc2.abc.com",
-                "newFieldText",
-                "newFieldValue",
-                conflictingFieldName,
-                "1"));
+            List.of(hostField, tagField, newFieldTextTag, conflictingTagStr));
+
     assertThatThrownBy(() -> docBuilder.fromMessage(msg2))
         .isInstanceOf(FieldDefMismatchException.class);
     // NOTE: When a document indexing fails, we still register the types of the fields in this doc.
@@ -93,21 +112,9 @@ public class RaiseErrorFieldValueTest {
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.INTEGER);
 
-    LogMessage msg3 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "2",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                LogMessage.ReservedField.HOSTNAME.fieldName,
-                123,
-                "newFieldText",
-                "newFieldValue"));
+    Trace.Span msg3 =
+        SpanUtil.makeSpan(
+            2, "Test message", Instant.now(), List.of(hostFieldAsInt, tagField, newFieldTextTag));
     assertThatThrownBy(() -> docBuilder.fromMessage(msg3))
         .isInstanceOf(FieldDefMismatchException.class);
     // NOTE: When a document indexing fails, we still register the types of the fields in this doc.
@@ -139,23 +146,27 @@ public class RaiseErrorFieldValueTest {
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
 
-    LogMessage msg1 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                hostNameField,
-                123));
+    Trace.KeyValue hostField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+            .setVType(Trace.ValueType.INT32)
+            .setVInt32(123)
+            .build();
 
-    assertThatThrownBy(() -> docBuilder.fromMessage(msg1))
+    Trace.KeyValue tagField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.TAG.fieldName)
+            .setVStr("foo-bar")
+            .build();
+
+    assertThatThrownBy(
+            () ->
+                docBuilder.fromMessage(
+                    SpanUtil.makeSpan(
+                        1, "Test message", Instant.now(), List.of(hostField, tagField))))
         .isInstanceOf(FieldDefMismatchException.class);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+
+    assertThat(docBuilder.getSchema().size()).isEqualTo(19);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
@@ -174,23 +185,28 @@ public class RaiseErrorFieldValueTest {
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
 
-    LogMessage msg1 =
-        new LogMessage(
-            MessageUtil.TEST_DATASET_NAME,
-            "INFO",
-            "1",
-            Instant.now(),
-            Map.of(
-                LogMessage.ReservedField.MESSAGE.fieldName,
-                "Test message",
-                LogMessage.ReservedField.TAG.fieldName,
-                "foo-bar",
-                hostNameField,
-                123));
+    Trace.KeyValue hostField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+            .setVType(Trace.ValueType.INT32)
+            .setVInt32(123)
+            .build();
 
-    assertThatThrownBy(() -> docBuilder.fromMessage(msg1))
+    Trace.KeyValue tagField =
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.TAG.fieldName)
+            .setVType(Trace.ValueType.STRING)
+            .setVStr("foo-bar")
+            .build();
+
+    assertThatThrownBy(
+            () ->
+                docBuilder.fromMessage(
+                    SpanUtil.makeSpan(
+                        1, "Test message", Instant.now(), List.of(hostField, tagField))))
         .isInstanceOf(FieldDefMismatchException.class);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(16);
+
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();

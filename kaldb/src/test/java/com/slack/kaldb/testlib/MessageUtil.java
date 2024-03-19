@@ -33,27 +33,6 @@ public class MessageUtil {
     return makeWireMessage(i, Instant.now(), properties);
   }
 
-  public static String makeLogMessageJSON(int i, Instant timeStamp) throws JsonProcessingException {
-    String id = DEFAULT_MESSAGE_PREFIX + i;
-    Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put("type", TEST_MESSAGE_TYPE);
-    fieldMap.put("index", TEST_DATASET_NAME);
-    fieldMap.put("id", id);
-
-    Map<String, Object> sourceFieldMap = new HashMap<>();
-    sourceFieldMap.put(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, timeStamp.toEpochMilli());
-    String message = String.format("The identifier in this message is %s", id);
-    sourceFieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, message);
-    sourceFieldMap.put(TEST_SOURCE_INT_PROPERTY, i);
-    sourceFieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
-    sourceFieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
-    sourceFieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
-    sourceFieldMap.put(TEST_SOURCE_STRING_PROPERTY, String.format("String-%s", i));
-    fieldMap.put("source", sourceFieldMap);
-
-    return JsonUtil.writeAsString(fieldMap);
-  }
-
   public static LogWireMessage makeWireMessage(
       int i, Instant timeStamp, Map<String, Object> properties) {
     String id = DEFAULT_MESSAGE_PREFIX + i;

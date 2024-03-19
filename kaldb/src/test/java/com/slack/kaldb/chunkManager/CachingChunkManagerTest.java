@@ -14,7 +14,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
-import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.SpanUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -156,8 +156,7 @@ public class CachingChunkManagerTest {
   @Test
   public void testAddMessageIsUnsupported() throws TimeoutException {
     cachingChunkManager = initChunkManager();
-    MessageUtil.makeMessage(1);
-    assertThatThrownBy(() -> cachingChunkManager.addMessage(MessageUtil.makeMessage(1), 10, "1", 1))
+    assertThatThrownBy(() -> cachingChunkManager.addMessage(SpanUtil.makeSpan(1), 10, "1", 1))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
