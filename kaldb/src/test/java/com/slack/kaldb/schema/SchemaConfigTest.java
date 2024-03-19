@@ -25,7 +25,7 @@ public class SchemaConfigTest {
                             .getClassLoader()
                             .getResource("schema/test_schema_empty." + ext)
                             .getFile());
-                Schema.PreprocessorSchema schema = SchemaUtil.parseSchema(cfgFile.toPath());
+                Schema.IngestSchema schema = SchemaUtil.parseSchema(cfgFile.toPath());
                 assertThat(schema).isNotNull();
                 assertThat(schema.getFieldsCount()).isEqualTo(0);
               } catch (IOException e) {
@@ -37,7 +37,7 @@ public class SchemaConfigTest {
   @Test
   public void testParseSchemaInvalidFile() throws IOException {
     Path invalidPath = Path.of("invalid_path.yaml");
-    Schema.PreprocessorSchema schema = SchemaUtil.parseSchema(invalidPath);
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(invalidPath);
     assertThat(schema).isNotNull();
     assertThat(schema.getFieldsCount()).isEqualTo(0);
   }
@@ -54,7 +54,7 @@ public class SchemaConfigTest {
                             .getClassLoader()
                             .getResource("schema/test_schema." + ext)
                             .getFile());
-                Schema.PreprocessorSchema schema = SchemaUtil.parseSchema(cfgFile.toPath());
+                Schema.IngestSchema schema = SchemaUtil.parseSchema(cfgFile.toPath());
                 assertThat(schema).isNotNull();
 
                 assertThat(schema).isNotNull();

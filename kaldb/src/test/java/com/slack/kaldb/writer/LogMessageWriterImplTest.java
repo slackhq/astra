@@ -256,7 +256,7 @@ public class LogMessageWriterImplTest {
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
       Trace.Span span =
           BulkApiRequestParser.fromIngestDocument(
-              ingestDocument, Schema.PreprocessorSchema.newBuilder().build());
+              ingestDocument, Schema.IngestSchema.newBuilder().build());
       ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
       LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
       assertThat(messageWriter.insertRecord(spanRecord)).isTrue();

@@ -19,7 +19,7 @@ public class SchemaUtil {
 
   private static final Logger LOG = LoggerFactory.getLogger(SchemaUtil.class);
 
-  public static Schema.PreprocessorSchema parseSchema(Path schemaPath) throws IOException {
+  public static Schema.IngestSchema parseSchema(Path schemaPath) throws IOException {
     String filename = schemaPath.getFileName().toString();
     try {
       String schemaFile = Files.readString(schemaPath);
@@ -28,17 +28,16 @@ public class SchemaUtil {
       } else if (filename.endsWith(".json")) {
         return parseJsonSchema(schemaFile);
       } else {
-        return Schema.PreprocessorSchema.getDefaultInstance();
+        return Schema.IngestSchema.getDefaultInstance();
       }
     } catch (Exception e) {
       LOG.warn("Failed to read schema file", e);
-      return Schema.PreprocessorSchema.getDefaultInstance();
+      return Schema.IngestSchema.getDefaultInstance();
     }
   }
 
   @VisibleForTesting
-  public static Schema.PreprocessorSchema parseSchemaYaml(
-      String yamlStr, StringLookup variableResolver)
+  public static Schema.IngestSchema parseSchemaYaml(String yamlStr, StringLookup variableResolver)
       throws JsonProcessingException, InvalidProtocolBufferException {
     StringSubstitutor substitute = new StringSubstitutor(variableResolver);
     ObjectMapper yamlReader = new ObjectMapper(new YAMLFactory());
@@ -49,12 +48,10 @@ public class SchemaUtil {
   }
 
   @VisibleForTesting
-  public static Schema.PreprocessorSchema parseJsonSchema(String jsonStr)
+  public static Schema.IngestSchema parseJsonSchema(String jsonStr)
       throws InvalidProtocolBufferException {
-    Schema.PreprocessorSchema.Builder kaldbSchemaBuilder = Schema.PreprocessorSchema.newBuilder();
+    Schema.IngestSchema.Builder kaldbSchemaBuilder = Schema.IngestSchema.newBuilder();
     JsonFormat.parser().merge(jsonStr, kaldbSchemaBuilder);
-    Schema.PreprocessorSchema kaldbSchema = kaldbSchemaBuilder.build();
-    // TODO: validate schema
-    return kaldbSchema;
+    return kaldbSchemaBuilder.build();
   }
 }

@@ -40,7 +40,7 @@ public class BulkApiRequestParserTest {
 
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(
-            indexRequests, Schema.PreprocessorSchema.newBuilder().build());
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -65,7 +65,7 @@ public class BulkApiRequestParserTest {
 
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(
-            indexRequests, Schema.PreprocessorSchema.newBuilder().build());
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -89,7 +89,7 @@ public class BulkApiRequestParserTest {
 
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(
-            indexRequests, Schema.PreprocessorSchema.newBuilder().build());
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -113,7 +113,7 @@ public class BulkApiRequestParserTest {
 
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(
-            indexRequests, Schema.PreprocessorSchema.newBuilder().build());
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(0);
   }
 
@@ -131,7 +131,7 @@ public class BulkApiRequestParserTest {
     assertThat(indexRequests.size()).isEqualTo(1);
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(
-            indexRequests, Schema.PreprocessorSchema.newBuilder().build());
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("index_name").size()).isEqualTo(1);
 
@@ -155,7 +155,7 @@ public class BulkApiRequestParserTest {
 
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(
-            indexRequests, Schema.PreprocessorSchema.newBuilder().build());
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(2);
     assertThat(indexDocs.get("test1").size()).isEqualTo(1);
     assertThat(indexDocs.get("test3").size()).isEqualTo(1);
@@ -195,7 +195,7 @@ public class BulkApiRequestParserTest {
 
     Map<String, List<Trace.Span>> indexDocs =
         BulkApiRequestParser.convertIndexRequestToTraceFormat(
-            indexRequests, Schema.PreprocessorSchema.newBuilder().build());
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(2);
     assertThat(indexDocs.get("test1").size()).isEqualTo(1);
     assertThat(indexDocs.get("test2").size()).isEqualTo(1);
@@ -215,8 +215,8 @@ public class BulkApiRequestParserTest {
         Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.KEYWORD).build();
     Schema.SchemaField type2 =
         Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build();
-    Schema.PreprocessorSchema schema =
-        Schema.PreprocessorSchema.newBuilder()
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
             .putFields("field1", type1)
             .putFields("field2", type2)
             .build();
@@ -258,7 +258,7 @@ public class BulkApiRequestParserTest {
     IngestDocument ingestDocument = convertRequestToDocument(indexRequests.get(0));
     Trace.Span span =
         BulkApiRequestParser.fromIngestDocument(
-            ingestDocument, Schema.PreprocessorSchema.newBuilder().build());
+            ingestDocument, Schema.IngestSchema.newBuilder().build());
 
     // timestamp is in microseconds based on the trace.proto definition
     Instant ingestDocumentTime =

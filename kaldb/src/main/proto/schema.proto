@@ -7,7 +7,7 @@ option java_package = "com.slack.kaldb.proto.schema";
 // We want to call this Schema and then remove the .schema package
 // But if we do that today, the field types interfere with existing enums
 // which we don't want addressing just yet ( kaldb_search.proto )
-message PreprocessorSchema {
+message IngestSchema {
   // convert to a map
   map<string, SchemaField> fields = 1;
 }

@@ -96,7 +96,7 @@ public class SpanFormatter {
   }
 
   public static Trace.KeyValue convertKVtoProto(
-      String key, Object value, Schema.PreprocessorSchema schema) {
+      String key, Object value, Schema.IngestSchema schema) {
     if (schema.containsFields(key)) {
       Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
       tagBuilder.setKey(key);

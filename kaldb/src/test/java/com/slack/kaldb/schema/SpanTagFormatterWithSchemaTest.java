@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 public class SpanTagFormatterWithSchemaTest {
 
-  static Schema.PreprocessorSchema schema;
+  static Schema.IngestSchema schema;
 
   @BeforeAll
   public static void initializeSchema() {
@@ -47,7 +47,7 @@ public class SpanTagFormatterWithSchemaTest {
     fields.put(
         "bucket", Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.BINARY).build());
 
-    schema = Schema.PreprocessorSchema.newBuilder().putAllFields(fields).build();
+    schema = Schema.IngestSchema.newBuilder().putAllFields(fields).build();
   }
 
   @Test
@@ -211,7 +211,7 @@ public class SpanTagFormatterWithSchemaTest {
   @Test
   public void testSimpleWithoutSchema() {
 
-    Schema.PreprocessorSchema schema = Schema.PreprocessorSchema.getDefaultInstance();
+    Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
     Trace.KeyValue kv = SpanFormatter.convertKVtoProto("host", "host1", schema);
     assertThat(kv.getVType()).isEqualTo(Trace.ValueType.STRING);
     assertThat(kv.getVStr()).isEqualTo("host1");

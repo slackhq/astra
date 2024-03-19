@@ -132,7 +132,7 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             400,
-            Schema.PreprocessorSchema.newBuilder().build());
+            Schema.IngestSchema.newBuilder().build());
   }
 
   // I looked at making this a @BeforeEach. it's possible if you annotate a test with a @Tag and
@@ -208,8 +208,7 @@ public class BulkIngestApiTest {
     // use the way we calculate the throughput in the rate limiter to get the exact bytes
     Map<String, List<Trace.Span>> docs =
         BulkApiRequestParser.parseRequest(
-            request1.getBytes(StandardCharsets.UTF_8),
-            Schema.PreprocessorSchema.newBuilder().build());
+            request1.getBytes(StandardCharsets.UTF_8), Schema.IngestSchema.newBuilder().build());
     int limit = PreprocessorRateLimiter.getSpanBytes(docs.get("testindex"));
     // for some reason if we pass the exact limit, the rate limiter doesn't work as expected
     updateDatasetThroughput(limit / 2);
@@ -272,7 +271,7 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             TOO_MANY_REQUESTS.code(),
-            Schema.PreprocessorSchema.newBuilder().build());
+            Schema.IngestSchema.newBuilder().build());
     httpResponse = bulkApi2.addDocument(request1).aggregate().join();
     assertThat(httpResponse.status().isSuccess()).isEqualTo(false);
     assertThat(httpResponse.status().code()).isEqualTo(TOO_MANY_REQUESTS.code());

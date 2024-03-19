@@ -400,7 +400,7 @@ public class Kaldb {
             new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
         services.add(datasetRateLimitingService);
 
-        Schema.PreprocessorSchema schema = Schema.PreprocessorSchema.getDefaultInstance();
+        Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
         if (!preprocessorConfig.getSchemaFile().isEmpty()) {
           schema = SchemaUtil.parseSchema(Path.of(preprocessorConfig.getSchemaFile()));
         }

@@ -35,14 +35,14 @@ public class BulkIngestApi {
   private final String BULK_INGEST_INCOMING_BYTE_DOCS = "kaldb_preprocessor_incoming_docs";
   private final String BULK_INGEST_TIMER = "kaldb_preprocessor_bulk_ingest";
   private final int rateLimitExceededErrorCode;
-  private final Schema.PreprocessorSchema schema;
+  private final Schema.IngestSchema schema;
 
   public BulkIngestApi(
       BulkIngestKafkaProducer bulkIngestKafkaProducer,
       DatasetRateLimitingService datasetRateLimitingService,
       MeterRegistry meterRegistry,
       int rateLimitExceededErrorCode,
-      Schema.PreprocessorSchema schema) {
+      Schema.IngestSchema schema) {
 
     this.bulkIngestKafkaProducer = bulkIngestKafkaProducer;
     this.datasetRateLimitingService = datasetRateLimitingService;

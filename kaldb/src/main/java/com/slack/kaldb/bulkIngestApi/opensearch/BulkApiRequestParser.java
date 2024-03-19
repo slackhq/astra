@@ -38,7 +38,7 @@ public class BulkApiRequestParser {
   private static final String SERVICE_NAME_KEY = "service_name";
 
   public static Map<String, List<Trace.Span>> parseRequest(
-      byte[] postBody, Schema.PreprocessorSchema schema) throws IOException {
+      byte[] postBody, Schema.IngestSchema schema) throws IOException {
     return convertIndexRequestToTraceFormat(parseBulkRequest(postBody), schema);
   }
 
@@ -84,7 +84,7 @@ public class BulkApiRequestParser {
 
   @VisibleForTesting
   public static Trace.Span fromIngestDocument(
-      IngestDocument ingestDocument, Schema.PreprocessorSchema schema) {
+      IngestDocument ingestDocument, Schema.IngestSchema schema) {
 
     long timestampInMillis = getTimestampFromIngestDocument(ingestDocument);
 
@@ -128,7 +128,7 @@ public class BulkApiRequestParser {
   }
 
   protected static Map<String, List<Trace.Span>> convertIndexRequestToTraceFormat(
-      List<IndexRequest> indexRequests, Schema.PreprocessorSchema schema) {
+      List<IndexRequest> indexRequests, Schema.IngestSchema schema) {
     // key - index. value - list of docs to be indexed
     Map<String, List<Trace.Span>> indexDocs = new HashMap<>();
 
