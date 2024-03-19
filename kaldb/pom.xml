@@ -92,7 +92,7 @@
         <dependency>
             <groupId>io.netty.incubator</groupId>
             <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-            <version>0.0.24.Final</version>
+            <version>0.0.25.Final</version>
             <classifier>linux-x86_64</classifier>
         </dependency>
         <dependency>
@@ -433,7 +433,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.14.9</version>
+            <version>1.14.12</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
