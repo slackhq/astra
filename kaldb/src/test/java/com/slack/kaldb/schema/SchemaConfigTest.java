@@ -7,6 +7,7 @@ import com.slack.kaldb.metadata.schema.SchemaUtil;
 import com.slack.kaldb.proto.schema.Schema;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -31,6 +32,14 @@ public class SchemaConfigTest {
                 fail("Failed to parse schema", e);
               }
             });
+  }
+
+  @Test
+  public void testParseSchemaInvalidFile() throws IOException {
+    Path invalidPath = Path.of("invalid_path.yaml");
+    Schema.PreprocessorSchema schema = SchemaUtil.parseSchema(invalidPath);
+    assertThat(schema).isNotNull();
+    assertThat(schema.getFieldsCount()).isEqualTo(0);
   }
 
   @Test

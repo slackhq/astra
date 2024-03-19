@@ -12,18 +12,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SchemaUtil {
 
+  private static final Logger LOG = LoggerFactory.getLogger(SchemaUtil.class);
+
   public static Schema.PreprocessorSchema parseSchema(Path schemaPath) throws IOException {
     String filename = schemaPath.getFileName().toString();
-    if (filename.endsWith(".yaml")) {
-      return parseSchemaYaml(Files.readString(schemaPath), System::getenv);
-    } else if (filename.endsWith(".json")) {
-      return parseJsonSchema(Files.readString(schemaPath));
-    } else {
-      throw new RuntimeException(
-          "Invalid config file format provided - must be either .json or .yaml");
+    try {
+      String schemaFile = Files.readString(schemaPath);
+      if (filename.endsWith(".yaml")) {
+        return parseSchemaYaml(schemaFile, System::getenv);
+      } else if (filename.endsWith(".json")) {
+        return parseJsonSchema(schemaFile);
+      } else {
+        return Schema.PreprocessorSchema.getDefaultInstance();
+      }
+    } catch (Exception e) {
+      LOG.warn("Failed to read schema file", e);
+      return Schema.PreprocessorSchema.getDefaultInstance();
     }
   }
 
