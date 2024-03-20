@@ -22,6 +22,7 @@ import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.preprocessor.PreprocessorRateLimiter;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.util.JsonUtil;
@@ -126,7 +127,12 @@ public class BulkIngestApiTest {
     bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     bulkApi =
-        new BulkIngestApi(bulkIngestKafkaProducer, datasetRateLimitingService, meterRegistry, 400);
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            Schema.IngestSchema.newBuilder().build());
   }
 
   // I looked at making this a @BeforeEach. it's possible if you annotate a test with a @Tag and
@@ -201,7 +207,8 @@ public class BulkIngestApiTest {
                 """;
     // use the way we calculate the throughput in the rate limiter to get the exact bytes
     Map<String, List<Trace.Span>> docs =
-        BulkApiRequestParser.parseRequest(request1.getBytes(StandardCharsets.UTF_8));
+        BulkApiRequestParser.parseRequest(
+            request1.getBytes(StandardCharsets.UTF_8), Schema.IngestSchema.newBuilder().build());
     int limit = PreprocessorRateLimiter.getSpanBytes(docs.get("testindex"));
     // for some reason if we pass the exact limit, the rate limiter doesn't work as expected
     updateDatasetThroughput(limit / 2);
@@ -263,7 +270,8 @@ public class BulkIngestApiTest {
             bulkIngestKafkaProducer,
             datasetRateLimitingService,
             meterRegistry,
-            TOO_MANY_REQUESTS.code());
+            TOO_MANY_REQUESTS.code(),
+            Schema.IngestSchema.newBuilder().build());
     httpResponse = bulkApi2.addDocument(request1).aggregate().join();
     assertThat(httpResponse.status().isSuccess()).isEqualTo(false);
     assertThat(httpResponse.status().code()).isEqualTo(TOO_MANY_REQUESTS.code());

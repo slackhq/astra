@@ -269,9 +269,13 @@ message PreprocessorConfig {
   KafkaConfig kafka_config = 9;
   bool use_bulk_api = 10;
 
-  // Make the rate limit exceeded error code confugurable
+  // Make the rate limit exceeded error code configurable
   // We default to 400 to prioritize fresh logs and drop excess logs
   // Set this to 429 for clients to retry the request after a delay
   // Only used when we use the bulk API
   int32 rate_limit_exceeded_error_code = 11;
+
+  // We intend to use ZK for the schema file in the future
+  // Path to the schema file in the local file system helps us iterate faster
+  string schema_file = 12;
 }

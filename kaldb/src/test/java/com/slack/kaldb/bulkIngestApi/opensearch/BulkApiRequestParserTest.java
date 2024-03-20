@@ -4,6 +4,7 @@ import static com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser.conv
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.common.io.Resources;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -38,7 +39,8 @@ public class BulkApiRequestParserTest {
     assertThat(indexRequests.get(0).sourceAsMap().size()).isEqualTo(3);
 
     Map<String, List<Trace.Span>> indexDocs =
-        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -62,7 +64,8 @@ public class BulkApiRequestParserTest {
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
 
     Map<String, List<Trace.Span>> indexDocs =
-        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -85,7 +88,8 @@ public class BulkApiRequestParserTest {
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
 
     Map<String, List<Trace.Span>> indexDocs =
-        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -108,7 +112,8 @@ public class BulkApiRequestParserTest {
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
 
     Map<String, List<Trace.Span>> indexDocs =
-        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(0);
   }
 
@@ -125,7 +130,8 @@ public class BulkApiRequestParserTest {
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
     assertThat(indexRequests.size()).isEqualTo(1);
     Map<String, List<Trace.Span>> indexDocs =
-        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("index_name").size()).isEqualTo(1);
 
@@ -148,7 +154,8 @@ public class BulkApiRequestParserTest {
     assertThat(indexRequests.size()).isEqualTo(2);
 
     Map<String, List<Trace.Span>> indexDocs =
-        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(2);
     assertThat(indexDocs.get("test1").size()).isEqualTo(1);
     assertThat(indexDocs.get("test3").size()).isEqualTo(1);
@@ -187,13 +194,58 @@ public class BulkApiRequestParserTest {
     assertThat(indexRequests.size()).isEqualTo(2);
 
     Map<String, List<Trace.Span>> indexDocs =
-        BulkApiRequestParser.convertIndexRequestToTraceFormat(indexRequests);
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(2);
     assertThat(indexDocs.get("test1").size()).isEqualTo(1);
     assertThat(indexDocs.get("test2").size()).isEqualTo(1);
 
     // we are able to parse requests against multiple requests
     // however we throw an exception if that happens in practice
+  }
+
+  @Test
+  public void testSchemaFieldForTags() throws IOException {
+    byte[] rawRequest = getRawQueryBytes("index_simple");
+
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(1);
+
+    Schema.SchemaField type1 =
+        Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.KEYWORD).build();
+    Schema.SchemaField type2 =
+        Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build();
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields("field1", type1)
+            .putFields("field2", type2)
+            .build();
+
+    IngestDocument ingestDocument = convertRequestToDocument(indexRequests.get(0));
+    Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument, schema);
+
+    List<Trace.KeyValue> field1Def =
+        span.getTagsList().stream().filter(keyValue -> keyValue.getKey().equals("field1")).toList();
+    assertThat(field1Def.size()).isEqualTo(1);
+    assertThat(field1Def.getFirst().getVStr()).isEqualTo("value1");
+    assertThat(field1Def.getFirst().getVType()).isEqualTo(Trace.ValueType.STRING);
+    assertThat(field1Def.getFirst().getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
+
+    field1Def =
+        span.getTagsList().stream().filter(keyValue -> keyValue.getKey().equals("field2")).toList();
+    assertThat(field1Def.size()).isEqualTo(1);
+    assertThat(field1Def.getFirst().getVStr()).isEqualTo("value2");
+    assertThat(field1Def.getFirst().getVType()).isEqualTo(Trace.ValueType.STRING);
+    assertThat(field1Def.getFirst().getFieldType()).isEqualTo(Schema.SchemaFieldType.TEXT);
+
+    field1Def =
+        span.getTagsList().stream()
+            .filter(keyValue -> keyValue.getKey().equals("service_name"))
+            .toList();
+    assertThat(field1Def.size()).isEqualTo(1);
+    assertThat(field1Def.getFirst().getVStr()).isEqualTo("test");
+    assertThat(field1Def.getFirst().getVType()).isEqualTo(Trace.ValueType.STRING);
+    assertThat(field1Def.getFirst().getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
   }
 
   @Test
@@ -204,7 +256,9 @@ public class BulkApiRequestParserTest {
     assertThat(indexRequests.size()).isEqualTo(1);
 
     IngestDocument ingestDocument = convertRequestToDocument(indexRequests.get(0));
-    Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument);
+    Trace.Span span =
+        BulkApiRequestParser.fromIngestDocument(
+            ingestDocument, Schema.IngestSchema.newBuilder().build());
 
     // timestamp is in microseconds based on the trace.proto definition
     Instant ingestDocumentTime =

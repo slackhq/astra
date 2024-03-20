@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package slack.proto.kaldb.schema;
+
+option java_package = "com.slack.kaldb.proto.schema";
+
+// We want to call this Schema and then remove the .schema package
+// But if we do that today, the field types interfere with existing enums
+// which we don't want addressing just yet ( kaldb_search.proto )
+message IngestSchema {
+  // convert to a map
+  map<string, SchemaField> fields = 1;
+}
+
+message SchemaField {
+  SchemaFieldType type = 2;
+  // other field definitions in the future
+}
+
+// https://opensearch.org/docs/2.4/opensearch/supported-field-types/index/
+// Add the remaining types as needed
+enum SchemaFieldType {
+  KEYWORD  = 0;
+  TEXT  = 1;
+  IP  = 2;
+  // expose format in the future
+  DATE = 3;
+  BOOLEAN = 4;
+  DOUBLE = 5;
+  FLOAT = 6;
+  HALF_FLOAT = 7;
+  INTEGER = 8;
+  LONG = 9;
+  SCALED_LONG = 10;
+  SHORT = 11;
+  BYTE = 12;
+  BINARY = 13;
+};

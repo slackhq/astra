@@ -1,0 +1,43 @@
+{
+  "fields": {
+    "host": {
+      "type": "KEYWORD"
+    },
+    "message": {
+      "type": "TEXT"
+    },
+    "ip": {
+      "type": "IP"
+    },
+    "my_date": {
+      "type": "DATE"
+    },
+    "success": {
+      "type": "BOOLEAN"
+    },
+    "cost": {
+      "type": "DOUBLE"
+    },
+    "amount": {
+      "type": "FLOAT"
+    },
+    "amount_half_float": {
+      "type": "HALF_FLOAT"
+    },
+    "value": {
+      "type": "INTEGER"
+    },
+    "count": {
+      "type": "LONG"
+    },
+    "count_scaled_long": {
+      "type": "SCALED_LONG"
+    },
+    "count_short": {
+      "type": "SHORT"
+    },
+    "bucket": {
+      "type": "BYTE"
+    }
+  }
+}

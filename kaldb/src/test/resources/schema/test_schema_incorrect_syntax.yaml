@@ -1,0 +1,4 @@
+fields:
+  host:
+    type: KEYWORD
+    invalid: INVALID

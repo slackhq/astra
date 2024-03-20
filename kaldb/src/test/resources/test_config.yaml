@@ -128,6 +128,7 @@ preprocessorConfig:
   bootstrapServers: localhost:9092
   useBulkApi: true
   rateLimitExceededErrorCode: 429
+  schemaFile: "schema/test_schema.yaml"
 
 clusterConfig:
   clusterName: "test_kaldb_cluster"

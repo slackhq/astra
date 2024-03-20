@@ -128,6 +128,7 @@ preprocessorConfig:
     kafkaTopic: ${KAFKA_TOPIC:-test-topic}
     kafkaBootStrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
     additionalProps: ${KAFKA_ADDITIONAL_PROPS:-}
+  schemaFile: ${PREPROCESSOR_SCHEMA_FILE:-}
 
   serverConfig:
     serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}

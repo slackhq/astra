@@ -157,7 +157,8 @@
     "rateLimiterMaxBurstSeconds": 2,
     "bootstrapServers": "localhost:9092",
     "useBulkApi": false,
-    "rateLimitExceededErrorCode": 400
+    "rateLimitExceededErrorCode": 400,
+    "schemaFile": "schema/test_schema.yaml"
   },
   "clusterConfig": {
     "clusterName": "test_kaldb_json_cluster",
