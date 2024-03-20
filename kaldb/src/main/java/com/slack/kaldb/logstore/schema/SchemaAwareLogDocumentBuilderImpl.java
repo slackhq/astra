@@ -453,6 +453,14 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
     tags.remove(LogMessage.ReservedField.SERVICE_NAME.fieldName);
     tags.remove(LogMessage.ReservedField.TYPE.fieldName);
 
+    // if any top level fields are in the tags, we should remove them
+    tags.remove(LogMessage.ReservedField.PARENT_ID.fieldName);
+    tags.remove(LogMessage.ReservedField.TRACE_ID.fieldName);
+    tags.remove(LogMessage.ReservedField.NAME.fieldName);
+    tags.remove(LogMessage.ReservedField.DURATION_MS.fieldName);
+    tags.remove(LogMessage.SystemField.ID.fieldName);
+    tags.remove(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+
     for (Trace.KeyValue keyValue : tags.values()) {
       if (keyValue.getVType() == Trace.ValueType.STRING) {
         addField(doc, keyValue.getKey(), keyValue.getVStr(), "", 0);
