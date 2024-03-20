@@ -1,18 +1,72 @@
 package com.slack.kaldb.schema;
 
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.build;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import com.google.common.io.Files;
+import com.google.protobuf.ByteString;
+import com.slack.kaldb.logstore.LogStore;
+import com.slack.kaldb.logstore.LuceneIndexStoreConfig;
+import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.proto.schema.Schema;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.File;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.commons.io.FileUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SpanTagFormatterWithSchemaTest {
 
+  private static final Logger LOG = LoggerFactory.getLogger(SpanTagFormatterWithSchemaTest.class);
+
   static Schema.IngestSchema schema;
+
+  private SimpleMeterRegistry meterRegistry;
+  public File tempFolder;
+  public LogStore logStore;
+
+  @BeforeEach
+  public void setup() throws Exception {
+    meterRegistry = new SimpleMeterRegistry();
+    this.tempFolder = Files.createTempDir();
+
+    LuceneIndexStoreConfig indexStoreCfg =
+        new LuceneIndexStoreConfig(
+            Duration.of(5, ChronoUnit.MINUTES),
+            Duration.of(5, ChronoUnit.MINUTES),
+            tempFolder.getCanonicalPath(),
+            false);
+
+    SchemaAwareLogDocumentBuilderImpl dropFieldBuilder =
+        build(
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD, true, meterRegistry);
+    this.logStore = new LuceneIndexStoreImpl(indexStoreCfg, dropFieldBuilder, meterRegistry);
+  }
+
+  @AfterEach
+  public void tearDown() {
+    try {
+      if (logStore != null) {
+        logStore.close();
+      }
+      FileUtils.deleteDirectory(tempFolder);
+    } catch (Exception e) {
+      LOG.error("error closing resources", e);
+    }
+  }
 
   @BeforeAll
   public static void initializeSchema() {
@@ -265,5 +319,23 @@ public class SpanTagFormatterWithSchemaTest {
     assertThat(kv.getVType()).isEqualTo(Trace.ValueType.STRING);
     assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(kv.getVStr()).isEqualTo("e30=");
+  }
+
+  @Test
+  public void testDuplicateFieldAsTag() {
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .setName("service1")
+            .setId(ByteString.copyFrom("123".getBytes()))
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setKey("name")
+                    .setVStr("service2")
+                    .setVType(Trace.ValueType.STRING)
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD))
+            .build();
+
+    logStore.addMessage(span);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
   }
 }
