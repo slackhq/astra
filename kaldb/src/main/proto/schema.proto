@@ -35,4 +35,9 @@ enum SchemaFieldType {
   SHORT = 11;
   BYTE = 12;
   BINARY = 13;
+  // we may get rid of this in the future
+  ID = 14;
+  // to help with backward compatibility
+  // move to KEYWORD in the future
+  STRING = 15;
 };

@@ -4,6 +4,8 @@ package slack.proto.kaldb;
 
 option java_package = "com.slack.kaldb.proto.service";
 
+import "schema.proto";
+
 message SearchRequest {
   // Data sets or chunk_ids to be searched
   string dataset = 1;
@@ -238,21 +240,9 @@ message SchemaResult {
   // Map of field name, to field definition
   map<string, SchemaDefinition> field_definition = 1;
 }
-
-enum FieldType {
-  TEXT = 0;
-  STRING = 1;
-  INTEGER = 2;
-  LONG = 3;
-  FLOAT = 4;
-  BOOLEAN = 5;
-  DOUBLE = 6;
-  ID = 7;
-}
-
 message SchemaDefinition {
   // Field type as defined by KalDB
-  FieldType type = 1;
+  slack.proto.kaldb.schema.SchemaFieldType type = 1;
   // Any field-specific metadata to be included
   // map<string, Value> metadata = 2;
 }
