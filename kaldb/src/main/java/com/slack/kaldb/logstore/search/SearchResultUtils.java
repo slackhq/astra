@@ -24,6 +24,7 @@ import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
@@ -641,21 +642,21 @@ public class SearchResultUtils {
 
   public static FieldType fromSchemaDefinitionProto(
       KaldbSearch.SchemaDefinition protoSchemaDefinition) {
-    if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.TEXT)) {
+    if (protoSchemaDefinition.getType().equals(Schema.SchemaFieldType.TEXT)) {
       return FieldType.TEXT;
-    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.STRING)) {
+    } else if (protoSchemaDefinition.getType().equals(Schema.SchemaFieldType.STRING)) {
       return FieldType.STRING;
-    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.INTEGER)) {
+    } else if (protoSchemaDefinition.getType().equals(Schema.SchemaFieldType.INTEGER)) {
       return FieldType.INTEGER;
-    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.LONG)) {
+    } else if (protoSchemaDefinition.getType().equals(Schema.SchemaFieldType.LONG)) {
       return FieldType.LONG;
-    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.FLOAT)) {
+    } else if (protoSchemaDefinition.getType().equals(Schema.SchemaFieldType.FLOAT)) {
       return FieldType.FLOAT;
-    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.BOOLEAN)) {
+    } else if (protoSchemaDefinition.getType().equals(Schema.SchemaFieldType.BOOLEAN)) {
       return FieldType.BOOLEAN;
-    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.DOUBLE)) {
+    } else if (protoSchemaDefinition.getType().equals(Schema.SchemaFieldType.DOUBLE)) {
       return FieldType.DOUBLE;
-    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.ID)) {
+    } else if (protoSchemaDefinition.getType().equals(Schema.SchemaFieldType.ID)) {
       return FieldType.ID;
     } else {
       throw new IllegalArgumentException(
@@ -667,21 +668,21 @@ public class SearchResultUtils {
     KaldbSearch.SchemaDefinition.Builder schemaBuilder = KaldbSearch.SchemaDefinition.newBuilder();
 
     if (fieldType.equals(FieldType.TEXT)) {
-      schemaBuilder.setType(KaldbSearch.FieldType.TEXT);
+      schemaBuilder.setType(Schema.SchemaFieldType.TEXT);
     } else if (fieldType.equals(FieldType.STRING)) {
-      schemaBuilder.setType(KaldbSearch.FieldType.STRING);
+      schemaBuilder.setType(Schema.SchemaFieldType.STRING);
     } else if (fieldType.equals(FieldType.INTEGER)) {
-      schemaBuilder.setType(KaldbSearch.FieldType.INTEGER);
+      schemaBuilder.setType(Schema.SchemaFieldType.INTEGER);
     } else if (fieldType.equals(FieldType.LONG)) {
-      schemaBuilder.setType(KaldbSearch.FieldType.LONG);
+      schemaBuilder.setType(Schema.SchemaFieldType.LONG);
     } else if (fieldType.equals(FieldType.FLOAT)) {
-      schemaBuilder.setType(KaldbSearch.FieldType.FLOAT);
+      schemaBuilder.setType(Schema.SchemaFieldType.FLOAT);
     } else if (fieldType.equals(FieldType.BOOLEAN)) {
-      schemaBuilder.setType(KaldbSearch.FieldType.BOOLEAN);
+      schemaBuilder.setType(Schema.SchemaFieldType.BOOLEAN);
     } else if (fieldType.equals(FieldType.DOUBLE)) {
-      schemaBuilder.setType(KaldbSearch.FieldType.DOUBLE);
+      schemaBuilder.setType(Schema.SchemaFieldType.DOUBLE);
     } else if (fieldType.equals(FieldType.ID)) {
-      schemaBuilder.setType(KaldbSearch.FieldType.ID);
+      schemaBuilder.setType(Schema.SchemaFieldType.ID);
     } else {
       throw new IllegalArgumentException(
           String.format("Field type %s is not a supported type", fieldType));

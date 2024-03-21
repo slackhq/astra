@@ -32,6 +32,7 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -877,7 +878,7 @@ public class KaldbDistributedQueryServiceTest {
                     .putFieldDefinition(
                         "foo",
                         KaldbSearch.SchemaDefinition.newBuilder()
-                            .setType(KaldbSearch.FieldType.TEXT)
+                            .setType(Schema.SchemaFieldType.TEXT)
                             .build())
                     .build()));
 
@@ -895,7 +896,7 @@ public class KaldbDistributedQueryServiceTest {
             Map.of(
                 "foo",
                 KaldbSearch.SchemaDefinition.newBuilder()
-                    .setType(KaldbSearch.FieldType.TEXT)
+                    .setType(Schema.SchemaFieldType.TEXT)
                     .build()));
 
     // Exact dataset query should return a result
@@ -912,7 +913,7 @@ public class KaldbDistributedQueryServiceTest {
             Map.of(
                 "foo",
                 KaldbSearch.SchemaDefinition.newBuilder()
-                    .setType(KaldbSearch.FieldType.TEXT)
+                    .setType(Schema.SchemaFieldType.TEXT)
                     .build()));
 
     // query window that returns no results should have no schema
