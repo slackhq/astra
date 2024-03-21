@@ -9,6 +9,7 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
   public static final String TYPE = "date_histogram";
   private final String interval;
   private final String offset;
+  private final String zoneId;
   private final long minDocCount;
 
   private final String format;
@@ -20,6 +21,7 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
 
     this.interval = interval;
     this.offset = "";
+    this.zoneId = null;
     this.minDocCount = 1;
     this.format = null;
     this.extendedBounds = Map.of();
@@ -30,6 +32,7 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
       String fieldName,
       String interval,
       String offset,
+      String zoneId,
       long minDocCount,
       String format,
       Map<String, Long> extendedBounds,
@@ -39,6 +42,7 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
 
     this.interval = interval;
     this.offset = offset;
+    this.zoneId = zoneId;
     this.minDocCount = minDocCount;
     this.format = format;
     this.extendedBounds = extendedBounds;
@@ -46,6 +50,10 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
 
   public String getInterval() {
     return interval;
+  }
+
+  public String getZoneId() {
+    return zoneId;
   }
 
   public String getOffset() {
@@ -72,14 +80,13 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (!(o instanceof DateHistogramAggBuilder)) return false;
+    if (!(o instanceof DateHistogramAggBuilder that)) return false;
     if (!super.equals(o)) return false;
-
-    DateHistogramAggBuilder that = (DateHistogramAggBuilder) o;
 
     if (minDocCount != that.minDocCount) return false;
     if (!interval.equals(that.interval)) return false;
     if (!Objects.equals(offset, that.offset)) return false;
+    if (!Objects.equals(zoneId, that.zoneId)) return false;
     if (!Objects.equals(format, that.format)) return false;
     return Objects.equals(extendedBounds, that.extendedBounds);
   }
@@ -89,6 +96,7 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
     int result = super.hashCode();
     result = 31 * result + interval.hashCode();
     result = 31 * result + (offset != null ? offset.hashCode() : 0);
+    result = 31 * result + (zoneId != null ? zoneId.hashCode() : 0);
     result = 31 * result + (int) (minDocCount ^ (minDocCount >>> 32));
     result = 31 * result + (format != null ? format.hashCode() : 0);
     result = 31 * result + (extendedBounds != null ? extendedBounds.hashCode() : 0);
@@ -104,6 +112,9 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
         + ", offset='"
         + offset
         + '\''
+        + ", zoneId='"
+        + zoneId
+        + '\''
         + ", minDocCount="
         + minDocCount
         + ", format='"
@@ -113,6 +124,11 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
         + extendedBounds
         + ", field='"
         + field
+        + '\''
+        + ", missing="
+        + missing
+        + ", script='"
+        + script
         + '\''
         + ", name='"
         + name

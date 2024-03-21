@@ -947,6 +947,7 @@ public class LogIndexSearcherImplTest {
                 LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
                 "1s",
                 null,
+                null,
                 0,
                 "epoch_ms",
                 Map.of("min", 1593365471000L, "max", 1593365471000L + 5000L),

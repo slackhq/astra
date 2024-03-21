@@ -61,6 +61,27 @@ public class ElasticsearchApiService {
     this.searcher = searcher;
   }
 
+  /** Returns metadata about the cluster */
+  @Get
+  @Path("/")
+  public HttpResponse clusterMetadata() {
+    // todo - expand this to automatically pull in build info
+    // example - https://opensearch.org/docs/2.3/quickstart/
+    // number must validate with npm semver validate for grafana compatibility due to
+    // https://github.com/grafana/grafana/blob/f74d5ff93ebe61e090994162be9b08bafcd5b7f0/public/app/plugins/datasource/elasticsearch/components/QueryEditor/MetricAggregationsEditor/MetricEditor.tsx#L54
+    return HttpResponse.of(
+        """
+        {
+            "version":
+            {
+                "distribution": "astra",
+                "number": "0.0.1",
+                "lucene_version": "9.7.0"
+            }
+        }
+        """);
+  }
+
   /**
    * Multisearch API
    *

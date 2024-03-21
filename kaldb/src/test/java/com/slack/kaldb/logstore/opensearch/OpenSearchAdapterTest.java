@@ -7,6 +7,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
+import com.slack.kaldb.logstore.search.aggregations.AutoDateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
@@ -37,6 +38,7 @@ import org.opensearch.index.mapper.Uid;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
@@ -236,6 +238,7 @@ public class OpenSearchAdapterTest {
             LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
+            null,
             100,
             "epoch_ms",
             Map.of(),
@@ -258,6 +261,29 @@ public class OpenSearchAdapterTest {
   }
 
   @Test
+  public void canBuildValidAutoDateHistogram() throws IOException {
+    AutoDateHistogramAggBuilder autoDateHistogramAggBuilder =
+        new AutoDateHistogramAggBuilder(
+            "foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, null, null, List.of());
+
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAdapter.getCollectorManager(
+            autoDateHistogramAggBuilder,
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
+
+    try (Aggregator autoDateHistogramAggregator = collectorManager.newCollector()) {
+      InternalAutoDateHistogram internalDateHistogram =
+          (InternalAutoDateHistogram) autoDateHistogramAggregator.buildTopLevel();
+
+      assertThat(internalDateHistogram.getName()).isEqualTo("foo");
+
+      // todo - we don't have access to the package local methods for extra asserts - use
+      // reflection?
+    }
+  }
+
+  @Test
   public void canBuildValidCumulativeSumPipelineAggregator() {
     DateHistogramAggBuilder dateHistogramWithCumulativeSum =
         new DateHistogramAggBuilder(
@@ -265,6 +291,7 @@ public class OpenSearchAdapterTest {
             LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
+            null,
             100,
             "epoch_ms",
             Map.of(),
@@ -292,6 +319,7 @@ public class OpenSearchAdapterTest {
             LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
+            null,
             100,
             "epoch_ms",
             Map.of(),
@@ -319,6 +347,7 @@ public class OpenSearchAdapterTest {
             LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
+            null,
             100,
             "epoch_ms",
             Map.of(),
@@ -346,6 +375,7 @@ public class OpenSearchAdapterTest {
             LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
+            null,
             100,
             "epoch_ms",
             Map.of(),
@@ -392,6 +422,7 @@ public class OpenSearchAdapterTest {
             LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
+            null,
             0,
             "epoch_ms",
             Map.of(),

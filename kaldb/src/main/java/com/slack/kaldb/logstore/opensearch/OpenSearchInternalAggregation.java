@@ -18,8 +18,10 @@ import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.bucket.filter.FiltersAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.filter.InternalFilters;
+import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.bucket.terms.DoubleTerms;
@@ -78,6 +80,14 @@ public class OpenSearchInternalAggregation {
                   InternalAggregation.class,
                   DateHistogramAggregationBuilder.NAME,
                   InternalDateHistogram::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  AutoDateHistogramAggregationBuilder.NAME,
+                  AutoDateHistogramAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  AutoDateHistogramAggregationBuilder.NAME,
+                  InternalAutoDateHistogram::new),
               new NamedWriteableRegistry.Entry(
                   AggregationBuilder.class,
                   FiltersAggregationBuilder.NAME,

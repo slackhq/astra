@@ -8,6 +8,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.logstore.opensearch.OpenSearchInternalAggregation;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.AutoDateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
@@ -208,9 +209,24 @@ public class SearchResultUtils {
           searchAggregation.getValueSource().getField(),
           searchAggregation.getValueSource().getDateHistogram().getInterval(),
           searchAggregation.getValueSource().getDateHistogram().getOffset(),
+          (String)
+              fromValueProto(searchAggregation.getValueSource().getDateHistogram().getZoneId()),
           searchAggregation.getValueSource().getDateHistogram().getMinDocCount(),
           searchAggregation.getValueSource().getDateHistogram().getFormat(),
           searchAggregation.getValueSource().getDateHistogram().getExtendedBoundsMap(),
+          searchAggregation.getSubAggregationsList().stream()
+              .map(SearchResultUtils::fromSearchAggregations)
+              .collect(Collectors.toList()));
+    } else if (searchAggregation.getType().equals(AutoDateHistogramAggBuilder.TYPE)) {
+      return new AutoDateHistogramAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getValueSource().getField(),
+          (String)
+              fromValueProto(
+                  searchAggregation.getValueSource().getAutoDateHistogram().getMinInterval()),
+          (Integer)
+              fromValueProto(
+                  searchAggregation.getValueSource().getAutoDateHistogram().getNumBuckets()),
           searchAggregation.getSubAggregationsList().stream()
               .map(SearchResultUtils::fromSearchAggregations)
               .collect(Collectors.toList()));
@@ -508,6 +524,12 @@ public class SearchResultUtils {
         dateHistogramAggregationBuilder.setFormat(dateHistogramAggBuilder.getFormat());
       }
 
+      if (dateHistogramAggBuilder.getZoneId() != null
+          && !dateHistogramAggBuilder.getZoneId().isEmpty()) {
+        dateHistogramAggregationBuilder.setZoneId(
+            toValueProto(dateHistogramAggBuilder.getZoneId()));
+      }
+
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
           .setType(DateHistogramAggBuilder.TYPE)
           .setName(dateHistogramAggBuilder.getName())
@@ -519,6 +541,42 @@ public class SearchResultUtils {
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(dateHistogramAggBuilder.getField())
                   .setDateHistogram(dateHistogramAggregationBuilder.build())
+                  .build())
+          .build();
+
+    } else if (aggBuilder instanceof AutoDateHistogramAggBuilder) {
+      AutoDateHistogramAggBuilder autoDateHistogramAggBuilder =
+          (AutoDateHistogramAggBuilder) aggBuilder;
+
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+              .AutoDateHistogramAggregation.Builder
+          autoDateHistogramAggregationBuilder =
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                  .AutoDateHistogramAggregation.newBuilder();
+
+      if (autoDateHistogramAggBuilder.getNumBuckets() != null
+          && autoDateHistogramAggBuilder.getNumBuckets() > 0) {
+        autoDateHistogramAggregationBuilder.setNumBuckets(
+            toValueProto(autoDateHistogramAggBuilder.getNumBuckets()));
+      }
+
+      if (autoDateHistogramAggBuilder.getMinInterval() != null
+          && !autoDateHistogramAggBuilder.getMinInterval().isEmpty()) {
+        autoDateHistogramAggregationBuilder.setMinInterval(
+            toValueProto(autoDateHistogramAggBuilder.getMinInterval()));
+      }
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(AutoDateHistogramAggBuilder.TYPE)
+          .setName(autoDateHistogramAggBuilder.getName())
+          .addAllSubAggregations(
+              autoDateHistogramAggBuilder.getSubAggregations().stream()
+                  .map(SearchResultUtils::toSearchAggregationProto)
+                  .collect(Collectors.toList()))
+          .setValueSource(
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(autoDateHistogramAggBuilder.getField())
+                  .setAutoDateHistogram(autoDateHistogramAggregationBuilder.build())
                   .build())
           .build();
     } else if (aggBuilder instanceof FiltersAggBuilder) {

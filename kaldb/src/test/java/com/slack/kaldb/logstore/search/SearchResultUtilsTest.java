@@ -5,6 +5,7 @@ import static com.slack.kaldb.logstore.search.SearchResultUtils.toValueProto;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.aggregations.AutoDateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
@@ -122,6 +123,7 @@ public class SearchResultUtilsTest {
             LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
+            null,
             10000,
             "epoch_ms",
             Map.of(
@@ -135,6 +137,31 @@ public class SearchResultUtilsTest {
         (DateHistogramAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
     assertThat(dateHistogramAggBuilder1).isEqualTo(dateHistogramAggBuilder2);
+  }
+
+  @Test
+  public void shouldConvertAutoDateHistogramAggToFromProto() {
+    AutoDateHistogramAggBuilder autoDateHistogramAggBuilder1 =
+        new AutoDateHistogramAggBuilder(
+            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "day", 10, List.of());
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(autoDateHistogramAggBuilder1);
+    AutoDateHistogramAggBuilder autoDateHistogramAggBuilder2 =
+        (AutoDateHistogramAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(autoDateHistogramAggBuilder1).isEqualTo(autoDateHistogramAggBuilder2);
+
+    AutoDateHistogramAggBuilder autoDateHistogramAggBuilder3 =
+        new AutoDateHistogramAggBuilder(
+            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, null, null, List.of());
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation2 =
+        SearchResultUtils.toSearchAggregationProto(autoDateHistogramAggBuilder3);
+    AutoDateHistogramAggBuilder autoDateHistogramAggBuilder4 =
+        (AutoDateHistogramAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation2);
+
+    assertThat(autoDateHistogramAggBuilder3).isEqualTo(autoDateHistogramAggBuilder4);
   }
 
   @Test
@@ -282,6 +309,7 @@ public class SearchResultUtilsTest {
             LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
+            null,
             10000,
             "epoch_ms",
             Map.of(
@@ -295,6 +323,7 @@ public class SearchResultUtilsTest {
             "duration_ms",
             "10s",
             "7s",
+            null,
             1000,
             "epoch_ms",
             Map.of(

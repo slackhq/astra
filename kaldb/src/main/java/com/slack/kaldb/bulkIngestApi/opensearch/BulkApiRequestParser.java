@@ -111,9 +111,6 @@ public class BulkApiRequestParser {
     // these fields don't need to be tags as they have been explicitly set already
     sourceAndMetadata.remove(IngestDocument.Metadata.ID.getFieldName());
     sourceAndMetadata.remove(IngestDocument.Metadata.INDEX.getFieldName());
-    sourceAndMetadata.remove("timestamp");
-    sourceAndMetadata.remove("_timestamp");
-    sourceAndMetadata.remove("@timestamp");
 
     sourceAndMetadata.forEach(
         (key, value) -> spanBuilder.addTags(SpanFormatter.convertKVtoProto(key, value, schema)));
