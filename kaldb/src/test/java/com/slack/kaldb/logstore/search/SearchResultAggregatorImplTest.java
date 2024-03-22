@@ -552,6 +552,7 @@ public class SearchResultAggregatorImplTest {
                 LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
                 interval,
                 "0",
+                null,
                 0,
                 "",
                 Map.of("min", histogramStartMs, "max", histogramEndMs),

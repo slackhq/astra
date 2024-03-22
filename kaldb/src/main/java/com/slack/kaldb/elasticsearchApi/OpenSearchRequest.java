@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
+import com.slack.kaldb.logstore.search.aggregations.AutoDateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
@@ -120,28 +121,74 @@ public class OpenSearchRequest {
                   .fieldNames()
                   .forEachRemaining(
                       aggregationObject -> {
-                        if (aggregationObject.equals(DateHistogramAggBuilder.TYPE)) {
-                          JsonNode dateHistogram = aggs.get(aggregationName).get(aggregationObject);
+                        if (aggregationObject.equals(AutoDateHistogramAggBuilder.TYPE)) {
+                          JsonNode autoDateHistogram =
+                              aggs.get(aggregationName).get(aggregationObject);
                           aggBuilder
-                              .setType(DateHistogramAggBuilder.TYPE)
+                              .setType(AutoDateHistogramAggBuilder.TYPE)
                               .setName(aggregationName)
                               .setValueSource(
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
-                                      .setField(getFieldName(dateHistogram))
-                                      .setDateHistogram(
+                                      .setField(getFieldName(autoDateHistogram))
+                                      .setAutoDateHistogram(
                                           KaldbSearch.SearchRequest.SearchAggregation
-                                              .ValueSourceAggregation.DateHistogramAggregation
+                                              .ValueSourceAggregation.AutoDateHistogramAggregation
                                               .newBuilder()
-                                              .setMinDocCount(
-                                                  getDateHistogramMinDocCount(dateHistogram))
-                                              .setInterval(getDateHistogramInterval(dateHistogram))
-                                              .putAllExtendedBounds(
-                                                  getDateHistogramExtendedBounds(dateHistogram))
-                                              .setFormat(getDateHistogramFormat(dateHistogram))
-                                              .setOffset(getDateHistogramOffset(dateHistogram))
+                                              .setMinInterval(
+                                                  SearchResultUtils.toValueProto(
+                                                      getAutoDateHistogramMinInterval(
+                                                          autoDateHistogram)))
+                                              .setNumBuckets(
+                                                  SearchResultUtils.toValueProto(
+                                                      getAutoDateHistogramNumBuckets(
+                                                          autoDateHistogram)))
                                               .build())
                                       .build());
+                        } else if (aggregationObject.equals(DateHistogramAggBuilder.TYPE)) {
+                          JsonNode dateHistogram = aggs.get(aggregationName).get(aggregationObject);
+                          if (getDateHistogramInterval(dateHistogram).equals("auto")) {
+                            // if using "auto" type, default to using AutoDateHistogram as "auto" is
+                            // not a valid interval for DateHistogramAggBuilder
+                            aggBuilder
+                                .setType(AutoDateHistogramAggBuilder.TYPE)
+                                .setName(aggregationName)
+                                .setValueSource(
+                                    KaldbSearch.SearchRequest.SearchAggregation
+                                        .ValueSourceAggregation.newBuilder()
+                                        .setField(getFieldName(dateHistogram))
+                                        .build());
+                          } else {
+
+                            KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                    .DateHistogramAggregation.Builder
+                                dateHistogramBuilder =
+                                    KaldbSearch.SearchRequest.SearchAggregation
+                                        .ValueSourceAggregation.DateHistogramAggregation
+                                        .newBuilder()
+                                        .setMinDocCount(getDateHistogramMinDocCount(dateHistogram))
+                                        .setInterval(getDateHistogramInterval(dateHistogram))
+                                        .putAllExtendedBounds(
+                                            getDateHistogramExtendedBounds(dateHistogram))
+                                        .setFormat(getDateHistogramFormat(dateHistogram))
+                                        .setOffset(getDateHistogramOffset(dateHistogram));
+
+                            String zoneId = getDateHistogramZoneId(dateHistogram);
+                            if (zoneId != null) {
+                              dateHistogramBuilder.setZoneId(
+                                  SearchResultUtils.toValueProto(zoneId));
+                            }
+
+                            aggBuilder
+                                .setType(DateHistogramAggBuilder.TYPE)
+                                .setName(aggregationName)
+                                .setValueSource(
+                                    KaldbSearch.SearchRequest.SearchAggregation
+                                        .ValueSourceAggregation.newBuilder()
+                                        .setField(getFieldName(dateHistogram))
+                                        .setDateHistogram(dateHistogramBuilder.build())
+                                        .build());
+                          }
                         } else if (aggregationObject.equals(FiltersAggBuilder.TYPE)) {
                           JsonNode filters = aggs.get(aggregationName).get(aggregationObject);
 
@@ -440,11 +487,26 @@ public class OpenSearchRequest {
   }
 
   private static String getDateHistogramInterval(JsonNode dateHistogram) {
-    return dateHistogram.get("interval").asText();
+    if (dateHistogram.has("fixed_interval")) {
+      return dateHistogram.get("fixed_interval").asText();
+    } else if (dateHistogram.has("interval")) {
+      return dateHistogram.get("interval").asText();
+    }
+    return "auto";
+  }
+
+  private static String getDateHistogramZoneId(JsonNode dateHistogram) {
+    if (dateHistogram.has("time_zone")) {
+      return dateHistogram.get("time_zone").asText();
+    }
+    return null;
   }
 
   private static String getHistogramInterval(JsonNode dateHistogram) {
-    return dateHistogram.get("interval").asText();
+    if (dateHistogram.has("interval")) {
+      return dateHistogram.get("interval").asText();
+    }
+    return "auto";
   }
 
   private static String getFieldName(JsonNode agg) {
@@ -537,6 +599,20 @@ public class OpenSearchRequest {
       return dateHistogram.get("offset").asText();
     }
     return "";
+  }
+
+  private static Integer getAutoDateHistogramNumBuckets(JsonNode autoDateHistogram) {
+    if (autoDateHistogram.has("buckets")) {
+      return autoDateHistogram.get("buckets").asInt();
+    }
+    return null;
+  }
+
+  private static String getAutoDateHistogramMinInterval(JsonNode autoDateHistogram) {
+    if (autoDateHistogram.has("minimum_interval")) {
+      return autoDateHistogram.get("minimum_interval").asText();
+    }
+    return null;
   }
 
   private static String getFormat(JsonNode cumulateSum) {

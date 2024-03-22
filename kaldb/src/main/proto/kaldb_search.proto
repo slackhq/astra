@@ -67,6 +67,7 @@ message SearchRequest {
         DateHistogramAggregation date_histogram = 11;
         TermsAggregation terms = 12;
         HistogramAggregation histogram = 13;
+        AutoDateHistogramAggregation auto_date_histogram = 14;
         ExtendedStatsAggregation extended_stats = 15;
         UniqueCountAggregation unique_count = 16;
         PercentilesAggregation percentiles = 17;
@@ -93,6 +94,16 @@ message SearchRequest {
         map<string, int64> extended_bounds = 4;
         // Format for the resulting buckets timestamps
         string format = 5;
+        // Date zoneId if requesting with timezone option
+        Value zoneId = 6;
+      }
+
+      // Unique fields specific to the auto date histogram aggregation request
+      message AutoDateHistogramAggregation {
+        // Value representing the minimum interval of the bucket size (ie, day, hour)
+        Value min_interval = 1;
+        // Exact number of buckets required
+        Value num_buckets = 2;
       }
 
       // Unique fields specific to the terms aggregation request

@@ -7,6 +7,7 @@ import static java.util.Collections.singletonMap;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
+import com.slack.kaldb.logstore.search.aggregations.AutoDateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
@@ -26,6 +27,7 @@ import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -71,6 +73,7 @@ import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.filter.FiltersAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.filter.FiltersAggregator;
+import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder;
@@ -316,6 +319,7 @@ public class OpenSearchAdapter {
   private static ValuesSourceRegistry buildValueSourceRegistry() {
     ValuesSourceRegistry.Builder valuesSourceRegistryBuilder = new ValuesSourceRegistry.Builder();
 
+    AutoDateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     DateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     HistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     TermsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
@@ -484,6 +488,8 @@ public class OpenSearchAdapter {
   public static AbstractAggregationBuilder getAggregationBuilder(AggBuilder aggBuilder) {
     if (aggBuilder.getType().equals(DateHistogramAggBuilder.TYPE)) {
       return getDateHistogramAggregationBuilder((DateHistogramAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(AutoDateHistogramAggBuilder.TYPE)) {
+      return getAutoDateHistogramAggregationBuilder((AutoDateHistogramAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(HistogramAggBuilder.TYPE)) {
       return getHistogramAggregationBuilder((HistogramAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(FiltersAggBuilder.TYPE)) {
@@ -910,6 +916,35 @@ public class OpenSearchAdapter {
   }
 
   /**
+   * Given an AutoDateHistogramAggBuilder returns a AutoDateHistogramAggBuilder to be used in
+   * building aggregation tree
+   */
+  protected static AutoDateHistogramAggregationBuilder getAutoDateHistogramAggregationBuilder(
+      AutoDateHistogramAggBuilder builder) {
+    AutoDateHistogramAggregationBuilder autoDateHistogramAggregationBuilder =
+        new AutoDateHistogramAggregationBuilder(builder.getName()).field(builder.getField());
+
+    if (builder.getMinInterval() != null && !builder.getMinInterval().isEmpty()) {
+      autoDateHistogramAggregationBuilder.setMinimumIntervalExpression(builder.getMinInterval());
+    }
+
+    if (builder.getNumBuckets() != null && builder.getNumBuckets() > 0) {
+      autoDateHistogramAggregationBuilder.setNumBuckets(builder.getNumBuckets());
+    }
+
+    for (AggBuilder subAggregation : builder.getSubAggregations()) {
+      if (isPipelineAggregation(subAggregation)) {
+        autoDateHistogramAggregationBuilder.subAggregation(
+            getPipelineAggregationBuilder(subAggregation));
+      } else {
+        autoDateHistogramAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+      }
+    }
+
+    return autoDateHistogramAggregationBuilder;
+  }
+
+  /**
    * Given an DateHistogramAggBuilder returns a DateHistogramAggregationBuilder to be used in
    * building aggregation tree
    */
@@ -929,6 +964,10 @@ public class OpenSearchAdapter {
     if (builder.getFormat() != null && !builder.getFormat().isEmpty()) {
       // todo - this should be used when the field type is changed to date
       // dateHistogramAggregationBuilder.format(builder.getFormat());
+    }
+
+    if (builder.getZoneId() != null && !builder.getZoneId().isEmpty()) {
+      dateHistogramAggregationBuilder.timeZone(ZoneId.of(builder.getZoneId()));
     }
 
     if (builder.getMinDocCount() == 0) {

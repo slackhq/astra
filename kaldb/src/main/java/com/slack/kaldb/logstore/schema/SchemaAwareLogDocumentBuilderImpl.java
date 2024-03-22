@@ -420,8 +420,12 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
       jsonMap.put(
           LogMessage.ReservedField.KALDB_INVALID_TIMESTAMP.fieldName, message.getTimestamp());
     }
+
     addField(
         doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, timestamp.toEpochMilli(), "", 0);
+    // todo - this should be removed once we simplify the time handling
+    // this will be overridden below if a user provided value exists
+    jsonMap.put(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, timestamp.toString());
 
     Map<String, Trace.KeyValue> tags =
         message.getTagsList().stream()
@@ -459,7 +463,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
     tags.remove(LogMessage.ReservedField.NAME.fieldName);
     tags.remove(LogMessage.ReservedField.DURATION_MS.fieldName);
     tags.remove(LogMessage.SystemField.ID.fieldName);
-    tags.remove(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
 
     for (Trace.KeyValue keyValue : tags.values()) {
       if (keyValue.getVType() == Trace.ValueType.STRING) {
