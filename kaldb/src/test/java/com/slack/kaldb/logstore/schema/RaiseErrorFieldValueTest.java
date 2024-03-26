@@ -166,7 +166,7 @@ public class RaiseErrorFieldValueTest {
                         1, "Test message", Instant.now(), List.of(hostField, tagField))))
         .isInstanceOf(FieldDefMismatchException.class);
 
-    assertThat(docBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
@@ -206,7 +206,7 @@ public class RaiseErrorFieldValueTest {
                         1, "Test message", Instant.now(), List.of(hostField, tagField))))
         .isInstanceOf(FieldDefMismatchException.class);
 
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
