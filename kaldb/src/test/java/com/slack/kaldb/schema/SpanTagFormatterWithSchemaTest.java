@@ -337,5 +337,27 @@ public class SpanTagFormatterWithSchemaTest {
 
     logStore.addMessage(span);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+
+    // duplicate tags
+    span =
+        Trace.Span.newBuilder()
+            .setName("service1")
+            .setId(ByteString.copyFrom("123".getBytes()))
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setKey("tag1")
+                    .setVStr("value1")
+                    .setVType(Trace.ValueType.STRING)
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD))
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setKey("tag1")
+                    .setVStr("value1")
+                    .setVType(Trace.ValueType.STRING)
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD))
+            .build();
+
+    logStore.addMessage(span);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
   }
 }

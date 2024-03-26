@@ -430,7 +430,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
     Map<String, Trace.KeyValue> tags =
         message.getTagsList().stream()
             .map(keyValue -> Map.entry(keyValue.getKey(), keyValue))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, Map.Entry::getValue, (firstKV, dupKV) -> firstKV));
 
     // This should just be top level Trace.Span fields. This is error prone - what if type is
     // not a string?

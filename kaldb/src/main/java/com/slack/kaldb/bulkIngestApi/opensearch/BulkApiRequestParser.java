@@ -112,14 +112,22 @@ public class BulkApiRequestParser {
     sourceAndMetadata.remove(IngestDocument.Metadata.ID.getFieldName());
     sourceAndMetadata.remove(IngestDocument.Metadata.INDEX.getFieldName());
 
-    sourceAndMetadata.forEach(
-        (key, value) -> spanBuilder.addTags(SpanFormatter.convertKVtoProto(key, value, schema)));
-    spanBuilder.addTags(
-        Trace.KeyValue.newBuilder()
-            .setKey(SERVICE_NAME_KEY)
-            .setVType(Trace.ValueType.STRING)
-            .setVStr(index)
-            .build());
+    boolean tagsContainServiceName = false;
+    for (Map.Entry<String, Object> kv : sourceAndMetadata.entrySet()) {
+      if (!tagsContainServiceName && kv.getKey().equals(SERVICE_NAME_KEY)) {
+        tagsContainServiceName = true;
+      }
+      spanBuilder.addTags(SpanFormatter.convertKVtoProto(kv.getKey(), kv.getValue(), schema));
+    }
+    if (!tagsContainServiceName) {
+      spanBuilder.addTags(
+          Trace.KeyValue.newBuilder()
+              .setKey(SERVICE_NAME_KEY)
+              .setVType(Trace.ValueType.STRING)
+              .setFieldType(Schema.SchemaFieldType.KEYWORD)
+              .setVStr(index)
+              .build());
+    }
 
     return spanBuilder.build();
   }
