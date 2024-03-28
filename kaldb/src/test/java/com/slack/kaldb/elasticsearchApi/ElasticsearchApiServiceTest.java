@@ -1,6 +1,12 @@
 package com.slack.kaldb.elasticsearchApi;
 
+import static com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser.convertRequestToDocument;
+import static com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParserTest.getIndexRequestBytes;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.writer.LogMessageWriterImplTest.consumerRecordWithValue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -16,16 +22,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
+import com.slack.kaldb.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.metadata.schema.SchemaUtil;
+import com.slack.kaldb.proto.schema.Schema;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.SpanUtil;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -33,13 +44,17 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.ingest.IngestDocument;
 
 @SuppressWarnings("UnstableApiUsage")
 public class ElasticsearchApiServiceTest {
@@ -83,6 +98,46 @@ public class ElasticsearchApiServiceTest {
   public void tearDown() throws TimeoutException, IOException {
     chunkManagerUtil.close();
     metricsRegistry.close();
+  }
+
+  @Test
+  public void testSchemaFields() throws Exception {
+    final File schemaFile =
+        new File(getClass().getClassLoader().getResource("schema/test_schema.yaml").getFile());
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(schemaFile.toPath());
+
+    byte[] rawRequest = getIndexRequestBytes("index_all_schema_fields");
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(2);
+
+    for (IndexRequest indexRequest : indexRequests) {
+      IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
+      Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument, schema);
+      ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
+      LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
+      assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
+    }
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    chunkManagerUtil.chunkManager.getActiveChunk().commit();
+
+    HttpResponse response =
+        elasticsearchApiService.mapping(
+            Optional.of("test"), Optional.of(0L), Optional.of(Long.MAX_VALUE));
+
+    // handle response
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+    assertThat(jsonNode).isNotNull();
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    Map<String, Object> map =
+        objectMapper.convertValue(
+            jsonNode.get("test").get("mappings").get("properties"), Map.class);
+    assertThat(map).isNotNull();
+    assertThat(map.size()).isEqualTo(30);
   }
 
   // todo - test mapping

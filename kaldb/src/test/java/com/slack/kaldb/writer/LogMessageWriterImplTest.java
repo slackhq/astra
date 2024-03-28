@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.record.TimestampType;
-import org.assertj.core.api.AssertionsForClassTypes;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -100,7 +99,7 @@ public class LogMessageWriterImplTest {
         Duration.ofMillis(3000));
   }
 
-  private static ConsumerRecord<String, byte[]> consumerRecordWithValue(byte[] recordValue) {
+  public static ConsumerRecord<String, byte[]> consumerRecordWithValue(byte[] recordValue) {
     return new ConsumerRecord<>(
         "testTopic", 1, 10, 0L, TimestampType.CREATE_TIME, 0L, 0, 0, "testKey", recordValue);
   }
@@ -301,7 +300,7 @@ public class LogMessageWriterImplTest {
 
     byte[] rawRequest = getIndexRequestBytes("index_all_schema_fields");
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
-    AssertionsForClassTypes.assertThat(indexRequests.size()).isEqualTo(1);
+    assertThat(indexRequests.size()).isEqualTo(2);
 
     for (IndexRequest indexRequest : indexRequests) {
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
@@ -311,7 +310,7 @@ public class LogMessageWriterImplTest {
       assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
     }
 
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     chunkManagerUtil.chunkManager.getActiveChunk().commit();
 
@@ -326,9 +325,13 @@ public class LogMessageWriterImplTest {
     results = searchChunkManager("test", "message:\"foo bar\"");
     assertThat(results.hits.size()).isEqualTo(1);
 
-    results = searchChunkManager("test", "ip:0.0.0.0");
+    results = searchChunkManager("test", "ip:\"192.168.0.0/16\"");
     assertThat(results.hits.size()).isEqualTo(1);
-    results = searchChunkManager("test", "ip:[0.0.0.0 TO 0.0.0.1]");
+    results = searchChunkManager("test", "ip:\"192.168.1.1/32\"");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "ip:192.168.1.1");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "ip:[192.168.0.0 TO 192.168.1.1]");
     assertThat(results.hits.size()).isEqualTo(1);
 
     results = searchChunkManager("test", "my_date:\"2014-09-01T12:00:00Z\"");
@@ -381,6 +384,24 @@ public class LogMessageWriterImplTest {
     results = searchChunkManager("test", "bucket:20");
     assertThat(results.hits.size()).isEqualTo(1);
     results = searchChunkManager("test", "bucket:[0 TO 20]");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    // tests for doc2
+    results = searchChunkManager("test", "_id:2");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "parent_id:1");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "trace_id:2");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "name:check");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "duration:20000");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "duration:[0 TO 20000]");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "ip:\"::afff:4567:890a\"");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "username:me");
     assertThat(results.hits.size()).isEqualTo(1);
   }
 

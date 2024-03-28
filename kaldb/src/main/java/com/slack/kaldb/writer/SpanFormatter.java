@@ -9,7 +9,6 @@ import com.slack.service.murron.trace.Trace;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -195,10 +194,6 @@ public class SpanFormatter {
   public static Trace.ListOfSpans fromMurronMessage(Murron.MurronMessage message)
       throws InvalidProtocolBufferException {
     return Trace.ListOfSpans.parseFrom(message.getMessage());
-  }
-
-  public static String encodeBinaryTagValue(ByteString binaryTagValue) {
-    return Base64.getEncoder().encodeToString(binaryTagValue.toByteArray());
   }
 
   /**

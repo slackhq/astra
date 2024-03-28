@@ -19,9 +19,7 @@ import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -369,13 +367,11 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
           0);
     }
     if (message.getDuration() != 0) {
-      jsonMap.put(
-          LogMessage.ReservedField.DURATION_MS.fieldName,
-          Duration.of(message.getDuration(), ChronoUnit.MICROS).toMillis());
+      jsonMap.put(LogMessage.ReservedField.DURATION.fieldName, message.getDuration());
       addField(
           doc,
-          LogMessage.ReservedField.DURATION_MS.fieldName,
-          Duration.of(message.getDuration(), ChronoUnit.MICROS).toMillis(),
+          LogMessage.ReservedField.DURATION.fieldName,
+          message.getDuration(),
           Schema.SchemaFieldType.LONG,
           "",
           0);
@@ -473,7 +469,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
     tags.remove(LogMessage.ReservedField.PARENT_ID.fieldName);
     tags.remove(LogMessage.ReservedField.TRACE_ID.fieldName);
     tags.remove(LogMessage.ReservedField.NAME.fieldName);
-    tags.remove(LogMessage.ReservedField.DURATION_MS.fieldName);
+    tags.remove(LogMessage.ReservedField.DURATION.fieldName);
     tags.remove(LogMessage.SystemField.ID.fieldName);
 
     for (Trace.KeyValue keyValue : tags.values()) {

@@ -26,6 +26,7 @@ import java.io.File;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +41,7 @@ import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.SortedNumericDocValuesField;
 import org.apache.lucene.sandbox.document.HalfFloatPoint;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.api.AssertionsForClassTypes;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -123,6 +125,68 @@ public class SpanFormatterWithSchemaTest {
         "bucket", Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.BINARY).build());
 
     schema = Schema.IngestSchema.newBuilder().putAllFields(fields).build();
+  }
+
+  @Test
+  public void parseIndexRequestToTraceProtoTest() throws Exception {
+    final File schemaFile =
+        new File(getClass().getClassLoader().getResource("schema/test_schema.yaml").getFile());
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(schemaFile.toPath());
+
+    byte[] rawRequest = getIndexRequestBytes("index_all_schema_fields");
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    AssertionsForClassTypes.assertThat(indexRequests.size()).isEqualTo(2);
+
+    Trace.Span doc1 =
+        BulkApiRequestParser.fromIngestDocument(
+            convertRequestToDocument(indexRequests.get(0)), schema);
+    Trace.Span doc2 =
+        BulkApiRequestParser.fromIngestDocument(
+            convertRequestToDocument(indexRequests.get(1)), schema);
+    assertThat(doc1.getId().toStringUtf8()).isEqualTo("1");
+    assertThat(doc2.getId().toStringUtf8()).isEqualTo("2");
+
+    String[] fields =
+        new String[] {
+          "host",
+          "message",
+          "ip",
+          "my_date",
+          "success",
+          "cost",
+          "amount",
+          "amount_half_float",
+          "value",
+          "count",
+          "count_scaled_long",
+          "count_short",
+          "bucket"
+        };
+    List<String> doc1DefinedFields = new ArrayList<>(Arrays.stream(fields).toList());
+    List<String> doc1Tags =
+        doc1.getTagsList().stream().map(Trace.KeyValue::getKey).collect(Collectors.toList());
+
+    assertThat(doc1DefinedFields.removeAll(doc1Tags)).isEqualTo(true);
+    assertThat(doc1DefinedFields.size()).isEqualTo(0);
+
+    // reset
+    doc1DefinedFields = new ArrayList<>(Arrays.stream(fields).toList());
+    doc1Tags = doc1.getTagsList().stream().map(Trace.KeyValue::getKey).collect(Collectors.toList());
+
+    assertThat(doc1Tags.removeAll(doc1DefinedFields)).isEqualTo(true);
+    assertThat(doc1Tags.size()).isEqualTo(1);
+    assertThat(doc1Tags.get(0)).isEqualTo("service_name");
+
+    List<String> doc2Tags =
+        doc2.getTagsList().stream().map(Trace.KeyValue::getKey).collect(Collectors.toList());
+    assertThat(doc2Tags.size()).isEqualTo(3); // service_name and ip
+    assertThat(doc2Tags.contains("service_name")).isEqualTo(true);
+    assertThat(doc2Tags.contains("ip")).isEqualTo(true);
+    assertThat(doc2Tags.contains("username")).isEqualTo(true);
+    assertThat(doc2.getParentId().toStringUtf8()).isEqualTo("1");
+    assertThat(doc2.getTraceId().toStringUtf8()).isEqualTo("2");
+    assertThat(doc2.getName()).isEqualTo("check");
+    assertThat(doc2.getDuration()).isEqualTo(20000L);
   }
 
   @Test
@@ -348,7 +412,7 @@ public class SpanFormatterWithSchemaTest {
 
     byte[] rawRequest = getIndexRequestBytes("index_all_schema_fields");
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
-    assertThat(indexRequests.size()).isEqualTo(1);
+    assertThat(indexRequests.size()).isEqualTo(2);
     IngestDocument ingestDocument = convertRequestToDocument(indexRequests.get(0));
 
     Trace.Span span = fromIngestDocument(ingestDocument, schema);
@@ -360,7 +424,7 @@ public class SpanFormatterWithSchemaTest {
 
     assertThat(tags.get("amount").getVFloat32()).isEqualTo(1.1f);
     assertThat(tags.get("cost").getVFloat64()).isEqualTo(4.0);
-    assertThat(tags.get("ip").getVStr()).isEqualTo("0.0.0.0");
+    assertThat(tags.get("ip").getVStr()).isEqualTo("192.168.1.1");
     assertThat(tags.get("count").getVInt64()).isEqualTo(3);
     assertThat(tags.get("count_short").getVInt32()).isEqualTo(10);
     assertThat(tags.get("my_date").getVInt64())

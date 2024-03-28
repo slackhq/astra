@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
+import com.slack.kaldb.proto.schema.Schema;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Set;
@@ -46,11 +47,21 @@ public enum FieldType {
         // Since a text field is tokenized, we don't need to add doc values to it.
       }
     }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.TEXT;
+    }
   },
   STRING("string") {
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
       KEYWORD.addField(doc, name, value, fieldDef);
+    }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.KEYWORD;
     }
   },
   KEYWORD("keyword") {
@@ -67,6 +78,11 @@ public enum FieldType {
         doc.add(new SortedDocValuesField(name, new BytesRef(fieldValue)));
       }
     }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.KEYWORD;
+    }
   },
   ID("id") {
     @Override
@@ -81,6 +97,11 @@ public enum FieldType {
       if (fieldDef.storeDocValue) {
         doc.add(new SortedDocValuesField(name, id));
       }
+    }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.ID;
     }
   },
   IP("ip") {
@@ -103,11 +124,21 @@ public enum FieldType {
         // allow flag to say ignore or throw exception
       }
     }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.IP;
+    }
   },
   DATE("date") {
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
       LONG.addField(doc, name, value, fieldDef);
+    }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.DATE;
     }
   },
   BOOLEAN("boolean") {
@@ -129,6 +160,11 @@ public enum FieldType {
         doc.add(new SortedNumericDocValuesField(name, valueBool ? 1 : 0));
       }
     }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.BOOLEAN;
+    }
   },
   DOUBLE("double") {
     @Override
@@ -144,6 +180,11 @@ public enum FieldType {
         doc.add(new DoubleDocValuesField(name, value));
       }
     }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.DOUBLE;
+    }
   },
   FLOAT("float") {
     @Override
@@ -158,6 +199,11 @@ public enum FieldType {
       if (fieldDef.storeDocValue) {
         doc.add(new FloatDocValuesField(name, value));
       }
+    }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.FLOAT;
     }
   },
   HALF_FLOAT("half_float") {
@@ -175,6 +221,11 @@ public enum FieldType {
             new SortedNumericDocValuesField(name, HalfFloatPoint.halfFloatToSortableShort(value)));
       }
     }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.HALF_FLOAT;
+    }
   },
   INTEGER("integer") {
     @Override
@@ -189,6 +240,11 @@ public enum FieldType {
       if (fieldDef.storeDocValue) {
         doc.add(new NumericDocValuesField(name, value));
       }
+    }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.INTEGER;
     }
   },
   LONG("long") {
@@ -205,11 +261,21 @@ public enum FieldType {
         doc.add(new NumericDocValuesField(name, value));
       }
     }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.LONG;
+    }
   },
   SCALED_LONG("scaledlong") {
     @Override
     public void addField(Document doc, String name, Object v, LuceneFieldDef fieldDef) {
       LONG.addField(doc, name, v, fieldDef);
+    }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.SCALED_LONG;
     }
   },
   SHORT("short") {
@@ -218,11 +284,21 @@ public enum FieldType {
       // TODO:
       INTEGER.addField(doc, name, v, fieldDef);
     }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.SHORT;
+    }
   },
   BYTE("byte") {
     @Override
     public void addField(Document doc, String name, Object v, LuceneFieldDef fieldDef) {
       INTEGER.addField(doc, name, v, fieldDef);
+    }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.BYTE;
     }
   },
   BINARY("binary") {
@@ -236,6 +312,11 @@ public enum FieldType {
         doc.add(new BinaryFieldMapper.CustomBinaryDocValuesField(name, bytes.toByteArray()));
       }
     }
+
+    @Override
+    public Schema.SchemaFieldType toSchemaFieldType() {
+      return Schema.SchemaFieldType.BINARY;
+    }
   };
 
   public final String name;
@@ -245,6 +326,32 @@ public enum FieldType {
   }
 
   public abstract void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef);
+
+  public abstract Schema.SchemaFieldType toSchemaFieldType();
+
+  public static FieldType fromSchemaFieldType(Schema.SchemaFieldType schemaFieldType) {
+    FieldType fieldType;
+    switch (schemaFieldType) {
+      case TEXT -> fieldType = TEXT;
+      case STRING, KEYWORD -> fieldType = KEYWORD;
+      case ID -> fieldType = ID;
+      case IP -> fieldType = IP;
+      case DATE -> fieldType = DATE;
+      case BOOLEAN -> fieldType = BOOLEAN;
+      case DOUBLE -> fieldType = DOUBLE;
+      case FLOAT -> fieldType = FLOAT;
+      case HALF_FLOAT -> fieldType = HALF_FLOAT;
+      case INTEGER -> fieldType = INTEGER;
+      case LONG -> fieldType = LONG;
+      case SCALED_LONG -> fieldType = SCALED_LONG;
+      case SHORT -> fieldType = SHORT;
+      case BYTE -> fieldType = BYTE;
+      case BINARY -> fieldType = BINARY;
+      default ->
+          throw new IllegalArgumentException("Unknown schema field type: " + schemaFieldType);
+    }
+    return fieldType;
+  }
 
   public LuceneFieldDef getFieldDefinition(
       String name, String fieldType, boolean isStored, boolean isIndexed, boolean storeDocValue) {
