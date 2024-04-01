@@ -79,6 +79,16 @@ public class SchemaConfigTest {
                 assertThat(schema.getFieldsMap().get("message").getType())
                     .isEqualTo(Schema.SchemaFieldType.TEXT);
 
+                assertThat(schema.getFieldsMap().get("message").getFieldsMap().size()).isEqualTo(1);
+                assertThat(
+                        schema
+                            .getFieldsMap()
+                            .get("message")
+                            .getFieldsMap()
+                            .get("keyword")
+                            .getType())
+                    .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+
                 assertThat(schema.getFieldsMap().get("ip").getType())
                     .isEqualTo(Schema.SchemaFieldType.IP);
 

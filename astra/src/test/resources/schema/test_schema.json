@@ -4,7 +4,13 @@
       "type": "KEYWORD"
     },
     "message": {
-      "type": "TEXT"
+      "type": "TEXT",
+        "fields": {
+            "keyword": {
+            "type": "KEYWORD",
+            "ignore_above": 256
+            }
+        }
     },
     "ip": {
       "type": "IP"
