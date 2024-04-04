@@ -20,14 +20,14 @@ datasources:
     url: "host.docker.internal:8081"
     password:
     user:
-    database: testindex
+    database: test
     basicAuth: false
     basicAuthUser:
     basicAuthPassword:
     withCredentials:
     isDefault: true
     jsonData:
-      timeField: "@timestamp"
+      timeField: "_timesinceepoch"
       esVersion: 7.0.0
       maxConcurrentShardRequests: 5
       logMessageField: "_source"
@@ -39,14 +39,14 @@ datasources:
     url: "host.docker.internal:8080"
     password:
     user:
-    database: testindex
+    database: test
     basicAuth: false
     basicAuthUser:
     basicAuthPassword:
     withCredentials:
     isDefault: false
     jsonData:
-      timeField: "@timestamp"
+      timeField: "_timesinceepoch"
       esVersion: 7.0.0
       maxConcurrentShardRequests: 5
       logMessageField: "_source"
