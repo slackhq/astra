@@ -1,11 +1,11 @@
 apiVersion: 1
 
 deleteDatasources:
-  - name: KalDB
+  - name: Astra
     orgId: 1
 
 datasources:
-  - name: KalDB Trace
+  - name: Astra Trace
     type: zipkin
     access: proxy
     url: "host.docker.internal:8081"
@@ -14,7 +14,7 @@ datasources:
     basicAuthPassword:
     withCredentials:
     version: 1
-  - name: KalDB Query
+  - name: Astra Query
     type: elasticsearch
     access: proxy
     url: "host.docker.internal:8081"
@@ -33,7 +33,7 @@ datasources:
       logMessageField: "_source"
       logLevelField: ""
     version: 1
-  - name: KalDB Index
+  - name: Astra Index
     type: elasticsearch
     access: proxy
     url: "host.docker.internal:8080"

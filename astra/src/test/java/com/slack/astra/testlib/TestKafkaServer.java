@@ -1,0 +1,170 @@
+package com.slack.astra.testlib;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.github.charithe.kafka.EphemeralKafkaBroker;
+import com.google.common.util.concurrent.Futures;
+import com.slack.astra.writer.LogMessageWriterImpl;
+import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TestKafkaServer {
+  private static final Logger LOG = LoggerFactory.getLogger(TestKafkaServer.class);
+  private static final int ALLOCATE_RANDOM_PORT = -1;
+
+  public static final String TEST_KAFKA_TOPIC = "test-topic";
+
+  public static int produceMessagesToKafka(
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId, int count)
+      throws Exception {
+    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, count, 1000, startTime);
+    return produceMessagesToKafka(broker, kafkaTopic, partitionId, messages);
+  }
+
+  public static int produceMessagesToKafka(
+      EphemeralKafkaBroker broker, String kafkaTopic, int partitionId, List<Trace.Span> messages)
+      throws Exception {
+
+    int indexedCount = 0;
+    // Insert messages into Kafka.
+    try (KafkaProducer<String, byte[]> producer =
+        broker.createProducer(new StringSerializer(), new ByteArraySerializer(), null)) {
+      for (Trace.Span msg : messages) {
+
+        // Kafka producer creates only a partition 0 on first message. So, set the partition to 0
+        // always.
+        Future<RecordMetadata> result =
+            producer.send(
+                new ProducerRecord<>(
+                    kafkaTopic, partitionId, String.valueOf(indexedCount), msg.toByteArray()));
+
+        RecordMetadata metadata = result.get(500L, TimeUnit.MILLISECONDS);
+        assertThat(metadata).isNotNull();
+        assertThat(metadata.topic()).isEqualTo(kafkaTopic);
+        indexedCount++;
+      }
+    }
+    LOG.info(
+        "Total messages produced={} to topic={} and partition={}", indexedCount, kafkaTopic, 0);
+    return indexedCount;
+  }
+
+  // Create messages, format them into murron protobufs, write them to kafka
+  public static int produceMessagesToKafka(
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId)
+      throws Exception {
+    return produceMessagesToKafka(broker, startTime, kafkaTopic, partitionId, 100);
+  }
+
+  public static int produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
+      throws Exception {
+    return produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, 0);
+  }
+
+  private final EphemeralKafkaBroker broker;
+  private final CompletableFuture<Void> brokerStart;
+  private final AdminClient adminClient;
+  private Path logDir;
+
+  public TestKafkaServer() throws Exception {
+    this(ALLOCATE_RANDOM_PORT);
+  }
+
+  public TestKafkaServer(int port) throws Exception {
+    this(port, null);
+  }
+
+  public TestKafkaServer(int port, Properties overrideProps) throws Exception {
+    Properties brokerProperties = new Properties();
+    // Set the number of default partitions for a kafka topic to 3 instead of 1.
+    brokerProperties.put("num.partitions", "3");
+    if (overrideProps != null && !overrideProps.isEmpty()) {
+      brokerProperties.putAll(overrideProps);
+    }
+    // Create a kafka broker
+    broker = EphemeralKafkaBroker.create(port, ALLOCATE_RANDOM_PORT, brokerProperties);
+    brokerStart = broker.start();
+    Futures.getUnchecked(brokerStart);
+
+    logDir = Paths.get(broker.getLogDir().get());
+    assertThat(Files.exists(logDir)).isTrue();
+
+    Properties props = new Properties();
+    props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, broker.getBrokerList().get());
+    adminClient = AdminClient.create(props);
+  }
+
+  public int getConnectedConsumerGroups() throws ExecutionException, InterruptedException {
+    return adminClient.listConsumerGroups().all().get().size();
+  }
+
+  public void createTopicWithPartitions(String topic, int numPartitions)
+      throws ExecutionException, InterruptedException {
+    adminClient
+        .createTopics(Collections.singleton(new NewTopic(topic, numPartitions, (short) 1)))
+        .all()
+        .get();
+  }
+
+  public CompletableFuture<Void> getBrokerStart() {
+    return brokerStart;
+  }
+
+  public EphemeralKafkaBroker getBroker() {
+    return broker;
+  }
+
+  public void close() throws ExecutionException, InterruptedException {
+    adminClient.close();
+    if (broker != null) {
+      broker.stop();
+    }
+    assertThat(brokerStart.isDone()).isTrue();
+    assertThat(broker.isRunning()).isFalse();
+    assertThat(broker.getBrokerList().isPresent()).isFalse();
+    assertThat(broker.getZookeeperConnectString().isPresent()).isFalse();
+    assertThat(Files.exists(logDir)).isFalse();
+  }
+
+  public static class KafkaComponents {
+    public final TestKafkaServer testKafkaServer;
+    public final AdminClient adminClient;
+    public final LogMessageWriterImpl logMessageWriter;
+    public final MeterRegistry meterRegistry;
+    public final Properties consumerOverrideProps;
+
+    public KafkaComponents(
+        TestKafkaServer testKafkaServer,
+        AdminClient adminClient,
+        LogMessageWriterImpl logMessageWriter,
+        MeterRegistry meterRegistry,
+        Properties consumerOverrideProps) {
+      this.testKafkaServer = testKafkaServer;
+      this.adminClient = adminClient;
+      this.logMessageWriter = logMessageWriter;
+      this.meterRegistry = meterRegistry;
+      this.consumerOverrideProps = consumerOverrideProps;
+    }
+  }
+}

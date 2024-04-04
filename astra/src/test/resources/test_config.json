@@ -1,0 +1,167 @@
+{
+  "nodeRoles": [
+    "INDEX",
+    "QUERY",
+    "CACHE",
+    "MANAGER"
+  ],
+  "s3Config": {
+    "s3AccessKey": "access",
+    "s3SecretKey": "secret",
+    "s3Region": "us-east-1",
+    "s3EndPoint": "https://s3.us-east-1.amazonaws.com/",
+    "s3Bucket": "test-s3-bucket"
+  },
+  "tracingConfig": {
+    "zipkinEndpoint": "http://localhost:9411/api/v2/spans",
+    "commonTags": {
+      "clusterName": "astra_local"
+    }
+  },
+  "indexerConfig": {
+    "maxMessagesPerChunk": 1000,
+    "maxBytesPerChunk": 100000,
+    "maxChunksOnDisk": 3,
+    "staleDurationSecs": 7200,
+    "luceneConfig" : {
+      "commitDurationSecs": 10,
+      "refreshDurationSecs": 11,
+      "enableFullTextSearch": true
+    },
+    "dataDirectory": "/tmp",
+    "maxOffsetDelayMessages" : 10002,
+    "serverConfig": {
+      "serverPort": 8080,
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
+    },
+    "kafkaConfig": {
+      "kafkaTopic": "testTopic",
+      "kafkaTopicPartition": "1",
+      "kafkaBootStrapServers": "kafka.us-east-1.consul:9094",
+      "kafkaClientGroup": "astra-test",
+      "enableKafkaAutoCommit": "true",
+      "kafkaAutoCommitInterval": "5000",
+      "kafkaSessionTimeout": "30000",
+      "additionalProps": {
+        "fetch.max.bytes": "100"
+      }
+    },
+    "defaultQueryTimeoutMs": 1500
+  },
+  "queryConfig": {
+    "serverConfig": {
+      "serverPort": 8081,
+      "serverAddress": "1.2.3.4",
+      "requestTimeoutMs": 3000
+    },
+    "defaultQueryTimeoutMs": 1500,
+    "managerConnectString": "localhost:8083"
+  },
+  "metadataStoreConfig": {
+    "zookeeperConfig": {
+      "zkConnectString": "1.2.3.4:9092",
+      "zkPathPrefix": "zkPrefix",
+      "zkSessionTimeoutMs": 1000,
+      "zkConnectionTimeoutMs": 1500,
+      "sleepBetweenRetriesMs": 500
+    }
+  },
+  "cacheConfig": {
+    "slotsPerInstance": 10,
+    "dataDirectory": "/tmp",
+    "serverConfig": {
+      "serverPort": 8082,
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
+    },
+    "defaultQueryTimeoutMs": 1500
+  },
+  "managerConfig": {
+    "eventAggregationSecs": 10,
+    "scheduleInitialDelayMins": 1,
+    "serverConfig": {
+      "serverPort": 8083,
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
+    },
+    "replicaCreationServiceConfig": {
+      "schedulePeriodMins": 15,
+      "replicaLifespanMins": 1440,
+      "replicaSets": [
+        "rep1"
+      ]
+    },
+    "replicaAssignmentServiceConfig": {
+      "schedulePeriodMins": 10,
+      "replicaSets": [
+        "rep1"
+      ],
+      "maxConcurrentPerNode": 2
+    },
+    "replicaEvictionServiceConfig": {
+      "schedulePeriodMins": 10
+    },
+    "replicaDeletionServiceConfig": {
+      "schedulePeriodMins": 90
+    },
+    "recoveryTaskAssignmentServiceConfig": {
+      "schedulePeriodMins": 10
+    },
+    "snapshotDeletionServiceConfig": {
+      "schedulePeriodMins": 15,
+      "snapshotLifespanMins": 10080
+    },
+    "replicaRestoreServiceConfig": {
+      "schedulePeriodMins": 15,
+      "maxReplicasPerRequest": 200,
+      "replicaLifespanMins": 60
+    }
+  },
+  "recoveryConfig": {
+    "serverConfig": {
+      "serverPort": 8084,
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
+    },
+    "kafkaConfig": {
+      "kafkaTopic": "testTopic",
+      "kafkaTopicPartition": "1",
+      "kafkaBootStrapServers": "kafka.us-east-1.consul:9094",
+      "kafkaClientGroup": "astra-test",
+      "enableKafkaAutoCommit": "true",
+      "kafkaAutoCommitInterval": "5000",
+      "kafkaSessionTimeout": "30000"
+    }
+  },
+  "preprocessorConfig": {
+    "kafkaStreamConfig": {
+      "bootstrapServers": "localhost:9092",
+      "applicationId": "astra_preprocessor",
+      "numStreamThreads": 2,
+      "processingGuarantee": "at_least_once"
+    },
+    "kafkaConfig": {
+      "kafkaTopic": "test-topic",
+      "kafkaBootStrapServers": "localhost:9092"
+    },
+    "serverConfig": {
+      "serverPort": 8085,
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
+    },
+    "upstreamTopics": ["test-topic"],
+    "downstreamTopic": "test-topic-out",
+    "preprocessorInstanceCount": 1,
+    "dataTransformer": "api_log",
+    "rateLimiterMaxBurstSeconds": 2,
+    "bootstrapServers": "localhost:9092",
+    "useBulkApi": false,
+    "rateLimitExceededErrorCode": 400,
+    "schemaFile": "schema/test_schema.yaml"
+  },
+  "clusterConfig": {
+    "clusterName": "test_astra_json_cluster",
+    "env": "env_test"
+  }
+}

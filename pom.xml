@@ -11,9 +11,9 @@
         </license>
     </licenses>
 
-    <name>Kaldb Parent Project</name>
-    <groupId>com.slack.kaldb</groupId>
-    <artifactId>kaldb-parent</artifactId>
+    <name>Astra Parent Project</name>
+    <groupId>com.slack.astra</groupId>
+    <artifactId>astra-parent</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
@@ -23,7 +23,7 @@
 
     <modules>
         <module>benchmarks</module>
-        <module>kaldb</module>
+        <module>astra</module>
     </modules>
 
     <build>

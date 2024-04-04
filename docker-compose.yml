@@ -34,7 +34,7 @@ services:
       - '3000:3000'
     volumes:
       - ./config/grafana/provisioning:/etc/grafana/provisioning
-      - ../slack-kaldb-app:/var/lib/grafana/plugins
+      - ../slack-astra-app:/var/lib/grafana/plugins
     environment:
       GF_LOG_MODE: "console file"
       GF_LOG_LEVEL: "info"
@@ -42,7 +42,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
       GF_PATHS_PLUGINS: "/var/lib/grafana/plugins"
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "slack-kaldb-app,slack-kaldb-app-backend-datasource"
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "slack-astra-app,slack-astra-app-backend-datasource"
 
   s3:
     image: 'adobe/s3mock:2.1.29'
@@ -67,10 +67,10 @@ services:
     environment:
       # Node specific settings
       - NODE_ROLES=PREPROCESSOR
-      - KALDB_PREPROCESSOR_USE_BULK_API=true
-      - KALDB_PREPROCESSOR_SERVER_ADDRESS=astra_preprocessor
+      - ASTRA_PREPROCESSOR_USE_BULK_API=true
+      - ASTRA_PREPROCESSOR_SERVER_ADDRESS=astra_preprocessor
       # Shared settings
-      - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
+      - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
@@ -88,9 +88,9 @@ services:
     environment:
       # Node specific settings
       - NODE_ROLES=INDEX
-      - KALDB_INDEX_SERVER_ADDRESS=astra_index
+      - ASTRA_INDEX_SERVER_ADDRESS=astra_index
       # Shared settings
-      - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
+      - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
@@ -105,9 +105,9 @@ services:
     environment:
       # Node specific settings
       - NODE_ROLES=MANAGER
-      - KALDB_MANAGER_SERVER_ADDRESS=astra_manager
+      - ASTRA_MANAGER_SERVER_ADDRESS=astra_manager
       # Shared settings
-      - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
+      - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
@@ -122,10 +122,10 @@ services:
     environment:
       # Node specific settings
       - NODE_ROLES=QUERY
-      - KALDB_QUERY_SERVER_ADDRESS=astra_query
-      - KALDB_MANAGER_CONNECTION_STRING=astra_manager:8083
+      - ASTRA_QUERY_SERVER_ADDRESS=astra_query
+      - ASTRA_MANAGER_CONNECTION_STRING=astra_manager:8083
       # Shared settings
-      - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
+      - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
@@ -140,9 +140,9 @@ services:
     environment:
       # Node specific settings
       - NODE_ROLES=CACHE
-      - KALDB_CACHE_SERVER_ADDRESS=astra_cache
+      - ASTRA_CACHE_SERVER_ADDRESS=astra_cache
       # Shared settings
-      - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
+      - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
@@ -157,9 +157,9 @@ services:
     environment:
       # Node specific settings
       - NODE_ROLES=RECOVERY
-      - KALDB_RECOVERY_SERVER_ADDRESS=astra_recovery
+      - ASTRA_RECOVERY_SERVER_ADDRESS=astra_recovery
       # Shared settings
-      - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
+      - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090

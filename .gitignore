@@ -20,7 +20,7 @@ benchmarks/jmh-output/
 
 # Test files
 indices/
-**kaldb-slot-log**
+**astra-slot-log**
 
 # go vendor files.
 vendor/

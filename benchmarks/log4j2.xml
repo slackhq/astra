@@ -9,7 +9,7 @@
 
     <Loggers>
         <!-- Enable DEBUG logging for all our classes -->
-        <Logger name="com.slack.kaldb" level="debug" additivity="false">
+        <Logger name="com.slack.astra" level="debug" additivity="false">
             <appender-ref ref="console" />
         </Logger>
         <Logger name="org.apache.curator.framework.recipes.cache.CuratorCacheBridgeBuilderImpl" level="off" additivity="false">

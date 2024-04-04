@@ -1,7 +1,7 @@
 # Development setup
 
 ## Docker compose
-To bootstrap all required dependencies, execute in the root kaldb directory:
+To bootstrap all required dependencies, execute in the root astra directory:
 ```bash
 docker-compose up
 ```
@@ -17,5 +17,5 @@ docker-compose up
 
 Interactive kafka message producer:
 ```bash
-docker exec -it kaldb_kafka kafka-console-producer.sh --bootstrap-server kafka:9092 --topic test-topic
+docker exec -it astra_kafka kafka-console-producer.sh --bootstrap-server kafka:9092 --topic test-topic
 ```
