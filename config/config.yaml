@@ -10,19 +10,19 @@ indexerConfig:
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
   maxOffsetDelayMessages: ${INDEXER_MAX_OFFSET_DELAY_MESSAGES:-10000000}
-  defaultQueryTimeoutMs: ${KALDB_INDEX_DEFAULT_QUERY_TIMEOUT_MS:-2500}
+  defaultQueryTimeoutMs: ${ASTRA_INDEX_DEFAULT_QUERY_TIMEOUT_MS:-2500}
   readFromLocationOnStart: ${INDEXER_READ_FROM_LOCATION_ON_START:-LATEST}
   createRecoveryTasksOnStart: ${INDEXER_CREATE_RECOVERY_TASKS_ON_START:-true}
   maxChunksOnDisk: ${INDEXER_MAX_CHUNKS_ON_DISK:-3}
   serverConfig:
-    serverPort: ${KALDB_INDEX_SERVER_PORT:-8080}
-    serverAddress: ${KALDB_INDEX_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${KALDB_INDEX_REQUEST_TIMEOUT_MS:-5000}
+    serverPort: ${ASTRA_INDEX_SERVER_PORT:-8080}
+    serverAddress: ${ASTRA_INDEX_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${ASTRA_INDEX_REQUEST_TIMEOUT_MS:-5000}
   kafkaConfig:
     kafkaTopic: ${KAFKA_TOPIC:-test-topic}
     kafkaTopicPartition: ${KAFKA_TOPIC_PARTITION:-0}
     kafkaBootStrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
-    kafkaClientGroup: ${KAFKA_CLIENT_GROUP:-kaldb-test}
+    kafkaClientGroup: ${KAFKA_CLIENT_GROUP:-ASTRA-test}
     enableKafkaAutoCommit: ${KAFKA_AUTO_COMMIT:-true}
     kafkaAutoCommitInterval: ${KAFKA_AUTO_COMMIT_INTERVAL:-5000}
     kafkaSessionTimeout: ${KAFKA_SESSION_TIMEOUT:-30000}
@@ -39,79 +39,79 @@ s3Config:
 tracingConfig:
   zipkinEndpoint: ${ZIPKIN_TRACING_ENDPOINT:-http://localhost:9411/api/v2/spans}
   commonTags:
-    clusterName: ${KALDB_CLUSTER_NAME:-kaldb_local}
-    env: ${KALDB_CLUSTER_ENV:-local}
+    clusterName: ${ASTRA_CLUSTER_NAME:-ASTRA_local}
+    env: ${ASTRA_CLUSTER_ENV:-local}
 
 queryConfig:
   serverConfig:
-    serverPort: ${KALDB_QUERY_SERVER_PORT:-8081}
-    serverAddress: ${KALDB_QUERY_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${KALDB_QUERY_REQUEST_TIMEOUT_MS:-5000}
-  defaultQueryTimeoutMs: ${KALDB_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-3000}
-  managerConnectString: ${KALDB_MANAGER_CONNECTION_STRING:-localhost:8083}
+    serverPort: ${ASTRA_QUERY_SERVER_PORT:-8081}
+    serverAddress: ${ASTRA_QUERY_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${ASTRA_QUERY_REQUEST_TIMEOUT_MS:-5000}
+  defaultQueryTimeoutMs: ${ASTRA_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-3000}
+  managerConnectString: ${ASTRA_MANAGER_CONNECTION_STRING:-localhost:8083}
 
 metadataStoreConfig:
   zookeeperConfig:
-    zkConnectString: ${KALDB_ZK_CONNECTION_STRING:-localhost:2181}
-    zkPathPrefix: ${KALDB_ZK_PATH_PREFIX:-kaldb}
-    zkSessionTimeoutMs: ${KALDB_ZK_SESSION_TIMEOUT_MS:-5000}
-    zkConnectionTimeoutMs: ${KALDB_ZK_CONNECT_TIMEOUT_MS:-500}
-    sleepBetweenRetriesMs: ${KALDB_ZK_SLEEP_RETRIES_MS:-100}
+    zkConnectString: ${ASTRA_ZK_CONNECTION_STRING:-localhost:2181}
+    zkPathPrefix: ${ASTRA_ZK_PATH_PREFIX:-ASTRA}
+    zkSessionTimeoutMs: ${ASTRA_ZK_SESSION_TIMEOUT_MS:-5000}
+    zkConnectionTimeoutMs: ${ASTRA_ZK_CONNECT_TIMEOUT_MS:-500}
+    sleepBetweenRetriesMs: ${ASTRA_ZK_SLEEP_RETRIES_MS:-100}
 
 cacheConfig:
-  slotsPerInstance: ${KALDB_CACHE_SLOTS_PER_INSTANCE:-10}
-  replicaSet: ${KALDB_CACHE_REPLICA_SET:-rep1}
-  dataDirectory: ${KALDB_CACHE_DATA_DIR:-/tmp}
-  defaultQueryTimeoutMs: ${KALDB_CACHE_DEFAULT_QUERY_TIMEOUT_MS:-2500}
+  slotsPerInstance: ${ASTRA_CACHE_SLOTS_PER_INSTANCE:-10}
+  replicaSet: ${ASTRA_CACHE_REPLICA_SET:-rep1}
+  dataDirectory: ${ASTRA_CACHE_DATA_DIR:-/tmp}
+  defaultQueryTimeoutMs: ${ASTRA_CACHE_DEFAULT_QUERY_TIMEOUT_MS:-2500}
   serverConfig:
-    serverPort: ${KALDB_CACHE_SERVER_PORT:-8082}
-    serverAddress: ${KALDB_CACHE_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${KALDB_CACHE_REQUEST_TIMEOUT_MS:-5000}
+    serverPort: ${ASTRA_CACHE_SERVER_PORT:-8082}
+    serverAddress: ${ASTRA_CACHE_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${ASTRA_CACHE_REQUEST_TIMEOUT_MS:-5000}
 
 managerConfig:
-  eventAggregationSecs: ${KALDB_MANAGER_AGGREGATION_SECS:-10}
-  scheduleInitialDelayMins: ${KALDB_MANAGER_INITIAL_DELAY_MINS:-1}
+  eventAggregationSecs: ${ASTRA_MANAGER_AGGREGATION_SECS:-10}
+  scheduleInitialDelayMins: ${ASTRA_MANAGER_INITIAL_DELAY_MINS:-1}
   serverConfig:
-    serverPort: ${KALDB_MANAGER_SERVER_PORT:-8083}
-    serverAddress: ${KALDB_MANAGER_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${KALDB_MANAGER_REQUEST_TIMEOUT_MS:-5000}
+    serverPort: ${ASTRA_MANAGER_SERVER_PORT:-8083}
+    serverAddress: ${ASTRA_MANAGER_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${ASTRA_MANAGER_REQUEST_TIMEOUT_MS:-5000}
   replicaCreationServiceConfig:
-    schedulePeriodMins: ${KALDB_MANAGER_REPLICAS_PERIOD_MINS:-15}
-    replicaLifespanMins: ${KALDB_MANAGER_REPLICA_LIFESPAN_MINS:-1440}
-    replicaSets: [${KALDB_MANAGER_REPLICA_SETS:-rep1}]
+    schedulePeriodMins: ${ASTRA_MANAGER_REPLICAS_PERIOD_MINS:-15}
+    replicaLifespanMins: ${ASTRA_MANAGER_REPLICA_LIFESPAN_MINS:-1440}
+    replicaSets: [${ASTRA_MANAGER_REPLICA_SETS:-rep1}]
   replicaAssignmentServiceConfig:
-    schedulePeriodMins: ${KALDB_MANAGER_CACHE_SLOT_PERIOD_MINS:-15}
-    replicaSets: [${KALDB_MANAGER_REPLICA_SETS:-rep1}]
-    maxConcurrentPerNode: ${KALDB_MANAGER_MAX_CONCURRENT_ASSIGNMENTS_PER_NODE:-2}
+    schedulePeriodMins: ${ASTRA_MANAGER_CACHE_SLOT_PERIOD_MINS:-15}
+    replicaSets: [${ASTRA_MANAGER_REPLICA_SETS:-rep1}]
+    maxConcurrentPerNode: ${ASTRA_MANAGER_MAX_CONCURRENT_ASSIGNMENTS_PER_NODE:-2}
   replicaEvictionServiceConfig:
-    schedulePeriodMins: ${KALDB_MANAGER_REPLICA_EVICT_PERIOD_MINS:-15}
+    schedulePeriodMins: ${ASTRA_MANAGER_REPLICA_EVICT_PERIOD_MINS:-15}
   replicaDeletionServiceConfig:
-    schedulePeriodMins: ${KALDB_MANAGER_REPLICA_DELETE_PERIOD_MINS:-15}
+    schedulePeriodMins: ${ASTRA_MANAGER_REPLICA_DELETE_PERIOD_MINS:-15}
   recoveryTaskAssignmentServiceConfig:
-    schedulePeriodMins: ${KALDB_MANAGER_RECOVERY_PERIOD_MINS:-15}
+    schedulePeriodMins: ${ASTRA_MANAGER_RECOVERY_PERIOD_MINS:-15}
   snapshotDeletionServiceConfig:
-    schedulePeriodMins: ${KALDB_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
-    snapshotLifespanMins: ${KALDB_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
+    schedulePeriodMins: ${ASTRA_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
+    snapshotLifespanMins: ${ASTRA_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
   replicaRestoreServiceConfig:
-    schedulePeriodMins: ${KALDB_MANAGER_REPLICA_RESTORE_PERIOD_MINS:-15}
-    maxReplicasPerRequest: ${KALDB_MANAGER_REPLICA_RESTORE_MAX_REPLICAS_PER_REQUEST:-200}
-    replicaLifespanMins: ${KALDB_MANAGER_REPLICA_RESTORE_LIFESPAN_MINS:-60}
-    replicaSets: [${KALDB_MANAGER_REPLICA_SETS:-rep1}]
+    schedulePeriodMins: ${ASTRA_MANAGER_REPLICA_RESTORE_PERIOD_MINS:-15}
+    maxReplicasPerRequest: ${ASTRA_MANAGER_REPLICA_RESTORE_MAX_REPLICAS_PER_REQUEST:-200}
+    replicaLifespanMins: ${ASTRA_MANAGER_REPLICA_RESTORE_LIFESPAN_MINS:-60}
+    replicaSets: [${ASTRA_MANAGER_REPLICA_SETS:-rep1}]
 
 clusterConfig:
-  clusterName: ${KALDB_CLUSTER_NAME:-kaldb_local}
-  env: ${KALDB_CLUSTER_ENV:-local}
+  clusterName: ${ASTRA_CLUSTER_NAME:-ASTRA_local}
+  env: ${ASTRA_CLUSTER_ENV:-local}
 
 recoveryConfig:
   serverConfig:
-    serverPort: ${KALDB_RECOVERY_SERVER_PORT:-8085}
-    serverAddress: ${KALDB_RECOVERY_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${KALDB_RECOVERY_REQUEST_TIMEOUT_MS:-5000}
+    serverPort: ${ASTRA_RECOVERY_SERVER_PORT:-8085}
+    serverAddress: ${ASTRA_RECOVERY_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${ASTRA_RECOVERY_REQUEST_TIMEOUT_MS:-5000}
   kafkaConfig:
     kafkaTopic: ${KAFKA_TOPIC:-test-topic}
     kafkaTopicPartition: ${KAFKA_TOPIC_PARTITION:-0}
     kafkaBootStrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
-    kafkaClientGroup: ${KAFKA_CLIENT_GROUP:-kaldb-test}
+    kafkaClientGroup: ${KAFKA_CLIENT_GROUP:-ASTRA-test}
     enableKafkaAutoCommit: ${KAFKA_AUTO_COMMIT:-true}
     kafkaAutoCommitInterval: ${KAFKA_AUTO_COMMIT_INTERVAL:-5000}
     kafkaSessionTimeout: ${KAFKA_SESSION_TIMEOUT:-30000}
@@ -120,7 +120,7 @@ recoveryConfig:
 preprocessorConfig:
   kafkaStreamConfig:
     bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
-    applicationId: ${KAFKA_APPLICATION_ID:-kaldb_preprocessor}
+    applicationId: ${KAFKA_APPLICATION_ID:-ASTRA_preprocessor}
     numStreamThreads: ${KAFKA_STREAM_THREADS:-2}
     processingGuarantee: ${KAFKA_STREAM_PROCESSING_GUARANTEE:-at_least_once}
     additionalProps: ${KAFKA_ADDITIONAL_PROPS:-}
@@ -131,14 +131,14 @@ preprocessorConfig:
   schemaFile: ${PREPROCESSOR_SCHEMA_FILE:-}
 
   serverConfig:
-    serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
-    serverAddress: ${KALDB_PREPROCESSOR_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${KALDB_PREPROCESSOR_REQUEST_TIMEOUT_MS:-30000}
+    serverPort: ${ASTRA_PREPROCESSOR_SERVER_PORT:-8086}
+    serverAddress: ${ASTRA_PREPROCESSOR_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${ASTRA_PREPROCESSOR_REQUEST_TIMEOUT_MS:-30000}
   upstreamTopics: [${KAKFA_UPSTREAM_TOPICS:-test-topic-in}]
   downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic}
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
   dataTransformer: ${PREPROCESSOR_TRANSFORMER:-json}
   rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}
   kafkaPartitionStickyTimeoutMs: ${KAFKA_PARTITION_STICKY_TIMEOUT_MS:-0}
-  useBulkApi: ${KALDB_PREPROCESSOR_USE_BULK_API:-false}
-  rateLimitExceededErrorCode: ${KALDB_PREPROCESSOR_RATE_LIMIT_EXCEEDED_ERROR_CODE:-400}
+  useBulkApi: ${ASTRA_PREPROCESSOR_USE_BULK_API:-false}
+  rateLimitExceededErrorCode: ${ASTRA_PREPROCESSOR_RATE_LIMIT_EXCEEDED_ERROR_CODE:-400}

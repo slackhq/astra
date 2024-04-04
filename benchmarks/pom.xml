@@ -11,9 +11,9 @@
         </license>
     </licenses>
 
-    <name>Kaldb benchmarks</name>
-    <groupId>com.slack.kaldb</groupId>
-    <artifactId>kaldb-benchmarks</artifactId>
+    <name>Astra benchmarks</name>
+    <groupId>com.slack.astra</groupId>
+    <artifactId>astra-benchmarks</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
@@ -37,8 +37,8 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.slack.kaldb</groupId>
-            <artifactId>kaldb</artifactId>
+            <groupId>com.slack.astra</groupId>
+            <artifactId>astra</artifactId>
             <version>0.1-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>

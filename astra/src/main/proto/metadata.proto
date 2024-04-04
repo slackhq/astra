@@ -1,0 +1,211 @@
+syntax = "proto3";
+
+package slack.proto.astra;
+
+option java_package = "com.slack.astra.proto.metadata";
+
+// Type of index used to store the data.
+enum IndexType {
+  LOGS_LUCENE9 = 0;
+};
+
+message CacheSlotMetadata {
+  enum CacheSlotState {
+    FREE = 0;
+    ASSIGNED = 1;
+    LOADING = 2;
+    LIVE = 3;
+    EVICT = 4;
+    EVICTING = 5;
+  };
+
+  // Name of the cache slot
+  string name = 1;
+
+  // Unique ID of the replica
+  string replica_id = 2;
+
+  // State of the cache slot
+  CacheSlotState cache_slot_state = 3;
+
+  // Last updated timestamp
+  int64 updated_time_epoch_ms = 4;
+
+  // Index types supported by cache slot.
+  repeated IndexType supported_index_types = 5;
+
+  // Unique string identifying the host
+  string hostname = 6;
+
+  // String identify the set this cache slot participates in
+  string replica_set = 7;
+}
+
+message ReplicaMetadata {
+  // Name of the replica
+  string name = 1;
+
+  // Unique ID for the snapshot blob
+  string snapshot_id = 2;
+
+  // String identify the set this replica participates in
+  string replica_set = 3;
+
+  // Last updated timestamp
+  int64 created_time_epoch_ms = 4;
+
+  // Timestamp after which this replica can be deleted
+  int64 expire_after_epoch_ms = 5;
+
+  bool isRestored = 6;
+
+  IndexType index_type = 7;
+}
+
+message SnapshotMetadata {
+  // Name of the snapshot
+  string name = 1;
+  // Permanent id for a blob. This id is used to uniquely identify
+  // the blob incase it get's copied around.
+  // If not, should be same as name
+  string snapshot_id = 2;
+
+  // Path of the file stored in blobstore.
+  string snapshot_path = 3;
+  // earliest timestamp of the event in the snapshot file.
+  int64 start_time_epoch_ms = 4;
+  // End or latest timestamp of the event in the snapshot file.
+  int64 end_time_epoch_ms = 5;
+
+  // Kafka partitionId.
+  string partition_id = 7;
+  // Kafka offset when this snapshot was taken for that partition.
+  int64 max_offset = 6;
+
+  // The type of index used to store this data.
+  IndexType index_type = 8;
+}
+
+message SearchMetadata {
+  // Name of search metadata
+  string name = 1;
+
+  // snapshot name
+  string snapshot_name = 2;
+
+  // url
+  string url = 3;
+}
+
+message RecoveryNodeMetadata {
+  enum RecoveryNodeState {
+    FREE = 0;
+    ASSIGNED = 1;
+    RECOVERING = 2;
+  }
+
+  // Name of recovery node
+  string name = 1;
+
+  // Name of the recovery task
+  string recovery_task_name = 2;
+
+  // State of the recovery node
+  RecoveryNodeState recovery_node_state = 3;
+
+  // Last updated timestamp
+  int64 updated_time_epoch_ms = 4;
+}
+
+message RecoveryTaskMetadata {
+  // Name of recovery node
+  string name = 1;
+
+  // Kafka partitionId.
+  string partition_id = 2;
+
+  // Kafka offset (inclusive) to start at
+  int64 start_offset = 3;
+
+  // Kafka offset (inclusive) to end at
+  int64 end_offset = 4;
+
+  // Created timestamp
+  int64 created_time_epoch_ms = 5;
+}
+
+// Describes ownership, throughput, and partition mapping for a given dataset
+message DatasetMetadata {
+  // Unique name for provisioned service
+  string name = 1;
+
+  // Service owner information (ie team name)
+  string owner = 2;
+
+  // Service throughput max
+  int64 throughput_bytes = 3;
+
+  // List of partitions assigned to this service, and their effective times
+  repeated DatasetPartitionMetadata partition_configs = 4;
+
+  // either same as name or a special value _all or * which matches all services
+  string service_name_pattern = 5;
+}
+
+message HpaMetricMetadata {
+  enum NodeRole {
+    INDEX = 0;
+    QUERY = 1;
+    CACHE = 2;
+    MANAGER = 3;
+    RECOVERY = 4;
+    PREPROCESSOR = 5;
+  };
+
+  // Unique name for hpa metric
+  string name = 1;
+
+  // Node role this metric applies to
+  NodeRole node_role = 2;
+
+  // Value to report for this metric
+  double value = 3;
+}
+
+// Describes a set of partitions along with their effective start and end times
+message DatasetPartitionMetadata {
+  // Start time this partition received traffic
+  int64 start_time_epoch_ms = 1;
+
+  // End time this partition received traffic
+  int64 end_time_epoch_ms = 2;
+
+  // List of Kafka partition ids
+  repeated string partitions = 3;
+}
+
+// Schema definitions.
+message LuceneFieldDef {
+  // Name of the field
+  string name = 1;
+
+  // Type of the field
+  string type = 2;
+
+  // Store the value as a Lucene StoredField.
+  bool is_stored = 3;
+  // Index the field in Lucene based on it's type for efficient point queries.
+  bool is_indexed = 4;
+  // Store doc values for a field so it's more efficient for aggregations.
+  bool store_docvalue = 5;
+}
+
+// This proto documents the schema for a chunk.
+message ChunkSchema {
+  // Name of the chunk.
+  string name = 1;
+  // Field map for each field in the lucene index in the chunk.
+  map<string, LuceneFieldDef> fieldDefMap = 2;
+  // A generic field to store metadata for a chunk.
+  map<string, string> metadata = 3;
+}

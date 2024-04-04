@@ -26,7 +26,7 @@ If applicable, add screenshots to help explain your problem.
 
 #### Reproducible in:
 
-KalDB version:
+Astra version:
 
 JVM version:
 

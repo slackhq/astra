@@ -11,7 +11,7 @@ Describe your issue here.
 - [ ] discussion
 
 ### Requirements (place an `x` in each of the `[ ]`)
-* [ ] I've read and understood the [Contributing guidelines](https://github.com/slackhq/kaldb/blob/master/.github/CONTRIBUTING.md) and have done my best effort to follow them.
+* [ ] I've read and understood the [Contributing guidelines](https://github.com/slackhq/astra/blob/master/.github/CONTRIBUTING.md) and have done my best effort to follow them.
 * [ ] I've read and agree to the [Code of Conduct](https://slackhq.github.io/code-of-conduct).
 * [ ] I've searched for any related issues and avoided creating a duplicate issue.
 
@@ -23,7 +23,7 @@ Filling out the following details about bugs will help us solve your issue soone
 
 #### Reproducible in:
 
-Kaldb version:
+Astra version:
 
 Java version:
 

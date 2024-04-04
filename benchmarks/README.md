@@ -1,4 +1,4 @@
-Kaldb benchmarks
+Astra benchmarks
 ---------------
 
 Add JMH Dependencies
@@ -23,7 +23,7 @@ Run API LOG benchmark
 ```
 ./jmh.sh IndexAPILog
 ```
-NOTE: If you're running the benchmark locally make sure `kaldb/benchmarks/api_logs.txt` is present. Else you can run using `java -Djmh.api.log.file=/path/to/file.txt -Xms4g -Xmx4g benchmarks/target/benchmarks.jar IndexAPILog`
+NOTE: If you're running the benchmark locally make sure `astra/benchmarks/api_logs.txt` is present. Else you can run using `java -Djmh.api.log.file=/path/to/file.txt -Xms4g -Xmx4g benchmarks/target/benchmarks.jar IndexAPILog`
 
 To run it from IntelliJ directly https://plugins.jetbrains.com/plugin/7529-jmh-java-microbenchmark-harness
 
