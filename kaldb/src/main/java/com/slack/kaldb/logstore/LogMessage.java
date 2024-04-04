@@ -57,6 +57,7 @@ public class LogMessage extends LogWireMessage {
     NAME("name"),
     SERVICE_NAME("service_name"),
     DURATION_MS("duration_ms"),
+    DURATION("duration"),
     TRACE_ID("trace_id"),
     PARENT_ID("parent_id"),
     KALDB_INVALID_TIMESTAMP("kaldb_invalid_timestamp");

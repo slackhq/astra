@@ -386,11 +386,11 @@ public class SearchResultUtilsTest {
                 KaldbSearch.SchemaDefinition.newBuilder()
                     .setType(Schema.SchemaFieldType.STRING)
                     .build()))
-        .isEqualTo(FieldType.STRING);
+        .isEqualTo(FieldType.KEYWORD);
     assertThat(SearchResultUtils.toSchemaDefinitionProto(FieldType.STRING))
         .isEqualTo(
             KaldbSearch.SchemaDefinition.newBuilder()
-                .setType(Schema.SchemaFieldType.STRING)
+                .setType(Schema.SchemaFieldType.KEYWORD)
                 .build());
 
     assertThat(

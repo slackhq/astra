@@ -2,6 +2,7 @@ package com.slack.kaldb.bulkIngestApi.opensearch;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.schema.Schema;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
@@ -103,6 +104,27 @@ public class BulkApiRequestParser {
     spanBuilder.setTimestamp(
         TimeUnit.MICROSECONDS.convert(timestampInMillis, TimeUnit.MILLISECONDS));
 
+    if (sourceAndMetadata.get(LogMessage.ReservedField.PARENT_ID.fieldName) != null) {
+      spanBuilder.setParentId(
+          ByteString.copyFromUtf8(
+              (String) sourceAndMetadata.get(LogMessage.ReservedField.PARENT_ID.fieldName)));
+      sourceAndMetadata.remove(LogMessage.ReservedField.PARENT_ID.fieldName);
+    }
+    if (sourceAndMetadata.get(LogMessage.ReservedField.TRACE_ID.fieldName) != null) {
+      spanBuilder.setTraceId(
+          ByteString.copyFromUtf8(
+              (String) sourceAndMetadata.get(LogMessage.ReservedField.TRACE_ID.fieldName)));
+      sourceAndMetadata.remove(LogMessage.ReservedField.TRACE_ID.fieldName);
+    }
+    if (sourceAndMetadata.get(LogMessage.ReservedField.NAME.fieldName) != null) {
+      spanBuilder.setName((String) sourceAndMetadata.get(LogMessage.ReservedField.NAME.fieldName));
+      sourceAndMetadata.remove(LogMessage.ReservedField.NAME.fieldName);
+    }
+    if (sourceAndMetadata.get("duration") != null) {
+      spanBuilder.setDuration(Long.parseLong(sourceAndMetadata.get("duration").toString()));
+      sourceAndMetadata.remove("duration");
+    }
+
     // Remove the following internal metadata fields that OpenSearch adds
     sourceAndMetadata.remove(IngestDocument.Metadata.ROUTING.getFieldName());
     sourceAndMetadata.remove(IngestDocument.Metadata.VERSION.getFieldName());
@@ -123,7 +145,6 @@ public class BulkApiRequestParser {
       spanBuilder.addTags(
           Trace.KeyValue.newBuilder()
               .setKey(SERVICE_NAME_KEY)
-              .setVType(Trace.ValueType.STRING)
               .setFieldType(Schema.SchemaFieldType.KEYWORD)
               .setVStr(index)
               .build());
