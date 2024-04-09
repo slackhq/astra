@@ -24,3 +24,4 @@ jobs:
           stale-pr-message: 'This PR is stale because it has been open 30 days with no activity. Remove stale label or comment or this will be closed in 3 days.'
           days-before-pr-stale: 30
           days-before-pr-close: 3
+          operations-per-run: 200
