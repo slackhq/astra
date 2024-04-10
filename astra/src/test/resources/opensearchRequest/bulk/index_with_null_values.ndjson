@@ -1,0 +1,2 @@
+{ "index" : { "_index" : "test", "_id" : "1" } }
+{ "parent_id" : "1", "username": "me", "bucket": null }

@@ -128,6 +128,28 @@ public class SpanFormatterWithSchemaTest {
   }
 
   @Test
+  public void parseIndexRequestWithNullValues() throws Exception {
+    final File schemaFile =
+        new File(getClass().getClassLoader().getResource("schema/test_schema.yaml").getFile());
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(schemaFile.toPath());
+
+    byte[] rawRequest = getIndexRequestBytes("index_with_null_values");
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    AssertionsForClassTypes.assertThat(indexRequests.size()).isEqualTo(1);
+
+    Trace.Span doc =
+        BulkApiRequestParser.fromIngestDocument(
+            convertRequestToDocument(indexRequests.get(0)), schema);
+    assertThat(doc.getId().toStringUtf8()).isEqualTo("1");
+    assertThat(doc.getParentId().toStringUtf8()).isEqualTo("1");
+
+    List<String> docTags =
+        doc.getTagsList().stream().map(Trace.KeyValue::getKey).collect(Collectors.toList());
+    assertThat(docTags.size()).isEqualTo(2); // username,service_name
+    assertThat(docTags.contains("bucket")).isFalse();
+  }
+
+  @Test
   public void parseIndexRequestToTraceProtoTest() throws Exception {
     final File schemaFile =
         new File(getClass().getClassLoader().getResource("schema/test_schema.yaml").getFile());
@@ -184,6 +206,7 @@ public class SpanFormatterWithSchemaTest {
     assertThat(doc2Tags.contains("service_name")).isEqualTo(true);
     assertThat(doc2Tags.contains("ip")).isEqualTo(true);
     assertThat(doc2Tags.contains("username")).isEqualTo(true);
+    assertThat(doc2Tags.contains("bucket")).isFalse();
     assertThat(doc2.getParentId().toStringUtf8()).isEqualTo("1");
     assertThat(doc2.getTraceId().toStringUtf8()).isEqualTo("2");
     assertThat(doc2.getName()).isEqualTo("check");
