@@ -160,6 +160,10 @@ public class SpanFormatter {
 
   public static List<Trace.KeyValue> convertKVtoProto(
       String key, Object value, Schema.IngestSchema schema) {
+    if (value == null || value.toString().isEmpty()) {
+      return null;
+    }
+
     if (schema.containsFields(key)) {
       List<Trace.KeyValue> tags = new ArrayList<>();
       Schema.SchemaField schemaFieldDef = schema.getFieldsMap().get(key);
@@ -185,7 +189,7 @@ public class SpanFormatter {
     }
   }
 
-  public static Trace.KeyValue convertKVtoProto(String key, Object value) {
+  private static Trace.KeyValue convertKVtoProto(String key, Object value) {
     Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
     tagBuilder.setKey(key);
     if (value instanceof String) {

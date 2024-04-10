@@ -1,6 +1,6 @@
 { "index" : { "_index" : "test", "_id" : "1" } }
 { "host" : "host1", "message" : "foo bar", "ip" : "192.168.1.1", "my_date" : "2014-09-01T12:00:00Z", "success" : true, "cost": 4.0, "amount" : 1.1, "amount_half_float" : 1.2, "value" : 42, "count" : 3, "count_scaled_long" : 80, "count_short" : 10, "bucket" : "20" }
 { "index" : { "_index" : "test", "_id" : "2" } }
-{ "parent_id" : "1", "trace_id" : "2", "name": "check", "ip" :  "::afff:4567:890a", "duration" : 20000, "username": "me" }
+{ "parent_id" : "1", "trace_id" : "2", "name": "check", "ip" :  "::afff:4567:890a", "duration" : 20000, "username": "me", "bucket": null }
 
 

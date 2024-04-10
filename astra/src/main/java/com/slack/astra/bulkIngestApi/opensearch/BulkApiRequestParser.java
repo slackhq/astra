@@ -139,7 +139,11 @@ public class BulkApiRequestParser {
       if (!tagsContainServiceName && kv.getKey().equals(SERVICE_NAME_KEY)) {
         tagsContainServiceName = true;
       }
-      spanBuilder.addAllTags(SpanFormatter.convertKVtoProto(kv.getKey(), kv.getValue(), schema));
+      List<Trace.KeyValue> tags =
+          SpanFormatter.convertKVtoProto(kv.getKey(), kv.getValue(), schema);
+      if (tags != null) {
+        spanBuilder.addAllTags(tags);
+      }
     }
     if (!tagsContainServiceName) {
       spanBuilder.addTags(
