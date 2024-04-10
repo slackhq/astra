@@ -20,6 +20,7 @@
             <toc-element topic="Query.md"/>
             <toc-element topic="Manager.md"/>
             <toc-element topic="Recovery.md"/>
+            <toc-element topic="Schema.md"/>
         </toc-element>
         <toc-element topic="Misc.md">
             <toc-element topic="Initial-RFC.md"/>
