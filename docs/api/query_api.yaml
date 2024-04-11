@@ -1,0 +1,72 @@
+openapi: 3.0.0
+info:
+  title: Query Node API
+  version: alpha
+paths:
+  # Examples omitted pending https://youtrack.jetbrains.com/issue/WRS-3340
+  /:
+    get:
+      summary: Cluster metadata
+      responses:
+        '200':
+          description: A JSON object of cluster metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: object
+                    properties:
+                      distribution:
+                        description: "Astra"
+                        type: string
+                      number:
+                        description: "Release version of cluster"
+                        type: string
+                      lucene_version:
+                        description: "Lucene index/query version of cluster"
+                        type: string
+                    #example:
+                    #  distribution: astra
+                    #  number: 0.0.1
+                    #  lucene_version: 9.7.0
+  /_msearch:
+    post:
+      summary: Multisearch
+      requestBody:
+        description: NDJSON
+        required: true
+        content:
+          application/ndjson:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: A JSON response
+          content:
+            application/json:
+              schema:
+                type: object
+
+
+  /{indexName}/_mapping:
+    get:
+      summary: Field mapping
+      parameters:
+        - in: path
+          name: indexName
+          schema:
+            type: string
+          required: true
+          description: Index name as stored by cluster
+          examples:
+            all:
+              value: _all
+              summary: Query all indexes
+            index:
+              value: foo
+              summary: Query specific index "foo"
+      responses:
+        '200':
+          description: A JSON object of field mapping
