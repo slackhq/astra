@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+        SYSTEM "https://resources.jetbrains.com/writerside/1.0/xhtml-entities.dtd">
+<topic xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="https://resources.jetbrains.com/writerside/1.0/topic.v2.xsd"
+       title="Astra overview" id="Overview">
+
+    <section-starting-page>
+        <title>Discover Astra</title>
+        <description>
+            Astra is a structured log search and analytics engine developed by Slack and Salesforce
+        </description>
+
+        <spotlight>
+            <a href="Getting-started.md" type="start" summary="Get started ingesting and searching logs locally with Astra">Getting started</a>
+            <a href="Using-Astra.topic" type="search" summary="How to use Astra with Grafana, migration guides from OpenSearch/Elasticsearch">User guide</a>
+        </spotlight>
+
+        <primary>
+            <title>Operating Astra</title>
+            <a href="Config-options.md"/>
+            <a href="Monitoring.md"/>
+            <a href="Troubleshooting.md"/>
+            <a href="Recommendations.md" />
+        </primary>
+
+        <secondary>
+            <title>Advanced topics</title>
+            <a href="Schema.md"/>
+            <a href="Architecture.md" />
+        </secondary>
+        <misc>
+<!--            <cards>-->
+<!--                <title>Advanced topics</title>-->
+<!--                <a href="Architecture.md" summary="Design goals, system components, and data architecture">Architecture</a>-->
+<!--                <a href="Schema.md"/>-->
+<!--            </cards>-->
+<!--                <cards narrow="true">-->
+<!--                    <title>Other relevant topics as narrow cards</title>-->
+<!--                    <a href=""/>-->
+<!--                    <a href=""/>-->
+<!--                    <a href="" summary="With a custom card summary"/>-->
+<!--                    <a href="">Custom card title</a>-->
+<!--                    <a href="">Custom card title</a>-->
+<!--                    <a href="" summary="With a custom card summary">Custom card title</a>-->
+<!--                </cards>-->
+            <links>
+                <group>
+                    <title>Project links</title>
+                    <a href="Roadmap.md"/>
+                </group>
+                <group>
+                    <title>External references</title>
+                    <a href="https://opensearch.org/docs/latest/api-reference/" summary="OpenSearch REST API">OpenSearch API Reference</a>
+                </group>
+            </links>
+        </misc>
+    </section-starting-page>
+
+</topic>
