@@ -120,9 +120,11 @@ public class BulkApiRequestParser {
       spanBuilder.setName((String) sourceAndMetadata.get(LogMessage.ReservedField.NAME.fieldName));
       sourceAndMetadata.remove(LogMessage.ReservedField.NAME.fieldName);
     }
-    if (sourceAndMetadata.get("duration") != null) {
-      spanBuilder.setDuration(Long.parseLong(sourceAndMetadata.get("duration").toString()));
-      sourceAndMetadata.remove("duration");
+    if (sourceAndMetadata.get(LogMessage.ReservedField.DURATION.fieldName) != null) {
+      spanBuilder.setDuration(
+          Long.parseLong(
+              sourceAndMetadata.get(LogMessage.ReservedField.DURATION.fieldName).toString()));
+      sourceAndMetadata.remove(LogMessage.ReservedField.DURATION.fieldName);
     }
 
     // Remove the following internal metadata fields that OpenSearch adds

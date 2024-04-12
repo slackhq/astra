@@ -404,8 +404,7 @@ public class Astra {
         if (!preprocessorConfig.getSchemaFile().isEmpty()) {
           LOG.info("Loading schema file: {}", preprocessorConfig.getSchemaFile());
           schema = SchemaUtil.parseSchema(Path.of(preprocessorConfig.getSchemaFile()));
-          LOG.info(
-              "Loaded schema from file: {} with total fields: {}", schema, schema.getFieldsCount());
+          LOG.info("Loaded schema with total fields: {}", schema.getFieldsCount());
         } else {
           LOG.info("No schema file provided, using default schema");
         }
