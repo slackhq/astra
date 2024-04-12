@@ -23,13 +23,13 @@ kafka-topics.sh --create --topic test-topic-in --bootstrap-server localhost:9092
 3. Run 2 curl commands to configure 1 partition
 
 ```bash
-curl -XPOST -H 'content-type: application/json; charset=utf-8; protocol=gRPC' http://localhost:8083'/slack.proto.kaldb.ManagerApiService/CreateDatasetMetadata' -d '{
+curl -XPOST -H 'content-type: application/json; charset=utf-8; protocol=gRPC' http://localhost:8083'/slack.proto.astra.ManagerApiService/CreateDatasetMetadata' -d '{
   "name": "test",
   "owner": "test@email.com",
   "serviceNamePattern": "_all"
 }'
 
-curl -XPOST -H 'content-type: application/json; charset=utf-8; protocol=gRPC' http://localhost:8083'/slack.proto.kaldb.ManagerApiService/UpdatePartitionAssignment' -d '{
+curl -XPOST -H 'content-type: application/json; charset=utf-8; protocol=gRPC' http://localhost:8083'/slack.proto.astra.ManagerApiService/UpdatePartitionAssignment' -d '{
   "name": "test",
   "throughputBytes": "4000000",
   "partitionIds": ["0"]

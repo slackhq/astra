@@ -28,6 +28,8 @@
             <title>Advanced topics</title>
             <a href="Schema.md"/>
             <a href="Architecture.md" />
+            <a href="API-opensearch.md" />
+            <a href="API-manager.md" />
         </secondary>
         <misc>
 <!--            <cards>-->

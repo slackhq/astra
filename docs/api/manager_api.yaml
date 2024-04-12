@@ -1,0 +1,313 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+  title: ManagerApiService API
+  description: ManagerApiService is the administration API for operating on dataset metadata and the associated partition assignments
+  version: 0.0.1
+paths:
+  /slack.proto.astra.ManagerApiService/CreateDatasetMetadata:
+    post:
+      summary: CreateDatasetMetadata
+      tags:
+        - ManagerApiService
+      description: CreateDataset initializes a new dataset in the metadata store with no initial allocated capacity
+      operationId: ManagerApiService_CreateDatasetMetadata
+      parameters:
+        - name: name
+          in: query
+          description: Name of the dataset, must be unique
+          schema:
+            type: string
+        - name: owner
+          in: query
+          description: Owner information, maybe be any string
+          schema:
+            type: string
+        - name: serviceNamePattern
+          in: query
+          description: The service name pattern that the dataset is indexing
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetMetadata'
+        default:
+          description: Default error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /slack.proto.astra.ManagerApiService/GetDatasetMetadata:
+    post:
+      summary: GetDatasetMetadata
+      tags:
+        - ManagerApiService
+      description: GetDataset returns a single dataset metadata by name
+      operationId: ManagerApiService_GetDatasetMetadata
+      parameters:
+        - name: name
+          in: query
+          description: Must be an exact string name match
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetMetadata'
+        default:
+          description: Default error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /slack.proto.astra.ManagerApiService/ListDatasetMetadata:
+    post:
+      summary: ListDatasetMetadata
+      tags:
+        - ManagerApiService
+      description: ListDatasets returns all available datasets from the metadata store
+      operationId: ManagerApiService_ListDatasetMetadata
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListDatasetMetadataResponse'
+        default:
+          description: Default error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /slack.proto.astra.ManagerApiService/RestoreReplica:
+    post:
+      summary: RestoreReplica
+      tags:
+        - ManagerApiService
+      operationId: ManagerApiService_RestoreReplica
+      parameters:
+        - name: serviceName
+          in: query
+          schema:
+            type: string
+        - name: startTimeEpochMs
+          in: query
+          schema:
+            type: string
+        - name: endTimeEpochMs
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreReplicaResponse'
+        default:
+          description: Default error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /slack.proto.astra.ManagerApiService/RestoreReplicaIds:
+    summary: RestoreReplicaIds
+    post:
+      tags:
+        - ManagerApiService
+      operationId: ManagerApiService_RestoreReplicaIds
+      parameters:
+        - name: idsToRestore
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreReplicaIdsResponse'
+        default:
+          description: Default error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /slack.proto.astra.ManagerApiService/UpdateDatasetMetadata:
+    post:
+      summary: UpdateDatasetMetadata
+      tags:
+        - ManagerApiService
+      description: UpdateDataset updates an existing dataset with new metadata
+      operationId: ManagerApiService_UpdateDatasetMetadata
+      parameters:
+        - name: name
+          in: query
+          description: Unique name of the existing dataset
+          schema:
+            type: string
+        - name: owner
+          in: query
+          description: Owner information, maybe be any string
+          schema:
+            type: string
+        - name: serviceNamePattern
+          in: query
+          description: The service name pattern that the dataset is indexing
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetMetadata'
+        default:
+          description: Default error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /slack.proto.astra.ManagerApiService/UpdatePartitionAssignment:
+    post:
+      summary: UpdatePartitionAssignment
+      tags:
+        - ManagerApiService
+      description: |-
+        UpdatePartitionAssignment allocates a new partition assignment for a dataset. If a rate and a list of
+         partition_ids are provided, it will use it use the list of partition ids as the current allocation
+         and invalidates the existing assignment.
+        
+         In the future if only a rate is provided with an empty list the allocation will be automatically assigned.
+      operationId: ManagerApiService_UpdatePartitionAssignment
+      parameters:
+        - name: name
+          in: query
+          description: Must be an exact string name match
+          schema:
+            type: string
+        - name: throughputBytes
+          in: query
+          description: Optional maximum throughput of the dataset - if set to -1 the existing value will not be updated
+          schema:
+            type: string
+        - name: partitionIds
+          in: query
+          description: Optional desired partition IDs - if empty will be automatically assigned
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatePartitionAssignmentResponse'
+        default:
+          description: Default error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+components:
+  schemas:
+    DatasetMetadata:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Unique name for provisioned service
+        owner:
+          type: string
+          description: Service owner information (ie team name)
+        throughputBytes:
+          type: string
+          description: Service throughput max
+        partitionConfigs:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetPartitionMetadata'
+          description: List of partitions assigned to this service, and their effective times
+        serviceNamePattern:
+          type: string
+          description: either same as name or a special value _all or * which matches all services
+      description: Describes ownership, throughput, and partition mapping for a given dataset
+    DatasetPartitionMetadata:
+      type: object
+      properties:
+        startTimeEpochMs:
+          type: string
+          description: Start time this partition received traffic
+        endTimeEpochMs:
+          type: string
+          description: End time this partition received traffic
+        partitions:
+          type: array
+          items:
+            type: string
+          description: List of Kafka partition ids
+      description: Describes a set of partitions along with their effective start and end times
+    GoogleProtobufAny:
+      type: object
+      properties:
+        '@type':
+          type: string
+          description: The type of the serialized message.
+      additionalProperties: true
+      description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message.
+    ListDatasetMetadataResponse:
+      type: object
+      properties:
+        datasetMetadata:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetMetadata'
+          description: List of datasets, excluding partition assignments
+      description: ListDatasetMetadataResponse represents the response when listing all available datasets
+    RestoreReplicaIdsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+    RestoreReplicaResponse:
+      type: object
+      properties:
+        status:
+          type: string
+    Status:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+      description: 'The `Status` type defines a logical error model that is suitable for different programming environments, including REST APIs and RPC APIs. It is used by [gRPC](https://github.com/grpc). Each `Status` message contains three pieces of data: error code, error message, and error details. You can find out more about this error model and how to work with it in the [API Design Guide](https://cloud.google.com/apis/design/errors).'
+    UpdatePartitionAssignmentResponse:
+      type: object
+      properties:
+        assignedPartitionIds:
+          type: array
+          items:
+            type: string
+          description: The assigned partition IDs
+      description: UpdatePartitionAssignmentResponse represents the response after assigning a new set of partitions
+tags:
+  - name: ManagerApiService

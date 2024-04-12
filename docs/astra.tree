@@ -8,8 +8,10 @@
     <toc-element topic="Overview.topic"/>
     <toc-element topic="Getting-started.md"/>
     <toc-element topic="Using-Astra.topic">
-        <toc-element topic="Grafana.md"/>
+        <toc-element topic="Logs.md"/>
         <toc-element topic="Traces.md"/>
+        <toc-element topic="API-opensearch.md"/>
+        <toc-element topic="API-zipkin.md"/>
         <toc-element topic="Migrating.md"/>
     </toc-element>
     <toc-element toc-title="Operators &amp; admins">
@@ -18,6 +20,7 @@
         <toc-element topic="Troubleshooting.md"/>
         <toc-element topic="Monitoring.md"/>
         <toc-element topic="Recommendations.md"/>
+        <toc-element topic="API-manager.md"/>
         <toc-element topic="Schema.md"/>
     </toc-element>
     <toc-element toc-title="Dependencies">
