@@ -18,7 +18,9 @@
         <toc-element topic="System-properties-reference.md"/>
         <toc-element topic="Config-options.md"/>
         <toc-element topic="Troubleshooting.md"/>
-        <toc-element topic="Monitoring.md"/>
+        <toc-element topic="Monitoring.md">
+            <toc-element topic="Metrics-reference.md"/>
+        </toc-element>
         <toc-element topic="Recommendations.md"/>
         <toc-element topic="API-manager.md"/>
         <toc-element topic="Schema.md"/>

@@ -1,7 +1,7 @@
 # Monitoring
+Recommended dashboard and alert policies to ensure stable cluster performance.
 
-Prometheus metrics exposed by Astra that can be used for dashboards and alerts.     
-
+## Alerts
 ### Indexer rollover alert
 Not enough rollovers are occurring (chunks being created). See [No/low indexer rollovers](Troubleshooting.md#no-low-indexer-rollovers).
 
