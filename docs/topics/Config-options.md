@@ -35,6 +35,8 @@ A preprocessor node serves a bulk ingest HTTP api, which is then transformed, ra
 
 ## indexerConfig
 
+Configuration options for the indexer node.
+
 ### maxMessagesPerChunk
 Maximum number of messages that are created per chunk before closing and uploading to S3. This should be roughly
 equivalent to the `maxBytesPerChunk`, such that a rollover is triggered at roughly the same time regardless of 
@@ -99,16 +101,20 @@ the user. Enables queries such as `value` instead of specifying the field name e
 indexerConfig:
   serverConfig:
     serverPort: 8081
-    serverAddress: localhost
-    requestTimeoutMs: 5000
+    serverAddress: 10.0.100.1
+    requestTimeoutMs: 7000
 ```
 <snippet id="server-config">
-<deflist>
+<deflist type="medium">
 <def title="serverPort">
+Port used for application HTTP traffic.
 </def>
 <def title="serverAddress">
+Address at which this instance is accessible by other Astra components. Used for inter-node communication and is 
+registered to Zookeeper.
 </def>
 <def title="requestTimeoutMs">
+Request timeout for all HTTP traffic after which the request is cancelled. 
 </def>
 </deflist>
 </snippet>
@@ -145,6 +151,15 @@ String value of JSON encoded properties to set on Kafka consumer. Any valid Kafk
 
 
 ## s3Config
+S3 configuration options common to indexer, recovery, cache, and manager nodes.
+
+<tip>
+
+S3 compatible APIs from vendors other than Amazon may work, but are not guaranteed. Astra uses the 
+[AWS CRT client](https://github.com/awslabs/aws-crt-java) for improved performance, but this library has less expected
+compatibility with other vendors.
+</tip>
+
 ```yaml
 s3Config:
   s3AccessKey: access
@@ -155,17 +170,34 @@ s3Config:
   s3TargetThroughputGbps: 25
 ```
 
-### s3AccessKey
+<deflist type="wide">
+<def title="s3AccessKey">
+AWS access key. If both access key and secret key are empty will use the AWS default credentials provider. 
+</def>
+<def title="s3SecretKey">
+AWS secret key. If both access key and secret key are empty will use the AWS default credentials provider.
+</def>
+<def title="s3Region">
 
-### s3SecretKey
+AWS region, ie `us-east-1`, `us-west-2`   
+</def>
+<def title="s3EndPoint">
+S3 endpoint to use. If this setting is null or empty will not attempt to override the endpoint and will use the default
+provided by the AWS client.
+</def>
+<def title="s3Bucket">
+AWS S3 bucket name
 
-### s3Region
+<tip>Separate buckets per cluster is recommended for better cost tracking and improved performance.</tip>
+</def>
+<def title="s3TargetThroughputGbps">
+Throughput target in gigabits per second. This configuration controls how many concurrent connections will be 
+established in the AWS CRT client. Recommended to be set to match the maximum bandwidth of the underlying host.
+</def>
+</deflist>
 
-### s3EndPoint
-
-### s3Bucket
-
-### s3TargetThroughputGbps
+<tip>See also <a href="System-properties-reference.md#astra-s3crtblobfs-maxnativememorylimitbytes">astra.s3CrtBlobFs.maxNativeMemoryLimitBytes</a>
+system properties config.</tip>
 
 ## tracingConfig
 
@@ -179,17 +211,18 @@ tracingConfig:
 
 ### zipkinEndpoint
 
-### commonTags
+Fully path to the Zipkin [POST spans endpoint](https://zipkin.io/zipkin-api/#/default/post_spans). Will be submitted as
+a JSON array of span data.
 
-Recommended common tags:
-<deflist>
-<def title="clusterName">
-</def>
-<def title="env">
-</def>
-</deflist>
+### commonTags
+Optional common tags to annotate on all submitted Zipkin traces. Can be overwritten by spans at runtime, if keys 
+collide. 
+
+<tip>Recommended common tags: <code>clusterName</code>, <code>env</code></tip>
 
 ## queryConfig
+
+Configuration options for the query node.
 
 ### serverConfig {id=query-server-config}
 
@@ -197,15 +230,37 @@ Recommended common tags:
 queryConfig:
   serverConfig:
     serverPort: 8081
-    serverAddress: localhost
-    requestTimeoutMs: 5000
+    serverAddress: 10.0.100.2
+    requestTimeoutMs: 60000
 ```
-
 <include from="Config-options.md" element-id="server-config"></include>
 
 ### defaultQueryTimeout
 
+```yaml
+queryConfig:
+  defaultQueryTimeout: 55000
+```
+
+Query timeout for individual indexer and cache nodes when performing a query. This value should be set lower than the 
+<a href="Config-options.md#query-server-config">queryConfig.serverConfig.requestTimeoutMs</a> and equal-to or greater-than
+the <a href="Config-options.md#indexer-server-config">indexerConfig.serverConfig.requestTimeoutMs</a> and
+<a href="Config-options.md#cache-server-config">cacheConfig.serverConfig.requestTimeoutMs</a>. 
+
+<tip>When setting a timeout ensure that the 
+<a href="Config-options.md#query-server-config">queryConfig.serverConfig.requestTimeoutMs</a> is at least a few
+seconds higher than the <a href="Config-options.md#defaultquerytimeout">queryConfig.serverConfig.defaultQueryTimeout</a>
+to allow for aggregation post-processing to occur.
+</tip>
+
 ### managerConnectString
+```yaml
+queryConfig:
+  managerConnectString: 10.0.100.2:8085
+```
+
+<tldr>experimental</tldr>
+Host address for manager node, used for on-demand recovery requests.
 
 ## metadataStoreConfig
 ```yaml
@@ -221,18 +276,31 @@ metadataStoreConfig:
 ### zookeeperConfig
 <deflist>
 <def title="zkConnectString">
+
+Zookeeper connection string - list of servers to connect to or a common service discovery endpoint 
+(ie, [consul endpoint](https://www.consul.io/)).
 </def>
 <def title="zkPathPrefix">
+
+Common prefix to use for Astra data. Useful when using a common Zookeeper installation.
+
+<tip>A shared Zookeeper cluster is only recommended for very small Astra clusters.</tip>
 </def>
 <def title="zkSessionTimeoutMs">
+Zookeeper session timeout in milliseconds.
 </def>
 <def title="zkConnectionTimeoutMs">
+Zookeeper connection timeout in milliseconds.
 </def>
 <def title="sleepBetweenRetriesMs">
+How long to wait between retries when attempting to reconnect a Zookeeper session. Will retry up to the 
+`zkSessionTimeoutMs`.
 </def>
 </deflist>
 
 ## cacheConfig
+
+Configuration options for the cache node.
 
 ### slotsPerInstance
 
@@ -243,6 +311,14 @@ metadataStoreConfig:
 ### defaultQueryTimeoutMs {id=cache-default-query-timeout-ms}
 
 ### serverConfig {id=cache-server-config}
+```yaml
+cacheConfig:
+  serverConfig:
+    serverPort: 8081
+    serverAddress: 10.0.100.3
+    requestTimeoutMs: 55000
+```
+<include from="Config-options.md" element-id="server-config"></include>
 
 ## managerConfig
 
@@ -251,8 +327,15 @@ metadataStoreConfig:
 ### scheduleInitialDelayMins
 
 ### serverConfig {id=manager-server-config}
+```yaml
+managerConfig:
+  serverConfig:
+    serverPort: 8081
+    serverAddress: 10.0.100.10
+    requestTimeoutMs: 30000
+```
 
-<include from="Config-options.md" element-id="indexer-server-config"></include>
+<include from="Config-options.md" element-id="server-config"></include>
 
 ### replicaCreationServiceConfig
 
@@ -269,17 +352,40 @@ metadataStoreConfig:
 ### replicaRestoreServiceConfig
 
 ## clusterConfig
+Cluster configuration options common to all node type.
+
 ```yaml
 clusterConfig:
   clusterName: astra_local
   env: local
 ```
 
+<deflist>
+<def title="clusterName">
+Unique name assigned to this cluster. Should be identical for all node types in the cluster, and is used for metrics
+instrumentation.
+</def>
+<def title="env">
+Environment string for this cluster. Should be identical for all node types deployed to a single environment, and is 
+used for metrics instrumentation.
+</def>
+</deflist>
+
 ## recoveryConfig
+
+Configuration options for the recovery indexer node.
 
 ### serverConfig {id=recovery-server-config}
 
-<include from="Config-options.md" element-id="indexer-server-config"></include>
+```yaml
+recoveryConfig:
+  serverConfig:
+    serverPort: 8081
+    serverAddress: 10.0.100.4
+    requestTimeoutMs: 10000
+```
+
+<include from="Config-options.md" element-id="server-config"></include>
 
 ### kafkaConfig {id=kafka-recovery}
 
@@ -299,6 +405,8 @@ clusterConfig:
 
 ## preprocessorConfig
 
+Configuration options for the preprocessor node.
+
 ### kafkaStreamConfig
 ```yaml
 preprocessorConfig:
@@ -309,25 +417,7 @@ preprocessorConfig:
     processingGuarantee: at_least_once
     additionalProps: ""
 ```
-<warning><p><code>kafkaStreamConfig</code> is deprecated and unsupported</p></warning>
-
-<deflist type="medium">
-<def title="bootstrapServers">
-DEPRECATED
-</def>
-<def title="applicationId">
-DEPRECATED
-</def>
-<def title="numStreamThreads">
-DEPRECATED
-</def>
-<def title="processingGuarantee">
-DEPRECATED
-</def>
-<def title="additionalProps">
-DEPRECATED
-</def>
-</deflist>
+<warning><code>kafkaStreamConfig</code> is deprecated and unsupported.</warning>
 
 ### kafkaConfig {id=kafka-preprocessor}
 ```yaml
@@ -361,18 +451,86 @@ For valid formatting options refer to [Schema documentation.](Schema.md#schema-f
 
 ### serverConfig {id=preprocessor-server-config}
 
+```yaml
+preprocessorConfig:
+  serverConfig:
+    serverPort: 8081
+    serverAddress: 10.0.100.5
+    requestTimeoutMs: 55000
+```
+
+<include from="Config-options.md" element-id="server-config"></include>
+
 ### upstreamTopics
+```yaml
+preprocessorConfig:
+  upstreamTopics: ""
+```
+<warning><code>upstreamTopics</code> is deprecated.</warning>
+<note>Should always be set to <code>""</code></note>
 
 ### downstreamTopic
+```yaml
+preprocessorConfig:
+  downstreamTopic: ""
+```
+<warning><code>downstreamTopic</code> is deprecated.</warning>
+<note>Should always be set to <code>""</code></note>
 
 ### preprocessorInstanceCount
+```yaml
+preprocessorConfig:
+  preprocessorInstanceCount: 2
+```
+Indicates how many instances of the preprocessor are currently deployed. Used for scaling rate limiters such that each 
+preprocessor instance will allow the `total rate limit / preprocessor instance count` through before applying.
 
 ### dataTransformer
+<warning><code>dataTransformer</code> is deprecated.</warning>
+
+```yaml
+preprocessorConfig:
+  dataTransformer: json
+```
+<note>Should always be set to <code>json</code></note>
 
 ### rateLimiterMaxBurstSeconds
+```yaml
+preprocessorConfig:
+  rateLimiterMaxBurstSeconds: 1
+```
+Defines how many seconds rate limiting unused permits can be accumulated before no longer increasing. 
+
+<tip>Must be greater than or equal to 1.</tip>
 
 ### kafkaPartitionStickyTimeoutMs
 
+```yaml
+preprocessorConfig:
+  kafkaPartitionStickyTimeoutMs: 0
+```
+
+<warning><code>kafkaPartitionStickyTimeoutMs</code> is deprecated.</warning>
+<note>Should always be set to <code>0</code></note>
+
 ### useBulkApi
 
+```yaml
+preprocessorConfig:
+  useBulkApi: true
+```
+<warning><code>useBulkApi</code> is deprecated.</warning>
+<note>Should always be set to <code>true</code></note>
+
+Enable bulk ingest API, replacing the Kafka Streams API _(deprecated)_.
+
 ### rateLimitExceededErrorCode
+
+```yaml
+preprocessorConfig:
+  rateLimitExceededErrorCode: 400
+```
+
+Error code to return when the rate limit of the preprocessor is exceeded. If using OpenSearch 
+[Data Prepper](https://opensearch.org/docs/latest/data-prepper/) a return code of `400` or `404` would mark the request 
+as unable to be retried and sent to the dead letter queue.
