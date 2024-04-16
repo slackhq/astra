@@ -132,7 +132,7 @@ public class ZipkinService {
   }
 
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
-  private static long LOOKBACK_MINS = 60 * 24;
+  private static long LOOKBACK_MINS = 60 * 24 * 7;
 
   private static final int MAX_SPANS = 20_000;
 
