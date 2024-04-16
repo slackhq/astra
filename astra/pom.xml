@@ -18,7 +18,7 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.3</protobuf.version>
-        <grpc.version>1.62.2</grpc.version>
+        <grpc.version>1.63.0</grpc.version>
         <micrometer.version>1.12.4</micrometer.version>
         <armeria.version>1.27.3</armeria.version>
         <kafka.version>3.5.0</kafka.version>
@@ -28,7 +28,7 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.6.0</curator.version>
         <log4j.version>2.23.1</log4j.version>
-        <aws.sdk.version>2.25.21</aws.sdk.version>
+        <aws.sdk.version>2.25.31</aws.sdk.version>
         <error.prone.version>2.23.0</error.prone.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
     </properties>
@@ -445,7 +445,7 @@
         <dependency>
             <groupId>com.adobe.testing</groupId>
             <artifactId>s3mock-junit5</artifactId>
-            <version>3.5.2</version>
+            <version>3.6.0</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -504,7 +504,7 @@
         <dependency>
             <groupId>com.spotify</groupId>
             <artifactId>completable-futures</artifactId>
-            <version>0.3.5</version>
+            <version>0.3.6</version>
         </dependency>
 
         <!-- Zipkin -->
@@ -517,7 +517,7 @@
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-context-log4j2</artifactId>
-            <version>6.0.2</version>
+            <version>6.0.3</version>
         </dependency>
 
         <dependency>
@@ -600,7 +600,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>3.5.2</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.apache.logging.log4j</groupId>
