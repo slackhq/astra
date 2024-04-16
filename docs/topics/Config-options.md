@@ -84,17 +84,94 @@ the user. Enables queries such as `value` instead of specifying the field name e
 
 ### staleDurationSecs
 
+```yaml
+indexerConfig:
+  staleDurationSecs: 7200
+```
+
+How long a stale chunk, or a chunk no longer being written to, can remain on an indexer before being deleted. If the 
+[indexerConfig.maxChunksOnDisk](Config-options.md#maxchunksondisk) limit is reached prior to this value the chunk will
+be removed.
+
 ### dataDirectory {id=indexer-data-directory}
 
+```yaml
+indexerConfig:
+  dataDirectory: /mnt/localdisk
+```
+
+<snippet id="data-directory-desc">
+Path of data directory to use. Generally recommended to be instance storage backed by NVMe disks, or a memory mapped 
+storage like [tmpfs](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) for best performance. 
+</snippet>
+
 ### maxOffsetDelayMessages
+```yaml
+indexerConfig:
+  maxOffsetDelayMessages: 300000
+```
+
+Maximum amount of messages that the indexer can lag behind on startup before creating an async recovery tasks. If the 
+current message lag exceeds this the indexer will immediately start indexing at the current time, and create a task to 
+be indexed by a recover node from the last persisted offset to where the indexer started from.
 
 ### defaultQueryTimeoutMs {id=indexer-default-query-timeout-ms}
 
+```yaml
+indexerConfig:
+  defaultQueryTimeoutMs: 6500
+```
+
+<snippet id="default-query-timeout-desc">
+Timeout for searching an individual chunk. Should be set to some value below the `serverConfig.requestTimeoutMs` to 
+ensure that post-processing can occur before reaching the overall request timeout.
+</snippet>
+
 ### readFromLocationOnStart
+
+```yaml
+
+indexerConfig:
+  readFromLocationOnStart: LATEST
+```
+
+Defines where to read from Kafka when initializing a new cluster.
+
+<deflist>
+<def title="EARLIEST">
+Use the oldest Kafka offset when initializing cluster to include all messages currently on Kafka.
+</def>
+<def title="LATEST">
+Use the latest Kafka offset when initializing cluster, will start indexing new messages from the cluster initialization 
+time onwards. See <a href="Config-options.md#createrecoverytasksonstart">indexerConfig.createRecoveryTasksOnStart</a> for 
+an additional config parameter related to using <code>LATEST</code>.
+</def>
+</deflist>
+
+<tip>This config is only used when initializing a new cluster, when no existing offsets are found in Zookeeper.</tip>
 
 ### createRecoveryTasksOnStart
 
+```yaml
+
+indexerConfig:
+  createRecoveryTasksOnStart: true
+```
+
+Defines if recovery tasks should be created when initializing a new cluster.
+
+<note>This only applies when <a href="Config-options.md#readfromlocationonstart">indexerConfig.readFromLocationOnStart</a> is set to <code>LATEST</code>.</note>
+<tip>This config is only used when initializing a new cluster, when no existing offsets are found in Zookeeper.</tip>
+
 ### maxChunksOnDisk
+
+```yaml
+indexerConfig:
+  maxChunksOnDisk: 3
+```
+How many stale chunks, or chunks no longer being written to, can remain on an indexer before being deleted. If the
+[indexerConfig.staleDurationSecs](Config-options.md#staledurationsecs) limit is reached prior to this value the chunk 
+will be removed.
 
 ### serverConfig {id=indexer-server-config}
 ```yaml
@@ -308,7 +385,21 @@ Configuration options for the cache node.
 
 ### dataDirectory {id=cache-data-directory}
 
+```yaml
+cacheConfig:
+  dataDirectory: /mnt/localdisk
+```
+
+<include from="Config-options.md" element-id="data-directory-desc"></include>
+
 ### defaultQueryTimeoutMs {id=cache-default-query-timeout-ms}
+
+```yaml
+cacheConfig:
+  defaultQueryTimeoutMs: 50000
+```
+
+<include from="Config-options.md" element-id="default-query-timeout-desc"></include>
 
 ### serverConfig {id=cache-server-config}
 ```yaml
