@@ -2,4 +2,8 @@
 <!DOCTYPE terms SYSTEM "https://resources.jetbrains.com/writerside/1.0/glossary.dtd">
 <terms>
     <term name="mmap">Method for mapping file I/O to memory</term>
+    <term name="snapshot">A representation of a chunk stored in Zookeeper</term>
+    <term name="chunk">A object describing a Lucene index and its associated metadata</term>
+    <term name="replica">An assignable request to serve a snapshot, stored in Zookeeper</term>
+    <term name="dataset">A representation of an index and its metadata, stored in Zookeeper</term>
 </terms>

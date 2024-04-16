@@ -19,13 +19,13 @@ A query node provides http API for querying cluster and aggregates results from 
 An indexer node reads from Kafka to create a Lucene index on disk, which is then uploaded to S3. 
 </def>
 <def title="CACHE">
-A cache node receives chunk assignments from the manager node, which are downloaded from S3.
+A cache node receives <tooltip term="chunk">chunk</tooltip> assignments from the manager node, which are downloaded from S3.
 </def>
 <def title="MANAGER">
 The manager node is responsible for cluster orchestration,
 </def>
 <def title="RECOVERY">
-A recovery node indexes data that is skipped by an indexer, publishing snapshots.
+A recovery node indexes data that is skipped by an indexer, publishing <tooltip term="snapshot">snapshots</tooltip>.
 </def>
 <def title="PREPROCESSOR">
 A preprocessor node serves a bulk ingest HTTP api, which is then transformed, rate limited, and sent to Kafka.
@@ -38,7 +38,7 @@ A preprocessor node serves a bulk ingest HTTP api, which is then transformed, ra
 Configuration options for the indexer node.
 
 ### maxMessagesPerChunk
-Maximum number of messages that are created per chunk before closing and uploading to S3. This should be roughly
+Maximum number of messages that are created per <tooltip term="chunk">chunk</tooltip> before closing and uploading to S3. This should be roughly
 equivalent to the `maxBytesPerChunk`, such that a rollover is triggered at roughly the same time regardless of 
 messages or bytes.
 
@@ -48,7 +48,7 @@ indexerConfig:
 ```
 
 ### maxBytesPerChunk
-Maximum bytes that are created per chunk before closing and uploading to S3. This should be roughly
+Maximum bytes that are created per <tooltip term="chunk">chunk</tooltip> before closing and uploading to S3. This should be roughly
 equivalent to the `maxMessagesPerChunk`, such that a rollover is triggered at roughly the same time regardless of
 messages or bytes.
 
@@ -69,8 +69,9 @@ indexerConfig:
 
 <deflist>
 <def title="commitDurationSecs">
-How often Lucene commits to disk. This value will impact the accuracy of calculating the chunk size on disk for 
-rollovers, so should be set conservatively to keep chunk sizes consistent. 
+How often Lucene commits to disk. This value will impact the accuracy of calculating the 
+<tooltip term="chunk">chunk</tooltip> size on disk for rollovers, so should be set conservatively to keep 
+chunk sizes consistent. 
 </def>
 <def title="refreshDurationSecs">
 How often Lucene refreshes the index, or makes results visible to search. 
@@ -89,8 +90,8 @@ indexerConfig:
   staleDurationSecs: 7200
 ```
 
-How long a stale chunk, or a chunk no longer being written to, can remain on an indexer before being deleted. If the 
-[indexerConfig.maxChunksOnDisk](Config-options.md#maxchunksondisk) limit is reached prior to this value the chunk will
+How long a stale <tooltip term="chunk">chunk</tooltip>, or a chunk no longer being written to, can remain on an indexer 
+before being deleted. If the [indexerConfig.maxChunksOnDisk](Config-options.md#maxchunksondisk) limit is reached prior to this value the chunk will
 be removed.
 
 ### dataDirectory {id=indexer-data-directory}
@@ -123,8 +124,8 @@ indexerConfig:
 ```
 
 <snippet id="default-query-timeout-desc">
-Timeout for searching an individual chunk. Should be set to some value below the `serverConfig.requestTimeoutMs` to 
-ensure that post-processing can occur before reaching the overall request timeout.
+Timeout for searching an individual <tooltip term="chunk">chunk</tooltip>. Should be set to some value below the 
+`serverConfig.requestTimeoutMs` to ensure that post-processing can occur before reaching the overall request timeout.
 </snippet>
 
 ### readFromLocationOnStart
@@ -169,8 +170,8 @@ Defines if recovery tasks should be created when initializing a new cluster.
 indexerConfig:
   maxChunksOnDisk: 3
 ```
-How many stale chunks, or chunks no longer being written to, can remain on an indexer before being deleted. If the
-[indexerConfig.staleDurationSecs](Config-options.md#staledurationsecs) limit is reached prior to this value the chunk 
+How many stale <tooltip term="chunk">chunks</tooltip>, or chunks no longer being written to, can remain on an indexer 
+before being deleted. If the [indexerConfig.staleDurationSecs](Config-options.md#staledurationsecs) limit is reached prior to this value the chunk 
 will be removed.
 
 ### serverConfig {id=indexer-server-config}
@@ -381,7 +382,36 @@ Configuration options for the cache node.
 
 ### slotsPerInstance
 
+```yaml
+cacheConfig:
+  slotsPerInstance: 200
+```
+
+Defines how many cache slots are registered per cache node. This should be set so that the `slotsPerInstance` multiplied
+by the [`indexerConfig.maxBytesPerChunk`](Config-options.md#maxbytesperchunk) is less than the total available space at
+the [cacheConfig.dataDirectory](Config-options.md#cache-data-directory) path, plus a small buffer.
+
+<tip>
+
+The <tooltip term="chunk">chunk</tooltip> size on disk can overshoot the configured 
+[`indexerConfig.maxBytesPerChunk`](Config-options.md#maxbytesperchunk), depending on how frequently lucene is set to 
+flush to disk in the [`indexerConfig.luceneConfig.commitDurationSecs`](Config-options.md#luceneconfig) config.  
+</tip>
+ 
+
 ### replicaSet
+<tldr>experimental</tldr>
+
+```yaml
+cacheConfig:
+  replicaSet: rep1
+```
+
+Unique identifier for this deployment of cache nodes. This setting, in combination with
+[managerConfig.replicaCreationServiceConfig.replicaSets](Config-options.md#replicacreationserviceconfig), 
+[managerConfig.replicaAssignmentServiceConfig.replicaSets](Config-options.md#replicaassignmentserviceconfig) and
+[managerConfig.replicaRestoreServiceConfig.replicaSets](Config-options.md#replicarestoreserviceconfig) allow running 
+multiple deployments of cache nodes in a high availability deployment.
 
 ### dataDirectory {id=cache-data-directory}
 
@@ -413,9 +443,26 @@ cacheConfig:
 
 ## managerConfig
 
+Configuration options for the manager node.
+
 ### eventAggregationSecs
 
+```yaml
+managerConfig:
+  eventAggregationSecs: 10
+```
+
+Configures how long change events are batched before triggering an event executor. This helps improve performance in 
+clusters with a large amounts of change events (<tooltip term="chunk">chunk</tooltip> rollovers, pod turnover). 
+
 ### scheduleInitialDelayMins
+
+```yaml
+managerConfig:
+  scheduleInitialDelayMins: 1
+```
+
+How long after manager startup before scheduled services should start executing.
 
 ### serverConfig {id=manager-server-config}
 ```yaml
@@ -430,17 +477,157 @@ managerConfig:
 
 ### replicaCreationServiceConfig
 
+```yaml
+managerConfig:
+    replicaCreationServiceConfig:
+      schedulePeriodMins: 15
+      replicaLifespanMins: 1440
+      replicaSets: [rep1]
+```
+Configuration options controlling <tooltip term="replica">replica</tooltip> creation after a 
+<tooltip term="chunk">chunk</tooltip> is uploaded from an indexer.
+
+<deflist type="medium">
+<snippet id="schedule-period-mins">
+<def title="schedulePeriodMins">
+How frequently this task is scheduled to execute. If the time to complete the scheduled task exceeds the period, the 
+previous invocation will be cancelled and restarted at the scheduled time.
+</def>
+</snippet>
+<def title="replicaLifespanMins">
+How long a <tooltip term="replica">replica</tooltip> associated with a <tooltip term="chunk">chunk</tooltip> will exist 
+before expiring.
+
+<note>This is the primary configuration for the cluster's searchable retention.</note>
+<tip>
+
+Changing this will apply to **future** <tooltip term="replica">replicas</tooltip>, and does not apply to previously 
+created replicas.
+</tip>
+<snippet id="replica-sets">
+<def title="replicaSets">
+
+Array of cache <tooltip term="replica">replica</tooltip> set identifiers 
+([cacheConfig.replicaSet](Config-options.md#replicaset)) for this task to operate on.
+</def>
+</snippet>
+</def>
+</deflist>
+
 ### replicaAssignmentServiceConfig
+
+```yaml
+managerConfig:
+  replicaAssignmentServiceConfig:
+    schedulePeriodMins: 15
+    replicaSets: [rep1]
+    maxConcurrentPerNode: 2
+```
+Configuration options controlling <tooltip term="replica">replica</tooltip> assignments to available cache nodes.
+
+<deflist type="wide">
+<include from="Config-options.md" element-id="schedule-period-mins"></include>
+<include from="Config-options.md" element-id="replica-sets"></include>
+<def title="maxConcurrentPerNode">
+Controls how many assignment will concurrently execute. Setting this to a low value allows 
+<tooltip term="replica">replicas</tooltip> to become available quicker as they do not compete for download bandwidth, 
+and allows newly created replicas of higher priority to be downloaded before a long list of lower priority replicas.
+</def>
+</deflist>
 
 ### replicaEvictionServiceConfig
 
+```yaml
+managerConfig:
+  replicaEvictionServiceConfig:
+    schedulePeriodMins: 15
+```
+Configuration options controlling <tooltip term="replica">replica</tooltip> evictions from cache nodes due to 
+expiration.
+
+<deflist type="medium">
+<include from="Config-options.md" element-id="schedule-period-mins"></include>
+</deflist>
+
 ### replicaDeletionServiceConfig
+
+```yaml
+managerConfig:
+  replicaDeletionServiceConfig:
+    schedulePeriodMins: 15
+```
+
+Configuration options controlling <tooltip term="replica">replica</tooltip> deletion once expired.
+
+<deflist type="medium">
+<include from="Config-options.md" element-id="schedule-period-mins"></include>
+</deflist>
 
 ### recoveryTaskAssignmentServiceConfig
 
+```yaml
+managerConfig:
+  recoveryTaskAssignmentServiceConfig:
+    schedulePeriodMins: 15
+```
+
+Configuration options controlling recovery tasks assignments to recovery nodes.
+
+<deflist type="medium">
+<include from="Config-options.md" element-id="schedule-period-mins"></include>
+</deflist>
+
 ### snapshotDeletionServiceConfig
 
+```yaml
+managerConfig:
+  snapshotDeletionServiceConfig:
+    schedulePeriodMins: 15
+    snapshotLifespanMins: 10080
+```
+
+Configuration options controlling <tooltip term="snapshot">snapshot</tooltip> deletion once expired.
+
+<deflist type="full">
+<include from="Config-options.md" element-id="schedule-period-mins"></include>
+<def title="snapshotLifespanMins">
+
+Configures how long a <tooltip term="snapshot">snapshot</tooltip> can exist before being deleted from S3. This must be 
+set to a value larger than the
+[managerConfig.replicaCreationServiceConfig.replicaLifespanMins](Config-options.md#replicacreationserviceconfig). When
+this is larger than the `replicaLifespan` it enables restoring <tooltip term="replica">replicas</tooltip> from cold 
+storage (see [managerConfig.replicaRestoreServiceConfig](Config-options.md#replicarestoreserviceconfig)). 
+</def>
+</deflist>
+
 ### replicaRestoreServiceConfig
+<tldr>experimental</tldr>
+
+```yaml
+managerConfig:
+  replicaRestoreServiceConfig:
+    schedulePeriodMins: 15
+    maxReplicasPerRequest: 200
+    replicaLifespanMins: 60
+    replicaSets: [rep1]
+```
+
+Configurations controlling on-demand restores for <tooltip term="snapshot">snapshots</tooltip> that exist that do not 
+have corresponding <tooltip term="replica">replicas</tooltip>.
+
+<deflist type="full">
+<include from="Config-options.md" element-id="schedule-period-mins"></include>
+<def title="maxReplicasPerRequest">
+Maximum allowable <tooltip term="replica">replicas</tooltip> to be restored in a single request. When a request exceeds 
+this value, and error will be returned to the user.
+</def>
+<def title="replicaLifespanMins">
+How long the restored <tooltip term="replica">replica</tooltip> will exist before expiring.
+
+See [indexerConfig.replicaCreationServiceConfig.replicaLifespanMins](Config-options.md#replicacreationserviceconfig)
+</def>
+<include from="Config-options.md" element-id="replica-sets"></include>
+</deflist>
 
 ## clusterConfig
 Cluster configuration options common to all node type.
