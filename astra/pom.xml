@@ -504,7 +504,7 @@
         <dependency>
             <groupId>com.spotify</groupId>
             <artifactId>completable-futures</artifactId>
-            <version>0.3.5</version>
+            <version>0.3.6</version>
         </dependency>
 
         <!-- Zipkin -->
@@ -600,7 +600,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>3.5.2</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.apache.logging.log4j</groupId>
