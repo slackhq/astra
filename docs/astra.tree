@@ -10,6 +10,7 @@
     <toc-element topic="Using-Astra.topic">
         <toc-element topic="Logs.md"/>
         <toc-element topic="Traces.md"/>
+        <toc-element topic="Aggregations.md"/>
         <toc-element topic="API-opensearch.md"/>
         <toc-element topic="API-zipkin.md"/>
         <toc-element topic="Migrating.md"/>
