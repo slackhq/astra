@@ -5,7 +5,7 @@ How to use the Zipkin compatible API to search and render traces with Astra.
 ## Grafana datasource configuration
 When using Grafana 10 you can directly connect a Zipkin datasource to your Astra installation.
 
-![Grafana datasource configuration example](../assets/images/traces-datasource-config.png){border-effect="line" width="800" thumbnail="true"}
+![Grafana datasource configuration example](../assets/images/traces-datasource-config.png){border-effect="line" width="700" thumbnail="true"}
 
 <deflist type="medium">
 <def title="Required fields">

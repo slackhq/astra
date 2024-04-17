@@ -1,9 +1,11 @@
 # Schema
 
-User-defined field schemas defined in the preprocessor component.  
+User-defined field schemas defined in the preprocessor component.
+
+<tldr>experimental</tldr>
 
 ## Overview
-The preprocessor component reads the bulk API request and if a schema field is defined respects the field definition.
+The preprocessor component reads the [bulk API request](API-opensearch.md#preprocessor-node-apis) and if a schema field is defined respects the field definition.
 If not defined the preprocessor will use the default heuristics to associate a field with a data type.
 
 To configure the schema file define the [preprocessorConfig.schemaFile](Config-options.md#schemafile)  and set the value to the path of the schema file. The file should be in JSON or YAML format.
@@ -66,36 +68,11 @@ BINARY
 `ignore_above`
 : This is used for the `KEYWORD` field. If the length of the value is greater than `ignore_above` then the value is not indexed.
 
+### Known limitations
+* The date field `format` option is not currently supported
+* The scaled long `scaling_factor` option is not currently supported
 
-### Future work
-1. Support for `format` in the date field.
-2. Support for `scaling_factor` in the `SCALED_LONG` field.
-3. Load the schema field in ZooKeeper and provide a REST API to update the schema. This means the schema info can be shared between the preprocessor and the indexer.
-4. Support configuring options like `index`, `store`, `doc_values`, `analyzer`, `search_analyzer`, `search_quote_analyzer` etc. We will work on this only after the schema file in ZK, so that this information does not need to set on a per document basis.
-
-### Example Schema Snippet of JSON AND YAML
-
-```json
-{
-  "fields": {
-    "host": {
-      "type": "KEYWORD"
-    },
-    "message": {
-      "type": "TEXT",
-      "fields": {
-        "keyword": {
-          "type": "KEYWORD",
-          "ignore_above": 256
-        }
-      }
-    },
-    "ip": {
-      "type": "IP"
-    }
-  }
-}
-```
+### Example
 
 ```yaml
 fields:
