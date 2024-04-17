@@ -9,7 +9,7 @@ paths:
       summary: Cluster metadata
       responses:
         '200':
-          description: A JSON object of cluster metadata
+          description: Cluster metadata
           content:
             application/json:
               schema:
@@ -19,7 +19,7 @@ paths:
                     type: object
                     properties:
                       distribution:
-                        description: "Astra"
+                        description: "'astra'"
                         type: string
                       number:
                         description: "Release version of cluster"
@@ -33,21 +33,134 @@ paths:
                     #  lucene_version: 9.7.0
   /_msearch:
     post:
-      summary: Multisearch
       requestBody:
-        description: NDJSON
+        description: Bulk search
         required: true
         content:
           application/ndjson:
             schema:
               type: object
+              properties:
+                '{header}':
+                  type: object
+                  description: "Newline delineated JSON header"
+                  required: true
+                  properties:
+                    index:
+                      description: "Index name to search"
+                      type: string
+                      required: true
+                '{body}':
+                  type: object
+                  description: "Newline delineated JSON body"
+                  required: true
+                  properties:
+                    size:
+                      description: "Amount of results to return"
+                      type: integer
+                      required: true
+                      minimum: 0
+                    query:
+                      description: "Query object"
+                      type: object
+                      properties:
+                        bool:
+                          type: object
+                          properties:
+                            filter:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  range:
+                                    type: object
+                                    properties:
+                                      '{timefield}':
+                                        properties:
+                                          gte:
+                                            type: number
+                                            required: true
+                                          lte:
+                                            type: number
+                                            required: true
+                                  query_string:
+                                    type: object
+                                    properties:
+                                      query:
+                                        type: string
+                    aggs:
+                      type: object
+                      description: "Requested search aggregations"
+                      properties:
+                        '{name}':
+                          type: object
+                          description: "Keyed by name of requested aggregation"
+                          properties:
+                            aggs:
+                              type: object
+                              description: "Nested aggregations"
+                            date_histogram:
+                              type: object
+                            terms:
+                              type: object
+
       responses:
         '200':
-          description: A JSON response
+          description: Bulk search results
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  took:
+                    type: integer
+                  responses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        took:
+                          type: integer
+                        timed_out:
+                          type: boolean
+                        _shards:
+                          type: object
+                          properties:
+                            failed:
+                              type: number
+                            total:
+                              type: number
+                        _debug:
+                          type: object
+                        hits:
+                          type: object
+                          properties:
+                            total:
+                              type: object
+                              properties:
+                                value:
+                                  type: number
+                                relation:
+                                  type: string
+                            max_score:
+                              type: object
+                            hits:
+                              type: array
+                              items:
+                                type: object
+                        aggregations:
+                          type: object
+                          properties:
+                            '{name}':
+                              type: object
+                        status:
+                          type: number
+                  _debug:
+                    type: object
+                    properties:
+                      traceId:
+                        type: string
+                        description: "Trace ID for the returned result"
 
 
   /{indexName}/_mapping:
@@ -60,13 +173,30 @@ paths:
             type: string
           required: true
           description: Index name as stored by cluster
-          examples:
-            all:
-              value: _all
-              summary: Query all indexes
-            index:
-              value: foo
-              summary: Query specific index "foo"
       responses:
         '200':
-          description: A JSON object of field mapping
+          description: Index field mappings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  '{indexName}':
+                    type: object
+                    properties:
+                      mappings:
+                        type: object
+                        properties:
+                          type: object
+                          properties:
+                            type: object
+                            properties:
+                              type: object
+                              '{fieldName}':
+                                properties:
+                                  'type':
+                                    type: string
+                                    description: "One of valid schema types"
+                                    enum: [ keyword, text, ip, date, boolean, double, float, half_float, integer, long, scaled_long, short, byte, binary]
+
+
