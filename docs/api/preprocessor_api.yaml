@@ -1,0 +1,99 @@
+openapi: 3.0.0
+info:
+  title: Preprocessor Node API
+  version: alpha
+paths:
+  /_bulk:
+    post:
+      summary: Bulk ingest
+      description: |
+        Adds multiple docs to an index in a single request.
+      requestBody:
+        description: Bulk ingest
+        required: true
+        content:
+          application/ndjson:
+            schema:
+              type: object
+              properties:
+                '{action_metadata}':
+                  type: object
+                  description: |
+                    Newline delineated JSON for setting action & metadata.
+                    Supports `index` and `create` actions, does not support `update` or `delete`.
+                  required: true
+                  properties:
+                    index:
+                      type: object
+                      properties:
+                        _index:
+                          type: string
+                          required: true
+                          description: Index name
+                        _id:
+                          type: string
+                          required: false
+                          description: Document ID, if no ID is provided one will be generated
+                    create:
+                      type: object
+                      properties:
+                        _index:
+                          type: string
+                          required: true
+                          description: Index name
+                        _id:
+                          type: string
+                          required: false
+                          description: Document ID, if no ID is provided one will be generated
+                '{document}':
+                  type: object
+                  description: "Newline delineated JSON for setting document"
+                  required: false
+                  properties:
+                    '{fieldname}':
+                      type: object
+                      description: Key/value pairs to add to document
+
+
+      responses:
+        '200':
+          description: Bulk ingest response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalDocs:
+                    type: integer
+                  failedDocs:
+                    type: integer
+                  errorMsg:
+                    type: string
+        '400':
+          summary: Foo
+          description: |
+            Rate limit exceeded (configurable)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalDocs:
+                    type: integer
+                  failedDocs:
+                    type: integer
+                  errorMsg:
+                    type: string
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalDocs:
+                    type: integer
+                  failedDocs:
+                    type: integer
+                  errorMsg:
+                    type: string

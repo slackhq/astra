@@ -17,12 +17,13 @@
         </spotlight>
 
         <primary>
-            <title>Onboarding</title>
+            <title>Advanced topics</title>
+            <a href="Aggregations.md" />
             <a href="Migrating.md"/>
         </primary>
 
         <secondary>
-            <title>Advanced topics</title>
+            <title>API support</title>
             <a href="API-opensearch.md" />
             <a href="API-zipkin.md" />
         </secondary>

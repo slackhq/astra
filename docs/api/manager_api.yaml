@@ -92,6 +92,9 @@ paths:
   /slack.proto.astra.ManagerApiService/RestoreReplica:
     post:
       summary: RestoreReplica
+      description: |
+        <tldr>experimental</tldr>
+        Restores replicas matching provided query parameters.
       tags:
         - ManagerApiService
       operationId: ManagerApiService_RestoreReplica
@@ -123,6 +126,9 @@ paths:
                 $ref: '#/components/schemas/Status'
   /slack.proto.astra.ManagerApiService/RestoreReplicaIds:
     summary: RestoreReplicaIds
+    description: |
+      <tldr>experimental</tldr>
+      Restores replicas by ID
     post:
       tags:
         - ManagerApiService
@@ -192,8 +198,6 @@ paths:
         UpdatePartitionAssignment allocates a new partition assignment for a dataset. If a rate and a list of
          partition_ids are provided, it will use it use the list of partition ids as the current allocation
          and invalidates the existing assignment.
-        
-         In the future if only a rate is provided with an empty list the allocation will be automatically assigned.
       operationId: ManagerApiService_UpdatePartitionAssignment
       parameters:
         - name: name

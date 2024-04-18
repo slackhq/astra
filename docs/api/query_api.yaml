@@ -7,6 +7,8 @@ paths:
   /:
     get:
       summary: Cluster metadata
+      description: |
+        Describes the cluster version and supported Lucene version. Used for cluster feature discovery.
       responses:
         '200':
           description: Cluster metadata
@@ -27,12 +29,12 @@ paths:
                       lucene_version:
                         description: "Lucene index/query version of cluster"
                         type: string
-                    #example:
-                    #  distribution: astra
-                    #  number: 0.0.1
-                    #  lucene_version: 9.7.0
   /_msearch:
     post:
+      summary: Bulk search
+      description: | 
+        Primary search API for the Astra cluster. Supports multiple queries in a single request by adding additional 
+        header and body pairs.
       requestBody:
         description: Bulk search
         required: true
@@ -94,16 +96,47 @@ paths:
                       properties:
                         '{name}':
                           type: object
-                          description: "Keyed by name of requested aggregation"
+                          description: |
+                            Keyed by name of requested aggregation. See aggregations docs for full list of supported
+                            aggregation requests.
                           properties:
                             aggs:
                               type: object
                               description: "Nested aggregations"
+                            auto_date_histogram:
+                              type: object
+                            avg:
+                              type: object
+                            cumulative_sum:
+                              type: object
                             date_histogram:
+                              type: object
+                            derivative:
+                              type: object
+                            extended_stats:
+                              type: object
+                            filters:
+                              type: object
+                            histogram:
+                              type: object
+                            max:
+                              type: object
+                            min:
+                              type: object
+                            moving_avg:
+                              type: object
+                            moving_fn:
+                              type: object
+                            percentiles:
+                              type: object
+                            sum:
                               type: object
                             terms:
                               type: object
-
+                            cardinality:
+                              type: object
+                            value_count:
+                              type: object
       responses:
         '200':
           description: Bulk search results
@@ -172,7 +205,7 @@ paths:
           schema:
             type: string
           required: true
-          description: Index name as stored by cluster
+          description: Index name as set in cluster
       responses:
         '200':
           description: Index field mappings
