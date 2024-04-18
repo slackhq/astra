@@ -1,6 +1,58 @@
+<show-structure for="chapter,procedure" depth="3"/>
+
 # Logs
 
-Using the Astra Grafana app and ElasticSearch datasource compatibility modes to search logs.
+How to query Astra, the supported syntax, and using the Astra Grafana app to search logs.
+
+## Query syntax
+
+Astra supports the Lucene query syntax, and a full reference can be found in the 
+[org.apache.lucene.queryparser.classic Lucene Javadocs](https://javadoc.io/doc/org.apache.lucene/lucene-queryparser/latest/org/apache/lucene/queryparser/classic/package-summary.html).
+A list of common examples can also be found below. 
+
+### Fields
+
+<code-block>
+service:astraQuery
+</code-block>
+
+### Wildcard
+
+<code-block>
+service: astra*
+</code-block>
+
+### Range
+
+<code-block>
+http_code:[400 to 599]
+</code-block>
+
+
+### Boolean
+
+#### AND
+
+<code-block>
+http_code:404 AND service:astraQuery
+</code-block>
+
+#### OR
+
+<code-block>
+service:astraQuery OR service:astraIndex
+</code-block>
+
+#### NOT
+<code-block>
+http_code: 404 AND NOT service:astraQuery
+</code-block>
+
+### Exists
+
+<code-block>
+_exists_:http_code
+</code-block>
 
 ## Full-text search
 
@@ -15,17 +67,20 @@ default query field when none are specified in the query.
 Astra does not currently support regex (_regexp_) style queries. 
 
 ## Astra Grafana App
+![Astra explore](../assets/images/astra_app_explore.png){border-effect="line" width="700" thumbnail="true"}
+_Astra explore UI_
+
+A native Grafana plugin is available for Astra from Slack at 
 [https://github.com/slackhq/slack-astra-app](https://github.com/slackhq/slack-astra-app)
 
-![Astra app settings](../assets/images/astra_app_settings.png){border-effect="line" width="700" thumbnail="true"}
-<note>
-    The Astra Grafana app is not currently 
-    <a href="https://grafana.com/developers/plugin-tools/publish-a-plugin/sign-a-plugin">signed with Grafana
-    </a>, which will result in a warning indicating an invalid signature and necessitates enabling unsigned 
-    plugins.
-</note>
-
-<procedure title="Installing the Astra Grafana app" collapsible="true" default-state="expanded">
+<procedure title="Installing the Astra Grafana app" collapsible="true" default-state="collapsed">
+    <tip>
+        The Astra Grafana app is not currently 
+        <a href="https://grafana.com/developers/plugin-tools/publish-a-plugin/sign-a-plugin">signed with Grafana
+        </a>, which will result in a warning indicating an invalid signature and necessitates enabling unsigned 
+        plugins.
+        <img src="../assets/images/astra_app_settings.png" alt="Astra app settings" thumbnail="true" />
+    </tip>
     <step>
         Download the latest <code>zip</code> release from the 
         <a href="https://github.com/slackhq/slack-astra-app/releases">Github releases page</a>.
@@ -79,15 +134,3 @@ Astra does not currently support regex (_regexp_) style queries.
     </step>
 </procedure>
 
-![Astra explore](../assets/images/astra_app_explore.png){border-effect="line" width="700" thumbnail="true"}
-_Astra explore UI_
-
-## ElasticSearch compatibility mode
-
-When using Grafana, you can point an existing ElasticSearch datasource to an Astra install to run in a limited 
-compatibility mode. Not all aggregations listed in the Grafana UI will be supported when running in this mode.
-
-<tip>Due to version validation performed in Grafana against the <a href="API-opensearch.md#query-node-apis">cluster metadata endpoint</a>, a warning will be 
-displayed about unsupported ElasticSearch versions.</tip>
-
-![ElasticSearch compatibility mode](../assets/images/es_compatibility_mode.png){border-effect="line" width="700" thumbnail="true"}

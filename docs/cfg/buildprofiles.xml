@@ -14,7 +14,12 @@
             <showDownloadButton>true</showDownloadButton>
             <offline-docs>true</offline-docs>
             <noindex-content>false</noindex-content>
+            <include-in-head>include_head.html</include-in-head>
+            <enable-browser-edits>true</enable-browser-edits>
+            <browser-edits-url>https://github.com/slackhq/astra/edit/master/docs/</browser-edits-url>
+            <web-root>https://slackhq.github.io/astra/</web-root>
         </variables>
+        <sitemap priority="0.35" change-frequency="monthly"/>
     </build-profile>
     <footer>
         <copyright>Slack 2024</copyright>
