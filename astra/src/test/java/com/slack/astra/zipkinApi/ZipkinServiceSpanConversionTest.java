@@ -21,7 +21,7 @@ public class ZipkinServiceSpanConversionTest {
       Instant ts,
       String traceId,
       Optional<String> parentId,
-      long durationMs,
+      long duration,
       String serviceName,
       String name) {
     Map<String, Object> fieldMap = new HashMap<>();
@@ -29,7 +29,7 @@ public class ZipkinServiceSpanConversionTest {
     fieldMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, serviceName);
     fieldMap.put(LogMessage.ReservedField.NAME.fieldName, name);
     parentId.ifPresent(s -> fieldMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, s));
-    fieldMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, durationMs);
+    fieldMap.put(LogMessage.ReservedField.DURATION.fieldName, duration);
     return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, ts, fieldMap);
   }
 
@@ -62,7 +62,7 @@ public class ZipkinServiceSpanConversionTest {
     // follows output format from https://zipkin.io/zipkin-api/#/default/get_trace__traceId_
     String output =
         String.format(
-            "[{\"duration\":1000,\"id\":\"1\",\"name\":\"Trace1\",\"remoteEndpoint\":{\"serviceName\":\"service1\"},\"timestamp\":%d,\"traceId\":\"1\"},{\"duration\":2000,\"id\":\"2\",\"name\":\"Trace2\",\"parentId\":\"1\",\"remoteEndpoint\":{\"serviceName\":\"service1\"},\"timestamp\":%d,\"traceId\":\"1\"}]",
+            "[{\"duration\":1,\"id\":\"1\",\"name\":\"Trace1\",\"remoteEndpoint\":{\"serviceName\":\"service1\"},\"timestamp\":%d,\"traceId\":\"1\"},{\"duration\":2,\"id\":\"2\",\"name\":\"Trace2\",\"parentId\":\"1\",\"remoteEndpoint\":{\"serviceName\":\"service1\"},\"timestamp\":%d,\"traceId\":\"1\"}]",
             ZipkinService.convertToMicroSeconds(time.plusSeconds(1)),
             ZipkinService.convertToMicroSeconds(time.plusSeconds(2)));
     assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);

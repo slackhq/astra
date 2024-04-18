@@ -24,7 +24,6 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.server.AstraQueryServiceBase;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -32,7 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,7 +61,7 @@ public class ZipkinService {
       String name = null;
       String serviceName = null;
       String timestamp = String.valueOf(message.getTimestamp().toEpochMilli());
-      long duration = Integer.MIN_VALUE;
+      long duration = 0L;
       Map<String, String> messageTags = new HashMap<>();
 
       for (String k : message.getSource().keySet()) {
@@ -76,8 +74,8 @@ public class ZipkinService {
           name = (String) value;
         } else if (LogMessage.ReservedField.SERVICE_NAME.fieldName.equals(k)) {
           serviceName = (String) value;
-        } else if (LogMessage.ReservedField.DURATION_MS.fieldName.equals(k)) {
-          duration = TimeUnit.MICROSECONDS.convert(Duration.ofMillis(((Number) value).intValue()));
+        } else if (LogMessage.ReservedField.DURATION.fieldName.equals(k)) {
+          duration = (Long) value;
         } else {
           messageTags.put(k, String.valueOf(value));
         }
