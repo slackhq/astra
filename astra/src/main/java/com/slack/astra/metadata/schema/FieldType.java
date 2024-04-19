@@ -404,6 +404,9 @@ public enum FieldType {
       if (toType == FieldType.BOOLEAN) {
         return ((String) value).equals("1") || ((String) value).equalsIgnoreCase("true");
       }
+      if (toType == FieldType.BINARY) {
+        return ByteString.copyFromUtf8((String) value);
+      }
     }
 
     // Int type
@@ -497,6 +500,11 @@ public enum FieldType {
       }
       if (toType == FieldType.DOUBLE) {
         return (Boolean) value ? 1d : 0d;
+      }
+    }
+    if (fromType == FieldType.BINARY) {
+      if (isTexty(toType)) {
+        return ((ByteString) value).toStringUtf8();
       }
     }
     return null;

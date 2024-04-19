@@ -3,6 +3,7 @@ package com.slack.astra.metadata.schema;
 import static com.slack.astra.metadata.schema.FieldType.convertFieldValue;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Test;
 
 public class FieldTypeTest {
@@ -14,6 +15,8 @@ public class FieldTypeTest {
     assertThat(convertFieldValue("3", FieldType.TEXT, FieldType.DOUBLE)).isEqualTo(3.0d);
     assertThat(convertFieldValue("4", FieldType.TEXT, FieldType.STRING)).isEqualTo("4");
     assertThat(convertFieldValue("4", FieldType.STRING, FieldType.TEXT)).isEqualTo("4");
+    assertThat(convertFieldValue("[1,2,3]", FieldType.KEYWORD, FieldType.BINARY))
+        .isEqualTo(ByteString.copyFromUtf8("[1,2,3]"));
     assertThat(convertFieldValue("1", FieldType.STRING, FieldType.BOOLEAN)).isEqualTo(true);
     assertThat(convertFieldValue("0", FieldType.STRING, FieldType.BOOLEAN)).isEqualTo(false);
     assertThat(convertFieldValue("true", FieldType.STRING, FieldType.BOOLEAN)).isEqualTo(true);
@@ -132,5 +135,10 @@ public class FieldTypeTest {
     assertThat(convertFieldValue(1L, FieldType.LONG, FieldType.LONG)).isEqualTo(1L);
     assertThat(convertFieldValue(2.0f, FieldType.FLOAT, FieldType.FLOAT)).isEqualTo(2.0f);
     assertThat(convertFieldValue(3.0d, FieldType.DOUBLE, FieldType.DOUBLE)).isEqualTo(3.0d);
+
+    assertThat(
+            convertFieldValue(
+                ByteString.copyFromUtf8("[1,2,3]"), FieldType.BINARY, FieldType.KEYWORD))
+        .isEqualTo("[1,2,3]");
   }
 }
