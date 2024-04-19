@@ -262,7 +262,8 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
         indexTypedField(doc, key, convertedValue, registeredField);
       } else {
         LOG.warn(
-            "No mapping found to convert value from={} to={}",
+            "No mapping found to convert key={} value from={} to={}",
+            key,
             valueType.name,
             registeredField.fieldType.name);
         convertErrorCounter.increment();
