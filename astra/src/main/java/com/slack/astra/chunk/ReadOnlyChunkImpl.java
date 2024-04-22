@@ -21,6 +21,7 @@ import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.metadata.Metadata;
+import com.slack.astra.s3.S3FileSystemProvider;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
@@ -82,6 +83,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this::cacheNodeListener;
 
   private final ReentrantLock chunkAssignmentLock = new ReentrantLock();
+
+  private final S3FileSystemProvider s3FileSystemProvider = new S3FileSystemProvider();
 
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
@@ -231,11 +234,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 //      URI s3Path =
 //          URI.create(String.format("s3x://foo:bar@%s/%s/%s", "localhost:9999", s3Bucket, snapshotMetadata.snapshotId));
 //      //URI s3Path = BlobFsUtils.createURI(s3Bucket, snapshotMetadata.snapshotId, "");
+
       LOG.info("Using S3 path: {}", s3Path);
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
-                  LogIndexSearcherImpl.searcherManagerFromPath(Path.of(s3Path)),
+                  LogIndexSearcherImpl.searcherManagerFromPath(s3FileSystemProvider.getPath(s3Path)),
                   chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available

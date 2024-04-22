@@ -14,6 +14,7 @@ import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
+import com.slack.astra.s3.S3FileSystemProvider;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
 import java.net.URI;
@@ -43,6 +44,8 @@ import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.FSLockFactory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
@@ -56,7 +59,7 @@ import org.opensearch.index.store.RemoteDirectory;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.nio.spi.s3.S3FileSystemProvider;
+//import software.amazon.nio.spi.s3.S3FileSystemProvider;
 
 
 /*
@@ -74,6 +77,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
+    //new FSDirectory(,  FSLockFactory.getDefault());
     NIOFSDirectory niofsDirectory = new NIOFSDirectory(path);
     return new SearcherManager(niofsDirectory, null);
   }

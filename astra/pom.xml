@@ -291,10 +291,20 @@
             <version>${aws.sdk.version}</version>
         </dependency>
         <dependency>
-            <groupId>software.amazon.nio.s3</groupId>
-            <artifactId>aws-java-nio-spi-for-s3</artifactId>
-            <version>2.0.1</version>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.1.8</version>
         </dependency>
+        <dependency>
+            <groupId>io.reactivex.rxjava3</groupId>
+            <artifactId>rxjava</artifactId>
+            <version>3.1.8</version>
+        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>software.amazon.nio.s3</groupId>-->
+<!--            <artifactId>aws-java-nio-spi-for-s3</artifactId>-->
+<!--            <version>2.0.1</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
