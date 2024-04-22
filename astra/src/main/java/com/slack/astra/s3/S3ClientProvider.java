@@ -12,9 +12,14 @@ import software.amazon.awssdk.http.SdkHttpResponse;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
+import software.amazon.awssdk.services.s3.crt.S3CrtConnectionHealthConfiguration;
+import software.amazon.awssdk.services.s3.crt.S3CrtHttpConfiguration;
+import software.amazon.awssdk.services.s3.crt.S3CrtProxyConfiguration;
+import software.amazon.awssdk.services.s3.crt.S3CrtRetryConfiguration;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -46,12 +51,28 @@ public class S3ClientProvider {
      */
     protected final S3NioSpiConfiguration configuration;
 
+    // We add a healthcheck to prevent an error with the CRT client, where it will
+    // continue to attempt to read data from a socket that is no longer returning data
+    protected final S3CrtHttpConfiguration.Builder httpConfigurationBuilder =
+        S3CrtHttpConfiguration.builder()
+            .proxyConfiguration(
+                S3CrtProxyConfiguration.builder().useEnvironmentVariableValues(false).build())
+            .connectionTimeout(Duration.ofSeconds(5))
+            .connectionHealthConfiguration(
+                S3CrtConnectionHealthConfiguration.builder()
+                    .minimumThroughputTimeout(Duration.ofSeconds(3))
+                    .minimumThroughputInBps(32000L)
+                    .build());
+
     /**
      * Default S3CrtAsyncClientBuilder
      */
     protected S3CrtAsyncClientBuilder asyncClientBuilder =
             S3AsyncClient.crtBuilder()
-                    .crossRegionAccessEnabled(true);
+                .retryConfiguration(S3CrtRetryConfiguration.builder().numRetries(3).build())
+                .maxNativeMemoryLimitInBytes(1073741824L * 2)
+                .crossRegionAccessEnabled(true)
+                .httpConfiguration(httpConfigurationBuilder.build());
 
     public S3ClientProvider(S3NioSpiConfiguration c) {
         this.configuration = (c == null) ? new S3NioSpiConfiguration() : c;
