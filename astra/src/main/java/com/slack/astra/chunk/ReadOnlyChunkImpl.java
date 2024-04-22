@@ -220,11 +220,14 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 //        throw new IOException("No files found on blob storage, released slot for re-assignment");
 //      }
 //
-//      Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
+
+      //Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
 //      if (!Files.exists(schemaPath)) {
 //        throw new RuntimeException("We expect a schema.json file to exist within the index");
 //      }
-//      //this.chunkSchema = ChunkSchema.deserializeFile(schemaPath);
+
+      URI schemaPath = BlobFsUtils.createURI(s3Bucket, snapshotMetadata.snapshotId, ReadWriteChunk.SCHEMA_FILE_NAME);
+      this.chunkSchema = ChunkSchema.deserializeFile(s3FileSystemProvider.getPath(schemaPath));
 
       this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
 
