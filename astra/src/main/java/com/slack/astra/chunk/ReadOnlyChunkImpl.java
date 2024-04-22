@@ -255,12 +255,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           registerSearchMetadata(searchMetadataStore, searchContext, snapshotMetadata.name);
       long durationNanos = assignmentTimer.stop(chunkAssignmentTimerSuccess);
 
-      LOG.debug(
-          "Downloaded chunk with snapshot id '{}' at path '{}' in {} seconds, was {}",
-          snapshotMetadata.snapshotId,
-          snapshotMetadata.snapshotPath,
-          TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS),
-          FileUtils.byteCountToDisplaySize(FileUtils.sizeOfDirectory(dataDirectory.toFile())));
+//      LOG.debug(
+//          "Downloaded chunk with snapshot id '{}' at path '{}' in {} seconds, was {}",
+//          snapshotMetadata.snapshotId,
+//          snapshotMetadata.snapshotPath,
+//          TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS),
+//          FileUtils.byteCountToDisplaySize(FileUtils.sizeOfDirectory(dataDirectory.toFile())));
     } catch (Exception e) {
       // if any error occurs during the chunk assignment, try to release the slot for re-assignment,
       // disregarding any errors
