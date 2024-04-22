@@ -4,6 +4,7 @@ import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.slack.astra.blobfs.BlobFs;
+import com.slack.astra.logstore.BlobFsUtils;
 import com.slack.astra.logstore.search.LogIndexSearcher;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchQuery;
@@ -23,6 +24,7 @@ import com.slack.astra.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -66,7 +68,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
   private final MeterRegistry meterRegistry;
-  private final BlobFs blobFs;
+  //private final BlobFs blobFs;
 
   public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
   public static final String CHUNK_EVICTION_TIMER = "chunk_eviction_timer";
@@ -95,7 +97,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchMetadataStore searchMetadataStore)
       throws Exception {
     this.meterRegistry = meterRegistry;
-    this.blobFs = blobFs;
+    //this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.searchContext = searchContext;
@@ -208,24 +210,32 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
-      SerialS3ChunkDownloaderImpl chunkDownloader =
-          new SerialS3ChunkDownloaderImpl(
-              s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory);
-      if (chunkDownloader.download()) {
-        throw new IOException("No files found on blob storage, released slot for re-assignment");
-      }
-
-      Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
-      if (!Files.exists(schemaPath)) {
-        throw new RuntimeException("We expect a schema.json file to exist within the index");
-      }
-      this.chunkSchema = ChunkSchema.deserializeFile(schemaPath);
+//      SerialS3ChunkDownloaderImpl chunkDownloader =
+//          new SerialS3ChunkDownloaderImpl(
+//              s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory);
+//      if (chunkDownloader.download()) {
+//        throw new IOException("No files found on blob storage, released slot for re-assignment");
+//      }
+//
+//      Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
+//      if (!Files.exists(schemaPath)) {
+//        throw new RuntimeException("We expect a schema.json file to exist within the index");
+//      }
+//      //this.chunkSchema = ChunkSchema.deserializeFile(schemaPath);
 
       this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
+
+
+      //s3x://my-s3-service:9000/some-bucket/input/file
+      URI s3Path = BlobFsUtils.createURI(s3Bucket, snapshotMetadata.snapshotId, "");
+//      URI s3Path =
+//          URI.create(String.format("s3x://foo:bar@%s/%s/%s", "localhost:9999", s3Bucket, snapshotMetadata.snapshotId));
+//      //URI s3Path = BlobFsUtils.createURI(s3Bucket, snapshotMetadata.snapshotId, "");
+      LOG.info("Using S3 path: {}", s3Path);
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
-                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
+                  LogIndexSearcherImpl.searcherManagerFromPath(Path.of(s3Path)),
                   chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available

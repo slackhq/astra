@@ -16,12 +16,20 @@ import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
+import java.net.URI;
+import java.nio.channels.FileChannel;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MultiCollectorManager;
@@ -34,10 +42,22 @@ import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
-import org.apache.lucene.store.MMapDirectory;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.Lock;
+import org.apache.lucene.store.NIOFSDirectory;
+import org.opensearch.common.blobstore.BlobContainer;
+import org.opensearch.common.blobstore.BlobPath;
+import org.opensearch.common.blobstore.fs.FsBlobContainer;
+import org.opensearch.common.blobstore.fs.FsBlobStore;
+import org.opensearch.index.store.RemoteDirectory;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.nio.spi.s3.S3FileSystemProvider;
+
 
 /*
  * A wrapper around lucene that helps us search a single index containing logs.
@@ -54,8 +74,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
-    MMapDirectory directory = new MMapDirectory(path);
-    return new SearcherManager(directory, null);
+    NIOFSDirectory niofsDirectory = new NIOFSDirectory(path);
+    return new SearcherManager(niofsDirectory, null);
   }
 
   public LogIndexSearcherImpl(

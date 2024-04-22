@@ -62,6 +62,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 public class ReadOnlyChunkImplTest {
@@ -76,6 +77,7 @@ public class ReadOnlyChunkImplTest {
       S3MockExtension.builder()
           .withInitialBuckets(TEST_S3_BUCKET)
           .silent()
+          .withHttpPort(9999)
           .withSecureConnection(false)
           .build();
 
@@ -85,6 +87,11 @@ public class ReadOnlyChunkImplTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
+
+
+    //AwsBasicCredentials awsBasicCredentials = AwsBasicCredentials.create(accessKey, secretKey);
+
+    //S3_MOCK_EXTENSION.createS3ClientV2().
     S3AsyncClient s3AsyncClient =
         S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
     s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
