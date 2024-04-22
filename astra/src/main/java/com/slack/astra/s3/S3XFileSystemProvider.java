@@ -7,12 +7,18 @@ package com.slack.astra.s3;
 
 import com.slack.astra.s3.util.S3FileSystemInfo;
 import com.slack.astra.s3.util.S3XFileSystemInfo;
+import io.micrometer.core.instrument.MeterRegistry;
 
 import java.net.URI;
 
 public class S3XFileSystemProvider extends S3FileSystemProvider {
 
+
     static final String SCHEME = "s3x";
+
+    public S3XFileSystemProvider(MeterRegistry meterRegistry) {
+        super(meterRegistry);
+    }
 
     /**
      * Returns the URI scheme that identifies this provider.

@@ -8,6 +8,7 @@ package com.slack.astra.s3;
 import com.slack.astra.s3.config.S3NioSpiConfiguration;
 import com.slack.astra.s3.util.S3FileSystemInfo;
 import com.slack.astra.s3.util.TimeOutUtils;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.commons.lang3.NotImplementedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,6 +97,12 @@ import static com.slack.astra.s3.util.TimeOutUtils.logAndGenerateExceptionOnTime
  * class is used to address an object beginning with the scheme "s3".
  */
 public class S3FileSystemProvider extends FileSystemProvider {
+
+    private final MeterRegistry meterRegistry;
+
+    public S3FileSystemProvider(MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
+    }
 
     /**
      * Constant for the S3 scheme "s3"
@@ -202,7 +209,9 @@ public class S3FileSystemProvider extends FileSystemProvider {
 
             @Override
             public int read(ByteBuffer dst) throws IOException {
-                return seekableByteChannel.read(dst);
+                int bytesRead = seekableByteChannel.read(dst);
+                meterRegistry.counter("astra.s3.nio.bytesRead").increment(bytesRead);
+                return bytesRead;
             }
 
             @Override
@@ -232,6 +241,7 @@ public class S3FileSystemProvider extends FileSystemProvider {
 
             @Override
             public long size() throws IOException {
+                meterRegistry.counter("astra.s3.nio.sizeCallCounter").increment();
                 return seekableByteChannel.size();
             }
 
@@ -257,7 +267,9 @@ public class S3FileSystemProvider extends FileSystemProvider {
 
             @Override
             public int read(ByteBuffer dst, long position) throws IOException {
-                return seekableByteChannel.position(position).read(dst);
+                int bytesRead = seekableByteChannel.position(position).read(dst);
+                meterRegistry.counter("astra.s3.nio.bytesReadWithPos").increment(bytesRead);
+                return bytesRead;
             }
 
             @Override

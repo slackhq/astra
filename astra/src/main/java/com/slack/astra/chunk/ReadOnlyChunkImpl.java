@@ -84,7 +84,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private final ReentrantLock chunkAssignmentLock = new ReentrantLock();
 
-  private final S3FileSystemProvider s3FileSystemProvider = new S3FileSystemProvider();
+  private final S3FileSystemProvider s3FileSystemProvider;
 
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
@@ -110,6 +110,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.searchMetadataStore = searchMetadataStore;
+
+    this.s3FileSystemProvider = new S3FileSystemProvider(meterRegistry);
 
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
