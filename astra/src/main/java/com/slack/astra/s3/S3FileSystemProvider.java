@@ -192,94 +192,95 @@ public class S3FileSystemProvider extends FileSystemProvider {
 
     @Override
     public FileChannel newFileChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
-        try (SeekableByteChannel seekableByteChannel = newByteChannel(path, options, attrs)) {
-            return new FileChannel() {
-                @Override
-                protected void implCloseChannel() throws IOException {
-                    seekableByteChannel.close();
-                }
+        @SuppressWarnings("resource")
+        SeekableByteChannel seekableByteChannel = newByteChannel(path, options, attrs);
+        return new FileChannel() {
+            @Override
+            protected void implCloseChannel() throws IOException {
+                seekableByteChannel.close();
+            }
 
-                @Override
-                public int read(ByteBuffer dst) throws IOException {
-                    return seekableByteChannel.read(dst);
-                }
+            @Override
+            public int read(ByteBuffer dst) throws IOException {
+                return seekableByteChannel.read(dst);
+            }
 
-                @Override
-                public long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
-                    throw new NotImplementedException();
-                }
+            @Override
+            public long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
+                throw new NotImplementedException();
+            }
 
-                @Override
-                public int write(ByteBuffer src) throws IOException {
-                    return seekableByteChannel.write(src);
-                }
+            @Override
+            public int write(ByteBuffer src) throws IOException {
+                return seekableByteChannel.write(src);
+            }
 
-                @Override
-                public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
-                    throw new NotImplementedException();
-                }
+            @Override
+            public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
+                throw new NotImplementedException();
+            }
 
-                @Override
-                public long position() throws IOException {
-                    return seekableByteChannel.position();
-                }
+            @Override
+            public long position() throws IOException {
+                return seekableByteChannel.position();
+            }
 
-                @Override
-                public FileChannel position(long newPosition) throws IOException {
-                    throw new NotImplementedException();
-                }
+            @Override
+            public FileChannel position(long newPosition) throws IOException {
+                throw new NotImplementedException();
+            }
 
-                @Override
-                public long size() throws IOException {
-                    return seekableByteChannel.size();
-                }
+            @Override
+            public long size() throws IOException {
+                return seekableByteChannel.size();
+            }
 
-                @Override
-                public FileChannel truncate(long size) throws IOException {
-                    throw new NotImplementedException();
-                }
+            @Override
+            public FileChannel truncate(long size) throws IOException {
+                throw new NotImplementedException();
+            }
 
-                @Override
-                public void force(boolean metaData) throws IOException {
-                    throw new NotImplementedException();
-                }
+            @Override
+            public void force(boolean metaData) throws IOException {
+                throw new NotImplementedException();
+            }
 
-                @Override
-                public long transferTo(long position, long count, WritableByteChannel target) throws IOException {
-                    throw new NotImplementedException();
-                }
+            @Override
+            public long transferTo(long position, long count, WritableByteChannel target) throws IOException {
+                throw new NotImplementedException();
+            }
 
-                @Override
-                public long transferFrom(ReadableByteChannel src, long position, long count) throws IOException {
-                    throw new NotImplementedException();
-                }
+            @Override
+            public long transferFrom(ReadableByteChannel src, long position, long count) throws IOException {
+                throw new NotImplementedException();
+            }
 
-                @Override
-                public int read(ByteBuffer dst, long position) throws IOException {
-                    return seekableByteChannel.position(position).read(dst);
-                }
+            @Override
+            public int read(ByteBuffer dst, long position) throws IOException {
+                return seekableByteChannel.position(position).read(dst);
+            }
 
-                @Override
-                public int write(ByteBuffer src, long position) throws IOException {
-                    return seekableByteChannel.position(position).write(src);
-                }
+            @Override
+            public int write(ByteBuffer src, long position) throws IOException {
+                return seekableByteChannel.position(position).write(src);
+            }
 
-                @Override
-                public MappedByteBuffer map(MapMode mode, long position, long size) throws IOException {
-                    throw new NotImplementedException();
-                }
+            @Override
+            public MappedByteBuffer map(MapMode mode, long position, long size) throws IOException {
+                throw new NotImplementedException();
+            }
 
-                @Override
-                public FileLock lock(long position, long size, boolean shared) throws IOException {
-                    throw new NotImplementedException();
-                }
+            @Override
+            public FileLock lock(long position, long size, boolean shared) throws IOException {
+                throw new NotImplementedException();
+            }
 
-                @Override
-                public FileLock tryLock(long position, long size, boolean shared) throws IOException {
-                    throw new NotImplementedException();
-                }
-            };
-        }
+            @Override
+            public FileLock tryLock(long position, long size, boolean shared) throws IOException {
+                throw new NotImplementedException();
+            }
+        };
+
     }
 
     /**
