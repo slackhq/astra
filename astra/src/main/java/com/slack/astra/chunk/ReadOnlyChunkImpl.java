@@ -84,8 +84,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private final ReentrantLock chunkAssignmentLock = new ReentrantLock();
 
-  private final S3FileSystemProvider s3FileSystemProvider;
-
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
       MeterRegistry meterRegistry,
@@ -110,8 +108,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.searchMetadataStore = searchMetadataStore;
-
-    this.s3FileSystemProvider = new S3FileSystemProvider(meterRegistry);
 
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
@@ -229,7 +225,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 //      }
 
       URI schemaPath = BlobFsUtils.createURI(s3Bucket, snapshotMetadata.snapshotId, ReadWriteChunk.SCHEMA_FILE_NAME);
-      this.chunkSchema = ChunkSchema.deserializeFile(s3FileSystemProvider.getPath(schemaPath));
+      this.chunkSchema = ChunkSchema.deserializeFile(Path.of(schemaPath));
 
       this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
 
@@ -244,7 +240,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
-                  LogIndexSearcherImpl.searcherManagerFromPath(s3FileSystemProvider.getPath(s3Path)),
+                  LogIndexSearcherImpl.searcherManagerFromPath(Path.of(s3Path)),
                   chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available

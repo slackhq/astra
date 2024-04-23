@@ -39,6 +39,7 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.recovery.RecoveryService;
+import com.slack.astra.s3.S3FileSystemProvider;
 import com.slack.astra.util.RuntimeHalterImpl;
 import com.slack.astra.zipkinApi.ZipkinService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -50,7 +51,10 @@ import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
+
+import java.nio.file.FileSystem;
 import java.nio.file.Path;
+import java.nio.file.spi.FileSystemProvider;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -62,6 +66,8 @@ import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+
+import com.slack.astra.s3.S3FileSystemProvider;
 
 /**
  * Main class of Astra that sets up the basic infra needed for all the other end points like an a
@@ -229,6 +235,9 @@ public class Astra {
     }
 
     if (roles.contains(AstraConfigs.NodeRole.CACHE)) {
+
+//      FileSystemProvider.installedProviders().add(new S3FileSystemProvider(meterRegistry));
+
       CachingChunkManager<LogMessage> chunkManager =
           CachingChunkManager.fromConfig(
               meterRegistry,
