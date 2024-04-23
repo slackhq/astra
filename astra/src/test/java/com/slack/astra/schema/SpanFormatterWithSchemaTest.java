@@ -584,4 +584,44 @@ public class SpanFormatterWithSchemaTest {
             SpanFormatter.isValidTimestamp(Instant.now().minus(169, ChronoUnit.HOURS)))
         .isFalse();
   }
+
+  @Test
+  public void testNestedFields() throws Exception {
+    SchemaAwareLogDocumentBuilderImpl dropFieldBuilder =
+        build(
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD, true, meterRegistry);
+    final File schemaFile =
+        new File(getClass().getClassLoader().getResource("schema/test_schema.yaml").getFile());
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(schemaFile.toPath());
+
+    byte[] rawRequest = getIndexRequestBytes("index_nested_fields");
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(2);
+
+    Trace.Span span1 = fromIngestDocument(convertRequestToDocument(indexRequests.get(0)), schema);
+    assertThat(span1.getTagsCount()).isEqualTo(3);
+    Map<String, Trace.KeyValue> tags1 =
+        span1.getTagsList().stream()
+            .map(kv -> Map.entry(kv.getKey(), kv))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    assertThat(tags1.get("list_field").getVStr()).isEqualTo("[host1, host2]");
+
+    Document luceneDocument1 = dropFieldBuilder.fromMessage(span1);
+    assertThat(luceneDocument1.get("list_field")).isEqualTo("[host1, host2]");
+    assertThat(luceneDocument1.get("map_field")).isEqualTo("{f1=v1}");
+
+    Trace.Span span2 = fromIngestDocument(convertRequestToDocument(indexRequests.get(1)), schema);
+    assertThat(span2.getTagsCount()).isEqualTo(3);
+    Map<String, Trace.KeyValue> tags2 =
+        span2.getTagsList().stream()
+            .map(kv -> Map.entry(kv.getKey(), kv))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    assertThat(tags2.get("list_field").getVStr()).isEqualTo("host3");
+
+    Document luceneDocument2 = dropFieldBuilder.fromMessage(span2);
+    assertThat(luceneDocument2.get("list_field")).isEqualTo("host3");
+    assertThat(luceneDocument2.get("map_field")).isEqualTo("f1=v1");
+  }
 }

@@ -1,0 +1,4 @@
+{ "index" : { "_index" : "test", "_id" : "1" } }
+{ "list_field" : ["host1", "host2"], "map_field" : { "f1":  "v1"} }
+{ "index" : { "_index" : "test", "_id" : "2" } }
+{ "list_field" : "host3", "map_field" : "f1=v1" }
