@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.commons.io.FileUtils;
 import org.apache.lucene.index.IndexCommit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
@@ -54,6 +55,7 @@ import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 @SuppressWarnings("unused")
 public class LuceneIndexStoreImplTest {
+
   @BeforeAll
   public static void beforeClass() {
     Tracing.newBuilder().build();
@@ -397,9 +399,26 @@ public class LuceneIndexStoreImplTest {
         assertThat(headObjectResponse.contentLength()).isEqualTo(fileToCopy.length());
       }
 
-      // Download files from S3 to local FS.
-      String[] s3Files = copyFromS3(bucket, prefix, s3CrtBlobFs, tmpPath.toAbsolutePath());
-      assertThat(s3Files.length).isEqualTo(activeFiles.size());
+      // this try/retry/catch is to improve test reliability due to an AWS crt bug around mocked S3
+      // https://github.com/aws/aws-sdk-java-v2/issues/3658
+      await()
+          .ignoreExceptions()
+          .until(
+              () -> {
+                // clean the directory, in case a previous await try failed (would cause new copy to
+                // then fail)
+                FileUtils.cleanDirectory(tmpPath.toFile());
+                // Download files from S3 to local FS.
+                String[] s3Files =
+                    copyFromS3(
+                        bucket,
+                        prefix,
+                        s3CrtBlobFs,
+                        tmpPath.toAbsolutePath()); // IO java.util.concurrent.ExecutionException:
+                // software.amazon.awssdk.core.exception.SdkClientException: Unexpected exception
+                // occurred: s3metaRequest is not initialized yet
+                return s3Files.length == activeFiles.size();
+              });
 
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
