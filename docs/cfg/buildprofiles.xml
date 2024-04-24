@@ -17,6 +17,7 @@
             <include-in-head>include_head.html</include-in-head>
             <enable-browser-edits>true</enable-browser-edits>
             <browser-edits-url>https://github.com/slackhq/astra/edit/master/docs/</browser-edits-url>
+            <generate-sitemap-url-prefix>https://slackhq.github.io/astra/</generate-sitemap-url-prefix>
             <web-root>https://slackhq.github.io/astra/</web-root>
         </variables>
         <sitemap priority="0.35" change-frequency="monthly"/>
