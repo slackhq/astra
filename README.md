@@ -41,6 +41,13 @@ Licensed under [MIT](LICENSE). Copyright (c) 2024 Slack.
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/vthacker"><img src="https://avatars.githubusercontent.com/u/158041?v=4?s=100" width="100px;" alt="Varun Thacker"/><br /><sub><b>Varun Thacker</b></sub></a><br /><a href="#code-vthacker" title="Code">💻</a> <a href="#doc-vthacker" title="Documentation">📖</a> <a href="#review-vthacker" title="Reviewed Pull Requests">👀</a> <a href="#bug-vthacker" title="Bug reports">🐛</a></td>
+    </tr>
+  </tbody>
+</table>
 
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
