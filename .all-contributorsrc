@@ -1,4 +1,24 @@
 {
   "projectName": "astra",
-  "projectOwner": "slackhq"
+  "projectOwner": "slackhq",
+  "files": [
+    "README.md"
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular",
+  "contributorsPerLine": 7,
+  "contributors": [
+    {
+      "login": "vthacker",
+      "name": "Varun Thacker",
+      "avatar_url": "https://avatars.githubusercontent.com/u/158041?v=4",
+      "profile": "https://github.com/vthacker",
+      "contributions": [
+        "code",
+        "doc",
+        "review",
+        "bug"
+      ]
+    }
+  ]
 }
