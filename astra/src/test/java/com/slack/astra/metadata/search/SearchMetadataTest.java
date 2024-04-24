@@ -30,7 +30,6 @@ public class SearchMetadataTest {
     SearchMetadata searchMetadata1 = new SearchMetadata(name, snapshotName, url);
     SearchMetadata searchMetadata2 = new SearchMetadata(name + "2", snapshotName, url);
 
-    assertThat(searchMetadata1).isEqualTo(searchMetadata1);
     assertThat(searchMetadata1).isNotEqualTo(searchMetadata2);
 
     Set<SearchMetadata> set = new HashSet<>();
