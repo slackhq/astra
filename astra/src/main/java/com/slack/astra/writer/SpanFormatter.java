@@ -192,7 +192,7 @@ public class SpanFormatter {
   private static Trace.KeyValue convertKVtoProto(String key, Object value) {
     Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
     tagBuilder.setKey(key);
-    if (value instanceof String) {
+    if (value instanceof String || value instanceof List || value instanceof Map) {
       tagBuilder.setFieldType(Schema.SchemaFieldType.KEYWORD);
       tagBuilder.setVStr(value.toString());
     } else if (value instanceof Boolean) {
