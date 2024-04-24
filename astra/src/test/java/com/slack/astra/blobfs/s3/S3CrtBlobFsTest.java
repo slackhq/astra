@@ -1,5 +1,6 @@
 package com.slack.astra.blobfs.s3;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -223,15 +224,22 @@ public class S3CrtBlobFsTest {
 
     s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folderName)), true);
 
-    ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true)).get();
-    String[] actualResponse =
-        listObjectsV2Response.contents().stream()
-            .map(S3Object::key)
-            .filter(x -> x.contains("delete-2"))
-            .toArray(String[]::new);
-
-    assertEquals(0, actualResponse.length);
+    // await ignoreExceptions is a workaround due to //
+    // https://github.com/aws/aws-sdk-java-v2/issues/3658
+    await()
+        .ignoreExceptions()
+        .until(
+            () ->
+                s3Client
+                        .listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true))
+                        .get()
+                        .contents()
+                        .stream()
+                        .map(S3Object::key)
+                        .filter(x -> x.contains("delete-2"))
+                        .toArray(String[]::new)
+                        .length
+                    == 0);
   }
 
   @Test
@@ -278,35 +286,46 @@ public class S3CrtBlobFsTest {
       createEmptyFile(folderName, fileName);
     }
 
-    boolean bucketExists = s3BlobFs.exists(URI.create(String.format(DIR_FORMAT, SCHEME, bucket)));
-    boolean dirExists =
-        s3BlobFs.exists(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folder)));
-    boolean childDirExists =
-        s3BlobFs.exists(
-            URI.create(
-                String.format(FILE_FORMAT, SCHEME, bucket, folder + DELIMITER + childFolder)));
-    boolean fileExists =
-        s3BlobFs.exists(
-            URI.create(
-                String.format(
-                    FILE_FORMAT,
-                    SCHEME,
-                    bucket,
-                    folder + DELIMITER + childFolder + DELIMITER + "a-ex.txt")));
-    boolean fileNotExists =
-        s3BlobFs.exists(
-            URI.create(
-                String.format(
-                    FILE_FORMAT,
-                    SCHEME,
-                    bucket,
-                    folder + DELIMITER + childFolder + DELIMITER + "d-ex.txt")));
+    // await ignoreExceptions is a workaround due to //
+    // https://github.com/aws/aws-sdk-java-v2/issues/3658
+    await()
+        .ignoreExceptions()
+        .until(() -> s3BlobFs.exists(URI.create(String.format(DIR_FORMAT, SCHEME, bucket))));
+    await()
+        .ignoreExceptions()
+        .until(
+            () -> s3BlobFs.exists(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folder))));
+    await()
+        .ignoreExceptions()
+        .until(
+            () ->
+                s3BlobFs.exists(
+                    URI.create(
+                        String.format(
+                            FILE_FORMAT, SCHEME, bucket, folder + DELIMITER + childFolder))));
+    await()
+        .ignoreExceptions()
+        .until(
+            () ->
+                s3BlobFs.exists(
+                    URI.create(
+                        String.format(
+                            FILE_FORMAT,
+                            SCHEME,
+                            bucket,
+                            folder + DELIMITER + childFolder + DELIMITER + "a-ex.txt"))));
 
-    assertTrue(bucketExists);
-    assertTrue(dirExists);
-    assertTrue(childDirExists);
-    assertTrue(fileExists);
-    assertFalse(fileNotExists);
+    await()
+        .ignoreExceptions()
+        .until(
+            () ->
+                !s3BlobFs.exists(
+                    URI.create(
+                        String.format(
+                            FILE_FORMAT,
+                            SCHEME,
+                            bucket,
+                            folder + DELIMITER + childFolder + DELIMITER + "d-ex.txt"))));
   }
 
   @Test
