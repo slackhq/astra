@@ -41,6 +41,13 @@ Licensed under [MIT](LICENSE). Copyright (c) 2024 Slack.
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/bryanlb"><img src="https://avatars.githubusercontent.com/u/771133?v=4?s=100" width="100px;" alt="Bryan Burkholder"/><br /><sub><b>Bryan Burkholder</b></sub></a><br /><a href="#code-bryanlb" title="Code">💻</a> <a href="#doc-bryanlb" title="Documentation">📖</a> <a href="#review-bryanlb" title="Reviewed Pull Requests">👀</a> <a href="#bug-bryanlb" title="Bug reports">🐛</a></td>
+    </tr>
+  </tbody>
+</table>
 
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
