@@ -1,4 +1,24 @@
 {
   "projectName": "astra",
-  "projectOwner": "slackhq"
+  "projectOwner": "slackhq",
+  "files": [
+    "README.md"
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular",
+  "contributorsPerLine": 7,
+  "contributors": [
+    {
+      "login": "bryanlb",
+      "name": "Bryan Burkholder",
+      "avatar_url": "https://avatars.githubusercontent.com/u/771133?v=4",
+      "profile": "https://github.com/bryanlb",
+      "contributions": [
+        "code",
+        "doc",
+        "review",
+        "bug"
+      ]
+    }
+  ]
 }
