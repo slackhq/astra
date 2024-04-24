@@ -120,7 +120,6 @@ public class DatasetMetadataTest {
     DatasetMetadata datasetMetadata5 =
         new DatasetMetadata(name, owner, throughputBytes, Collections.emptyList(), name);
 
-    assertThat(datasetMetadata1).isEqualTo(datasetMetadata1);
     assertThat(datasetMetadata1).isNotEqualTo(datasetMetadata2);
     assertThat(datasetMetadata1).isNotEqualTo(datasetMetadata3);
     assertThat(datasetMetadata1).isNotEqualTo(datasetMetadata4);

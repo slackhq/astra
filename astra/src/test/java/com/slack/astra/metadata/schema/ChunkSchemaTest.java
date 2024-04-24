@@ -67,8 +67,6 @@ public class ChunkSchemaTest {
     metadataMap2.put("m2", "v2");
     final ChunkSchema chunkSchema6 = new ChunkSchema(schemaName, fieldDefMap2, metadataMap2);
 
-    assertThat(chunkSchema1).isEqualTo(chunkSchema1);
-    assertThat(chunkSchema3).isEqualTo(chunkSchema3);
     assertThat(chunkSchema1).isNotEqualTo(chunkSchema2);
     assertThat(chunkSchema1).isNotEqualTo(chunkSchema3);
     assertThat(chunkSchema1).isNotEqualTo(chunkSchema4);

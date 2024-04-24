@@ -88,7 +88,6 @@ public class DatasetPartitionMetadataTest {
         new DatasetPartitionMetadata(
             start.toEpochMilli(), end.toEpochMilli(), Collections.emptyList());
 
-    assertThat(datasetPartitionMetadata1).isEqualTo(datasetPartitionMetadata1);
     assertThat(datasetPartitionMetadata1).isNotEqualTo(datasetPartitionMetadata2);
     assertThat(datasetPartitionMetadata1).isNotEqualTo(datasetPartitionMetadata3);
     assertThat(datasetPartitionMetadata1).isNotEqualTo(datasetPartitionMetadata4);

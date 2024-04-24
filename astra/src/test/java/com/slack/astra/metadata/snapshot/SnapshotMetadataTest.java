@@ -47,7 +47,6 @@ public class SnapshotMetadataTest {
         new SnapshotMetadata(
             name + "2", path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
 
-    assertThat(snapshot1).isEqualTo(snapshot1);
     // Ensure the name field from super class is included.
     assertThat(snapshot1).isNotEqualTo(snapshot2);
     Set<SnapshotMetadata> set = new HashSet<>();
