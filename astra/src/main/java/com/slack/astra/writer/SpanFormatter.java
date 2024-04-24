@@ -12,12 +12,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** A utility class that converts a Span into a LogMessage, Json map to Span */
 public class SpanFormatter {
 
   public static final String DEFAULT_LOG_MESSAGE_TYPE = "INFO";
   public static final String DEFAULT_INDEX_NAME = "unknown";
+
+  private static final Logger LOG = LoggerFactory.getLogger(SpanFormatter.class);
+  public static final AtomicInteger printCount = new AtomicInteger(0);
 
   // TODO: Take duration unit as input.
   // TODO: Take a generic field mapping dictionary as input for fields.
@@ -192,6 +198,13 @@ public class SpanFormatter {
   private static Trace.KeyValue convertKVtoProto(String key, Object value) {
     Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
     tagBuilder.setKey(key);
+    if (key.equals("success") && printCount.get() < 10) {
+      LOG.info("Key: " + key + " Value: " + value + " Value type: " + value.getClass());
+      if (value instanceof Boolean) {
+        LOG.info("Boolean value: " + (boolean) value);
+      }
+      printCount.incrementAndGet();
+    }
     if (value instanceof String) {
       tagBuilder.setFieldType(Schema.SchemaFieldType.KEYWORD);
       tagBuilder.setVStr(value.toString());
