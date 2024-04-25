@@ -13,13 +13,22 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          java:
+            - 'astra/**'
+            - 'benchmarks/**'
+            - 'config/**'
+            - 'pom.xml'
     - name: Set up JDK 21
+      if: steps.filter.outputs.java == 'true'
       uses: actions/setup-java@v3
       with:
         java-version: '21'
@@ -28,8 +37,11 @@ jobs:
         distribution: 'corretto'
         cache: 'maven'
     - name: Ensure code is formatted
+      if: steps.filter.outputs.java == 'true'
       run: mvn -B -Dstyle.color=always com.spotify.fmt:fmt-maven-plugin:check --file astra/pom.xml
     - name: Ensure jmh benchmark code is formatted
+      if: steps.filter.outputs.java == 'true'
       run: mvn -B -Dstyle.color=always com.spotify.fmt:fmt-maven-plugin:check --file benchmarks/pom.xml
     - name: Build with Maven
+      if: steps.filter.outputs.java == 'true'
       run: mvn -B -Dstyle.color=always package --file pom.xml
