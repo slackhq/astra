@@ -12,11 +12,29 @@ permissions:
 env:
   INSTANCE: docs/astra
   ARTIFACT: webHelpASTRA2-all.zip
-  DOCKER_VERSION: 233.14938
+  DOCKER_VERSION: 241.15989
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docs:
+              - 'docs/**'
+
   build:
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.docs == 'true' }}
 
     steps:
       - name: Checkout repository
@@ -41,8 +59,9 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
+    needs: [changes, build]
     runs-on: ubuntu-latest
+    if: ${{ needs.changes.outputs.docs == 'true' }}
 
     steps:
       - name: Download artifact

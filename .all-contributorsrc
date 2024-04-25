@@ -8,7 +8,6 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "linkToUsage": false,
-  "skipCi": true,
   "contributors": [
     {
       "login": "vthacker",
