@@ -49,6 +49,7 @@ Licensed under [MIT](LICENSE). Copyright (c) 2024 Slack.
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/kyle-sammons"><img src="https://avatars.githubusercontent.com/u/1023070?v=4?s=100" width="100px;" alt="Kyle Sammons"/><br /><sub><b>Kyle Sammons</b></sub></a><br /><a href="#plugin-kyle-sammons" title="Plugin/utility libraries">🔌</a> <a href="#code-kyle-sammons" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="http://www.linkedin.com/in/mansu"><img src="https://avatars.githubusercontent.com/u/93836?v=4?s=100" width="100px;" alt="Suman Karumuri"/><br /><sub><b>Suman Karumuri</b></sub></a><br /><a href="#code-mansu" title="Code">💻</a> <a href="#review-mansu" title="Reviewed Pull Requests">👀</a> <a href="#ideas-mansu" title="Ideas, Planning, & Feedback">🤔</a> <a href="#talk-mansu" title="Talks">📢</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ermontross"><img src="https://avatars.githubusercontent.com/u/10778883?v=4?s=100" width="100px;" alt="Emma Montross"/><br /><sub><b>Emma Montross</b></sub></a><br /><a href="#plugin-ermontross" title="Plugin/utility libraries">🔌</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/danhermann"><img src="https://avatars.githubusercontent.com/u/22777892?v=4?s=100" width="100px;" alt="Dan Hermann"/><br /><sub><b>Dan Hermann</b></sub></a><br /><a href="#code-danhermann" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
