@@ -117,6 +117,15 @@
       "contributions": [
         "financial"
       ]
+    },
+    {
+      "login": "salesforce",
+      "name": "Salesforce",
+      "avatar_url": "https://avatars.githubusercontent.com/u/453694?v=4",
+      "profile": "https://opensource.salesforce.com",
+      "contributions": [
+        "financial"
+      ]
     }
   ]
 }
