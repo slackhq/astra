@@ -108,6 +108,15 @@
       "contributions": [
         "business"
       ]
+    },
+    {
+      "login": "slackhq",
+      "name": "Slack",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6911160?v=4",
+      "profile": "https://slack.com/",
+      "contributions": [
+        "financial"
+      ]
     }
   ]
 }
