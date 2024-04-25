@@ -41,6 +41,18 @@
         "plugin",
         "code"
       ]
+    },
+    {
+      "login": "mansu",
+      "name": "Suman Karumuri",
+      "avatar_url": "https://avatars.githubusercontent.com/u/93836?v=4",
+      "profile": "http://www.linkedin.com/in/mansu",
+      "contributions": [
+        "code",
+        "review",
+        "ideas",
+        "talk"
+      ]
     }
   ]
 }
