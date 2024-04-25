@@ -21,6 +21,18 @@
       ]
     },
     {
+      "login": "bryanlb",
+      "name": "Bryan Burkholder",
+      "avatar_url": "https://avatars.githubusercontent.com/u/771133?v=4",
+      "profile": "https://github.com/bryanlb",
+      "contributions": [
+        "code",
+        "doc",
+        "review",
+        "bug"
+      ]
+    },
+    {
       "login": "kyle-sammons",
       "name": "Kyle Sammons",
       "avatar_url": "https://avatars.githubusercontent.com/u/1023070?v=4",
