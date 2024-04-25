@@ -56,6 +56,7 @@ Licensed under [MIT](LICENSE). Copyright (c) 2024 Slack.
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/autata"><img src="https://avatars.githubusercontent.com/u/24304518?v=4?s=100" width="100px;" alt="Aubrey"/><br /><sub><b>Aubrey</b></sub></a><br /><a href="#code-autata" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/shellywu815"><img src="https://avatars.githubusercontent.com/u/115680578?v=4?s=100" width="100px;" alt="Shelly Wu"/><br /><sub><b>Shelly Wu</b></sub></a><br /><a href="#code-shellywu815" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="http://www.solidspark.com"><img src="https://avatars.githubusercontent.com/u/1429729?v=4?s=100" width="100px;" alt="Ryan Katkov"/><br /><sub><b>Ryan Katkov</b></sub></a><br /><a href="#business-solidspark" title="Business development">💼</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://slack.com/"><img src="https://avatars.githubusercontent.com/u/6911160?v=4?s=100" width="100px;" alt="Slack"/><br /><sub><b>Slack</b></sub></a><br /><a href="#financial-slackhq" title="Financial">💵</a></td>
     </tr>
   </tbody>
 </table>
