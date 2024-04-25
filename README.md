@@ -52,6 +52,9 @@ Licensed under [MIT](LICENSE). Copyright (c) 2024 Slack.
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/danhermann"><img src="https://avatars.githubusercontent.com/u/22777892?v=4?s=100" width="100px;" alt="Dan Hermann"/><br /><sub><b>Dan Hermann</b></sub></a><br /><a href="#code-danhermann" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://www.linkedin.com/in/kai-xing-chen"><img src="https://avatars.githubusercontent.com/u/22359229?v=4?s=100" width="100px;" alt="Kai Chen"/><br /><sub><b>Kai Chen</b></sub></a><br /><a href="#code-kx-chen" title="Code">💻</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/autata"><img src="https://avatars.githubusercontent.com/u/24304518?v=4?s=100" width="100px;" alt="Aubrey"/><br /><sub><b>Aubrey</b></sub></a><br /><a href="#code-autata" title="Code">💻</a></td>
+    </tr>
   </tbody>
 </table>
 
