@@ -511,7 +511,7 @@
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-instrumentation-grpc</artifactId>
-            <version>5.16.0</version>
+            <version>5.18.1</version>
         </dependency>
 
         <dependency>
