@@ -407,6 +407,18 @@ public class Astra {
           LOG.info("Loaded schema with total fields: {}", schema.getFieldsCount());
         } else {
           LOG.info("No schema file provided, using default schema");
+          Schema.SchemaField messageField =
+              Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build();
+          Schema.SchemaField allField =
+              Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build();
+          Schema.SchemaField timeSinceEpoch =
+              Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.LONG).build();
+          schema =
+              Schema.IngestSchema.newBuilder()
+                  .putFields(LogMessage.ReservedField.MESSAGE.fieldName, messageField)
+                  .putFields(LogMessage.SystemField.ALL.fieldName, allField)
+                  .putFields(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, timeSinceEpoch)
+                  .build();
         }
         BulkIngestApi openSearchBulkApiService =
             new BulkIngestApi(

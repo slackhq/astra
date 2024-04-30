@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import com.slack.astra.logstore.LogMessage;
-import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.logstore.search.aggregations.AggBuilderBase;
 import com.slack.astra.logstore.search.aggregations.AutoDateHistogramAggBuilder;
@@ -59,9 +58,7 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherExtension(false);
 
-  private final OpenSearchAdapter openSearchAdapter =
-      new OpenSearchAdapter(
-          SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions(false));
+  private final OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of());
 
   public OpenSearchAdapterTest() throws IOException {
     // We need to reload the schema so that query optimizations take into account the schema

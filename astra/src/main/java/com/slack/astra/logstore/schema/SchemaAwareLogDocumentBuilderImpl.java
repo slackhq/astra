@@ -6,7 +6,6 @@ import static com.slack.astra.writer.SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE;
 import static com.slack.astra.writer.SpanFormatter.isValidTimestamp;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.collect.ImmutableMap;
 import com.slack.astra.logstore.DocumentBuilder;
 import com.slack.astra.logstore.FieldDefMismatchException;
 import com.slack.astra.logstore.LogMessage;
@@ -48,66 +47,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
 
   // TODO: In future, make this value configurable.
   private static final int MAX_NESTING_DEPTH = 3;
-
-  private static void addTextField(
-      ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder,
-      String fieldName,
-      boolean isStored,
-      boolean isIndexed) {
-    fieldDefBuilder.put(
-        fieldName, new LuceneFieldDef(fieldName, FieldType.TEXT.name, isStored, isIndexed, false));
-  }
-
-  // TODO: Move this definition to the config file.
-  public static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions(
-      boolean enableFullTextSearch) {
-    ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
-
-    addTextField(fieldDefBuilder, LogMessage.SystemField.SOURCE.fieldName, true, false);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.MESSAGE.fieldName, false, true);
-    if (enableFullTextSearch) {
-      addTextField(fieldDefBuilder, LogMessage.SystemField.ALL.fieldName, false, true);
-    }
-
-    String[] fieldsAsString = {
-      LogMessage.SystemField.INDEX.fieldName,
-      LogMessage.ReservedField.TYPE.fieldName,
-      LogMessage.ReservedField.HOSTNAME.fieldName,
-      LogMessage.ReservedField.PACKAGE.fieldName,
-      LogMessage.ReservedField.TAG.fieldName,
-      LogMessage.ReservedField.USERNAME.fieldName,
-      LogMessage.ReservedField.PAYLOAD.fieldName,
-      LogMessage.ReservedField.NAME.fieldName,
-      LogMessage.ReservedField.SERVICE_NAME.fieldName,
-      LogMessage.ReservedField.TRACE_ID.fieldName,
-      LogMessage.ReservedField.PARENT_ID.fieldName
-    };
-
-    for (String fieldName : fieldsAsString) {
-      fieldDefBuilder.put(
-          fieldName, new LuceneFieldDef(fieldName, FieldType.STRING.name, false, true, true));
-    }
-
-    String[] fieldsAsIds = {
-      LogMessage.SystemField.ID.fieldName,
-    };
-    for (String fieldName : fieldsAsIds) {
-      fieldDefBuilder.put(
-          fieldName, new LuceneFieldDef(fieldName, FieldType.ID.name, false, true, true));
-    }
-
-    String[] fieldsAsLong = {
-      LogMessage.ReservedField.DURATION_MS.fieldName,
-      LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-    };
-
-    for (String fieldName : fieldsAsLong) {
-      fieldDefBuilder.put(
-          fieldName, new LuceneFieldDef(fieldName, FieldType.LONG.name, false, true, true));
-    }
-
-    return fieldDefBuilder.build();
-  }
 
   /**
    * This enum tracks the field conflict policy for a chunk.
@@ -233,7 +172,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
 
   private boolean isIndexed(Schema.SchemaFieldType schemaFieldType, String fieldName) {
     return !fieldName.equals(LogMessage.SystemField.SOURCE.fieldName)
-        || !schemaFieldType.equals(Schema.SchemaFieldType.BINARY);
+        && !schemaFieldType.equals(Schema.SchemaFieldType.BINARY);
   }
 
   // In the future, we need this to take SchemaField instead of FieldType
@@ -289,10 +228,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
       MeterRegistry meterRegistry) {
     // Add basic fields by default
     return new SchemaAwareLogDocumentBuilderImpl(
-        fieldConflictPolicy,
-        getDefaultLuceneFieldDefinitions(enableFullTextSearch),
-        enableFullTextSearch,
-        meterRegistry);
+        fieldConflictPolicy, enableFullTextSearch, meterRegistry);
   }
 
   static final String DROP_FIELDS_COUNTER = "dropped_fields";
@@ -312,7 +248,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
 
   SchemaAwareLogDocumentBuilderImpl(
       FieldConflictPolicy indexFieldConflictPolicy,
-      final Map<String, LuceneFieldDef> initialFields,
       boolean enableFullTextSearch,
       MeterRegistry meterRegistry) {
     this.indexFieldConflictPolicy = indexFieldConflictPolicy;
@@ -323,9 +258,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
     convertAndDuplicateFieldCounter = meterRegistry.counter(CONVERT_AND_DUPLICATE_FIELD_COUNTER);
     convertErrorCounter = meterRegistry.counter(CONVERT_ERROR_COUNTER);
     totalFieldsCounter = meterRegistry.counter(TOTAL_FIELDS_COUNTER);
-
-    totalFieldsCounter.increment(initialFields.size());
-    fieldDefMap.putAll(initialFields);
   }
 
   @Override
@@ -381,7 +313,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
           doc,
           LogMessage.SystemField.ID.fieldName,
           message.getId().toStringUtf8(),
-          Schema.SchemaFieldType.KEYWORD,
+          Schema.SchemaFieldType.ID,
           "",
           0);
     } else {

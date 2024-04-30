@@ -160,6 +160,9 @@ public class SpanFormatter {
 
   public static List<Trace.KeyValue> convertKVtoProto(
       String key, Object value, Schema.IngestSchema schema) {
+    if (schema.isInitialized()) {
+
+    }
     if (value == null || value.toString().isEmpty()) {
       return null;
     }
