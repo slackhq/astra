@@ -2,6 +2,7 @@ package com.slack.astra.writer;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Timestamp;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.Murron;
@@ -12,9 +13,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** A utility class that converts a Span into a LogMessage, Json map to Span */
 public class SpanFormatter {
+
+  private static final Logger LOG = LoggerFactory.getLogger(SpanFormatter.class);
 
   public static final String DEFAULT_LOG_MESSAGE_TYPE = "INFO";
   public static final String DEFAULT_INDEX_NAME = "unknown";
@@ -87,6 +92,23 @@ public class SpanFormatter {
     return spanBuilder.build();
   }
 
+  public static Timestamp parseDate(String dateStr, Schema.SchemaFieldType type) {
+    Instant instant;
+    try {
+      // type will expose parsing params in the future
+      // for now we'll just use Instant.parse
+      instant = Instant.parse(dateStr);
+    } catch (Exception e) {
+      // easier to debug rather than to skip or put current value
+      LOG.warn("Failed to parse date: {}", dateStr, e);
+      instant = Instant.EPOCH;
+    }
+    return Timestamp.newBuilder()
+        .setSeconds(instant.getEpochSecond())
+        .setNanos(instant.getNano())
+        .build();
+  }
+
   public static Trace.KeyValue makeTraceKV(String key, Object value, Schema.SchemaFieldType type) {
     Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
     tagBuilder.setKey(key);
@@ -106,6 +128,9 @@ public class SpanFormatter {
         }
         case DATE -> {
           tagBuilder.setFieldType(Schema.SchemaFieldType.DATE);
+          tagBuilder.setVDate(parseDate(value.toString(), type));
+          // setting both for backward compatibility while deploying preprocessor and indexer
+          // I however commented it while testing to make sure all tests use the new field
           tagBuilder.setVInt64(Instant.parse(value.toString()).toEpochMilli());
         }
         case BOOLEAN -> {

@@ -2,7 +2,9 @@ package com.slack.astra.bulkIngestApi.opensearch;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Timestamp;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.logstore.schema.ReservedFields;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
@@ -52,8 +54,8 @@ public class BulkApiRequestParser {
   public static long getTimestampFromIngestDocument(IngestDocument ingestDocument) {
 
     try {
-      if (ingestDocument.hasField("@timestamp")) {
-        String dateString = ingestDocument.getFieldValue("@timestamp", String.class);
+      if (ingestDocument.hasField(ReservedFields.TIMESTAMP)) {
+        String dateString = ingestDocument.getFieldValue(ReservedFields.TIMESTAMP, String.class);
         LocalDateTime localDateTime =
             LocalDateTime.parse(dateString, DateTimeFormatter.ISO_DATE_TIME);
         Instant instant = localDateTime.toInstant(ZoneOffset.UTC);
@@ -103,6 +105,29 @@ public class BulkApiRequestParser {
     // Trace.Span proto expects duration in microseconds today
     spanBuilder.setTimestamp(
         TimeUnit.MICROSECONDS.convert(timestampInMillis, TimeUnit.MILLISECONDS));
+
+    // Today @timestamp is parsed in getTimestampFromIngestDocument and set as timestampInMillis
+    // However we store it as _timesinceepoch in the trace.proto
+    // Let's also store the original field name and classify it as a date
+    if (ingestDocument.hasField(ReservedFields.TIMESTAMP)) {
+      String dateString = ingestDocument.getFieldValue(ReservedFields.TIMESTAMP, String.class);
+      LocalDateTime localDateTime =
+          LocalDateTime.parse(dateString, DateTimeFormatter.ISO_DATE_TIME);
+      // As I understand frontend UIs expect this to be constant at UTC and they adjust it based on
+      // user timezone
+      Instant instant = localDateTime.toInstant(ZoneOffset.UTC);
+
+      spanBuilder.addTags(
+          Trace.KeyValue.newBuilder()
+              .setKey(ReservedFields.TIMESTAMP)
+              .setFieldType(Schema.SchemaFieldType.DATE)
+              .setVDate(
+                  Timestamp.newBuilder()
+                      .setSeconds(instant.getEpochSecond())
+                      .setNanos(instant.getNano())
+                      .build())
+              .build());
+    }
 
     if (sourceAndMetadata.get(LogMessage.ReservedField.PARENT_ID.fieldName) != null) {
       spanBuilder.setParentId(

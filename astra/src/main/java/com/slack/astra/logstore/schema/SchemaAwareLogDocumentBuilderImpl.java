@@ -19,6 +19,8 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -486,8 +488,11 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
         addField(doc, keyValue.getKey(), keyValue.getVStr(), Schema.SchemaFieldType.IP, "", 0);
         jsonMap.put(keyValue.getKey(), keyValue.getVStr());
       } else if (schemaFieldType == Schema.SchemaFieldType.DATE) {
-        addField(doc, keyValue.getKey(), keyValue.getVInt64(), Schema.SchemaFieldType.DATE, "", 0);
-        jsonMap.put(keyValue.getKey(), keyValue.getVInt64());
+        Instant instant =
+            Instant.ofEpochSecond(keyValue.getVDate().getSeconds(), keyValue.getVDate().getNanos());
+        LocalDateTime date = LocalDateTime.ofInstant(instant, ZoneId.of("UTC"));
+        addField(doc, keyValue.getKey(), date, Schema.SchemaFieldType.DATE, "", 0);
+        jsonMap.put(keyValue.getKey(), date.toString());
       } else if (schemaFieldType == Schema.SchemaFieldType.BOOLEAN) {
         addField(
             doc, keyValue.getKey(), keyValue.getVBool(), Schema.SchemaFieldType.BOOLEAN, "", 0);

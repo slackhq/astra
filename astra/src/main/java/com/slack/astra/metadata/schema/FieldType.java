@@ -6,6 +6,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.slack.astra.proto.schema.Schema;
 import java.net.InetAddress;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import org.apache.lucene.document.Document;
@@ -133,7 +136,22 @@ public enum FieldType {
   DATE("date") {
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
-      LONG.addField(doc, name, value, fieldDef);
+      if (value instanceof LocalDateTime localDateTime) {
+        Instant instant = localDateTime.toInstant(ZoneOffset.UTC);
+        long timeSinceEpoch = instant.toEpochMilli();
+        if (fieldDef.isIndexed) {
+          doc.add(new LongPoint(name, timeSinceEpoch));
+        }
+        if (fieldDef.isStored) {
+          doc.add(new StoredField(name, localDateTime.toString()));
+        }
+        if (fieldDef.storeDocValue) {
+          doc.add(new NumericDocValuesField(name, timeSinceEpoch));
+        }
+      } else {
+        // back-compat
+        LONG.addField(doc, name, value, fieldDef);
+      }
     }
 
     @Override
