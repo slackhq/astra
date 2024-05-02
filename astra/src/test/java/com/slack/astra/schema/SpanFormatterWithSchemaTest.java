@@ -370,18 +370,18 @@ public class SpanFormatterWithSchemaTest {
     Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
     Trace.KeyValue kv = SpanFormatter.convertKVtoProto("host", "host1", schema).get(0);
     assertThat(kv.getVStr()).isEqualTo("host1");
-    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.TEXT);
 
     kv = SpanFormatter.convertKVtoProto("ip", "8.8.8.8", schema).get(0);
     assertThat(kv.getVStr()).isEqualTo("8.8.8.8");
-    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.TEXT);
 
     kv = SpanFormatter.convertKVtoProto("myTimestamp", "2021-01-01T00:00:00Z", schema).get(0);
     assertThat(kv.getVStr()).isEqualTo("2021-01-01T00:00:00Z");
-    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.TEXT);
 
     kv = SpanFormatter.convertKVtoProto("success", "true", schema).get(0);
-    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(kv.getVStr()).isEqualTo("true");
 
     kv = SpanFormatter.convertKVtoProto("success", true, schema).get(0);
@@ -389,7 +389,7 @@ public class SpanFormatterWithSchemaTest {
     assertThat(kv.getVBool()).isEqualTo(true);
 
     kv = SpanFormatter.convertKVtoProto("cost", "10.0", schema).get(0);
-    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(kv.getVStr()).isEqualTo("10.0");
 
     kv = SpanFormatter.convertKVtoProto("amount", 10.0f, schema).get(0);
@@ -408,7 +408,7 @@ public class SpanFormatterWithSchemaTest {
     assertThat(kv.getVInt64()).isEqualTo(10L);
 
     kv = SpanFormatter.convertKVtoProto("bucket", "e30=", schema).get(0);
-    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(kv.getVStr()).isEqualTo("e30=");
   }
 

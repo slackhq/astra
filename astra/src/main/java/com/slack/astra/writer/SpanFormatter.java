@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Timestamp;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.logstore.schema.ReservedFields;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
@@ -183,37 +184,62 @@ public class SpanFormatter {
     }
   }
 
+  public static Schema.SchemaField getSchemaFieldDefForValue(Object value) {
+    return switch (value) {
+      case Boolean b -> ReservedFields.getSchemaFieldForType(Schema.SchemaFieldType.BOOLEAN);
+      case Integer i -> ReservedFields.getSchemaFieldForType(Schema.SchemaFieldType.INTEGER);
+      case Long l -> ReservedFields.getSchemaFieldForType(Schema.SchemaFieldType.LONG);
+      case Float v -> ReservedFields.getSchemaFieldForType(Schema.SchemaFieldType.FLOAT);
+      case Double v -> ReservedFields.getSchemaFieldForType(Schema.SchemaFieldType.DOUBLE);
+      case null, default -> ReservedFields.getSchemaFieldForType(Schema.SchemaFieldType.TEXT);
+    };
+  }
+
   public static List<Trace.KeyValue> convertKVtoProto(
       String key, Object value, Schema.IngestSchema schema) {
     if (value == null || value.toString().isEmpty()) {
       return null;
     }
 
+    Schema.SchemaField schemaFieldDef;
     if (schema.containsFields(key)) {
-      List<Trace.KeyValue> tags = new ArrayList<>();
-      Schema.SchemaField schemaFieldDef = schema.getFieldsMap().get(key);
-      tags.add(makeTraceKV(key, value, schemaFieldDef.getType()));
-      for (Map.Entry<String, Schema.SchemaField> additionalField :
-          schemaFieldDef.getFieldsMap().entrySet()) {
-        // skip conditions
-        if (additionalField.getValue().getIgnoreAbove() > 0
-            && additionalField.getValue().getType() == Schema.SchemaFieldType.KEYWORD
-            && value.toString().length() > additionalField.getValue().getIgnoreAbove()) {
-          continue;
-        }
-        Trace.KeyValue additionalKV =
-            makeTraceKV(
-                STR."\{key}.\{additionalField.getKey()}",
-                value,
-                additionalField.getValue().getType());
-        tags.add(additionalKV);
-      }
-      return tags;
+      schemaFieldDef = schema.getFieldsMap().get(key);
     } else {
-      return List.of(SpanFormatter.convertKVtoProto(key, value));
+      schemaFieldDef = getSchemaFieldDefForValue(value);
     }
+
+    List<Trace.KeyValue> tags = new ArrayList<>();
+    tags.add(makeTraceKV(key, value, schemaFieldDef.getType()));
+    for (Map.Entry<String, Schema.SchemaField> additionalField :
+        schemaFieldDef.getFieldsMap().entrySet()) {
+      // skip conditions
+      if (additionalField.getValue().getIgnoreAbove() > 0
+          && additionalField.getValue().getType() == Schema.SchemaFieldType.KEYWORD
+          && value.toString().length() > additionalField.getValue().getIgnoreAbove()) {
+        continue;
+      }
+      Trace.KeyValue additionalKV =
+          makeTraceKV(
+              STR."\{key}.\{additionalField.getKey()}",
+              value,
+              additionalField.getValue().getType());
+      tags.add(additionalKV);
+    }
+    // For all TEXT fields that have NOT been explicitly defined in the schema, we will also
+    // copy the value to a .keyword field if it is less than N characters and the flag is enabled
+    if (!schema.containsFields(key)
+        && schemaFieldDef.getType() == Schema.SchemaFieldType.TEXT
+        && schema.getEnableKeywordSubfield()) {
+      if (schema.getIgnoreAboveSubfield() <= 0
+          || value.toString().length() <= schema.getIgnoreAboveSubfield()) {
+        tags.add(makeTraceKV(STR."\{key}_keyword", value, Schema.SchemaFieldType.KEYWORD));
+      }
+    }
+    return tags;
   }
 
+  // this is now only used in one place that will go away once we cleanup all the old parsers that
+  // are no longer used
   private static Trace.KeyValue convertKVtoProto(String key, Object value) {
     Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
     tagBuilder.setKey(key);

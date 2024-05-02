@@ -10,6 +10,8 @@ option java_package = "com.slack.astra.proto.schema";
 message IngestSchema {
   // convert to a map
   map<string, SchemaField> fields = 1;
+  bool enable_keyword_subfield = 2;
+  int32 ignore_above_subfield = 3;
 }
 
 message SchemaField {
@@ -20,7 +22,7 @@ message SchemaField {
 
 // https://opensearch.org/docs/2.4/opensearch/supported-field-types/index/
 // Add the remaining types as needed
-enum SchemaFieldType {
+enum  SchemaFieldType {
   KEYWORD  = 0;
   TEXT  = 1;
   IP  = 2;
