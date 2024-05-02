@@ -17,6 +17,7 @@ import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.astra.chunkManager.IndexingChunkManager;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.logstore.schema.ReservedFields;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
@@ -403,6 +404,52 @@ public class LogMessageWriterImplTest {
     assertThat(results.hits.size()).isEqualTo(1);
     results = searchChunkManager("test", "username:me");
     assertThat(results.hits.size()).isEqualTo(1);
+  }
+
+  @Test
+  public void testReservedFields() throws IOException {
+    Schema.IngestSchema schema = Schema.IngestSchema.newBuilder().build();
+    schema = ReservedFields.addPredefinedFields(schema);
+
+    String request =
+        """
+                  { "index" : { "_index" : "test", "_id" : "1" } }
+                  { "@timestamp" : "2014-09-01T12:00:10Z"}
+                  { "index" : { "_index" : "test", "_id" : "2" } }
+                  { "@timestamp" : "2014-09-01T12:10:10Z"}
+                  """;
+    List<IndexRequest> indexRequests =
+        BulkApiRequestParser.parseBulkRequest(request.getBytes(StandardCharsets.UTF_8));
+    assertThat(indexRequests.size()).isEqualTo(2);
+
+    for (IndexRequest indexRequest : indexRequests) {
+      IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
+      Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument, schema);
+      ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
+      LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
+      assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
+    }
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    chunkManagerUtil.chunkManager.getActiveChunk().commit();
+
+    SearchResult<LogMessage> results = searchChunkManager("test", "_id:1");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results = searchChunkManager("test", "_id:2");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results = searchChunkManager("test", "@timestamp:\"2014-09-01T12:00:10Z\"");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results = searchChunkManager("test", "@timestamp:\"2014-09-01T12:10:10Z\"");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results =
+        searchChunkManager(
+            "test", "@timestamp:[\"2014-09-01T12:00:10Z\" TO \"2014-09-01T12:10:10Z\"]");
+    assertThat(results.hits.size()).isEqualTo(2);
   }
 
   @Test

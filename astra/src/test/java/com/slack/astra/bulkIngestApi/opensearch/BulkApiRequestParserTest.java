@@ -45,7 +45,7 @@ public class BulkApiRequestParserTest {
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
     assertThat(indexDocs.get("test").get(0).getId().toStringUtf8()).isEqualTo("1");
-    assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(5);
+    assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(4);
     assertThat(
             indexDocs.get("test").get(0).getTagsList().stream()
                 .filter(

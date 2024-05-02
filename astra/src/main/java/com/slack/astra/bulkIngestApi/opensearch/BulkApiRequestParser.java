@@ -9,10 +9,6 @@ import com.slack.astra.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,15 +51,12 @@ public class BulkApiRequestParser {
     try {
       if (sourceAndMetadata.containsKey(ReservedFields.TIMESTAMP)) {
         String dateString = (String) sourceAndMetadata.get(ReservedFields.TIMESTAMP);
-        LocalDateTime localDateTime =
-            LocalDateTime.parse(dateString, DateTimeFormatter.ISO_DATE_TIME);
-        Instant instant = localDateTime.toInstant(ZoneOffset.UTC);
+        Instant instant = Instant.parse(dateString);
         return instant.toEpochMilli();
       }
 
       // assumption that the provided timestamp is in millis
-      // at some point both th unit and field need to be configurable
-      // when we do that, remember to change the called to appropriately remove the field
+      // at some point both the unit and field need to be configurable
       if (sourceAndMetadata.containsKey("timestamp")) {
         return (long) sourceAndMetadata.get("timestamp");
       }
@@ -76,10 +69,8 @@ public class BulkApiRequestParser {
           "Unable to parse timestamp from ingest document. Using current time as timestamp", e);
     }
 
-    return ((ZonedDateTime)
-            sourceAndMetadata.getOrDefault("timestamp", ZonedDateTime.now(ZoneOffset.UTC)))
-        .toInstant()
-        .toEpochMilli();
+    // We tried parsing 3 timestamp fields and failed. Use the current time
+    return Instant.now().toEpochMilli();
   }
 
   @VisibleForTesting

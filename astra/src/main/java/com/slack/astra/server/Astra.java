@@ -408,13 +408,8 @@ public class Astra {
           LOG.info("Loaded schema with total fields: {}", schema.getFieldsCount());
         } else {
           LOG.info("No schema file provided, using default schema");
-          Schema.SchemaField timestampField =
-              Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.DATE).build();
-          schema =
-              Schema.IngestSchema.newBuilder()
-                  .putFields(ReservedFields.TIMESTAMP, timestampField)
-                  .build();
         }
+        schema = ReservedFields.addPredefinedFields(schema);
         BulkIngestApi openSearchBulkApiService =
             new BulkIngestApi(
                 bulkIngestKafkaProducer,
