@@ -3,8 +3,8 @@ package com.slack.astra.logstore.opensearch;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
+import com.google.common.collect.ImmutableMap;
 import com.slack.astra.logstore.LogMessage;
-import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.logstore.search.aggregations.AggBuilderBase;
 import com.slack.astra.logstore.search.aggregations.AutoDateHistogramAggBuilder;
@@ -20,6 +20,8 @@ import com.slack.astra.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.astra.logstore.search.aggregations.MovingFunctionAggBuilder;
 import com.slack.astra.logstore.search.aggregations.SumAggBuilder;
 import com.slack.astra.logstore.search.aggregations.UniqueCountAggBuilder;
+import com.slack.astra.metadata.schema.FieldType;
+import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.util.List;
@@ -59,11 +61,24 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherExtension(false);
 
-  private final OpenSearchAdapter openSearchAdapter =
-      new OpenSearchAdapter(
-          SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions(false));
+  private final OpenSearchAdapter openSearchAdapter;
 
   public OpenSearchAdapterTest() throws IOException {
+    ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
+    fieldDefBuilder.put(
+        LogMessage.SystemField.ID.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.ID.fieldName, FieldType.ID.name, false, true, true));
+    fieldDefBuilder.put(
+        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            FieldType.LONG.name,
+            false,
+            true,
+            true));
+    openSearchAdapter = new OpenSearchAdapter(fieldDefBuilder.build());
+
     // We need to reload the schema so that query optimizations take into account the schema
     openSearchAdapter.reloadSchema();
   }

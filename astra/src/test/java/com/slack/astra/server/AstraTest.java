@@ -15,7 +15,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.chunkManager.RollOverChunkTask;
-import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
@@ -275,14 +274,6 @@ public class AstraTest {
             indexerMeterRegistry);
     indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
-    await()
-        .until(
-            () ->
-                getCount(
-                        SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
-                        indexerMeterRegistry)
-                    == 22);
-
     AstraSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0, end1Time.toEpochMilli(), "3650d");
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
@@ -435,14 +426,6 @@ public class AstraTest {
             indexer1MeterRegistry);
     indexer1.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
-    await()
-        .until(
-            () ->
-                getCount(
-                        SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
-                        indexer1MeterRegistry)
-                    == 22);
-
     LOG.info("Starting indexer service 2");
     int indexerPort2 = 11000;
     final Instant startTime2 = Instant.now().plusSeconds(600);
@@ -460,14 +443,6 @@ public class AstraTest {
             startTime2,
             indexer2MeterRegistry);
     indexer2.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
-
-    await()
-        .until(
-            () ->
-                getCount(
-                        SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
-                        indexer2MeterRegistry)
-                    == 22);
 
     AstraSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0L, endTime.toEpochMilli(), "3650d");

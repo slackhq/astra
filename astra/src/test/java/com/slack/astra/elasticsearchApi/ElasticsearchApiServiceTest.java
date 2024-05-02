@@ -137,7 +137,7 @@ public class ElasticsearchApiServiceTest {
         objectMapper.convertValue(
             jsonNode.get("test").get("mappings").get("properties"), Map.class);
     assertThat(map).isNotNull();
-    assertThat(map.size()).isEqualTo(31);
+    assertThat(map.size()).isEqualTo(25);
   }
 
   // todo - test mapping

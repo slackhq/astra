@@ -491,10 +491,10 @@ public class SpanFormatterWithSchemaTest {
             SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD, true, meterRegistry);
     Document luceneDocument = dropFieldBuilder.fromMessage(span);
     // message is a tag, but is a TEXT field in schema, so it is indexed and not doc values
-    // 13 tags X 2(DV and indexed) + (message,message.keyword,_id,_timesinceepoch,type,_index) x2 +
+    // 13 tags X 2(DV and indexed) + (message,message.keyword,_id,_timesinceepoch,_index) x2 +
     // _source + _all
 
-    assertThat(luceneDocument.getFields().size()).isEqualTo(39);
+    assertThat(luceneDocument.getFields().size()).isEqualTo(37);
 
     for (Map.Entry<String, Trace.KeyValue> keyAndTag : tags.entrySet()) {
       String key = keyAndTag.getKey();

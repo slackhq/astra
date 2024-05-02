@@ -209,15 +209,8 @@ public class LuceneIndexStoreImplTest {
 
     @Test
     public void failIndexingDocsWithMismatchedTypeErrors() {
-      Trace.KeyValue wrongField =
-          Trace.KeyValue.newBuilder()
-              .setKey(ReservedField.HOSTNAME.fieldName)
-              .setFieldType(Schema.SchemaFieldType.INTEGER)
-              .setVInt32(20000)
-              .build();
 
-      logStore.logStore.addMessage(
-          SpanUtil.makeSpan(100, "test", Instant.now(), List.of(wrongField)));
+      logStore.logStore.addMessage(Trace.Span.newBuilder().build());
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);

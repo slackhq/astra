@@ -1326,6 +1326,22 @@ public class LogIndexSearcherImplTest {
         .isZero();
 
     // Without the _all field as default.
+
+    assertThat(
+            strictLogStoreWithoutFts
+                .logSearcher
+                .search(
+                    TEST_DATASET_NAME,
+                    "apple baby",
+                    0L,
+                    MAX_TIME,
+                    1000,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                .hits
+                .size())
+        .isEqualTo(1);
+
     assertThat(
             strictLogStoreWithoutFts
                 .logSearcher
@@ -1339,7 +1355,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
                 .hits
                 .size())
-        .isEqualTo(2);
+        .isEqualTo(0);
 
     assertThat(
             strictLogStoreWithoutFts
@@ -1354,7 +1370,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
                 .hits
                 .size())
-        .isEqualTo(3);
+        .isEqualTo(2);
 
     // empty string
     assertThat(
