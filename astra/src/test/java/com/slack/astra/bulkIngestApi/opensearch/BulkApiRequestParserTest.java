@@ -272,7 +272,8 @@ public class BulkApiRequestParserTest {
   public void testTimestampParsingFromIngestDocument() {
     IngestDocument ingestDocument =
         new IngestDocument("index", "1", "routing", 1L, VersionType.INTERNAL, Map.of());
-    long timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    long timeInMillis =
+        BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
     Instant ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
 
     // this tests that the parser inserted a timestamp close to the current time
@@ -287,7 +288,8 @@ public class BulkApiRequestParserTest {
     ingestDocument =
         new IngestDocument(
             "index", "1", "routing", 1L, VersionType.INTERNAL, Map.of("@timestamp", ts));
-    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    timeInMillis =
+        BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
     assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
 
     // we put a long in the @timestamp field, which today we don't parse
@@ -300,7 +302,8 @@ public class BulkApiRequestParserTest {
             1L,
             VersionType.INTERNAL,
             Map.of("@timestamp", providedTimeStamp.toEpochMilli()));
-    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    timeInMillis =
+        BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
     ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
     assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
     assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
@@ -310,7 +313,8 @@ public class BulkApiRequestParserTest {
     ingestDocument =
         new IngestDocument(
             "index", "1", "routing", 1L, VersionType.INTERNAL, Map.of("_timestamp", ts));
-    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    timeInMillis =
+        BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
     ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
     assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
     assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
@@ -320,7 +324,8 @@ public class BulkApiRequestParserTest {
     ingestDocument =
         new IngestDocument(
             "index", "1", "routing", 1L, VersionType.INTERNAL, Map.of("timestamp", ts));
-    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    timeInMillis =
+        BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
     ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
     assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
     assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
@@ -333,7 +338,8 @@ public class BulkApiRequestParserTest {
             1L,
             VersionType.INTERNAL,
             Map.of("timestamp", providedTimeStamp.toEpochMilli()));
-    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    timeInMillis =
+        BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
     assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
 
     ingestDocument =
@@ -344,7 +350,8 @@ public class BulkApiRequestParserTest {
             1L,
             VersionType.INTERNAL,
             Map.of("_timestamp", providedTimeStamp.toEpochMilli()));
-    timeInMillis = BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument);
+    timeInMillis =
+        BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
     assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
   }
 }

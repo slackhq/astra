@@ -21,6 +21,7 @@ import com.slack.astra.clusterManager.ReplicaRestoreService;
 import com.slack.astra.clusterManager.SnapshotDeletionService;
 import com.slack.astra.elasticsearchApi.ElasticsearchApiService;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.logstore.schema.ReservedFields;
 import com.slack.astra.logstore.search.AstraDistributedQueryService;
 import com.slack.astra.logstore.search.AstraLocalQueryService;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
@@ -408,6 +409,7 @@ public class Astra {
         } else {
           LOG.info("No schema file provided, using default schema");
         }
+        schema = ReservedFields.addPredefinedFields(schema);
         BulkIngestApi openSearchBulkApiService =
             new BulkIngestApi(
                 bulkIngestKafkaProducer,

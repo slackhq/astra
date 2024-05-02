@@ -11,6 +11,7 @@ import static org.assertj.core.api.Fail.fail;
 
 import com.google.common.io.Files;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Timestamp;
 import com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.astra.logstore.LogStore;
 import com.slack.astra.logstore.LuceneIndexStoreConfig;
@@ -228,8 +229,25 @@ public class SpanFormatterWithSchemaTest {
     assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.IP);
 
     String myTimestamp = "2021-01-01T00:00:00Z";
+    Instant myDateInstant = Instant.parse(myTimestamp);
+    Timestamp myDateTimestamp =
+        Timestamp.newBuilder()
+            .setSeconds(myDateInstant.getEpochSecond())
+            .setNanos(myDateInstant.getNano())
+            .build();
     kv = SpanFormatter.convertKVtoProto("myTimestamp", myTimestamp, schema).get(0);
-    assertThat(kv.getVInt64()).isEqualTo(Instant.parse(myTimestamp).toEpochMilli());
+    assertThat(kv.getVDate()).isEqualTo(myDateTimestamp);
+
+    myTimestamp = "2021-01-01T00:00:00Z";
+    myDateInstant = Instant.parse(myTimestamp);
+    myDateTimestamp =
+        Timestamp.newBuilder()
+            .setSeconds(myDateInstant.getEpochSecond())
+            .setNanos(myDateInstant.getNano())
+            .build();
+    kv = SpanFormatter.convertKVtoProto("myTimestamp", myTimestamp, schema).get(0);
+    assertThat(kv.getVDate()).isEqualTo(myDateTimestamp);
+
     assertThat(kv.getFieldType()).isEqualTo(Schema.SchemaFieldType.DATE);
 
     kv = SpanFormatter.convertKVtoProto("success", "true", schema).get(0);
@@ -451,8 +469,13 @@ public class SpanFormatterWithSchemaTest {
     assertThat(tags.get("ip").getVStr()).isEqualTo("192.168.1.1");
     assertThat(tags.get("count").getVInt64()).isEqualTo(3);
     assertThat(tags.get("count_short").getVInt32()).isEqualTo(10);
-    assertThat(tags.get("my_date").getVInt64())
-        .isEqualTo(Instant.parse("2014-09-01T12:00:00Z").toEpochMilli());
+    Instant myDateInstant = Instant.parse("2014-09-01T12:00:00Z");
+    Timestamp myDateTimestamp =
+        Timestamp.newBuilder()
+            .setSeconds(myDateInstant.getEpochSecond())
+            .setNanos(myDateInstant.getNano())
+            .build();
+    assertThat(tags.get("my_date").getVDate()).isEqualTo(myDateTimestamp);
     assertThat(tags.get("bucket").getVInt32()).isEqualTo(20);
     assertThat(tags.get("success").getVBool()).isEqualTo(true);
     assertThat(tags.get("count_scaled_long").getVInt64()).isEqualTo(80);

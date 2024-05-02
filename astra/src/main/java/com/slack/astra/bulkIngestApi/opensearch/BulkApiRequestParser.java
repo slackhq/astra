@@ -3,15 +3,12 @@ package com.slack.astra.bulkIngestApi.opensearch;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.logstore.schema.ReservedFields;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,47 +46,40 @@ public class BulkApiRequestParser {
    * in millis 2. Check if a field called `@timestamp` exists and parse that as a date (since
    * logstash sets that) 3. Use the current time from the ingestMetadata
    */
-  public static long getTimestampFromIngestDocument(IngestDocument ingestDocument) {
+  public static long getTimestampFromIngestDocument(Map<String, Object> sourceAndMetadata) {
 
     try {
-      if (ingestDocument.hasField("@timestamp")) {
-        String dateString = ingestDocument.getFieldValue("@timestamp", String.class);
-        LocalDateTime localDateTime =
-            LocalDateTime.parse(dateString, DateTimeFormatter.ISO_DATE_TIME);
-        Instant instant = localDateTime.toInstant(ZoneOffset.UTC);
+      if (sourceAndMetadata.containsKey(ReservedFields.TIMESTAMP)) {
+        String dateString = (String) sourceAndMetadata.get(ReservedFields.TIMESTAMP);
+        Instant instant = Instant.parse(dateString);
         return instant.toEpochMilli();
       }
 
       // assumption that the provided timestamp is in millis
-      // at some point both th unit and field need to be configurable
-      // when we do that, remember to change the called to appropriately remove the field
-      if (ingestDocument.hasField("timestamp")) {
-        return ingestDocument.getFieldValue("timestamp", Long.class);
+      // at some point both the unit and field need to be configurable
+      if (sourceAndMetadata.containsKey("timestamp")) {
+        return (long) sourceAndMetadata.get("timestamp");
       }
 
-      if (ingestDocument.hasField("_timestamp")) {
-        return ingestDocument.getFieldValue("_timestamp", Long.class);
+      if (sourceAndMetadata.containsKey("_timestamp")) {
+        return (long) sourceAndMetadata.get("_timestamp");
       }
     } catch (Exception e) {
       LOG.warn(
           "Unable to parse timestamp from ingest document. Using current time as timestamp", e);
     }
 
-    return ((ZonedDateTime)
-            ingestDocument
-                .getIngestMetadata()
-                .getOrDefault("timestamp", ZonedDateTime.now(ZoneOffset.UTC)))
-        .toInstant()
-        .toEpochMilli();
+    // We tried parsing 3 timestamp fields and failed. Use the current time
+    return Instant.now().toEpochMilli();
   }
 
   @VisibleForTesting
   public static Trace.Span fromIngestDocument(
       IngestDocument ingestDocument, Schema.IngestSchema schema) {
 
-    long timestampInMillis = getTimestampFromIngestDocument(ingestDocument);
-
     Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
+
+    long timestampInMillis = getTimestampFromIngestDocument(sourceAndMetadata);
     String id = (String) sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName());
     // See https://blog.mikemccandless.com/2014/05/choosing-fast-unique-identifier-uuid.html on how
     // to improve this

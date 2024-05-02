@@ -8,6 +8,8 @@ option java_package = "com.slack.service.murron.trace";
 option go_package = "com.slack/astra/gen/proto/tracepb";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
 import "schema.proto";
 
 message KeyValue {
@@ -19,6 +21,7 @@ message KeyValue {
   bytes     v_binary  = 7;
   int32     v_int32   = 8;
   float     v_float32 = 9;
+  google.protobuf.Timestamp v_date = 11;
   slack.proto.astra.schema.SchemaFieldType fieldType = 10;
 }
 

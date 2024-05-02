@@ -486,8 +486,10 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
         addField(doc, keyValue.getKey(), keyValue.getVStr(), Schema.SchemaFieldType.IP, "", 0);
         jsonMap.put(keyValue.getKey(), keyValue.getVStr());
       } else if (schemaFieldType == Schema.SchemaFieldType.DATE) {
-        addField(doc, keyValue.getKey(), keyValue.getVInt64(), Schema.SchemaFieldType.DATE, "", 0);
-        jsonMap.put(keyValue.getKey(), keyValue.getVInt64());
+        Instant instant =
+            Instant.ofEpochSecond(keyValue.getVDate().getSeconds(), keyValue.getVDate().getNanos());
+        addField(doc, keyValue.getKey(), instant, Schema.SchemaFieldType.DATE, "", 0);
+        jsonMap.put(keyValue.getKey(), instant.toString());
       } else if (schemaFieldType == Schema.SchemaFieldType.BOOLEAN) {
         addField(
             doc, keyValue.getKey(), keyValue.getVBool(), Schema.SchemaFieldType.BOOLEAN, "", 0);
