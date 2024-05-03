@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -217,7 +218,9 @@ public class OpenSearchAdapter {
   public void reloadSchema() {
     // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
     //  this needs to be adapted to include other field types once we have support
-    for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
+    // TreeMap here ensures the schema is sorted by natural order - to ensure multifields are
+    // registered by their parent first, and then fields added second
+    for (Map.Entry<String, LuceneFieldDef> entry : new TreeMap<>(chunkSchema).entrySet()) {
       try {
         if (entry.getValue().fieldType == FieldType.TEXT) {
           tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "text"));
@@ -278,6 +281,26 @@ public class OpenSearchAdapter {
         b -> {
           b.startObject(fieldName);
           buildField.accept(b);
+          b.endObject();
+        });
+  }
+
+  protected static XContentBuilder fieldMappingWithFields(
+      String parentType,
+      String parentName,
+      String childName,
+      CheckedConsumer<XContentBuilder, IOException> buildField)
+      throws IOException {
+
+    return mapping(
+        b -> {
+          b.startObject(parentName);
+          b.field("type", parentType);
+          b.startObject("fields");
+          b.startObject(childName);
+          buildField.accept(b);
+          b.endObject();
+          b.endObject();
           b.endObject();
         });
   }
@@ -461,7 +484,26 @@ public class OpenSearchAdapter {
       return false;
     } else {
       try {
-        XContentBuilder mapping = fieldMapping(fieldName, buildField);
+        XContentBuilder mapping;
+        if (fieldName.contains(".")) {
+          String[] fieldParts = fieldName.split("\\.");
+          MappedFieldType parent = mapperService.fieldType(fieldParts[0]);
+
+          if (parent == null) {
+            // if we don't have a parent, register this dot separated name as its own thing
+            // this will cause future registrations to fail if someone comes along with a parent
+            // since you can't merge those items
+
+            // todo - consider making a decision about the parent here
+            // todo - if this happens can I declare bankruptcy and start over on the mappings?
+            mapping = fieldMapping(fieldName, buildField);
+          } else {
+            mapping =
+                fieldMappingWithFields(parent.typeName(), fieldParts[0], fieldParts[1], buildField);
+          }
+        } else {
+          mapping = fieldMapping(fieldName, buildField);
+        }
         mapperService.merge(
             "_doc",
             new CompressedXContent(BytesReference.bytes(mapping)),
