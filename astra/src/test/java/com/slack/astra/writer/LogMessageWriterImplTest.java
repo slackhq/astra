@@ -259,8 +259,7 @@ public class LogMessageWriterImplTest {
     for (IndexRequest indexRequest : indexRequests) {
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
       Trace.Span span =
-          BulkApiRequestParser.fromIngestDocument(
-              ingestDocument, Schema.IngestSchema.newBuilder().build());
+          BulkApiRequestParser.fromIngestDocument(ingestDocument, ReservedFields.START_SCHEMA);
       ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
       LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
       assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
@@ -408,8 +407,6 @@ public class LogMessageWriterImplTest {
 
   @Test
   public void testReservedFields() throws IOException {
-    Schema.IngestSchema schema = Schema.IngestSchema.newBuilder().build();
-    schema = ReservedFields.addPredefinedFields(schema);
 
     String request =
         """
@@ -424,7 +421,8 @@ public class LogMessageWriterImplTest {
 
     for (IndexRequest indexRequest : indexRequests) {
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
-      Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument, schema);
+      Trace.Span span =
+          BulkApiRequestParser.fromIngestDocument(ingestDocument, ReservedFields.START_SCHEMA);
       ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
       LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
       assertThat(messageWriter.insertRecord(spanRecord)).isTrue();

@@ -17,7 +17,6 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.google.protobuf.ByteString;
 import com.slack.astra.blobfs.s3.S3CrtBlobFs;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.logstore.LogMessage;
@@ -33,7 +32,6 @@ import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
-import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.service.murron.trace.Trace;
@@ -499,16 +497,7 @@ public class IndexingChunkImplTest {
 
     @Test
     public void testAddInvalidMessagesToChunk() {
-      Trace.Span invalidSpan =
-          Trace.Span.newBuilder()
-              .setId(ByteString.copyFromUtf8("1"))
-              .addTags(
-                  Trace.KeyValue.newBuilder()
-                      .setVInt32(123)
-                      .setKey(LogMessage.ReservedField.MESSAGE.fieldName)
-                      .setFieldType(Schema.SchemaFieldType.INTEGER)
-                      .build())
-              .build();
+      Trace.Span invalidSpan = Trace.Span.newBuilder().build();
 
       // An Invalid message is dropped but failure counter is incremented.
       chunk.addMessage(invalidSpan, TEST_KAFKA_PARTITION_ID, 1);

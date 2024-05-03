@@ -216,8 +216,6 @@ public class OpenSearchAdapter {
    * and if not attempt to register it with the mapper service
    */
   public void reloadSchema() {
-    // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
-    //  this needs to be adapted to include other field types once we have support
     // TreeMap here ensures the schema is sorted by natural order - to ensure multifields are
     // registered by their parent first, and then fields added second
     for (Map.Entry<String, LuceneFieldDef> entry : new TreeMap<>(chunkSchema).entrySet()) {
