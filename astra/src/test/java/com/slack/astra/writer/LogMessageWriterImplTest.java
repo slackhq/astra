@@ -556,6 +556,80 @@ public class LogMessageWriterImplTest {
   }
 
   @Test
+  public void testMultifield() throws IOException {
+    String schemaDef =
+        """
+              fields:
+                  host:
+                    type: TEXT
+                    fields:
+                      keyword:
+                        type: KEYWORD
+                        ignore_above: 256
+              """;
+    Schema.IngestSchema schema = SchemaUtil.parseSchemaYaml(schemaDef, System::getenv);
+
+    String request =
+        """
+              { "index" : { "_index" : "test", "_id" : "1" } }
+              { "host": "foo-bar-test-multi-1234"}
+              { "index" : { "_index" : "test", "_id" : "2" } }
+              { "host": "foo-bar-test-multi-4321"}
+              """;
+    List<IndexRequest> indexRequests =
+        BulkApiRequestParser.parseBulkRequest(request.getBytes(StandardCharsets.UTF_8));
+    assertThat(indexRequests.size()).isEqualTo(2);
+
+    for (IndexRequest indexRequest : indexRequests) {
+      IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
+      Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument, schema);
+      ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
+      LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
+      assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
+    }
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    chunkManagerUtil.chunkManager.getActiveChunk().commit();
+
+    SearchResult<LogMessage> results = searchChunkManager("test", "_id:1");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results = searchChunkManager("test", "_id:2");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results = searchChunkManager("test", "host:\"foo-bar-test-multi-1234\"");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results = searchChunkManager("test", "host.keyword:\"foo-bar-test-multi-1234\"");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results =
+        searchChunkManager(
+            "test",
+            "host:\"foo-bar-test-multi-1234\" AND host.keyword:\"foo-bar-test-multi-1234\"");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results = searchChunkManager("test", "host:\"foo\"");
+    assertThat(results.hits.size()).isEqualTo(2);
+
+    results = searchChunkManager("test", "host:\"foo-bar\"");
+    assertThat(results.hits.size()).isEqualTo(2);
+
+    results = searchChunkManager("test", "host:\"1234\"");
+    assertThat(results.hits.size()).isEqualTo(1);
+
+    results = searchChunkManager("test", "host:foo");
+    assertThat(results.hits.size()).isEqualTo(2);
+
+    results = searchChunkManager("test", "host.keyword:\"foo\"");
+    assertThat(results.hits.size()).isEqualTo(0);
+
+    results = searchChunkManager("test", "host.keyword:foo");
+    assertThat(results.hits.size()).isEqualTo(0);
+  }
+
+  @Test
   public void testNullTraceSpan() throws IOException {
     LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
 
