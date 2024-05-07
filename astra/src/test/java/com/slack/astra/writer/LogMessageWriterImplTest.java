@@ -231,6 +231,40 @@ public class LogMessageWriterImplTest {
   }
 
   @Test
+  public void parseAndIndexBulkApiWithMinimalFields() throws IOException {
+    String inputDocuments =
+            """
+        { "index" : { "_index" : "test", "_id" : "1" } }
+                    {"git_sha":"86a5e2e63048e1ddf42bb943d3616c5727758173", "trace_id":"3bbbb4fe23adb54545b31cd133010ae2", "_version_type":"internal", "service_name":"jobqueue", "execution_context":"jobqueue", "webapp_cluster_name":"qa-multi", "is_slackfill":"0", "callstack":"runjob.php166#trace_with_active_span$Closure$xbox_job_execute()\\nlib_jq_admission_control.hack340#Closure$job_queue_execute#3()\\nlib_job_handler.hack53#Asio\\\\join$JobHandlerProcessMessagerunAsync()\\nJobHandlerProcessMessage.hack", "webapp_cluster_nest":"normal", "UNIQUE_ID":"JQ_236e45ec6511a664ea952665a05c686e", "az_id":"use1-az1", "duration_ms":"0.054", "asio_wait_us":"0", "caller":"lib_teams.hack-teams_get_by_id_or_die", "hostname":"slack-qa-env-container-wc-goldenrod-chinchilla", "@timestamp":"2024-05-07T00:41:14Z", "parent_id":"759f5f3f167c322f", "name":"Asio\\\\join", "id":"001bf0454278f5a4", "slath":"xbox_job_execute", "_id":"null", "_version":"-3", "webapp_cluster_pbucket":52}
+                """;
+
+    byte[] rawRequest = inputDocuments.getBytes(StandardCharsets.UTF_8);
+
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(1);
+
+    for (IndexRequest indexRequest : indexRequests) {
+      IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
+      Trace.Span span =
+              BulkApiRequestParser.fromIngestDocument(ingestDocument, ReservedFields.START_SCHEMA);
+      ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
+      LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
+      assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
+    }
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    chunkManagerUtil.chunkManager.getActiveChunk().commit();
+
+    SearchResult<LogMessage> results = searchChunkManager("test", "_id:1");
+    assertThat(results.hits.size()).isEqualTo(1);
+    results = searchChunkManager("test", "service_name:jobqueue");
+    assertThat(results.hits.size()).isEqualTo(1);
+//    Object value = results.hits.get(0).getSource().get("tags");
+//    assertThat(value).isEqualTo("[]");
+  }
+
+  @Test
   public void parseAndIndexBulkApiRequestTest() throws IOException {
     // crux of the test - encoding and decoding of binary fields
     //    ByteString inputBytes = ByteString.copyFrom("{\"key1\":
