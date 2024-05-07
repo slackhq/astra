@@ -2,10 +2,8 @@ package com.slack.astra.logstore;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Pattern;
 
 /**
  * LogMessage class represents a well formed log message that can indexed by the Lucene indexer.
@@ -14,8 +12,6 @@ import java.util.regex.Pattern;
  * <p>This class handles all times in UTC timezone.
  */
 public class LogMessage extends LogWireMessage {
-
-  static final Pattern INDEX_NAME_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_./:]*$");
 
   // SystemFields are lucene fields created for internal use of Astra.
   public enum SystemField {
@@ -81,18 +77,9 @@ public class LogMessage extends LogWireMessage {
     }
   }
 
-  public static String computedIndexName(String indexName) {
-    return indexName.replace("-", "_");
-  }
-
-  public static Optional<LogMessage> fromJSON(String jsonStr) {
-    Optional<LogWireMessage> optionalWireMsg = LogWireMessage.fromJson(jsonStr);
-    return optionalWireMsg.map(LogMessage::fromWireMessage);
-  }
-
   public static LogMessage fromWireMessage(LogWireMessage wireMessage) {
     return new LogMessage(
-        computedIndexName(wireMessage.getIndex()),
+        wireMessage.getIndex(),
         wireMessage.getType(),
         wireMessage.getId(),
         wireMessage.getTimestamp(),
@@ -100,11 +87,7 @@ public class LogMessage extends LogWireMessage {
   }
 
   private boolean isValid() {
-    return (getIndex() != null
-        && getType() != null
-        && getId() != null
-        && getSource() != null
-        && INDEX_NAME_PATTERN.matcher(getIndex()).matches());
+    return (getIndex() != null && getType() != null && getId() != null && getSource() != null);
   }
 
   public LogMessage(
