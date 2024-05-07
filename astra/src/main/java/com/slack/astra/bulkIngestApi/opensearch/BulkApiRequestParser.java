@@ -52,6 +52,8 @@ public class BulkApiRequestParser {
       if (sourceAndMetadata.containsKey(ReservedFields.TIMESTAMP)) {
         String dateString = (String) sourceAndMetadata.get(ReservedFields.TIMESTAMP);
         Instant instant = Instant.parse(dateString);
+        LOG.info("Parsed timestamp={} from ingest document", instant);
+        LOG.info("sourceAndMetadata={}", sourceAndMetadata);
         return instant.toEpochMilli();
       }
 
