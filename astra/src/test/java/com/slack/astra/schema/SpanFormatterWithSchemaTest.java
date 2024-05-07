@@ -16,6 +16,7 @@ import com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.astra.logstore.LogStore;
 import com.slack.astra.logstore.LuceneIndexStoreConfig;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
+import com.slack.astra.logstore.schema.ReservedFields;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.SchemaUtil;
@@ -24,6 +25,8 @@ import com.slack.astra.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -606,6 +609,36 @@ public class SpanFormatterWithSchemaTest {
     Assertions.assertThat(
             SpanFormatter.isValidTimestamp(Instant.now().minus(169, ChronoUnit.HOURS)))
         .isFalse();
+  }
+
+  @Test
+  public void testDurationParsing() throws IOException {
+    String inputDocuments =
+        """
+        { "index" : { "_index" : "test", "_id" : "1" } }
+        { "duration" : 0.20389771461486816}
+        { "index" : { "_index" : "test", "_id" : "2" } }
+        { "duration" : "0.20389771461486816 ms"}
+        { "index" : { "_index" : "test", "_id" : "3" } }
+        { "duration" : 1715025939317}
+                """;
+
+    byte[] rawRequest = inputDocuments.getBytes(StandardCharsets.UTF_8);
+
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    Assertions.assertThat(indexRequests.size()).isEqualTo(3);
+
+    IngestDocument ingestDocument = convertRequestToDocument(indexRequests.get(0));
+    Trace.Span span = fromIngestDocument(ingestDocument, ReservedFields.START_SCHEMA);
+    assertThat(span.getDuration()).isEqualTo(0L);
+
+    ingestDocument = convertRequestToDocument(indexRequests.get(1));
+    span = fromIngestDocument(ingestDocument, ReservedFields.START_SCHEMA);
+    assertThat(span.getDuration()).isEqualTo(0L);
+
+    ingestDocument = convertRequestToDocument(indexRequests.get(2));
+    span = fromIngestDocument(ingestDocument, ReservedFields.START_SCHEMA);
+    assertThat(span.getDuration()).isEqualTo(1715025939317L);
   }
 
   @Test
