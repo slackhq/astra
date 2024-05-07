@@ -111,9 +111,16 @@ public class BulkApiRequestParser {
       sourceAndMetadata.remove(LogMessage.ReservedField.NAME.fieldName);
     }
     if (sourceAndMetadata.get(LogMessage.ReservedField.DURATION.fieldName) != null) {
-      spanBuilder.setDuration(
-          Long.parseLong(
-              sourceAndMetadata.get(LogMessage.ReservedField.DURATION.fieldName).toString()));
+      try {
+        spanBuilder.setDuration(
+            Long.parseLong(
+                sourceAndMetadata.get(LogMessage.ReservedField.DURATION.fieldName).toString()));
+      } catch (NumberFormatException e) {
+        LOG.warn(
+            "Unable to parse duration={} from ingest document. Setting duration to 0",
+            sourceAndMetadata.get(LogMessage.ReservedField.DURATION.fieldName));
+        spanBuilder.setDuration(0);
+      }
       sourceAndMetadata.remove(LogMessage.ReservedField.DURATION.fieldName);
     }
 
