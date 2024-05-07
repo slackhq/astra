@@ -96,6 +96,7 @@ message IndexerConfig {
   // Chunk config
   int64 max_messages_per_chunk = 1;
   int64 max_bytes_per_chunk = 2;
+  int64 max_time_per_chunk_seconds = 14;
 
   // Lucene config
   LuceneConfig lucene_config = 3;

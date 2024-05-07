@@ -250,6 +250,33 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   }
 
   @Test
+  public void testRolloverBasedOnMaxTime() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new DiskOrMessageCountBasedRolloverStrategy(
+            metricsRegistry, Long.MAX_VALUE, Long.MAX_VALUE, 2);
+
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
+
+    // add 1 message so that new chunk is created
+    // wait for 2+ seconds so that the chunk rollover code will get triggered
+    // add 2nd message to trigger chunk rollover
+    // add 3rd message to create new chunk
+    chunkManager.addMessage(SpanUtil.makeSpan(1), 100, TEST_KAFKA_PARTITION_ID, 1);
+    // so that the chunk rollover code will get triggered
+    Thread.sleep(2_000 + DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS);
+    chunkManager.addMessage(SpanUtil.makeSpan(2), 100, TEST_KAFKA_PARTITION_ID, 1);
+    chunkManager.addMessage(SpanUtil.makeSpan(3), 100, TEST_KAFKA_PARTITION_ID, 1);
+
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+  }
+
+  @Test
   public void testDiskBasedRolloverWithMaxMessages() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, Long.MAX_VALUE, 4);

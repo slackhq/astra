@@ -360,6 +360,7 @@ public class AstraConfigTest {
     final AstraConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isEqualTo(100);
     assertThat(indexerConfig.getMaxBytesPerChunk()).isEqualTo(100000);
+    assertThat(indexerConfig.getMaxTimePerChunkSeconds()).isEqualTo(1800);
     assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isEqualTo(10);
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isEqualTo(11);
     assertThat(indexerConfig.getLuceneConfig().getEnableFullTextSearch()).isTrue();
