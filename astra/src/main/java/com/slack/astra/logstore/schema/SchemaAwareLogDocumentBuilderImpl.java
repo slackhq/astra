@@ -1,6 +1,5 @@
 package com.slack.astra.logstore.schema;
 
-import static com.slack.astra.logstore.LogMessage.computedIndexName;
 import static com.slack.astra.writer.SpanFormatter.DEFAULT_INDEX_NAME;
 import static com.slack.astra.writer.SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE;
 import static com.slack.astra.writer.SpanFormatter.isValidTimestamp;
@@ -362,9 +361,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
         tags.containsKey(LogMessage.ReservedField.SERVICE_NAME.fieldName)
             ? tags.get(LogMessage.ReservedField.SERVICE_NAME.fieldName).getVStr()
             : DEFAULT_INDEX_NAME;
-    // if we don't do this LogMessage#isValid will be unhappy when we recreate the message
-    // we need to fix this!!!
-    indexName = computedIndexName(indexName);
 
     jsonMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, indexName);
     addField(
