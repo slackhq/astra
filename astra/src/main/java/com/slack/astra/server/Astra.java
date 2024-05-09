@@ -427,7 +427,7 @@ public class Astra {
       @Override
       public void failure(Service service) {
         LOG.error(
-            String.format("Service %s failed with cause ", service.getClass().toString()),
+            String.format("Service %s failed with cause ", service.getClass()),
             service.failureCause());
         // shutdown if any services enters failure state
         new RuntimeHalterImpl()
@@ -437,13 +437,14 @@ public class Astra {
   }
 
   void shutdown() {
-    LOG.info("Running shutdown hook.");
+    LOG.info("Running shutdown hook");
     try {
-      serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
+      serviceManager.stopAsync().awaitStopped(119, TimeUnit.SECONDS);
     } catch (Exception e) {
       // stopping timed out
       LOG.error("ServiceManager shutdown timed out", e);
     }
+    LOG.info("Shutting down curatorFramework");
     try {
       curatorFramework.unwrap().close();
     } catch (Exception e) {

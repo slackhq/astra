@@ -633,7 +633,7 @@ public class AstraIndexerTest {
         .contains(livePartition1, partition0);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .doesNotContain(livePartition0);
-    assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(2);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(3);
     assertThat(AstraMetadataTestUtils.listSyncUncached(recoveryTaskStore).size()).isZero();
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
 
