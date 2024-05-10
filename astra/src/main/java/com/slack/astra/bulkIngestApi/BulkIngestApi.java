@@ -81,6 +81,7 @@ public class BulkIngestApi {
         BulkIngestResponse response =
             new BulkIngestResponse(0, 0, "request must contain only 1 unique index");
         future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
+        LOG.error("request must contain only 1 unique index");
         return HttpResponse.of(future);
       }
 

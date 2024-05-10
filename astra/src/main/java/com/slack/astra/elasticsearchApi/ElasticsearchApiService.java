@@ -92,24 +92,30 @@ public class ElasticsearchApiService {
   @Post
   @Blocking
   @Path("/_msearch")
-  public HttpResponse multiSearch(String postBody) throws Exception {
-    LOG.debug("Search request: {}", postBody);
+  public HttpResponse multiSearch(String postBody) {
 
-    CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
-    try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
-      List<StructuredTaskScope.Subtask<EsSearchResponse>> requestSubtasks =
+    try {
+      LOG.debug("Search request: {}", postBody);
+
+      CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
+      try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
+        List<StructuredTaskScope.Subtask<EsSearchResponse>> requestSubtasks =
           openSearchRequest.parseHttpPostBody(postBody).stream()
-              .map((request) -> scope.fork(currentTraceContext.wrap(() -> doSearch(request))))
-              .toList();
+            .map((request) -> scope.fork(currentTraceContext.wrap(() -> doSearch(request))))
+            .toList();
 
-      scope.join();
-      SearchResponseMetadata responseMetadata =
+        scope.join();
+        SearchResponseMetadata responseMetadata =
           new SearchResponseMetadata(
-              0,
-              requestSubtasks.stream().map(StructuredTaskScope.Subtask::get).toList(),
-              Map.of("traceId", getTraceId()));
-      return HttpResponse.of(
+            0,
+            requestSubtasks.stream().map(StructuredTaskScope.Subtask::get).toList(),
+            Map.of("traceId", getTraceId()));
+        return HttpResponse.of(
           HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
+      }
+    } catch (Exception e) {
+      LOG.error("Error fulfilling request for multisearch query", e);
+      return HttpResponse.of(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
