@@ -98,7 +98,6 @@ public class BulkIngestApiTest {
     preprocessorConfig =
         AstraConfigs.PreprocessorConfig.newBuilder()
             .setKafkaConfig(kafkaConfig)
-            .setUseBulkApi(true)
             .setServerConfig(serverConfig)
             .setPreprocessorInstanceCount(1)
             .setRateLimiterMaxBurstSeconds(1)

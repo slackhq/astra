@@ -35,7 +35,6 @@ import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.schema.SchemaUtil;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.astra.preprocessor.PreprocessorService;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.proto.schema.Schema;
@@ -393,36 +392,30 @@ public class Astra {
           new CloseableLifecycleManager(
               AstraConfigs.NodeRole.PREPROCESSOR, List.of(datasetMetadataStore)));
 
-      if (preprocessorConfig.getUseBulkApi()) {
-        BulkIngestKafkaProducer bulkIngestKafkaProducer =
-            new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
-        services.add(bulkIngestKafkaProducer);
-        DatasetRateLimitingService datasetRateLimitingService =
-            new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
-        services.add(datasetRateLimitingService);
+      BulkIngestKafkaProducer bulkIngestKafkaProducer =
+          new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+      services.add(bulkIngestKafkaProducer);
+      DatasetRateLimitingService datasetRateLimitingService =
+          new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
+      services.add(datasetRateLimitingService);
 
-        Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
-        if (!preprocessorConfig.getSchemaFile().isEmpty()) {
-          LOG.info("Loading schema file: {}", preprocessorConfig.getSchemaFile());
-          schema = SchemaUtil.parseSchema(Path.of(preprocessorConfig.getSchemaFile()));
-          LOG.info("Loaded schema with total fields: {}", schema.getFieldsCount());
-        } else {
-          LOG.info("No schema file provided, using default schema");
-        }
-        schema = ReservedFields.addPredefinedFields(schema);
-        BulkIngestApi openSearchBulkApiService =
-            new BulkIngestApi(
-                bulkIngestKafkaProducer,
-                datasetRateLimitingService,
-                meterRegistry,
-                preprocessorConfig.getRateLimitExceededErrorCode(),
-                schema);
-        armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
+      Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
+      if (!preprocessorConfig.getSchemaFile().isEmpty()) {
+        LOG.info("Loading schema file: {}", preprocessorConfig.getSchemaFile());
+        schema = SchemaUtil.parseSchema(Path.of(preprocessorConfig.getSchemaFile()));
+        LOG.info("Loaded schema with total fields: {}", schema.getFieldsCount());
       } else {
-        PreprocessorService preprocessorService =
-            new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
-        services.add(preprocessorService);
+        LOG.info("No schema file provided, using default schema");
       }
+      schema = ReservedFields.addPredefinedFields(schema);
+      BulkIngestApi openSearchBulkApiService =
+          new BulkIngestApi(
+              bulkIngestKafkaProducer,
+              datasetRateLimitingService,
+              meterRegistry,
+              preprocessorConfig.getRateLimitExceededErrorCode(),
+              schema);
+      armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
       services.add(armeriaServiceBuilder.build());
     }
 

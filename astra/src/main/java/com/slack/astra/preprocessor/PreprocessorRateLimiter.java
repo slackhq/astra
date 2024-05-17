@@ -2,7 +2,6 @@ package com.slack.astra.preprocessor;
 
 import static com.slack.astra.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
 import static com.slack.astra.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
-import static com.slack.astra.preprocessor.PreprocessorService.sortDatasetsOnThroughput;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.RateLimiter;
@@ -13,12 +12,12 @@ import io.micrometer.core.instrument.Tag;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import javax.annotation.concurrent.ThreadSafe;
-import org.apache.kafka.streams.kstream.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +40,9 @@ public class PreprocessorRateLimiter {
 
   public static final String MESSAGES_DROPPED = "preprocessor_rate_limit_messages_dropped";
   public static final String BYTES_DROPPED = "preprocessor_rate_limit_bytes_dropped";
+
+  /** Span key for KeyValue pair to use as the service name */
+  public static String SERVICE_NAME_KEY = "service_name";
 
   public enum MessageDropReason {
     MISSING_SERVICE_NAME,
@@ -196,75 +198,16 @@ public class PreprocessorRateLimiter {
                 }));
   }
 
-  public Predicate<String, Trace.Span> createRateLimiter(
-      List<DatasetMetadata> datasetMetadataList) {
-
-    List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
-
-    Map<String, RateLimiter> rateLimiterMap = getRateLimiterMap(throughputSortedDatasets);
-
-    return (key, value) -> {
-      if (value == null) {
-        LOG.warn("Message was dropped, was null span");
-        return false;
-      }
-
-      String serviceName = PreprocessorValueMapper.getServiceName(value);
-      int bytes = value.getSerializedSize();
-      if (serviceName == null || serviceName.isEmpty()) {
-        // service name wasn't provided
-        LOG.debug("Message was dropped due to missing service name - '{}'", value);
-        // todo - we may consider adding a logging BurstFilter so that a bad actor cannot
-        //  inadvertently swamp the system if we want to increase this logging level
-        //  https://logging.apache.org/log4j/2.x/manual/filters.html#BurstFilter
-        meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
-            .increment();
-        meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
-            .increment(bytes);
-        return false;
-      }
-
-      for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
-        String serviceNamePattern = datasetMetadata.getServiceNamePattern();
-        // back-compat since this is a new field
-        if (serviceNamePattern == null) {
-          serviceNamePattern = datasetMetadata.getName();
-        }
-        if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
-            || serviceNamePattern.equals(MATCH_STAR_SERVICE)
-            || serviceName.equals(serviceNamePattern)) {
-          RateLimiter rateLimiter = rateLimiterMap.get(datasetMetadata.getName());
-          if (rateLimiter.tryAcquire(bytes)) {
-            return true;
-          }
-          // message should be dropped due to rate limit
-          meterRegistry
-              .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
-              .increment();
-          meterRegistry
-              .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
-              .increment(bytes);
-          LOG.debug(
-              "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",
-              serviceName,
-              rateLimiter.getRate());
-          return false;
-        }
-      }
-      // message should be dropped due to no matching service name being provisioned
-      meterRegistry
-          .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
-          .increment();
-      meterRegistry
-          .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
-          .increment(bytes);
-      return false;
-    };
-  }
-
   private static List<Tag> getMeterTags(String serviceName, MessageDropReason reason) {
     return List.of(Tag.of("service", serviceName), Tag.of("reason", reason.toString()));
+  }
+
+  // we sort the datasets to rank from which dataset do we start matching candidate service names
+  // in the future we can change the ordering from sort to something else
+  public static List<DatasetMetadata> sortDatasetsOnThroughput(
+      List<DatasetMetadata> datasetMetadataList) {
+    return datasetMetadataList.stream()
+        .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes).reversed())
+        .collect(Collectors.toList());
   }
 }
