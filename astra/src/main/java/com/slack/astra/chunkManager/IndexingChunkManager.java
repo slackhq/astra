@@ -427,36 +427,29 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     // try to rollover existing chunk
     if (getActiveChunk() != null) {
       doRollover(getActiveChunk());
+      if (rolloverFuture != null && !rolloverFuture.isDone()) {
+        try {
+          LOG.info("Waiting for current chunk rollover to complete before shutting down");
+          rolloverFuture.get(timeRemaining.getSeconds(), TimeUnit.SECONDS);
+          LOG.info("Roll over completed successfully");
+        } catch (Exception e) {
+          LOG.warn("Current chunk rollover failed with exception", e);
+        }
+      }
     } else {
       LOG.info("No active chunk to rollover");
     }
 
-    // stop accepting new rollover requests
-    // by now we have stopped ingesting new data so this should be okay
-    rolloverExecutorService.shutdown();
-
-    // TODO: should I close chunk first and then call doRollover?
     for (Chunk<T> chunk : chunkList) {
       try {
         chunk.close();
       } catch (IOException e) {
-        LOG.error("Failed to close chunk.", e);
+        LOG.error("Failed to close chunk", e);
       }
     }
     chunkRollOverStrategy.close();
 
-    if (rolloverFuture != null && !rolloverFuture.isDone()) {
-      try {
-        LOG.info("Waiting for current chunk rollover to complete before shutting down");
-        rolloverFuture.get(timeRemaining.getSeconds(), TimeUnit.SECONDS);
-        LOG.info("Roll over completed successfully");
-      } catch (Exception e) {
-        LOG.warn("Current chunk rollover failed with exception", e);
-      }
-    }
-
-    // Forcefully close rollover executor service. There may be a pending rollover, but we have
-    // reached the max time.
+    // Close rollover executor service. We should not have any pending tasks.
     rolloverExecutorService.shutdownNow();
 
     searchMetadataStore.close();

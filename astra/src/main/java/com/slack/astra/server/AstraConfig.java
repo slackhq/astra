@@ -28,10 +28,10 @@ public class AstraConfig {
   @Deprecated public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
 
   // This should be moved to a proper config but we hardcode it to 180s for now
-  // This means the indexer will wait 115s before stopping
+  // This means the indexer will wait 150s before stopping
   // The idea being we want to give the indexer time to upload the existing chunk before stopping
   // Without that all the messages from the existing chunk go missing till the recovery task runs
-  @Deprecated public static Duration DEFAULT_INDEXER_STOP_DURATION = Duration.ofSeconds(115);
+  @Deprecated public static Duration DEFAULT_INDEXER_STOP_DURATION = Duration.ofSeconds(150);
 
   // This should go away, in factor of using the zkConnectionTimeoutMs config value
   @Deprecated public static final int DEFAULT_ZK_TIMEOUT_SECS = 30;

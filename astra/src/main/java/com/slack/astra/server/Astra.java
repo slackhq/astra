@@ -56,11 +56,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.crt.CRT;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 /**
@@ -131,7 +133,12 @@ public class Astra {
 
   public void start() throws Exception {
     setupSystemMetrics(prometheusMeterRegistry);
-    addShutdownHook();
+
+    // for the indexer we want to shutdown services in a particular order
+    // so we shutdown the indexer within getServices
+    if (!astraConfig.getNodeRolesList().contains(AstraConfigs.NodeRole.INDEX)) {
+      addShutdownHook();
+    }
 
     curatorFramework =
         CuratorBuilder.build(
@@ -191,6 +198,45 @@ public class Astra {
               .withGrpcService(searcher)
               .build();
       services.add(armeriaService);
+
+      /**
+       * 1. Shutdown the indexer so no new messages are indexed 2. Shutdown the chunk manager and
+       * wait upto 165s for the existing chunk to be uploaded to S3 3. Shutdown the curator
+       * framework and any other service
+       */
+      Runtime.getRuntime()
+          .addShutdownHook(
+              new Thread(
+                  () -> {
+                    LOG.info("Running shutdown hook for indexer");
+                    try {
+                      indexer.stopAsync().awaitTerminated(10, TimeUnit.SECONDS);
+                    } catch (TimeoutException exception) {
+                      LOG.warn("Indexer did not stop in time", exception);
+                    }
+
+                    try {
+                      chunkManager.stopAsync().awaitTerminated(165, TimeUnit.SECONDS);
+                    } catch (TimeoutException exception) {
+                      LOG.warn("Chunk manager did not stop in time", exception);
+                    }
+
+                    try {
+                      armeriaService.stopAsync().awaitTerminated(10, TimeUnit.SECONDS);
+                    } catch (TimeoutException exception) {
+                      LOG.warn("Chunk manager did not stop in time", exception);
+                    }
+
+                    CRT.releaseShutdownRef();
+
+                    try {
+                      curatorFramework.unwrap().close();
+                    } catch (Exception e) {
+                      LOG.error("Error while closing curatorFramework ", e);
+                    }
+                    LogManager.shutdown();
+                    LOG.info("Shutdown complete for indexer");
+                  }));
     }
 
     if (roles.contains(AstraConfigs.NodeRole.QUERY)) {
@@ -439,19 +485,19 @@ public class Astra {
   void shutdown() {
     LOG.info("Running shutdown hook");
     try {
-      serviceManager.stopAsync().awaitStopped(119, TimeUnit.SECONDS);
+      serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
     } catch (Exception e) {
       // stopping timed out
       LOG.error("ServiceManager shutdown timed out", e);
     }
-    LOG.info("Shutting down curatorFramework");
     try {
       curatorFramework.unwrap().close();
     } catch (Exception e) {
       LOG.error("Error while closing curatorFramework ", e);
     }
-    LOG.info("Shutting down LogManager");
+    CRT.releaseShutdownRef();
     LogManager.shutdown();
+    LOG.info("Shutdown complete");
   }
 
   private void addShutdownHook() {

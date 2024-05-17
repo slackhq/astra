@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,7 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
+import software.amazon.awssdk.crt.CRT;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
@@ -143,6 +145,7 @@ public class S3CrtBlobFs extends BlobFs {
           throw new RuntimeException(e);
         }
       }
+      CRT.acquireShutdownRef();
       return s3AsyncClient.build();
     } catch (S3Exception e) {
       throw new RuntimeException("Could not initialize S3blobFs", e);
@@ -546,11 +549,12 @@ public class S3CrtBlobFs extends BlobFs {
 
   @Override
   public void copyFromLocalFile(File srcFile, URI dstUri) throws Exception {
-    LOG.debug("Copy {} from local to {}", srcFile.getAbsolutePath(), dstUri);
+    LOG.info("Copy {} from local to {}", srcFile.getAbsolutePath(), dstUri);
     URI base = getBase(dstUri);
     String prefix = sanitizePath(base.relativize(dstUri).getPath());
 
     if (srcFile.isDirectory()) {
+      LOG.info("Uploading directory {}", srcFile.getAbsolutePath());
       CompletedDirectoryUpload completedDirectoryUpload =
           transferManager
               .uploadDirectory(
@@ -571,6 +575,7 @@ public class S3CrtBlobFs extends BlobFs {
                 completedDirectoryUpload.failedTransfers().size()));
       }
     } else {
+      LOG.info("Uploading file {}", srcFile.getAbsolutePath());
       PutObjectRequest putObjectRequest =
           PutObjectRequest.builder().bucket(dstUri.getHost()).key(prefix).build();
       transferManager
@@ -672,6 +677,8 @@ public class S3CrtBlobFs extends BlobFs {
 
   @Override
   public void close() throws IOException {
+    LOG.info("Closing S3CrtBlobFs");
+    LOG.info(Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
     super.close();
   }
 }
