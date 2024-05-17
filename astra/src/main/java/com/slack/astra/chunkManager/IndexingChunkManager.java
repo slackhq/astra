@@ -109,8 +109,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     ThreadPoolExecutor rollOverExecutor =
         new ThreadPoolExecutor(
             1, 1, 0, MILLISECONDS, new SynchronousQueue<>(), new ThreadPoolExecutor.AbortPolicy());
-    return MoreExecutors.listeningDecorator(
-        MoreExecutors.getExitingExecutorService(rollOverExecutor));
+    return MoreExecutors.listeningDecorator(rollOverExecutor);
   }
 
   public IndexingChunkManager(
@@ -427,29 +426,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     // try to rollover existing chunk
     if (getActiveChunk() != null) {
-      /**
-       * java.util.concurrent.RejectedExecutionException: Task
-       * TrustedListenableFutureTask@79ba2a9d[status=PENDING, info=[task=[running=[NOT STARTED YET],
-       * com.slack.astra.chunkManager.RollOverChunkTask@61369d66]]] rejected from
-       * java.util.concurrent.ThreadPoolExecutor@6c0905f6[Terminated, pool size = 0, active threads
-       * = 0, queued tasks = 0, completed tasks = 0] at
-       * java.base/java.util.concurrent.ThreadPoolExecutor$Ab
-       */
-
-      // doRollover(getActiveChunk());
-
-      ReadWriteChunk<T> currentChunk = getActiveChunk();
-      currentChunk.info().setChunkLastUpdatedTimeEpochMs(Instant.now().toEpochMilli());
-      RollOverChunkTask<T> rollOverChunkTask =
-          new RollOverChunkTask<>(
-              currentChunk, meterRegistry, blobFs, s3Bucket, currentChunk.info().chunkId);
-
-      try {
-        rollOverChunkTask.call();
-        LOG.info("Rolled over active chunk successfully");
-      } catch (Exception e) {
-        LOG.error("Failed to rollover active chunk", e);
-      }
+      doRollover(getActiveChunk());
     } else {
       LOG.info("No active chunk to rollover");
     }
