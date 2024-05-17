@@ -270,10 +270,7 @@ public class AstraConfigTest {
 
     final AstraConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isEqualTo(1);
-    assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
-    assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
-    assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(false);
     assertThat(preprocessorConfig.getRateLimitExceededErrorCode()).isEqualTo(400);
     assertThat(preprocessorConfig.getSchemaFile()).isEqualTo("schema/test_schema.yaml");
 
@@ -285,13 +282,6 @@ public class AstraConfigTest {
     final AstraConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
     assertThat(preprocessorServerConfig.getServerAddress()).isEqualTo("localhost");
-
-    final AstraConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
-        preprocessorConfig.getKafkaStreamConfig();
-    assertThat(preprocessorKafkaStreamConfig.getBootstrapServers()).isEqualTo("localhost:9092");
-    assertThat(preprocessorKafkaStreamConfig.getApplicationId()).isEqualTo("astra_preprocessor");
-    assertThat(preprocessorKafkaStreamConfig.getNumStreamThreads()).isEqualTo(2);
-    assertThat(preprocessorKafkaStreamConfig.getProcessingGuarantee()).isEqualTo("at_least_once");
   }
 
   @Test
@@ -446,8 +436,6 @@ public class AstraConfigTest {
 
     final AstraConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isEqualTo(1);
-    assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
-    assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
 
     final AstraConfigs.KafkaConfig preprocessorKafkaConfig =
@@ -455,20 +443,12 @@ public class AstraConfigTest {
     assertThat(preprocessorKafkaConfig.getKafkaBootStrapServers()).isEqualTo("localhost:9092");
     assertThat(preprocessorKafkaConfig.getKafkaTopic()).isEqualTo("test-topic");
 
-    assertThat(preprocessorConfig.getUseBulkApi()).isEqualTo(true);
     assertThat(preprocessorConfig.getRateLimitExceededErrorCode()).isEqualTo(429);
     assertThat(preprocessorConfig.getSchemaFile()).isEqualTo("schema/test_schema.yaml");
 
     final AstraConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
     assertThat(preprocessorServerConfig.getServerAddress()).isEqualTo("localhost");
-
-    final AstraConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
-        preprocessorConfig.getKafkaStreamConfig();
-    assertThat(preprocessorKafkaStreamConfig.getBootstrapServers()).isEqualTo("localhost:9092");
-    assertThat(preprocessorKafkaStreamConfig.getApplicationId()).isEqualTo("astra_preprocessor");
-    assertThat(preprocessorKafkaStreamConfig.getNumStreamThreads()).isEqualTo(2);
-    assertThat(preprocessorKafkaStreamConfig.getProcessingGuarantee()).isEqualTo("at_least_once");
   }
 
   @Test
@@ -615,21 +595,11 @@ public class AstraConfigTest {
 
     final AstraConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isZero();
-    assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
-    assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
-    assertThat(preprocessorConfig.getUseBulkApi()).isFalse();
 
     final AstraConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();
     assertThat(preprocessorServerConfig.getServerAddress()).isEmpty();
-
-    final AstraConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
-        preprocessorConfig.getKafkaStreamConfig();
-    assertThat(preprocessorKafkaStreamConfig.getBootstrapServers()).isEmpty();
-    assertThat(preprocessorKafkaStreamConfig.getApplicationId()).isEmpty();
-    assertThat(preprocessorKafkaStreamConfig.getNumStreamThreads()).isZero();
-    assertThat(preprocessorKafkaStreamConfig.getProcessingGuarantee()).isEmpty();
   }
 
   @Test
@@ -743,21 +713,11 @@ public class AstraConfigTest {
 
     final AstraConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isZero();
-    assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
-    assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
 
     final AstraConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();
     assertThat(preprocessorServerConfig.getServerAddress()).isEmpty();
-    assertThat(preprocessorConfig.getUseBulkApi()).isFalse();
-
-    final AstraConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
-        preprocessorConfig.getKafkaStreamConfig();
-    assertThat(preprocessorKafkaStreamConfig.getBootstrapServers()).isEmpty();
-    assertThat(preprocessorKafkaStreamConfig.getApplicationId()).isEmpty();
-    assertThat(preprocessorKafkaStreamConfig.getNumStreamThreads()).isZero();
-    assertThat(preprocessorKafkaStreamConfig.getProcessingGuarantee()).isEmpty();
   }
 
   @Test

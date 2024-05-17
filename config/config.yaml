@@ -119,12 +119,6 @@ recoveryConfig:
     additionalProps: ${KAFKA_ADDITIONAL_PROPS:-}
 
 preprocessorConfig:
-  kafkaStreamConfig:
-    bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
-    applicationId: ${KAFKA_APPLICATION_ID:-ASTRA_preprocessor}
-    numStreamThreads: ${KAFKA_STREAM_THREADS:-2}
-    processingGuarantee: ${KAFKA_STREAM_PROCESSING_GUARANTEE:-at_least_once}
-    additionalProps: ${KAFKA_ADDITIONAL_PROPS:-}
   kafkaConfig:
     kafkaTopic: ${KAFKA_TOPIC:-test-topic}
     kafkaBootStrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
@@ -135,11 +129,6 @@ preprocessorConfig:
     serverPort: ${ASTRA_PREPROCESSOR_SERVER_PORT:-8086}
     serverAddress: ${ASTRA_PREPROCESSOR_SERVER_ADDRESS:-localhost}
     requestTimeoutMs: ${ASTRA_PREPROCESSOR_REQUEST_TIMEOUT_MS:-30000}
-  upstreamTopics: [${KAKFA_UPSTREAM_TOPICS:-test-topic-in}]
-  downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic}
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
-  dataTransformer: ${PREPROCESSOR_TRANSFORMER:-json}
   rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}
-  kafkaPartitionStickyTimeoutMs: ${KAFKA_PARTITION_STICKY_TIMEOUT_MS:-0}
-  useBulkApi: ${ASTRA_PREPROCESSOR_USE_BULK_API:-true}
   rateLimitExceededErrorCode: ${ASTRA_PREPROCESSOR_RATE_LIMIT_EXCEEDED_ERROR_CODE:-400}

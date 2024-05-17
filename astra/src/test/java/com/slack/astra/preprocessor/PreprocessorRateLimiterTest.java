@@ -2,7 +2,7 @@ package com.slack.astra.preprocessor;
 
 import static com.slack.astra.preprocessor.PreprocessorRateLimiter.BYTES_DROPPED;
 import static com.slack.astra.preprocessor.PreprocessorRateLimiter.MESSAGES_DROPPED;
-import static com.slack.astra.preprocessor.PreprocessorValueMapper.SERVICE_NAME_KEY;
+import static com.slack.astra.preprocessor.PreprocessorRateLimiter.SERVICE_NAME_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
@@ -12,7 +12,7 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
-import org.apache.kafka.streams.kstream.Predicate;
+import java.util.function.BiPredicate;
 import org.junit.jupiter.api.Test;
 
 public class PreprocessorRateLimiterTest {
@@ -41,20 +41,20 @@ public class PreprocessorRateLimiterTest {
             name,
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
-            name);
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(List.of(datasetMetadata));
+            DatasetMetadata.MATCH_ALL_SERVICE);
+    BiPredicate<String, List<Trace.Span>> predicate =
+        rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isFalse();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
 
     // rate limit is targetThroughput per second, so 1 second should refill our limit
     Thread.sleep(1000);
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isFalse();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
 
     assertThat(
             meterRegistry
@@ -99,19 +99,19 @@ public class PreprocessorRateLimiterTest {
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             DatasetMetadata.MATCH_ALL_SERVICE);
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(List.of(datasetMetadata));
+    BiPredicate<String, List<Trace.Span>> predicate =
+        rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isFalse();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
 
     // rate limit is targetThroughput per second, so 1 second should refill our limit
     Thread.sleep(1000);
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isFalse();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
 
     assertThat(
             meterRegistry
@@ -140,19 +140,19 @@ public class PreprocessorRateLimiterTest {
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             DatasetMetadata.MATCH_STAR_SERVICE);
-    Predicate<String, Trace.Span> predicate1 =
-        rateLimiter1.createRateLimiter(List.of(datasetMetadata1));
+    BiPredicate<String, List<Trace.Span>> predicate1 =
+        rateLimiter1.createBulkIngestRateLimiter(List.of(datasetMetadata1));
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate1.test("key", span)).isTrue();
-    assertThat(predicate1.test("key", span)).isFalse();
+    assertThat(predicate1.test("key", List.of(span))).isTrue();
+    assertThat(predicate1.test("key", List.of(span))).isFalse();
 
     // rate limit is targetThroughput per second, so 1 second should refill our limit
     Thread.sleep(1000);
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate1.test("key", span)).isTrue();
-    assertThat(predicate1.test("key", span)).isFalse();
+    assertThat(predicate1.test("key", List.of(span))).isTrue();
+    assertThat(predicate1.test("key", List.of(span))).isFalse();
 
     assertThat(
             meterRegistry1
@@ -180,20 +180,20 @@ public class PreprocessorRateLimiterTest {
             name,
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
-            null);
-    Predicate<String, Trace.Span> predicate2 =
-        rateLimiter2.createRateLimiter(List.of(datasetMetadata2));
+            "key");
+    BiPredicate<String, List<Trace.Span>> predicate2 =
+        rateLimiter2.createBulkIngestRateLimiter(List.of(datasetMetadata2));
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate2.test("key", span)).isTrue();
-    assertThat(predicate2.test("key", span)).isFalse();
+    assertThat(predicate2.test("key", List.of(span))).isTrue();
+    assertThat(predicate2.test("key", List.of(span))).isFalse();
 
     // rate limit is targetThroughput per second, so 1 second should refill our limit
     Thread.sleep(1000);
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate2.test("key", span)).isTrue();
-    assertThat(predicate2.test("key", span)).isFalse();
+    assertThat(predicate2.test("key", List.of(span))).isTrue();
+    assertThat(predicate2.test("key", List.of(span))).isFalse();
 
     assertThat(
             meterRegistry2
@@ -248,23 +248,23 @@ public class PreprocessorRateLimiterTest {
             DatasetMetadata.MATCH_ALL_SERVICE);
 
     // ensure we always drop for dataset1
-    Predicate<String, Trace.Span> predicate1 =
-        rateLimiter.createRateLimiter(List.of(datasetMetadata1));
-    assertThat(predicate1.test("key", span)).isFalse();
+    BiPredicate<String, List<Trace.Span>> predicate1 =
+        rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata1));
+    assertThat(predicate1.test("key", List.of(span))).isFalse();
 
-    Predicate<String, Trace.Span> predicate2 =
-        rateLimiter.createRateLimiter(List.of(datasetMetadata1, datasetMetadata2));
+    BiPredicate<String, List<Trace.Span>> predicate2 =
+        rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata1, datasetMetadata2));
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate2.test("key", span)).isTrue();
-    assertThat(predicate2.test("key", span)).isFalse();
+    assertThat(predicate2.test("key", List.of(span))).isTrue();
+    assertThat(predicate2.test("key", List.of(span))).isFalse();
 
     // rate limit is targetThroughput per second, so 1 second should refill our limit
     Thread.sleep(1000);
 
     // try to get just below the scaled limit, then try to go over
-    assertThat(predicate2.test("key", span)).isTrue();
-    assertThat(predicate2.test("key", span)).isFalse();
+    assertThat(predicate2.test("key", List.of(span))).isTrue();
+    assertThat(predicate2.test("key", List.of(span))).isFalse();
 
     assertThat(
             meterRegistry
@@ -303,11 +303,11 @@ public class PreprocessorRateLimiterTest {
             Long.MAX_VALUE,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             "wrong_service");
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(List.of(datasetMetadata));
+    BiPredicate<String, List<Trace.Span>> predicate =
+        rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
     // this should be immediately dropped
-    assertThat(predicate.test("key", span)).isFalse();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
 
     assertThat(
             meterRegistry
@@ -348,10 +348,10 @@ public class PreprocessorRateLimiterTest {
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
             name);
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(List.of(datasetMetadata));
+    BiPredicate<String, List<Trace.Span>> predicate =
+        rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
-    assertThat(predicate.test("key", Trace.Span.newBuilder().build())).isFalse();
+    assertThat(predicate.test("key", List.of(Trace.Span.newBuilder().build()))).isFalse();
     assertThat(predicate.test("key", null)).isFalse();
   }
 
@@ -382,20 +382,20 @@ public class PreprocessorRateLimiterTest {
             name,
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
-            name);
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(List.of(datasetMetadata));
+            DatasetMetadata.MATCH_ALL_SERVICE);
+    BiPredicate<String, List<Trace.Span>> predicate =
+        rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isFalse();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
 
     Thread.sleep(2000);
 
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isFalse();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
   }
 
   @Test
@@ -416,17 +416,17 @@ public class PreprocessorRateLimiterTest {
             name,
             targetThroughput,
             List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
-            name);
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(List.of(datasetMetadata));
+            DatasetMetadata.MATCH_ALL_SERVICE);
+    BiPredicate<String, List<Trace.Span>> predicate =
+        rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
 
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isFalse();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
 
     Thread.sleep(2500);
 
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isTrue();
-    assertThat(predicate.test("key", span)).isFalse();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
   }
 }

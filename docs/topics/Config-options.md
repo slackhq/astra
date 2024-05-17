@@ -685,18 +685,6 @@ recoveryConfig:
 
 Configuration options for the preprocessor node.
 
-### kafkaStreamConfig
-```yaml
-preprocessorConfig:
-  kafkaStreamConfig:
-    bootstrapServers: localhost:9092
-    applicationId: astra_preprocessor
-    numStreamThreads: 2
-    processingGuarantee: at_least_once
-    additionalProps: ""
-```
-<warning><code>kafkaStreamConfig</code> is deprecated and unsupported.</warning>
-
 ### kafkaConfig {id=kafka-preprocessor}
 ```yaml
 
@@ -739,22 +727,6 @@ preprocessorConfig:
 
 <include from="Config-options.md" element-id="server-config"></include>
 
-### upstreamTopics
-```yaml
-preprocessorConfig:
-  upstreamTopics: ""
-```
-<warning><code>upstreamTopics</code> is deprecated.</warning>
-<note>Should always be set to <code>""</code></note>
-
-### downstreamTopic
-```yaml
-preprocessorConfig:
-  downstreamTopic: ""
-```
-<warning><code>downstreamTopic</code> is deprecated.</warning>
-<note>Should always be set to <code>""</code></note>
-
 ### preprocessorInstanceCount
 ```yaml
 preprocessorConfig:
@@ -762,15 +734,6 @@ preprocessorConfig:
 ```
 Indicates how many instances of the preprocessor are currently deployed. Used for scaling rate limiters such that each 
 preprocessor instance will allow the `total rate limit / preprocessor instance count` through before applying.
-
-### dataTransformer
-<warning><code>dataTransformer</code> is deprecated.</warning>
-
-```yaml
-preprocessorConfig:
-  dataTransformer: json
-```
-<note>Should always be set to <code>json</code></note>
 
 ### rateLimiterMaxBurstSeconds
 ```yaml
@@ -780,27 +743,6 @@ preprocessorConfig:
 Defines how many seconds rate limiting unused permits can be accumulated before no longer increasing. 
 
 <tip>Must be greater than or equal to 1.</tip>
-
-### kafkaPartitionStickyTimeoutMs
-
-```yaml
-preprocessorConfig:
-  kafkaPartitionStickyTimeoutMs: 0
-```
-
-<warning><code>kafkaPartitionStickyTimeoutMs</code> is deprecated.</warning>
-<note>Should always be set to <code>0</code></note>
-
-### useBulkApi
-
-```yaml
-preprocessorConfig:
-  useBulkApi: true
-```
-<warning><code>useBulkApi</code> is deprecated.</warning>
-<note>Should always be set to <code>true</code></note>
-
-Enable bulk ingest API, replacing the Kafka Streams API _(deprecated)_.
 
 ### rateLimitExceededErrorCode
 
