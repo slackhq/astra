@@ -7,8 +7,8 @@ import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.preprocessor.PreprocessorRateLimiter;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.util.List;
 import java.util.function.BiPredicate;
 
@@ -24,7 +24,7 @@ public class DatasetRateLimitingService extends AbstractIdleService {
   private final PreprocessorRateLimiter rateLimiter;
   private BiPredicate<String, List<Trace.Span>> rateLimiterPredicate;
 
-  private final PrometheusMeterRegistry meterRegistry;
+  private final MeterRegistry meterRegistry;
   public static final String RATE_LIMIT_RELOAD_TIMER =
       "preprocessor_dataset_rate_limit_reload_timer";
   private final Timer rateLimitReloadtimer;
@@ -32,7 +32,7 @@ public class DatasetRateLimitingService extends AbstractIdleService {
   public DatasetRateLimitingService(
       DatasetMetadataStore datasetMetadataStore,
       AstraConfigs.PreprocessorConfig preprocessorConfig,
-      PrometheusMeterRegistry meterRegistry) {
+      MeterRegistry meterRegistry) {
     this.datasetMetadataStore = datasetMetadataStore;
     this.meterRegistry = meterRegistry;
 

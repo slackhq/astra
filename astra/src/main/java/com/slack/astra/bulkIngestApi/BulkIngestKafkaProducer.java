@@ -17,7 +17,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
-import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -85,7 +84,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   public BulkIngestKafkaProducer(
       final DatasetMetadataStore datasetMetadataStore,
       final AstraConfigs.PreprocessorConfig preprocessorConfig,
-      final PrometheusMeterRegistry meterRegistry) {
+      final MeterRegistry meterRegistry) {
     this.kafkaConfig = preprocessorConfig.getKafkaConfig();
 
     checkArgument(

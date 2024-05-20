@@ -17,8 +17,8 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.MetricsUtil;
 import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.service.murron.trace.Trace;
-import io.micrometer.prometheus.PrometheusConfig;
-import io.micrometer.prometheus.PrometheusMeterRegistry;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 
 class BulkIngestKafkaProducerTest {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestKafkaProducerTest.class);
-  private static PrometheusMeterRegistry meterRegistry;
+  private static MeterRegistry meterRegistry;
   private static AsyncCuratorFramework curatorFramework;
   private static AstraConfigs.PreprocessorConfig preprocessorConfig;
   private static DatasetMetadataStore datasetMetadataStore;
@@ -56,7 +56,7 @@ class BulkIngestKafkaProducerTest {
   @BeforeEach
   public void bootstrapCluster() throws Exception {
     Tracing.newBuilder().build();
-    meterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+    meterRegistry = new SimpleMeterRegistry();
 
     zkServer = new TestingServer();
     AstraConfigs.ZookeeperConfig zkConfig =
