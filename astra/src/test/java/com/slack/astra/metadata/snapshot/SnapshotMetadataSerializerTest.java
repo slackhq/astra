@@ -20,7 +20,8 @@ public class SnapshotMetadataSerializerTest {
     final String partitionId = "1";
 
     SnapshotMetadata snapshotMetadata =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
+        new SnapshotMetadata(
+            name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9, 0);
 
     String serializedSnapshot = serDe.toJsonStr(snapshotMetadata);
     assertThat(serializedSnapshot).isNotEmpty();

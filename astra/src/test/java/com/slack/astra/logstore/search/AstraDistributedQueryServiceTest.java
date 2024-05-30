@@ -840,7 +840,8 @@ public class AstraDistributedQueryServiceTest {
                     endTime.toEpochMilli(),
                     10,
                     "1",
-                    Metadata.IndexType.LOGS_LUCENE9)));
+                    Metadata.IndexType.LOGS_LUCENE9,
+                    0)));
     DatasetMetadataStore datasetMetadataStoreMock = mock(DatasetMetadataStore.class);
     when(datasetMetadataStoreMock.listSync())
         .thenReturn(

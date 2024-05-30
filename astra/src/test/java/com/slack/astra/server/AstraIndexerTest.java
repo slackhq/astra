@@ -206,7 +206,8 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsOnly(livePartition1);
@@ -252,7 +253,8 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -263,7 +265,8 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsOnly(livePartition1, livePartition0);
@@ -304,7 +307,8 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -315,7 +319,8 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsOnly(livePartition1, livePartition0);
@@ -362,7 +367,8 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -373,11 +379,12 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9, 0);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -427,7 +434,8 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -438,11 +446,12 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9, 0);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -500,7 +509,8 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -511,11 +521,12 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9, 0);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -577,7 +588,8 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -588,11 +600,12 @@ public class AstraIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9, 0);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))

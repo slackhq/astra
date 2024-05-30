@@ -97,7 +97,7 @@ public class ReplicaRestoreServiceTest {
       long now = Instant.now().toEpochMilli();
       String id = "loop" + i;
       SnapshotMetadata snapshotIncluded =
-          new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9);
+          new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9, 0);
       replicaRestoreService.queueSnapshotsForRestoration(List.of(snapshotIncluded));
       Thread.sleep(300);
     }
@@ -140,7 +140,7 @@ public class ReplicaRestoreServiceTest {
               long now = Instant.now().toEpochMilli();
               String id = "loop" + UUID.randomUUID();
               SnapshotMetadata snapshotIncluded =
-                  new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9);
+                  new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9, 0);
               try {
                 replicaRestoreService.queueSnapshotsForRestoration(List.of(snapshotIncluded));
                 Thread.sleep(300);
@@ -191,7 +191,8 @@ public class ReplicaRestoreServiceTest {
     List<SnapshotMetadata> duplicateSnapshots = new ArrayList<>();
     for (int i = 0; i < 10; i++) {
       String id = "duplicate";
-      duplicateSnapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9));
+      duplicateSnapshots.add(
+          new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9, 0));
     }
 
     replicaRestoreService.queueSnapshotsForRestoration(duplicateSnapshots);
@@ -210,7 +211,7 @@ public class ReplicaRestoreServiceTest {
     for (int i = 0; i < 3; i++) {
       now = Instant.now().toEpochMilli();
       String id = "loop" + i;
-      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9));
+      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9, 0));
     }
 
     replicaRestoreService.queueSnapshotsForRestoration(snapshots);
@@ -247,7 +248,7 @@ public class ReplicaRestoreServiceTest {
     for (int i = 0; i < MAX_QUEUE_SIZE; i++) {
       long now = Instant.now().toEpochMilli();
       String id = "loop" + i;
-      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9));
+      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9, 0));
     }
 
     assertThatExceptionOfType(SizeLimitExceededException.class)
