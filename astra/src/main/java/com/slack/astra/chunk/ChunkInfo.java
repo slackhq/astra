@@ -42,7 +42,8 @@ public class ChunkInfo {
         chunkInfo.getDataEndTimeEpochMs(),
         chunkInfo.maxOffset,
         chunkInfo.kafkaPartitionId,
-        Metadata.IndexType.LOGS_LUCENE9);
+        Metadata.IndexType.LOGS_LUCENE9,
+        chunkInfo.sizeInBytes);
   }
 
   /* A unique identifier for a the chunk. */
@@ -77,6 +78,9 @@ public class ChunkInfo {
 
   // Path to S3 snapshot.
   private String snapshotPath;
+
+  // Size of chunk in bytes
+  private long sizeInBytes;
 
   public ChunkInfo(
       String chunkId, long chunkCreationTimeEpochMs, String kafkaPartitionId, String snapshotPath) {
@@ -164,6 +168,14 @@ public class ChunkInfo {
     return snapshotPath;
   }
 
+  public long getSizeInBytes() {
+    return sizeInBytes;
+  }
+
+  public void setSizeInBytes(long sizeInBytes) {
+    this.sizeInBytes = sizeInBytes;
+  }
+
   public void updateMaxOffset(long newOffset) {
     maxOffset = Math.max(maxOffset, newOffset);
   }
@@ -224,6 +236,8 @@ public class ChunkInfo {
         + chunkSnapshotTimeEpochMs
         + ", snapshotPath='"
         + snapshotPath
+        + ", sizeInBytes='"
+        + sizeInBytes
         + '}';
   }
 
@@ -240,7 +254,8 @@ public class ChunkInfo {
         && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
         && Objects.equals(chunkId, chunkInfo.chunkId)
         && Objects.equals(kafkaPartitionId, chunkInfo.kafkaPartitionId)
-        && Objects.equals(snapshotPath, chunkInfo.snapshotPath);
+        && Objects.equals(snapshotPath, chunkInfo.snapshotPath)
+        && sizeInBytes == chunkInfo.sizeInBytes;
   }
 
   @Override

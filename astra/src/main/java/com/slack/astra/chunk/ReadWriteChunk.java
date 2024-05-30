@@ -89,6 +89,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
 
   // TODO: Move this flag into LogStore?.
   private boolean readOnly;
+  protected long size;
 
   protected ReadWriteChunk(
       LogStore logStore,
@@ -225,6 +226,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     logger.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
     IndexCommit indexCommit = null;
+    long totalBytes = 0;
     try {
       Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
 
@@ -243,7 +245,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       // Upload files
       logger.info("{} active files in {} in index", filesToUpload.size(), dirPath);
       for (String fileName : filesToUpload) {
-        logger.debug("File name is {}}", fileName);
+        File fileToCopy = new File(dirPath.toString(), fileName);
+        totalBytes += fileToCopy.length();
+        logger.debug("File name is {} ({} bytes)", fileName, fileToCopy.length());
       }
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
@@ -251,6 +255,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       this.fileUploadFailures.increment(filesToUpload.size() - success);
       chunkInfo.setSnapshotPath(createURI(bucket, prefix, "").toString());
+      chunkInfo.setSizeInBytes(totalBytes);
       logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;
     } catch (Exception e) {
