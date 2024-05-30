@@ -110,8 +110,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
       return false;
     if (partitionId != null ? !partitionId.equals(that.partitionId) : that.partitionId != null)
       return false;
-    if (sizeInBytes != that.sizeInBytes)
-      return false;
+    if (sizeInBytes != that.sizeInBytes) return false;
     return indexType == that.indexType;
   }
 
