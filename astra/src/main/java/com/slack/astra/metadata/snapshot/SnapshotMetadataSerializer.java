@@ -17,7 +17,7 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
         .setPartitionId(snapshotMetadata.partitionId)
         .setMaxOffset(snapshotMetadata.maxOffset)
         .setIndexType(snapshotMetadata.indexType)
-        .setSizeInBytes(snapshotMetadata.sizeInBytes)
+        .setSizeInBytes(snapshotMetadata.sizeInBytesOnDisk)
         .build();
   }
 

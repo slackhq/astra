@@ -737,7 +737,7 @@ public class IndexingChunkImplTest {
           .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // Check total size of objects uploaded was correctly tracked
-      assertThat(chunk.info().getSizeInBytes())
+      assertThat(chunk.info().getSizeInBytesOnDisk())
           .isEqualTo(objectsResponse.contents().stream().mapToLong(S3Object::size).sum());
 
       chunk.close();

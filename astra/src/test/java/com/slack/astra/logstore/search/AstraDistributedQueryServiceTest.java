@@ -969,7 +969,8 @@ public class AstraDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             1234,
             partition,
-            isLive ? LIVE_SNAPSHOT_PATH : "cacheSnapshotPath");
+            isLive ? LIVE_SNAPSHOT_PATH : "cacheSnapshotPath",
+            0);
     SnapshotMetadata snapshotMetadata =
         toSnapshotMetadata(chunkInfo, isLive ? LIVE_SNAPSHOT_PREFIX : "");
 

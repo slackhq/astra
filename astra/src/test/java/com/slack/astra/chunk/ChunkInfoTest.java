@@ -357,7 +357,8 @@ public class ChunkInfoTest {
             dataEnd,
             1000,
             TEST_KAFKA_PARTITION_ID,
-            TEST_SNAPSHOT_PATH);
+            TEST_SNAPSHOT_PATH,
+            0);
     assertThat(fromSnapshotMetadata(toSnapshotMetadata(chunkInfo, ""))).isEqualTo(chunkInfo);
   }
 }

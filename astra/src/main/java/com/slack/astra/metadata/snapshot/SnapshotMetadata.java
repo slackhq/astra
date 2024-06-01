@@ -36,7 +36,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
   public final long maxOffset;
   public final String partitionId;
   public final Metadata.IndexType indexType;
-  public long sizeInBytes;
+  public long sizeInBytesOnDisk;
 
   public SnapshotMetadata(
       String snapshotId,
@@ -46,7 +46,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
       long maxOffset,
       String partitionId,
       Metadata.IndexType indexType,
-      long sizeInBytes) {
+      long sizeInBytesOnDisk) {
     this(
         snapshotId,
         snapshotPath,
@@ -55,7 +55,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
         endTimeEpochMs,
         maxOffset,
         partitionId,
-        sizeInBytes,
+        sizeInBytesOnDisk,
         indexType);
   }
 
@@ -67,7 +67,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
       long endTimeEpochMs,
       long maxOffset,
       String partitionId,
-      long sizeInBytes,
+      long sizeInBytesOnDisk,
       Metadata.IndexType indexType) {
     super(name);
     checkArgument(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
@@ -81,7 +81,6 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
         partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
     checkArgument(
         snapshotPath != null && !snapshotPath.isEmpty(), "snapshotPath can't be null or empty");
-    checkArgument(sizeInBytes >= 0, "size should be greater than or equal to zero.");
 
     this.snapshotPath = snapshotPath;
     this.snapshotId = snapshotId;
@@ -90,7 +89,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
     this.maxOffset = maxOffset;
     this.partitionId = partitionId;
     this.indexType = indexType;
-    this.sizeInBytes = sizeInBytes;
+    this.sizeInBytesOnDisk = sizeInBytesOnDisk;
   }
 
   @Override
@@ -110,7 +109,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
       return false;
     if (partitionId != null ? !partitionId.equals(that.partitionId) : that.partitionId != null)
       return false;
-    if (sizeInBytes != that.sizeInBytes) return false;
+    if (sizeInBytesOnDisk != that.sizeInBytesOnDisk) return false;
     return indexType == that.indexType;
   }
 
@@ -124,7 +123,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
     result = 31 * result + (int) (maxOffset ^ (maxOffset >>> 32));
     result = 31 * result + (partitionId != null ? partitionId.hashCode() : 0);
     result = 31 * result + (indexType != null ? indexType.hashCode() : 0);
-    result = 31 * result + Long.hashCode(sizeInBytes);
+    result = 31 * result + Long.hashCode(sizeInBytesOnDisk);
     return result;
   }
 
@@ -152,8 +151,8 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
         + '\''
         + ", indexType="
         + indexType
-        + ", sizeInBytes="
-        + sizeInBytes
+        + ", sizeInBytesOnDisk="
+        + sizeInBytesOnDisk
         + '}';
   }
 
