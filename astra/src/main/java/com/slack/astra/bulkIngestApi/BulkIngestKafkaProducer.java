@@ -117,7 +117,9 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     this.kafkaProducer = createKafkaTransactionProducer(UUID.randomUUID().toString());
     this.kafkaMetrics = new KafkaClientMetrics(kafkaProducer);
     this.kafkaMetrics.bindTo(meterRegistry);
-    this.kafkaProducer.initTransactions();
+    if (!System.getProperty("astra.bulkIngest.kafkaTransactionDisabled", "true").equals("true")) {
+      this.kafkaProducer.initTransactions();
+    }
   }
 
   private void stopKafkaProducer() {
@@ -195,6 +197,33 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   protected Map<BulkIngestRequest, BulkIngestResponse> produceDocumentsAndCommit(
       List<BulkIngestRequest> requests) {
     Map<BulkIngestRequest, BulkIngestResponse> responseMap = new HashMap<>();
+    // true for testing. not meant to be committed as true for default value
+    if (System.getProperty("astra.bulkIngest.kafkaTransactionDisabled", "true").equals("true")) {
+      try {
+        for (BulkIngestRequest request : requests) {
+          responseMap.put(request, produceDocuments(request.getInputDocs(), kafkaProducer));
+        }
+        for (Map.Entry<BulkIngestRequest, BulkIngestResponse> entry : responseMap.entrySet()) {
+          BulkIngestRequest key = entry.getKey();
+          BulkIngestResponse value = entry.getValue();
+          if (!key.setResponse(value)) {
+            LOG.warn("Failed to add result to the bulk ingest request, consumer thread went away?");
+            failedSetResponseCounter.increment();
+          }
+        }
+        return responseMap;
+      } catch (Exception e) {
+        LOG.error("Failed to write batch to kafka", e);
+        for (BulkIngestRequest request : requests) {
+          responseMap.put(
+              request,
+              new BulkIngestResponse(
+                  0,
+                  request.getInputDocs().values().stream().mapToInt(List::size).sum(),
+                  e.getMessage()));
+        }
+      }
+    }
     try {
       kafkaProducer.beginTransaction();
       for (BulkIngestRequest request : requests) {
@@ -312,7 +341,9 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     props.put(
         ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.ByteArraySerializer");
-    props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
+    if (!System.getProperty("astra.bulkIngest.kafkaTransactionDisabled", "true").equals("true")) {
+      props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
+    }
 
     // don't override the properties that we have already set explicitly using named properties
     for (Map.Entry<String, String> additionalProp :
