@@ -840,7 +840,8 @@ public class AstraDistributedQueryServiceTest {
                     endTime.toEpochMilli(),
                     10,
                     "1",
-                    Metadata.IndexType.LOGS_LUCENE9)));
+                    Metadata.IndexType.LOGS_LUCENE9,
+                    0)));
     DatasetMetadataStore datasetMetadataStoreMock = mock(DatasetMetadataStore.class);
     when(datasetMetadataStoreMock.listSync())
         .thenReturn(
@@ -968,7 +969,8 @@ public class AstraDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             1234,
             partition,
-            isLive ? LIVE_SNAPSHOT_PATH : "cacheSnapshotPath");
+            isLive ? LIVE_SNAPSHOT_PATH : "cacheSnapshotPath",
+            0);
     SnapshotMetadata snapshotMetadata =
         toSnapshotMetadata(chunkInfo, isLive ? LIVE_SNAPSHOT_PREFIX : "");
 

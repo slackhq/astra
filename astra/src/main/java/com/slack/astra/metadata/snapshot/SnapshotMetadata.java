@@ -36,6 +36,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
   public final long maxOffset;
   public final String partitionId;
   public final Metadata.IndexType indexType;
+  public long sizeInBytesOnDisk;
 
   public SnapshotMetadata(
       String snapshotId,
@@ -44,7 +45,8 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
       long endTimeEpochMs,
       long maxOffset,
       String partitionId,
-      Metadata.IndexType indexType) {
+      Metadata.IndexType indexType,
+      long sizeInBytesOnDisk) {
     this(
         snapshotId,
         snapshotPath,
@@ -53,6 +55,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
         endTimeEpochMs,
         maxOffset,
         partitionId,
+        sizeInBytesOnDisk,
         indexType);
   }
 
@@ -64,6 +67,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
       long endTimeEpochMs,
       long maxOffset,
       String partitionId,
+      long sizeInBytesOnDisk,
       Metadata.IndexType indexType) {
     super(name);
     checkArgument(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
@@ -85,6 +89,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
     this.maxOffset = maxOffset;
     this.partitionId = partitionId;
     this.indexType = indexType;
+    this.sizeInBytesOnDisk = sizeInBytesOnDisk;
   }
 
   @Override
@@ -104,6 +109,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
       return false;
     if (partitionId != null ? !partitionId.equals(that.partitionId) : that.partitionId != null)
       return false;
+    if (sizeInBytesOnDisk != that.sizeInBytesOnDisk) return false;
     return indexType == that.indexType;
   }
 
@@ -117,6 +123,7 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
     result = 31 * result + (int) (maxOffset ^ (maxOffset >>> 32));
     result = 31 * result + (partitionId != null ? partitionId.hashCode() : 0);
     result = 31 * result + (indexType != null ? indexType.hashCode() : 0);
+    result = 31 * result + Long.hashCode(sizeInBytesOnDisk);
     return result;
   }
 
@@ -144,6 +151,8 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
         + '\''
         + ", indexType="
         + indexType
+        + ", sizeInBytesOnDisk="
+        + sizeInBytesOnDisk
         + '}';
   }
 

@@ -60,6 +60,7 @@ import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 public class IndexingChunkImplTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
@@ -734,6 +735,10 @@ public class IndexingChunkImplTest {
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
       assertThat(afterSearchNodes.get(0).snapshotName)
           .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+
+      // Check total size of objects uploaded was correctly tracked
+      assertThat(chunk.info().getSizeInBytesOnDisk())
+          .isEqualTo(objectsResponse.contents().stream().mapToLong(S3Object::size).sum());
 
       chunk.close();
       // Ensure folder is cleared after chunk chlose. List the number of files in folder

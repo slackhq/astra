@@ -511,7 +511,8 @@ public class ReadOnlyChunkImplTest {
             Instant.now().toEpochMilli(),
             1,
             "partitionId",
-            LOGS_LUCENE9));
+            LOGS_LUCENE9,
+            0));
   }
 
   private void initializeZkReplica(

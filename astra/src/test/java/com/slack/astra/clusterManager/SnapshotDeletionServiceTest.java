@@ -168,7 +168,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
@@ -224,7 +225,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
     ReplicaMetadata replicaMetadata =
@@ -337,7 +339,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(500, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
     String[] s3CrtBlobFsFiles = s3CrtBlobFs.listFiles(directoryPath, true);
@@ -397,7 +400,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
     // replica is also expired
@@ -472,7 +476,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
@@ -530,7 +535,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
@@ -594,7 +600,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
@@ -651,7 +658,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
@@ -748,7 +756,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
@@ -821,7 +830,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
