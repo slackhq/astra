@@ -29,6 +29,35 @@ public class BulkApiRequestParserTest {
   }
 
   @Test
+  public void testSimpleIndexRequestWithMicros() throws Exception {
+    byte[] rawRequest = getIndexRequestBytes("index_simple_with_micro_ts");
+
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(1);
+    assertThat(indexRequests.get(0).index()).isEqualTo("test");
+    assertThat(indexRequests.get(0).id()).isEqualTo("1");
+    assertThat(indexRequests.get(0).sourceAsMap().size()).isEqualTo(3);
+
+    Map<String, List<Trace.Span>> indexDocs =
+            BulkApiRequestParser.convertIndexRequestToTraceFormat(
+                    indexRequests, Schema.IngestSchema.newBuilder().build());
+    assertThat(indexDocs.keySet().size()).isEqualTo(1);
+    assertThat(indexDocs.get("test").size()).isEqualTo(1);
+
+    assertThat(indexDocs.get("test").get(0).getId().toStringUtf8()).isEqualTo("1");
+    assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(4);
+    assertThat(
+            indexDocs.get("test").get(0).getTagsList().stream()
+                    .filter(
+                            keyValue ->
+                                    keyValue.getKey().equals("service_name")
+                                            && keyValue.getVStr().equals("test"))
+                    .count())
+            .isEqualTo(1);
+    assertThat(indexDocs.get("test").get(0).getTimestamp()).isEqualTo(4739680479544123L);
+  }
+
+  @Test
   public void testSimpleIndexRequest() throws Exception {
     byte[] rawRequest = getIndexRequestBytes("index_simple_with_ts");
 

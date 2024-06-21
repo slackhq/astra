@@ -9,6 +9,7 @@ import com.slack.astra.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,36 +42,23 @@ public class BulkApiRequestParser {
   }
 
   /**
-   * We need users to be able to specify the timestamp field and unit. For now we will do the
-   * following: 1. Check to see if the "timestamp" field exists and if it does parse that as a long
-   * in millis 2. Check if a field called `@timestamp` exists and parse that as a date (since
-   * logstash sets that) 3. Use the current time from the ingestMetadata
+   * We need users to be able to specify the timestamp field and unit. We rely on the user sending us `@timestamp` in
+   * microseconds. If that doesn't happen, then we'll just use the time of ingestion
    */
   public static long getTimestampFromIngestDocument(Map<String, Object> sourceAndMetadata) {
-
-    try {
-      if (sourceAndMetadata.containsKey(ReservedFields.TIMESTAMP)) {
+    if (sourceAndMetadata.containsKey(ReservedFields.TIMESTAMP)) {
+      try {
         String dateString = (String) sourceAndMetadata.get(ReservedFields.TIMESTAMP);
         Instant instant = Instant.parse(dateString);
-        return instant.toEpochMilli();
+        return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
+      } catch (Exception e) {
+        LOG.warn(
+                "Unable to parse timestamp from ingest document. Using current time as timestamp", e);
       }
-
-      // assumption that the provided timestamp is in millis
-      // at some point both the unit and field need to be configurable
-      if (sourceAndMetadata.containsKey("timestamp")) {
-        return (long) sourceAndMetadata.get("timestamp");
-      }
-
-      if (sourceAndMetadata.containsKey("_timestamp")) {
-        return (long) sourceAndMetadata.get("_timestamp");
-      }
-    } catch (Exception e) {
-      LOG.warn(
-          "Unable to parse timestamp from ingest document. Using current time as timestamp", e);
     }
 
-    // We tried parsing 3 timestamp fields and failed. Use the current time
-    return Instant.now().toEpochMilli();
+    // We tried parsing @timestamp fields and failed. Use the current time
+    return ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now());
   }
 
   @VisibleForTesting
@@ -79,7 +67,7 @@ public class BulkApiRequestParser {
 
     Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
 
-    long timestampInMillis = getTimestampFromIngestDocument(sourceAndMetadata);
+    long timestampInMicros = getTimestampFromIngestDocument(sourceAndMetadata);
     String id = (String) sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName());
     // See https://blog.mikemccandless.com/2014/05/choosing-fast-unique-identifier-uuid.html on how
     // to improve this
@@ -91,8 +79,7 @@ public class BulkApiRequestParser {
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
     // Trace.Span proto expects duration in microseconds today
-    spanBuilder.setTimestamp(
-        TimeUnit.MICROSECONDS.convert(timestampInMillis, TimeUnit.MILLISECONDS));
+    spanBuilder.setTimestamp(timestampInMicros);
 
     if (sourceAndMetadata.get(LogMessage.ReservedField.PARENT_ID.fieldName) != null) {
       spanBuilder.setParentId(
