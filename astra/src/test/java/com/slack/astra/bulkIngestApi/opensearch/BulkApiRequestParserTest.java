@@ -39,8 +39,8 @@ public class BulkApiRequestParserTest {
     assertThat(indexRequests.get(0).sourceAsMap().size()).isEqualTo(3);
 
     Map<String, List<Trace.Span>> indexDocs =
-            BulkApiRequestParser.convertIndexRequestToTraceFormat(
-                    indexRequests, Schema.IngestSchema.newBuilder().build());
+        BulkApiRequestParser.convertIndexRequestToTraceFormat(
+            indexRequests, Schema.IngestSchema.newBuilder().build());
     assertThat(indexDocs.keySet().size()).isEqualTo(1);
     assertThat(indexDocs.get("test").size()).isEqualTo(1);
 
@@ -48,12 +48,12 @@ public class BulkApiRequestParserTest {
     assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(4);
     assertThat(
             indexDocs.get("test").get(0).getTagsList().stream()
-                    .filter(
-                            keyValue ->
-                                    keyValue.getKey().equals("service_name")
-                                            && keyValue.getVStr().equals("test"))
-                    .count())
-            .isEqualTo(1);
+                .filter(
+                    keyValue ->
+                        keyValue.getKey().equals("service_name")
+                            && keyValue.getVStr().equals("test"))
+                .count())
+        .isEqualTo(1);
     assertThat(indexDocs.get("test").get(0).getTimestamp()).isEqualTo(4739680479544123L);
   }
 
