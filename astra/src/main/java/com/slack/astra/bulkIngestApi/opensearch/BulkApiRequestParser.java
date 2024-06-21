@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.index.IndexRequest;
@@ -42,8 +41,9 @@ public class BulkApiRequestParser {
   }
 
   /**
-   * We need users to be able to specify the timestamp field and unit. We rely on the user sending us `@timestamp` in
-   * microseconds. If that doesn't happen, then we'll just use the time of ingestion
+   * We need users to be able to specify the timestamp field and unit. We rely on the user sending
+   * us `@timestamp` in microseconds. If that doesn't happen, then we'll just use the time of
+   * ingestion
    */
   public static long getTimestampFromIngestDocument(Map<String, Object> sourceAndMetadata) {
     if (sourceAndMetadata.containsKey(ReservedFields.TIMESTAMP)) {
@@ -53,7 +53,7 @@ public class BulkApiRequestParser {
         return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
       } catch (Exception e) {
         LOG.warn(
-                "Unable to parse timestamp from ingest document. Using current time as timestamp", e);
+            "Unable to parse timestamp from ingest document. Using current time as timestamp", e);
       }
     }
 
