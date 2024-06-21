@@ -68,10 +68,6 @@ public class BulkIngestApi {
 
     try {
       byte[] bulkRequestBytes = bulkRequest.getBytes(StandardCharsets.UTF_8);
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
       incomingByteTotal.increment(bulkRequestBytes.length);
       Map<String, List<Trace.Span>> docs =
           BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
