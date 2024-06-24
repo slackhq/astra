@@ -14,6 +14,20 @@ How long Astra will wait before starting the next bulk batch if the last batch w
 defaultValue
 : 50
 
+### astra.bulkIngest.useKafkaTransactions
+<tldr>experimental</tldr>
+The preprocessor can write documents to kafka using transactions.
+Enable this to ensure that all documents are written using exactly once semantics 
+and all kafka brokers for a partition acknowledge a write. Defaults to false.
+
+```bash
+-Dastra.bulkIngest.useKafkaTransactions=true
+```
+
+{style="narrow"}
+defaultValue
+: 50
+
 ## astra.concurrent.query
 <tldr>experimental</tldr>
 The amount of concurrent queries that are permitted at the application level.

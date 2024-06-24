@@ -32,6 +32,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.TimeoutException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,7 @@ class BulkIngestKafkaProducerTest {
 
   @BeforeEach
   public void bootstrapCluster() throws Exception {
+    System.setProperty("astra.bulkIngest.useKafkaTransactions", "true");
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
 
@@ -105,6 +107,15 @@ class BulkIngestKafkaProducerTest {
         new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
     bulkIngestKafkaProducer.startAsync();
     bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+  }
+
+  @AfterEach
+  public void tearDown() throws Exception {
+    System.clearProperty("astra.bulkIngest.useKafkaTransactions");
+    bulkIngestKafkaProducer.stopAsync();
+    bulkIngestKafkaProducer.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    kafkaServer.close();
+    zkServer.close();
   }
 
   @Test
@@ -198,10 +209,7 @@ class BulkIngestKafkaProducerTest {
             });
     BulkIngestResponse responseObj =
         (BulkIngestResponse)
-            bulkIngestKafkaProducer
-                .produceDocumentsAndCommit(List.of(request1))
-                .values()
-                .toArray()[0];
+            bulkIngestKafkaProducer.produceDocuments(List.of(request1)).values().toArray()[0];
     assertThat(responseObj.totalDocs()).isEqualTo(0);
     assertThat(responseObj.failedDocs()).isEqualTo(5);
     assertThat(responseObj.errorMsg()).isNotNull();
@@ -261,10 +269,7 @@ class BulkIngestKafkaProducerTest {
             });
     responseObj =
         (BulkIngestResponse)
-            bulkIngestKafkaProducer
-                .produceDocumentsAndCommit(List.of(request2))
-                .values()
-                .toArray()[0];
+            bulkIngestKafkaProducer.produceDocuments(List.of(request2)).values().toArray()[0];
     assertThat(responseObj.totalDocs()).isEqualTo(5);
     assertThat(responseObj.failedDocs()).isEqualTo(0);
     assertThat(responseObj.errorMsg()).isNotNull();
