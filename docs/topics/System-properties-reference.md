@@ -24,10 +24,6 @@ and all kafka brokers for a partition acknowledge a write. Defaults to false.
 -Dastra.bulkIngest.useKafkaTransactions=true
 ```
 
-{style="narrow"}
-defaultValue
-: 50
-
 ## astra.concurrent.query
 <tldr>experimental</tldr>
 The amount of concurrent queries that are permitted at the application level.

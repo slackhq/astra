@@ -59,7 +59,7 @@ indexerConfig:
 
 ### maxTimePerChunkSeconds
 Maximum time that a <tooltip term="chunk">chunk</tooltip> can be open before closing and uploading to S3. Defaults to 90 minutes.
-THis configuration is useful for ensuring that chunks are uploaded to S3 within a set time frame,
+This configuration is useful for ensuring that chunks are uploaded to S3 within a set time frame,
 during non-peak hours when we don't hit maxMessagesPerChunk or maxBytesPerChunk for several hours
 
 ```yaml

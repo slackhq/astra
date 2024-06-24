@@ -112,10 +112,26 @@ class BulkIngestKafkaProducerTest {
   @AfterEach
   public void tearDown() throws Exception {
     System.clearProperty("astra.bulkIngest.useKafkaTransactions");
-    bulkIngestKafkaProducer.stopAsync();
-    bulkIngestKafkaProducer.awaitTerminated(DEFAULT_START_STOP_DURATION);
-    kafkaServer.close();
-    zkServer.close();
+    if (bulkIngestKafkaProducer != null) {
+      bulkIngestKafkaProducer.stopAsync();
+      bulkIngestKafkaProducer.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    }
+
+    if (kafkaServer != null) {
+      kafkaServer.close();
+    }
+    if (meterRegistry != null) {
+      meterRegistry.close();
+    }
+    if (datasetMetadataStore != null) {
+      datasetMetadataStore.close();
+    }
+    if (curatorFramework != null) {
+      curatorFramework.unwrap().close();
+    }
+    if (zkServer != null) {
+      zkServer.close();
+    }
   }
 
   @Test

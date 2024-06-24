@@ -116,22 +116,10 @@ public class BulkIngestApiTest {
 
     datasetRateLimitingService =
         new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
-    bulkIngestKafkaProducer =
-        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
 
     datasetRateLimitingService.startAsync();
-    bulkIngestKafkaProducer.startAsync();
 
     datasetRateLimitingService.awaitRunning(DEFAULT_START_STOP_DURATION);
-    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
-
-    bulkApi =
-        new BulkIngestApi(
-            bulkIngestKafkaProducer,
-            datasetRateLimitingService,
-            meterRegistry,
-            400,
-            Schema.IngestSchema.newBuilder().build());
   }
 
   // I looked at making this a @BeforeEach. it's possible if you annotate a test with a @Tag and
@@ -167,6 +155,7 @@ public class BulkIngestApiTest {
   // Instead of calling stop from every test and ensuring it's part of a finally block we just call
   // the shutdown code with the @AfterEach annotation
   public void shutdownOpenSearchAPI() throws Exception {
+    System.clearProperty("astra.bulkIngest.useKafkaTransactions");
     if (datasetRateLimitingService != null) {
       datasetRateLimitingService.stopAsync();
       datasetRateLimitingService.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -199,6 +188,18 @@ public class BulkIngestApiTest {
 
   @Test
   public void testBulkApiBasic() throws Exception {
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            Schema.IngestSchema.newBuilder().build());
+
     String request1 =
         """
                 { "index": {"_index": "testindex", "_id": "1"} }
@@ -286,7 +287,20 @@ public class BulkIngestApiTest {
   }
 
   @Test
-  public void testDocumentInKafkaSimple() throws Exception {
+  public void testDocumentInKafkaWithTransactionsSimple() throws Exception {
+    System.setProperty("astra.bulkIngest.useKafkaTransactions", "true");
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            Schema.IngestSchema.newBuilder().build());
+
     String request1 =
         """
                     { "index": {"_index": "testindex", "_id": "1"} }
@@ -309,6 +323,60 @@ public class BulkIngestApiTest {
     // kafka transaction adds a "control batch" record at the end of the transaction so the offset
     // will always be n+1
     validateOffset(kafkaConsumer, 3);
+
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
+
+    assertThat(records.count()).isEqualTo(2);
+    assertThat(records)
+        .anyMatch(
+            record ->
+                TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("1"));
+    assertThat(records)
+        .anyMatch(
+            record ->
+                TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("2"));
+
+    // close the kafka consumer used in the test
+    kafkaConsumer.close();
+  }
+
+  @Test
+  public void testDocumentInKafkaWithoutTransactionsSimple() throws Exception {
+    System.setProperty("astra.bulkIngest.useKafkaTransactions", "false");
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            Schema.IngestSchema.newBuilder().build());
+
+    String request1 =
+        """
+                        { "index": {"_index": "testindex", "_id": "1"} }
+                        { "field1" : "value1" },
+                        { "index": {"_index": "testindex", "_id": "2"} }
+                        { "field1" : "value2" }
+                        """;
+    updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
+
+    KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
+
+    AggregatedHttpResponse response = bulkApi.addDocument(request1).aggregate().join();
+    assertThat(response.status().isSuccess()).isEqualTo(true);
+    assertThat(response.status().code()).isEqualTo(OK.code());
+    BulkIngestResponse responseObj =
+        JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
+    assertThat(responseObj.totalDocs()).isEqualTo(2);
+    assertThat(responseObj.failedDocs()).isEqualTo(0);
+
+    validateOffset(kafkaConsumer, 2);
+
     ConsumerRecords<String, byte[]> records =
         kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
 
