@@ -1,0 +1,2 @@
+{ "index" : { "_index" : "test", "_id" : "1" } }
+{ "field1" : "value1", "field2" : "value2", "@timestamp": "2120-03-12T09:54:39.544123Z" }
