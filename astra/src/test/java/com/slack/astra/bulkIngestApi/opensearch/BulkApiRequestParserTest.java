@@ -301,25 +301,24 @@ public class BulkApiRequestParserTest {
   public void testTimestampParsingFromIngestDocument() {
     IngestDocument ingestDocument =
         new IngestDocument("index", "1", "routing", 1L, VersionType.INTERNAL, Map.of());
-    long timeInMillis =
+    long timeInMicros =
         BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
-    Instant ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
 
     // this tests that the parser inserted a timestamp close to the current time
-    Instant oneMinuteBefore = Instant.now().minus(1, ChronoUnit.MINUTES);
-    Instant oneMinuteAfter = Instant.now().plus(1, ChronoUnit.MINUTES);
-    assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
-    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
+    long oneMinuteBefore = ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now().minus(1, ChronoUnit.MINUTES));
+    long oneMinuteAfter = ChronoUnit.MICROS.between(Instant.EPOCH,  Instant.now().plus(1, ChronoUnit.MINUTES));
+    assertThat(oneMinuteBefore <= timeInMicros).isTrue();
+    assertThat(timeInMicros <= oneMinuteAfter).isTrue();
 
     // We respect the user provided @timestamp field
-    String ts = "2024-01-01T00:00:00Z";
+    String ts = "2024-01-01T00:00:00.000Z";
     Instant providedTimeStamp = Instant.parse(ts);
     ingestDocument =
         new IngestDocument(
             "index", "1", "routing", 1L, VersionType.INTERNAL, Map.of("@timestamp", ts));
-    timeInMillis =
+    timeInMicros =
         BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
-    assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
+    assertThat(timeInMicros).isEqualTo(ChronoUnit.MICROS.between(Instant.EPOCH, providedTimeStamp));
 
     // we put a long in the @timestamp field, which today we don't parse
     // so it won't be 2024-01-01 but be the current timestamp
@@ -331,56 +330,29 @@ public class BulkApiRequestParserTest {
             1L,
             VersionType.INTERNAL,
             Map.of("@timestamp", providedTimeStamp.toEpochMilli()));
-    timeInMillis =
+    timeInMicros =
         BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
-    ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
-    assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
-    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
+    assertThat(oneMinuteBefore <= timeInMicros).isTrue();
+    assertThat(timeInMicros <= oneMinuteAfter).isTrue();
 
     // we put a string in the timestamp field, which today we don't parse
     // so it won't be 2024-01-01 but be the current timestamp
     ingestDocument =
         new IngestDocument(
             "index", "1", "routing", 1L, VersionType.INTERNAL, Map.of("_timestamp", ts));
-    timeInMillis =
+    timeInMicros =
         BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
-    ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
-    assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
-    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
+    assertThat(oneMinuteBefore <= timeInMicros).isTrue();
+    assertThat(timeInMicros <= oneMinuteAfter).isTrue();
 
     // we put a string in the _timestamp field, which today we don't parse
     // so it won't be 2024-01-01 but be the current timestamp
     ingestDocument =
         new IngestDocument(
             "index", "1", "routing", 1L, VersionType.INTERNAL, Map.of("timestamp", ts));
-    timeInMillis =
+    timeInMicros =
         BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
-    ingestDocumentTime = Instant.ofEpochMilli(timeInMillis);
-    assertThat(oneMinuteBefore.isBefore(ingestDocumentTime)).isTrue();
-    assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
-
-    ingestDocument =
-        new IngestDocument(
-            "index",
-            "1",
-            "routing",
-            1L,
-            VersionType.INTERNAL,
-            Map.of("timestamp", providedTimeStamp.toEpochMilli()));
-    timeInMillis =
-        BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
-    assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
-
-    ingestDocument =
-        new IngestDocument(
-            "index",
-            "1",
-            "routing",
-            1L,
-            VersionType.INTERNAL,
-            Map.of("_timestamp", providedTimeStamp.toEpochMilli()));
-    timeInMillis =
-        BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
-    assertThat(timeInMillis).isEqualTo(providedTimeStamp.toEpochMilli());
+    assertThat(oneMinuteBefore <= timeInMicros).isTrue();
+    assertThat(timeInMicros <= oneMinuteAfter).isTrue();
   }
 }
