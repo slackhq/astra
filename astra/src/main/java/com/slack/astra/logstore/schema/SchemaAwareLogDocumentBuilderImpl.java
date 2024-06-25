@@ -17,11 +17,11 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
@@ -319,9 +319,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
       throw new IllegalArgumentException("Span id is empty");
     }
 
-    Instant timestamp =
-        Instant.ofEpochMilli(
-            TimeUnit.MILLISECONDS.convert(message.getTimestamp(), TimeUnit.MICROSECONDS));
+    Instant timestamp = Instant.EPOCH.plus(message.getTimestamp(), ChronoUnit.MICROS);
     if (!isValidTimestamp(timestamp)) {
       timestamp = Instant.now();
       addField(
@@ -338,7 +336,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder {
     addField(
         doc,
         LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-        timestamp.toEpochMilli(),
+        ChronoUnit.MICROS.between(Instant.EPOCH, timestamp),
         Schema.SchemaFieldType.LONG,
         "",
         0);

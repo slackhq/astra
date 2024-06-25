@@ -62,7 +62,6 @@ public class ZipkinService {
       String parentId = null;
       String name = null;
       String serviceName = null;
-      String timestamp = String.valueOf(message.getTimestamp().toEpochMilli());
       long duration = 0L;
       Map<String, String> messageTags = new HashMap<>();
 
@@ -96,13 +95,6 @@ public class ZipkinService {
       // the span
       if (messageTraceId == null) {
         messageTraceId = message.getId();
-      }
-      if (timestamp == null) {
-        LOG.warn(
-            "Document id={} missing {}",
-            message,
-            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-        continue;
       }
 
       final ZipkinSpanResponse span = new ZipkinSpanResponse(message.getId(), messageTraceId);
