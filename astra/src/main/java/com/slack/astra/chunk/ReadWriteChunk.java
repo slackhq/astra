@@ -25,6 +25,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -225,6 +226,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     logger.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
     IndexCommit indexCommit = null;
+    long totalBytes = 0;
     try {
       Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
 
@@ -243,7 +245,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       // Upload files
       logger.info("{} active files in {} in index", filesToUpload.size(), dirPath);
       for (String fileName : filesToUpload) {
-        logger.debug("File name is {}}", fileName);
+        long sizeOfFile = Files.size(Path.of(dirPath + "/" + fileName));
+        totalBytes += sizeOfFile;
+        logger.debug("File name is {} ({} bytes)", fileName, sizeOfFile);
       }
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
@@ -251,6 +255,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       this.fileUploadFailures.increment(filesToUpload.size() - success);
       chunkInfo.setSnapshotPath(createURI(bucket, prefix, "").toString());
+      chunkInfo.setSizeInBytesOnDisk(totalBytes);
       logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;
     } catch (Exception e) {

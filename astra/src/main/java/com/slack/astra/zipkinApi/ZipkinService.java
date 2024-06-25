@@ -24,6 +24,7 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.server.AstraQueryServiceBase;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,6 +82,16 @@ public class ZipkinService {
           messageTags.put(k, String.valueOf(value));
         }
       }
+
+      // TODO: today at Slack the duration is sent as "duration_ms"
+      // We we have this special handling which should be addressed upstream
+      // and then removed from here
+      if (duration == 0) {
+        Object value =
+            message.getSource().getOrDefault(LogMessage.ReservedField.DURATION_MS.fieldName, 0);
+        duration = TimeUnit.MICROSECONDS.convert(Duration.ofMillis(((Number) value).intValue()));
+      }
+
       // these are some mandatory fields without which the grafana zipkin plugin fails to display
       // the span
       if (messageTraceId == null) {

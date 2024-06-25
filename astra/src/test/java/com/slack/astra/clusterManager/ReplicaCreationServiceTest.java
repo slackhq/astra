@@ -95,7 +95,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(snapshotA);
 
     replicaMetadataStore.createSync(
@@ -145,7 +146,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(snapshotA);
 
     AstraConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -188,7 +190,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(snapshotA);
 
     AstraConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -240,7 +243,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(snapshotNotLive);
 
     SnapshotMetadata snapshotLive =
@@ -251,7 +255,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "b",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(snapshotLive);
 
     AstraConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -335,7 +340,8 @@ public class ReplicaCreationServiceTest {
                       Instant.now().minus(1441, ChronoUnit.MINUTES).toEpochMilli(),
                       0,
                       snapshotId,
-                      LOGS_LUCENE9);
+                      LOGS_LUCENE9,
+                      0);
               snapshotList.add(snapshot);
             });
 
@@ -351,7 +357,8 @@ public class ReplicaCreationServiceTest {
                       Instant.now().toEpochMilli(),
                       0,
                       snapshotId,
-                      LOGS_LUCENE9);
+                      LOGS_LUCENE9,
+                      0);
               snapshotList.add(snapshot);
             });
 
@@ -368,7 +375,8 @@ public class ReplicaCreationServiceTest {
                       Instant.now().toEpochMilli(),
                       0,
                       snapshotId,
-                      LOGS_LUCENE9);
+                      LOGS_LUCENE9,
+                      0);
               eligibleSnapshots.add(snapshot);
             });
     snapshotList.addAll(eligibleSnapshots);
@@ -454,7 +462,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(snapshotA);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 2);
@@ -526,7 +535,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(snapshotA);
 
     await()
@@ -578,7 +588,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(snapshotA);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
@@ -627,7 +638,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LOGS_LUCENE9);
+            LOGS_LUCENE9,
+            0);
     snapshotMetadataStore.createSync(snapshotA);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 

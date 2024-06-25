@@ -76,7 +76,8 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
             chunkInfo.getDataEndTimeEpochMs(),
             chunkInfo.getMaxOffset(),
             chunkInfo.getKafkaPartitionId(),
-            Metadata.IndexType.LOGS_LUCENE9);
+            Metadata.IndexType.LOGS_LUCENE9,
+            chunkInfo.getSizeInBytesOnDisk());
     snapshotMetadataStore.updateSync(updatedSnapshotMetadata);
     liveSnapshotMetadata = updatedSnapshotMetadata;
 
