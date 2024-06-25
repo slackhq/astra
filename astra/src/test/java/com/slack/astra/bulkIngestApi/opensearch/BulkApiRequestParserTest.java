@@ -305,8 +305,10 @@ public class BulkApiRequestParserTest {
         BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
 
     // this tests that the parser inserted a timestamp close to the current time
-    long oneMinuteBefore = ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now().minus(1, ChronoUnit.MINUTES));
-    long oneMinuteAfter = ChronoUnit.MICROS.between(Instant.EPOCH,  Instant.now().plus(1, ChronoUnit.MINUTES));
+    long oneMinuteBefore =
+        ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now().minus(1, ChronoUnit.MINUTES));
+    long oneMinuteAfter =
+        ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now().plus(1, ChronoUnit.MINUTES));
     assertThat(oneMinuteBefore <= timeInMicros).isTrue();
     assertThat(timeInMicros <= oneMinuteAfter).isTrue();
 
