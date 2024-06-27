@@ -48,7 +48,7 @@ public class BulkApiRequestParser {
   public static long getTimestampFromIngestDocument(Map<String, Object> sourceAndMetadata) {
     if (sourceAndMetadata.containsKey(ReservedFields.TIMESTAMP)) {
       try {
-        String dateString = (String) sourceAndMetadata.get(ReservedFields.TIMESTAMP);
+        String dateString = String.valueOf(sourceAndMetadata.get(ReservedFields.TIMESTAMP));
         Instant instant = Instant.parse(dateString);
         return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
       } catch (Exception e) {
@@ -68,13 +68,14 @@ public class BulkApiRequestParser {
     Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
 
     long timestampInMicros = getTimestampFromIngestDocument(sourceAndMetadata);
-    String id = (String) sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName());
+    String id = String.valueOf(sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName()));
     // See https://blog.mikemccandless.com/2014/05/choosing-fast-unique-identifier-uuid.html on how
     // to improve this
     if (id == null) {
       id = UUID.randomUUID().toString();
     }
-    String index = (String) sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName());
+    String index =
+        String.valueOf(sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName()));
 
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
@@ -84,17 +85,18 @@ public class BulkApiRequestParser {
     if (sourceAndMetadata.get(LogMessage.ReservedField.PARENT_ID.fieldName) != null) {
       spanBuilder.setParentId(
           ByteString.copyFromUtf8(
-              (String) sourceAndMetadata.get(LogMessage.ReservedField.PARENT_ID.fieldName)));
+              String.valueOf(sourceAndMetadata.get(LogMessage.ReservedField.PARENT_ID.fieldName))));
       sourceAndMetadata.remove(LogMessage.ReservedField.PARENT_ID.fieldName);
     }
     if (sourceAndMetadata.get(LogMessage.ReservedField.TRACE_ID.fieldName) != null) {
       spanBuilder.setTraceId(
           ByteString.copyFromUtf8(
-              (String) sourceAndMetadata.get(LogMessage.ReservedField.TRACE_ID.fieldName)));
+              String.valueOf(sourceAndMetadata.get(LogMessage.ReservedField.TRACE_ID.fieldName))));
       sourceAndMetadata.remove(LogMessage.ReservedField.TRACE_ID.fieldName);
     }
     if (sourceAndMetadata.get(LogMessage.ReservedField.NAME.fieldName) != null) {
-      spanBuilder.setName((String) sourceAndMetadata.get(LogMessage.ReservedField.NAME.fieldName));
+      spanBuilder.setName(
+          String.valueOf(sourceAndMetadata.get(LogMessage.ReservedField.NAME.fieldName)));
       sourceAndMetadata.remove(LogMessage.ReservedField.NAME.fieldName);
     }
     if (sourceAndMetadata.get(LogMessage.ReservedField.DURATION.fieldName) != null) {
