@@ -4,6 +4,7 @@ import static com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser.conv
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.common.io.Resources;
+import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.opensearch.action.index.IndexRequest;
@@ -295,6 +297,94 @@ public class BulkApiRequestParserTest {
 
     Instant oneMinuteAfter = Instant.now().plus(1, ChronoUnit.MINUTES);
     assertThat(ingestDocumentTime.isBefore(oneMinuteAfter)).isTrue();
+  }
+
+  @Test
+  public void testNullDocumentIdFromIngestDocument() {
+    IngestDocument nullId =
+        new IngestDocument("index", null, "routing", 1L, VersionType.INTERNAL, Map.of());
+    Trace.Span nullIdTrace =
+        BulkApiRequestParser.fromIngestDocument(nullId, Schema.IngestSchema.newBuilder().build());
+
+    assertThat(nullIdTrace.getId().toStringUtf8()).isNotNull();
+    assertThat(nullIdTrace.getId().toStringUtf8()).isNotEmpty();
+    assertThat(nullIdTrace.getId().toStringUtf8()).isNotEqualToIgnoringCase("null");
+  }
+
+  @Test
+  public void testEmptyDocumentIdFromIngestDocument() {
+    IngestDocument emptyId =
+        new IngestDocument("index", "", "routing", 1L, VersionType.INTERNAL, Map.of());
+    Trace.Span emptyIdTrace =
+        BulkApiRequestParser.fromIngestDocument(emptyId, Schema.IngestSchema.newBuilder().build());
+
+    assertThat(emptyIdTrace.getId().toStringUtf8()).isNotNull();
+    assertThat(emptyIdTrace.getId().toStringUtf8()).isNotEmpty();
+    assertThat(emptyIdTrace.getId().toStringUtf8()).isNotEqualToIgnoringCase("null");
+  }
+
+  @Test
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  public void testEmptyIndexFromIngestDocument() {
+    IngestDocument emptyIndex =
+        new IngestDocument(
+            "", UUID.randomUUID().toString(), "routing", 1L, VersionType.INTERNAL, Map.of());
+    Trace.Span emptyIndexTrace =
+        BulkApiRequestParser.fromIngestDocument(
+            emptyIndex, Schema.IngestSchema.newBuilder().build());
+    assertThat(
+            emptyIndexTrace.getTagsList().stream()
+                .filter(tag -> tag.getKey().equals("service_name"))
+                .findFirst()
+                .get()
+                .getVStr())
+        .isEqualTo("default");
+  }
+
+  @Test
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  public void testNullIndexFromINgestDocument() {
+    IngestDocument nullIndex =
+        new IngestDocument(
+            null, UUID.randomUUID().toString(), "routing", 1L, VersionType.INTERNAL, Map.of());
+    Trace.Span nullIndexTrace =
+        BulkApiRequestParser.fromIngestDocument(
+            nullIndex, Schema.IngestSchema.newBuilder().build());
+    assertThat(
+            nullIndexTrace.getTagsList().stream()
+                .filter(tag -> tag.getKey().equals("service_name"))
+                .findFirst()
+                .get()
+                .getVStr())
+        .isEqualTo("default");
+  }
+
+  @Test
+  public void testMalformedReservedFieldsFromIngestDocument() {
+    IngestDocument malformedReservedFields =
+        new IngestDocument(
+            "index",
+            UUID.randomUUID().toString(),
+            "routing",
+            1L,
+            VersionType.INTERNAL,
+            Map.of(
+                LogMessage.ReservedField.PARENT_ID.fieldName,
+                1L,
+                LogMessage.ReservedField.TRACE_ID.fieldName,
+                true,
+                LogMessage.ReservedField.NAME.fieldName,
+                2.2,
+                LogMessage.ReservedField.DURATION.fieldName,
+                "yes"));
+    Trace.Span malformedReservedFieldsTrace =
+        BulkApiRequestParser.fromIngestDocument(
+            malformedReservedFields, Schema.IngestSchema.newBuilder().build());
+
+    assertThat(malformedReservedFieldsTrace.getParentId().toStringUtf8()).isEqualTo("1");
+    assertThat(malformedReservedFieldsTrace.getTraceId().toStringUtf8()).isEqualTo("true");
+    assertThat(malformedReservedFieldsTrace.getName()).isEqualTo("2.2");
+    assertThat(malformedReservedFieldsTrace.getDuration()).isEqualTo(0);
   }
 
   @Test
