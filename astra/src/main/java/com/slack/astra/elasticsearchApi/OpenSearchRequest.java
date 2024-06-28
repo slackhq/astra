@@ -248,6 +248,7 @@ public class OpenSearchRequest {
                                               .ValueSourceAggregation.TermsAggregation.newBuilder()
                                               .setSize(getSize(terms))
                                               .putAllOrder(getTermsOrder(terms))
+                                              .setMinDocCount(getTermsMinDocCount(terms))
                                               .build())
                                       .build());
                         } else if (aggregationObject.equals(AvgAggBuilder.TYPE)) {
@@ -577,6 +578,11 @@ public class OpenSearchRequest {
   private static long getHistogramMinDocCount(JsonNode dateHistogram) {
     // min_doc_count is provided as a string in the json payload
     return Long.parseLong(dateHistogram.get("min_doc_count").asText());
+  }
+
+  private static long getTermsMinDocCount(JsonNode terms) {
+    // min_doc_count is provided as a string in the json payload
+    return Long.parseLong(terms.get("min_doc_count").asText());
   }
 
   private static Map<String, Long> getDateHistogramExtendedBounds(JsonNode dateHistogram) {
