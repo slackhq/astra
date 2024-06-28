@@ -379,4 +379,25 @@ public class OpenSearchRequestTest {
     assertThat(filtersAggregation.getFilters().getFiltersMap().get("bar").getAnalyzeWildcard())
         .isEqualTo(false);
   }
+
+  @Test
+  public void testTermsAggregation() throws IOException {
+    String rawRequest = getRawQueryString("terms");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest.SearchAggregation rawTermsAggregation =
+        parsedRequestList.get(0).getAggregations();
+
+    AstraSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.TermsAggregation
+        typedTermsAggregation = rawTermsAggregation.getValueSource().getTerms();
+
+    assertThat(rawTermsAggregation.getValueSource().getField()).isEqualTo("host");
+    assertThat(typedTermsAggregation.getMinDocCount()).isEqualTo(1);
+    assertThat(typedTermsAggregation.getSize()).isEqualTo(10);
+    assertThat(typedTermsAggregation.getOrderMap().get("_term")).isEqualTo("desc");
+  }
 }
