@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
@@ -72,13 +71,29 @@ public class BulkApiRequestParser {
 
     // See https://blog.mikemccandless.com/2014/05/choosing-fast-unique-identifier-uuid.html on how
     // to improve this
-    String id =
-        Optional.ofNullable(sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName()))
-            .map(String::valueOf)
-            .orElse(UUID.randomUUID().toString());
+    String id = null;
+    if (sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName()) != null) {
+      String parsedId =
+          String.valueOf(sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName()));
+      if (!parsedId.isEmpty()) {
+        // only override the generated ID if it's not null, and not empty
+        // this can still cause problems if a user provides duplicate values
+        id = parsedId;
+      }
+    }
 
-    String index =
-        String.valueOf(sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName()));
+    if (id == null) {
+      id = UUID.randomUUID().toString();
+    }
+
+    String index = "default";
+    if (sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName()) != null) {
+      String parsedIndex =
+          String.valueOf(sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName()));
+      if (!parsedIndex.isEmpty()) {
+        index = parsedIndex;
+      }
+    }
 
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
