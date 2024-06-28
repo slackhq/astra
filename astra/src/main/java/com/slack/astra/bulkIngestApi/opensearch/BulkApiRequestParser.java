@@ -72,7 +72,8 @@ public class BulkApiRequestParser {
 
     // See https://blog.mikemccandless.com/2014/05/choosing-fast-unique-identifier-uuid.html on how
     // to improve this
-    String id = Optional.ofNullable(sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName()))
+    String id =
+        Optional.ofNullable(sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName()))
             .map(String::valueOf)
             .orElse(UUID.randomUUID().toString());
 
