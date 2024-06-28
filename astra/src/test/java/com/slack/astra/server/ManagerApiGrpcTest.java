@@ -588,38 +588,38 @@ public class ManagerApiGrpcTest {
 
     SnapshotMetadata overlapsStartTimeIncluded =
         new SnapshotMetadata(
-            "a", "a", startTime, startTime + 6, 0, "a", Metadata.IndexType.LOGS_LUCENE9);
+            "a", "a", startTime, startTime + 6, 0, "a", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata overlapsStartTimeExcluded =
         new SnapshotMetadata(
-            "b", "b", startTime, startTime + 6, 0, "b", Metadata.IndexType.LOGS_LUCENE9);
+            "b", "b", startTime, startTime + 6, 0, "b", Metadata.IndexType.LOGS_LUCENE9, 0);
 
     SnapshotMetadata fullyOverlapsStartEndTimeIncluded =
         new SnapshotMetadata(
-            "c", "c", startTime + 4, startTime + 11, 0, "a", Metadata.IndexType.LOGS_LUCENE9);
+            "c", "c", startTime + 4, startTime + 11, 0, "a", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata fullyOverlapsStartEndTimeExcluded =
         new SnapshotMetadata(
-            "d", "d", startTime + 4, startTime + 11, 0, "b", Metadata.IndexType.LOGS_LUCENE9);
+            "d", "d", startTime + 4, startTime + 11, 0, "b", Metadata.IndexType.LOGS_LUCENE9, 0);
 
     SnapshotMetadata partiallyOverlapsStartEndTimeIncluded =
         new SnapshotMetadata(
-            "e", "e", startTime + 4, startTime + 5, 0, "a", Metadata.IndexType.LOGS_LUCENE9);
+            "e", "e", startTime + 4, startTime + 5, 0, "a", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata partiallyOverlapsStartEndTimeExcluded =
         new SnapshotMetadata(
-            "f", "f", startTime + 4, startTime + 5, 0, "b", Metadata.IndexType.LOGS_LUCENE9);
+            "f", "f", startTime + 4, startTime + 5, 0, "b", Metadata.IndexType.LOGS_LUCENE9, 0);
 
     SnapshotMetadata overlapsEndTimeIncluded =
         new SnapshotMetadata(
-            "g", "g", startTime + 10, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9);
+            "g", "g", startTime + 10, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata overlapsEndTimeExcluded =
         new SnapshotMetadata(
-            "h", "h", startTime + 10, startTime + 15, 0, "b", Metadata.IndexType.LOGS_LUCENE9);
+            "h", "h", startTime + 10, startTime + 15, 0, "b", Metadata.IndexType.LOGS_LUCENE9, 0);
 
     SnapshotMetadata notWithinStartEndTimeExcluded1 =
         new SnapshotMetadata(
-            "i", "i", startTime, startTime + 4, 0, "a", Metadata.IndexType.LOGS_LUCENE9);
+            "i", "i", startTime, startTime + 4, 0, "a", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata notWithinStartEndTimeExcluded2 =
         new SnapshotMetadata(
-            "j", "j", startTime + 11, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9);
+            "j", "j", startTime + 11, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9, 0);
 
     DatasetMetadata datasetWithDataInPartitionA =
         new DatasetMetadata(
@@ -670,10 +670,10 @@ public class ManagerApiGrpcTest {
 
     SnapshotMetadata snapshotIncluded =
         new SnapshotMetadata(
-            "g", "g", startTime + 10, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9);
+            "g", "g", startTime + 10, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata snapshotExcluded =
         new SnapshotMetadata(
-            "h", "h", startTime + 10, startTime + 15, 0, "b", Metadata.IndexType.LOGS_LUCENE9);
+            "h", "h", startTime + 10, startTime + 15, 0, "b", Metadata.IndexType.LOGS_LUCENE9, 0);
 
     snapshotMetadataStore.createSync(snapshotIncluded);
     snapshotMetadataStore.createSync(snapshotExcluded);
@@ -714,13 +714,13 @@ public class ManagerApiGrpcTest {
 
     SnapshotMetadata snapshotIncluded =
         new SnapshotMetadata(
-            "a", "a", startTime + 10, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9);
+            "a", "a", startTime + 10, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata snapshotIncluded2 =
         new SnapshotMetadata(
-            "b", "b", startTime + 10, startTime + 15, 0, "b", Metadata.IndexType.LOGS_LUCENE9);
+            "b", "b", startTime + 10, startTime + 15, 0, "b", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata snapshotExcluded =
         new SnapshotMetadata(
-            "c", "c", startTime + 10, startTime + 15, 0, "c", Metadata.IndexType.LOGS_LUCENE9);
+            "c", "c", startTime + 10, startTime + 15, 0, "c", Metadata.IndexType.LOGS_LUCENE9, 0);
 
     snapshotMetadataStore.createSync(snapshotIncluded);
     snapshotMetadataStore.createSync(snapshotIncluded2);
@@ -764,13 +764,13 @@ public class ManagerApiGrpcTest {
 
     SnapshotMetadata snapshotFoo =
         new SnapshotMetadata(
-            "foo", "a", startTime + 10, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9);
+            "foo", "a", startTime + 10, startTime + 15, 0, "a", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata snapshotBar =
         new SnapshotMetadata(
-            "bar", "b", startTime + 10, startTime + 15, 0, "b", Metadata.IndexType.LOGS_LUCENE9);
+            "bar", "b", startTime + 10, startTime + 15, 0, "b", Metadata.IndexType.LOGS_LUCENE9, 0);
     SnapshotMetadata snapshotBaz =
         new SnapshotMetadata(
-            "baz", "c", startTime + 10, startTime + 15, 0, "c", Metadata.IndexType.LOGS_LUCENE9);
+            "baz", "c", startTime + 10, startTime + 15, 0, "c", Metadata.IndexType.LOGS_LUCENE9, 0);
 
     snapshotMetadataStore.createSync(snapshotFoo);
     snapshotMetadataStore.createSync(snapshotBar);

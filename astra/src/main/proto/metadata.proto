@@ -84,6 +84,9 @@ message SnapshotMetadata {
 
   // The type of index used to store this data.
   IndexType index_type = 8;
+
+  // Size of the snapshot in bytes
+  int64 sizeInBytes = 9;
 }
 
 message SearchMetadata {

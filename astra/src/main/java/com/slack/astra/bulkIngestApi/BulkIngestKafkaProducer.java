@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
 
 public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestKafkaProducer.class);
+  private final boolean useKafkaTransactions;
 
   private KafkaProducer<String, byte[]> kafkaProducer;
 
@@ -100,6 +101,9 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     this.producerSleepMs =
         Integer.parseInt(System.getProperty("astra.bulkIngest.producerSleepMs", "50"));
 
+    this.useKafkaTransactions =
+        Boolean.parseBoolean(System.getProperty("astra.bulkIngest.useKafkaTransactions", "false"));
+
     this.failedSetResponseCounter = meterRegistry.counter(FAILED_SET_RESPONSE_COUNTER);
     this.stallCounter = meterRegistry.counter(STALL_COUNTER);
     this.kafkaRestartTimer = meterRegistry.timer(KAFKA_RESTART_COUNTER);
@@ -117,7 +121,9 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     this.kafkaProducer = createKafkaTransactionProducer(UUID.randomUUID().toString());
     this.kafkaMetrics = new KafkaClientMetrics(kafkaProducer);
     this.kafkaMetrics.bindTo(meterRegistry);
-    this.kafkaProducer.initTransactions();
+    if (useKafkaTransactions) {
+      this.kafkaProducer.initTransactions();
+    }
   }
 
   private void stopKafkaProducer() {
@@ -171,7 +177,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
           return;
         }
       } else {
-        produceDocumentsAndCommit(requests);
+        produceDocuments(requests);
       }
     }
   }
@@ -192,7 +198,41 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     return request;
   }
 
-  protected Map<BulkIngestRequest, BulkIngestResponse> produceDocumentsAndCommit(
+  protected Map<BulkIngestRequest, BulkIngestResponse> produceDocuments(
+      List<BulkIngestRequest> requests) {
+    if (useKafkaTransactions) {
+      return produceDocumentsAndCommit(requests);
+    } else {
+      Map<BulkIngestRequest, BulkIngestResponse> responseMap = new HashMap<>();
+      try {
+        for (BulkIngestRequest request : requests) {
+          responseMap.put(request, produceDocuments(request.getInputDocs(), kafkaProducer));
+        }
+        for (Map.Entry<BulkIngestRequest, BulkIngestResponse> entry : responseMap.entrySet()) {
+          BulkIngestRequest key = entry.getKey();
+          BulkIngestResponse value = entry.getValue();
+          if (!key.setResponse(value)) {
+            LOG.warn("Failed to add result to the bulk ingest request, consumer thread went away?");
+            failedSetResponseCounter.increment();
+          }
+        }
+      } catch (Exception e) {
+        LOG.error("Failed to write batch to kafka", e);
+        for (BulkIngestRequest request : requests) {
+          responseMap.put(
+              request,
+              new BulkIngestResponse(
+                  0,
+                  request.getInputDocs().values().stream().mapToInt(List::size).sum(),
+                  e.getMessage()));
+        }
+      }
+
+      return responseMap;
+    }
+  }
+
+  private Map<BulkIngestRequest, BulkIngestResponse> produceDocumentsAndCommit(
       List<BulkIngestRequest> requests) {
     Map<BulkIngestRequest, BulkIngestResponse> responseMap = new HashMap<>();
     try {
@@ -312,7 +352,9 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     props.put(
         ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.ByteArraySerializer");
-    props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
+    if (useKafkaTransactions) {
+      props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
+    }
 
     // don't override the properties that we have already set explicitly using named properties
     for (Map.Entry<String, String> additionalProp :

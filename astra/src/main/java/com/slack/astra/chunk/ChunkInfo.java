@@ -31,7 +31,8 @@ public class ChunkInfo {
         snapshotMetadata.endTimeEpochMs,
         snapshotMetadata.maxOffset,
         snapshotMetadata.partitionId,
-        snapshotMetadata.snapshotPath);
+        snapshotMetadata.snapshotPath,
+        snapshotMetadata.sizeInBytesOnDisk);
   }
 
   public static SnapshotMetadata toSnapshotMetadata(ChunkInfo chunkInfo, String chunkPrefix) {
@@ -42,7 +43,8 @@ public class ChunkInfo {
         chunkInfo.getDataEndTimeEpochMs(),
         chunkInfo.maxOffset,
         chunkInfo.kafkaPartitionId,
-        Metadata.IndexType.LOGS_LUCENE9);
+        Metadata.IndexType.LOGS_LUCENE9,
+        chunkInfo.sizeInBytesOnDisk);
   }
 
   /* A unique identifier for a the chunk. */
@@ -78,6 +80,9 @@ public class ChunkInfo {
   // Path to S3 snapshot.
   private String snapshotPath;
 
+  // Size of chunk on disk in bytes
+  private long sizeInBytesOnDisk;
+
   public ChunkInfo(
       String chunkId, long chunkCreationTimeEpochMs, String kafkaPartitionId, String snapshotPath) {
     // TODO: Should we set the snapshot time to creation time also?
@@ -90,7 +95,8 @@ public class ChunkInfo {
         0,
         DEFAULT_MAX_OFFSET,
         kafkaPartitionId,
-        snapshotPath);
+        snapshotPath,
+        0);
   }
 
   public ChunkInfo(
@@ -102,7 +108,8 @@ public class ChunkInfo {
       long chunkSnapshotTimeEpochMs,
       long maxOffset,
       String kafkaPartitionId,
-      String snapshotPath) {
+      String snapshotPath,
+      long sizeInBytesOnDisk) {
     ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
     ensureTrue(
         chunkCreationTimeEpochMs >= 0,
@@ -118,6 +125,7 @@ public class ChunkInfo {
     this.maxOffset = maxOffset;
     this.kafkaPartitionId = kafkaPartitionId;
     this.snapshotPath = snapshotPath;
+    this.sizeInBytesOnDisk = sizeInBytesOnDisk;
   }
 
   public long getChunkSnapshotTimeEpochMs() {
@@ -162,6 +170,14 @@ public class ChunkInfo {
 
   public String getSnapshotPath() {
     return snapshotPath;
+  }
+
+  public long getSizeInBytesOnDisk() {
+    return sizeInBytesOnDisk;
+  }
+
+  public void setSizeInBytesOnDisk(long sizeInBytesOnDisk) {
+    this.sizeInBytesOnDisk = sizeInBytesOnDisk;
   }
 
   public void updateMaxOffset(long newOffset) {
@@ -224,6 +240,8 @@ public class ChunkInfo {
         + chunkSnapshotTimeEpochMs
         + ", snapshotPath='"
         + snapshotPath
+        + ", sizeInBytesOnDisk='"
+        + sizeInBytesOnDisk
         + '}';
   }
 
@@ -240,7 +258,8 @@ public class ChunkInfo {
         && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
         && Objects.equals(chunkId, chunkInfo.chunkId)
         && Objects.equals(kafkaPartitionId, chunkInfo.kafkaPartitionId)
-        && Objects.equals(snapshotPath, chunkInfo.snapshotPath);
+        && Objects.equals(snapshotPath, chunkInfo.snapshotPath)
+        && sizeInBytesOnDisk == chunkInfo.sizeInBytesOnDisk;
   }
 
   @Override

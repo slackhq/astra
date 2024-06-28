@@ -33,9 +33,12 @@ public class BulkIngestApi {
   private final Timer bulkIngestTimer;
   private final String BULK_INGEST_INCOMING_BYTE_TOTAL = "astra_preprocessor_incoming_byte";
   private final String BULK_INGEST_INCOMING_BYTE_DOCS = "astra_preprocessor_incoming_docs";
+  private final String BULK_INGEST_ERROR = "astra_preprocessor_error";
   private final String BULK_INGEST_TIMER = "astra_preprocessor_bulk_ingest";
   private final int rateLimitExceededErrorCode;
   private final Schema.IngestSchema schema;
+
+  private final Counter bulkIngestErrorCounter;
 
   public BulkIngestApi(
       BulkIngestKafkaProducer bulkIngestKafkaProducer,
@@ -56,6 +59,7 @@ public class BulkIngestApi {
       this.rateLimitExceededErrorCode = rateLimitExceededErrorCode;
     }
     this.schema = schema;
+    this.bulkIngestErrorCounter = meterRegistry.counter(BULK_INGEST_ERROR);
   }
 
   @Post("/_bulk")
@@ -69,8 +73,15 @@ public class BulkIngestApi {
     try {
       byte[] bulkRequestBytes = bulkRequest.getBytes(StandardCharsets.UTF_8);
       incomingByteTotal.increment(bulkRequestBytes.length);
-      Map<String, List<Trace.Span>> docs =
-          BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
+      Map<String, List<Trace.Span>> docs = Map.of();
+      try {
+        docs = BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
+      } catch (Exception e) {
+        LOG.error("Request failed ", e);
+        bulkIngestErrorCounter.increment();
+        BulkIngestResponse response = new BulkIngestResponse(0, 0, e.getMessage());
+        future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
+      }
 
       // todo - our rate limiter doesn't have a way to acquire permits across multiple
       // datasets
@@ -81,6 +92,7 @@ public class BulkIngestApi {
         BulkIngestResponse response =
             new BulkIngestResponse(0, 0, "request must contain only 1 unique index");
         future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
+        bulkIngestErrorCounter.increment();
         return HttpResponse.of(future);
       }
 
@@ -97,15 +109,17 @@ public class BulkIngestApi {
 
       // todo - explore the possibility of using the blocking task executor backed by virtual
       // threads to fulfill this
+      Map<String, List<Trace.Span>> finalDocs = docs;
       Thread.ofVirtual()
           .start(
               () -> {
                 try {
                   BulkIngestResponse response =
-                      bulkIngestKafkaProducer.submitRequest(docs).getResponse();
+                      bulkIngestKafkaProducer.submitRequest(finalDocs).getResponse();
                   future.complete(HttpResponse.ofJson(response));
                 } catch (InterruptedException e) {
                   LOG.error("Request failed ", e);
+                  bulkIngestErrorCounter.increment();
                   future.complete(
                       HttpResponse.ofJson(
                           INTERNAL_SERVER_ERROR, new BulkIngestResponse(0, 0, e.getMessage())));
@@ -113,6 +127,7 @@ public class BulkIngestApi {
               });
     } catch (Exception e) {
       LOG.error("Request failed ", e);
+      bulkIngestErrorCounter.increment();
       BulkIngestResponse response = new BulkIngestResponse(0, 0, e.getMessage());
       future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
     }

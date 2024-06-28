@@ -18,7 +18,9 @@
         "code",
         "doc",
         "review",
-        "bug"
+        "bug",
+        "ideas",
+        "talk"
       ]
     },
     {
@@ -30,7 +32,9 @@
         "code",
         "doc",
         "review",
-        "bug"
+        "bug",
+        "ideas",
+        "talk"
       ]
     },
     {
@@ -40,7 +44,8 @@
       "profile": "https://github.com/kyle-sammons",
       "contributions": [
         "plugin",
-        "code"
+        "code",
+        "bug"
       ]
     },
     {
