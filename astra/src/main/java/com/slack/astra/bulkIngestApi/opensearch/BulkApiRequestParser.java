@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
@@ -68,12 +69,13 @@ public class BulkApiRequestParser {
     Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
 
     long timestampInMicros = getTimestampFromIngestDocument(sourceAndMetadata);
-    String id = String.valueOf(sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName()));
+
     // See https://blog.mikemccandless.com/2014/05/choosing-fast-unique-identifier-uuid.html on how
     // to improve this
-    if (id == null) {
-      id = UUID.randomUUID().toString();
-    }
+    String id = Optional.ofNullable(sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName()))
+            .map(String::valueOf)
+            .orElse(UUID.randomUUID().toString());
+
     String index =
         String.valueOf(sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName()));
 
