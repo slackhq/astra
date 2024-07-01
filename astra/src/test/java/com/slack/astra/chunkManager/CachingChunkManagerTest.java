@@ -11,7 +11,13 @@ import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ReadOnlyChunkImpl;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.metadata.cache.CacheNodeAssignment;
+import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
+import com.slack.astra.metadata.cache.CacheNodeMetadata;
+import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.snapshot.SnapshotMetadata;
+import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.SpanUtil;
@@ -85,6 +91,7 @@ public class CachingChunkManagerTest {
                     .setServerAddress("localhost")
                     .setServerPort(8080)
                     .build())
+            .setCapacityBytes(4096)
             .build();
 
     AstraConfigs.S3Config s3Config =
@@ -119,7 +126,8 @@ public class CachingChunkManagerTest {
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
             AstraConfig.getCacheConfig().getReplicaSet(),
-            AstraConfig.getCacheConfig().getSlotsPerInstance());
+            AstraConfig.getCacheConfig().getSlotsPerInstance(),
+            AstraConfig.getCacheConfig().getCapacityBytes());
 
     cachingChunkManager.startAsync();
     cachingChunkManager.awaitRunning(15, TimeUnit.SECONDS);
@@ -158,6 +166,80 @@ public class CachingChunkManagerTest {
     cachingChunkManager = initChunkManager();
     assertThatThrownBy(() -> cachingChunkManager.addMessage(SpanUtil.makeSpan(1), 10, "1", 1))
         .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  public void testCreatesChunksOnAssignment() throws Exception {
+    System.setProperty("astra.ng.dynamicChunkSizes", "true");
+
+    cachingChunkManager = initChunkManager();
+    initAssignments();
+
+    await()
+        .timeout(10000, TimeUnit.MILLISECONDS)
+        .until(() -> cachingChunkManager.getChunksMap().size() == 1);
+    assertThat(cachingChunkManager.getChunksMap().size()).isEqualTo(1);
+
+    // assert state is correct
+    // assert searchMetadata is correct
+    // assert can query
+    System.setProperty("astra.ng.dynamicChunkSizes", "false");
+  }
+
+  @Test
+  public void testChunkManagerRegistration() throws Exception {
+    System.setProperty("astra.ng.dynamicChunkSizes", "true");
+
+    cachingChunkManager = initChunkManager();
+    CacheNodeMetadataStore cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
+
+    List<CacheNodeMetadata> cacheNodeMetadatas = cacheNodeMetadataStore.listSync();
+    assertThat(cachingChunkManager.getChunkList().size()).isEqualTo(0);
+    assertThat(cacheNodeMetadatas.size()).isEqualTo(1);
+    assertThat(cacheNodeMetadatas.getFirst().nodeCapacityBytes).isEqualTo(4096);
+    assertThat(cacheNodeMetadatas.getFirst().replicaSet).isEqualTo("rep1");
+
+    cachingChunkManager.shutDown();
+    // assert chunks are gone
+
+    cacheNodeMetadataStore.close();
+    System.setProperty("astra.ng.dynamicChunkSizes", "false");
+  }
+
+  @Test
+  public void testBasicChunkEviction() throws Exception {
+    System.setProperty("astra.ng.dynamicChunkSizes", "true");
+
+    cachingChunkManager = initChunkManager();
+    initAssignments();
+
+    // assert chunks created
+    await()
+        .timeout(10000, TimeUnit.MILLISECONDS)
+        .until(() -> cachingChunkManager.getChunksMap().size() == 1);
+    assertThat(cachingChunkManager.getChunksMap().size()).isEqualTo(1);
+
+    // set state of assignment to evict
+    // assert that chunks were evicted
+
+    System.setProperty("astra.ng.dynamicChunkSizes", "false");
+  }
+
+  private void initAssignments() throws Exception {
+    CacheNodeAssignmentStore cacheNodeAssignmentStore =
+        new CacheNodeAssignmentStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    snapshotMetadataStore.createSync(
+        new SnapshotMetadata(
+            "ijklmnop", TEST_S3_BUCKET, 1, 1, 0, "abcd", Metadata.IndexType.LOGS_LUCENE9, 0));
+    CacheNodeAssignment newAssignment =
+        new CacheNodeAssignment(
+            "abcd",
+            cachingChunkManager.getId(),
+            "ijklmnop",
+            "rep1",
+            Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING);
+    cacheNodeAssignmentStore.createSync(newAssignment);
   }
 
   // TODO: Add a unit test to ensure caching chunk manager can search messages.

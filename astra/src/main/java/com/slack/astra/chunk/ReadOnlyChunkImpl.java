@@ -8,6 +8,8 @@ import com.slack.astra.logstore.search.LogIndexSearcher;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
+import com.slack.astra.metadata.cache.CacheNodeAssignment;
+import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadata;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
@@ -56,6 +58,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private Path dataDirectory;
   private ChunkSchema chunkSchema;
   private Metadata.CacheSlotMetadata.CacheSlotState cacheSlotLastKnownState;
+  private Metadata.CacheNodeAssignment.CacheNodeAssignmentState lastKnownAssignmentState;
 
   private final String dataDirectoryPrefix;
   private final String s3Bucket;
@@ -65,8 +68,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
+  private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private final MeterRegistry meterRegistry;
   private final BlobFs blobFs;
+  private String assignmentId;
+  private String cacheNodeId;
 
   public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
   public static final String CHUNK_EVICTION_TIMER = "chunk_eviction_timer";
@@ -80,6 +86,42 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this::cacheNodeListener;
 
   private final ReentrantLock chunkAssignmentLock = new ReentrantLock();
+
+  public ReadOnlyChunkImpl(
+      AsyncCuratorFramework curatorFramework,
+      MeterRegistry meterRegistry,
+      BlobFs blobFs,
+      SearchContext searchContext,
+      String s3Bucket,
+      String dataDirectoryPrefix,
+      String replicaSet,
+      CacheSlotMetadataStore cacheSlotMetadataStore,
+      ReplicaMetadataStore replicaMetadataStore,
+      SnapshotMetadataStore snapshotMetadataStore,
+      SearchMetadataStore searchMetadataStore,
+      CacheNodeAssignmentStore cacheNodeAssignmentStore,
+      String assignmentId,
+      String cacheNodeId)
+      throws Exception {
+    this(
+        curatorFramework,
+        meterRegistry,
+        blobFs,
+        searchContext,
+        s3Bucket,
+        dataDirectoryPrefix,
+        replicaSet,
+        cacheSlotMetadataStore,
+        replicaMetadataStore,
+        snapshotMetadataStore,
+        searchMetadataStore);
+    this.assignmentId = assignmentId;
+    this.cacheNodeId = cacheNodeId;
+    this.cacheNodeAssignmentStore = cacheNodeAssignmentStore;
+    this.lastKnownAssignmentState = Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING;
+
+    downloadChunkData();
+  }
 
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
@@ -106,17 +148,19 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.searchMetadataStore = searchMetadataStore;
 
-    CacheSlotMetadata cacheSlotMetadata =
-        new CacheSlotMetadata(
-            slotId,
-            Metadata.CacheSlotMetadata.CacheSlotState.FREE,
-            "",
-            Instant.now().toEpochMilli(),
-            List.of(Metadata.IndexType.LOGS_LUCENE9),
-            searchContext.hostname,
-            replicaSet);
-    cacheSlotMetadataStore.createSync(cacheSlotMetadata);
-    cacheSlotMetadataStore.addListener(cacheSlotListener);
+    if (!Boolean.getBoolean("astra.ng.dynamicChunkSizes")) {
+      CacheSlotMetadata cacheSlotMetadata =
+          new CacheSlotMetadata(
+              slotId,
+              Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+              "",
+              Instant.now().toEpochMilli(),
+              List.of(Metadata.IndexType.LOGS_LUCENE9),
+              searchContext.hostname,
+              replicaSet);
+      cacheSlotMetadataStore.createSync(cacheSlotMetadata);
+      cacheSlotMetadataStore.addListener(cacheSlotListener);
+    }
 
     cacheSlotLastKnownState = Metadata.CacheSlotMetadata.CacheSlotState.FREE;
     chunkAssignmentTimerSuccess = meterRegistry.timer(CHUNK_ASSIGNMENT_TIMER, "successful", "true");
@@ -126,6 +170,119 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     chunkEvictionTimerFailure = meterRegistry.timer(CHUNK_EVICTION_TIMER, "successful", "false");
 
     LOG.debug("Created a new read only chunk - zkSlotId: {}", slotId);
+  }
+
+  /*
+  ======================================================
+  All methods below RELATED to astra.ng.dynamicChunkSizes
+  ======================================================
+   */
+
+  public void evictChunk(CacheNodeAssignment cacheNodeAssignment) {
+    Timer.Sample evictionTimer = Timer.start(meterRegistry);
+    chunkAssignmentLock.lock();
+    try {
+      if (!setAssignmentState(
+          cacheNodeAssignment, Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICTING)) {
+        throw new InterruptedException("Failed to set cache node assignment state to evicting");
+      }
+
+      // make this chunk un-queryable
+      unregisterSearchMetadata();
+
+      if (logSearcher != null) {
+        logSearcher.close();
+      }
+
+      chunkInfo = null;
+      logSearcher = null;
+
+      cleanDirectory();
+
+      // delete assignment
+      cacheNodeAssignmentStore.deleteSync(cacheNodeAssignment);
+
+      evictionTimer.stop(chunkEvictionTimerSuccess);
+    } catch (Exception e) {
+      // leave the slot state stuck in evicting, as something is broken, and we don't want a
+      // re-assignment or queries hitting this slot
+      LOG.error("Error handling chunk eviction", e);
+      evictionTimer.stop(chunkEvictionTimerFailure);
+    } finally {
+      chunkAssignmentLock.unlock();
+    }
+  }
+
+  public CacheNodeAssignment getCacheNodeAssignment() {
+    return cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId);
+  }
+
+  public void downloadChunkData() {
+    Timer.Sample assignmentTimer = Timer.start(meterRegistry);
+    // lock
+    chunkAssignmentLock.lock();
+    try {
+      CacheNodeAssignment assignment = getCacheNodeAssignment();
+      // get data directory
+      dataDirectory =
+          Path.of(String.format("%s/astra-chunk-%s", dataDirectoryPrefix, assignment.assignmentId));
+
+      if (Files.isDirectory(dataDirectory)) {
+        try (Stream<Path> files = Files.list(dataDirectory)) {
+          if (files.findFirst().isPresent()) {
+            LOG.warn("Existing files found in slot directory, clearing directory");
+            cleanDirectory();
+          }
+        }
+      }
+      // init SerialS3DownloaderImpl w/ bucket, snapshotId, blob, data directory
+      SnapshotMetadata snapshotMetadata = snapshotMetadataStore.findSync(assignment.snapshotId);
+      SerialS3ChunkDownloaderImpl chunkDownloader =
+          new SerialS3ChunkDownloaderImpl(
+              s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory);
+      if (chunkDownloader.download()) {
+        throw new IOException("No files found on blob storage, released slot for re-assignment");
+      }
+
+      Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
+      if (!Files.exists(schemaPath)) {
+        throw new RuntimeException("We expect a schema.json file to exist within the index");
+      }
+      this.chunkSchema = ChunkSchema.deserializeFile(schemaPath);
+
+      this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
+      this.logSearcher =
+          (LogIndexSearcher<T>)
+              new LogIndexSearcherImpl(
+                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
+                  chunkSchema.fieldDefMap);
+
+      // register searchmetadata
+      searchMetadata =
+          registerSearchMetadata(searchMetadataStore, searchContext, snapshotMetadata.name);
+      long durationNanos = assignmentTimer.stop(chunkAssignmentTimerSuccess);
+
+      // set chunk state
+      cacheNodeAssignmentStore.updateAssignmentState(
+          getCacheNodeAssignment(), Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
+      lastKnownAssignmentState = Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;
+
+      LOG.debug(
+          "Downloaded chunk with snapshot id '{}' at path '{}' in {} seconds, was {}",
+          snapshotMetadata.snapshotId,
+          snapshotMetadata.snapshotPath,
+          TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS),
+          FileUtils.byteCountToDisplaySize(FileUtils.sizeOfDirectory(dataDirectory.toFile())));
+    } catch (Exception e) {
+      // if any error occurs during the chunk assignment, try to release the slot for re-assignment,
+      // disregarding any errors
+      //      setChunkMetadataState(cacheSlotMetadata,
+      // Metadata.CacheSlotMetadata.CacheSlotState.FREE); no need to set, should stay as loading
+      LOG.error("Error handling chunk assignment", e);
+      assignmentTimer.stop(chunkAssignmentTimerFailure);
+    } finally {
+      chunkAssignmentLock.unlock();
+    }
   }
 
   private void cacheNodeListener(CacheSlotMetadata cacheSlotMetadata) {
@@ -160,22 +317,29 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  @VisibleForTesting
-  public static SearchMetadata registerSearchMetadata(
-      SearchMetadataStore searchMetadataStore,
-      SearchContext cacheSearchContext,
-      String snapshotName)
-      throws ExecutionException, InterruptedException, TimeoutException {
-    SearchMetadata metadata =
-        new SearchMetadata(
-            SearchMetadata.generateSearchContextSnapshotId(
-                snapshotName, cacheSearchContext.hostname),
-            snapshotName,
-            cacheSearchContext.toUrl());
-    searchMetadataStore.createSync(metadata);
-    return metadata;
+  private boolean setAssignmentState(
+      CacheNodeAssignment cacheNodeAssignment,
+      Metadata.CacheNodeAssignment.CacheNodeAssignmentState newState) {
+    try {
+      cacheNodeAssignmentStore
+          .updateAssignmentState(cacheNodeAssignment, newState)
+          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return true;
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Error setting cache node assignment metadata state", e);
+      return false;
+    }
   }
 
+  public Metadata.CacheNodeAssignment.CacheNodeAssignmentState getLastKnownAssignmentState() {
+    return lastKnownAssignmentState;
+  }
+
+  /*
+  ======================================================
+  All methods below UNRELATED to astra.ng.dynamicChunkSizes
+  ======================================================
+   */
   private void unregisterSearchMetadata()
       throws ExecutionException, InterruptedException, TimeoutException {
     if (this.searchMetadata != null) {
@@ -183,8 +347,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  // We lock access when manipulating the chunk, as the close() can
-  // run concurrently with an assignment
+  private SnapshotMetadata getSnapshotMetadata(String replicaId)
+      throws ExecutionException, InterruptedException, TimeoutException {
+    ReplicaMetadata replicaMetadata = replicaMetadataStore.findSync(replicaId);
+    return snapshotMetadataStore.findSync(replicaMetadata.snapshotId);
+  }
+
   private void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
     chunkAssignmentLock.lock();
@@ -255,10 +423,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  private SnapshotMetadata getSnapshotMetadata(String replicaId)
+  @VisibleForTesting
+  public static SearchMetadata registerSearchMetadata(
+      SearchMetadataStore searchMetadataStore,
+      SearchContext cacheSearchContext,
+      String snapshotName)
       throws ExecutionException, InterruptedException, TimeoutException {
-    ReplicaMetadata replicaMetadata = replicaMetadataStore.findSync(replicaId);
-    return snapshotMetadataStore.findSync(replicaMetadata.snapshotId);
+    SearchMetadata metadata =
+        new SearchMetadata(
+            SearchMetadata.generateSearchContextSnapshotId(
+                snapshotName, cacheSearchContext.hostname),
+            snapshotName,
+            cacheSearchContext.toUrl());
+    searchMetadataStore.createSync(metadata);
+    return metadata;
   }
 
   // We lock access when manipulating the chunk, as the close()
@@ -358,15 +536,25 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    CacheSlotMetadata cacheSlotMetadata =
-        cacheSlotMetadataStore.getSync(searchContext.hostname, slotId);
-    if (cacheSlotMetadata.cacheSlotState != Metadata.CacheSlotMetadata.CacheSlotState.FREE) {
-      // Attempt to evict the chunk
-      handleChunkEviction(cacheSlotMetadata);
+    if (Boolean.getBoolean("astra.ng.dynamicChunkSizes")) {
+      evictChunk(getCacheNodeAssignment());
+      cacheNodeAssignmentStore.close();
+      replicaMetadataStore.close();
+      snapshotMetadataStore.close();
+      searchMetadataStore.close();
+
+      LOG.debug("Closed chunk");
+    } else {
+      CacheSlotMetadata cacheSlotMetadata =
+          cacheSlotMetadataStore.getSync(searchContext.hostname, slotId);
+      if (cacheSlotMetadata.cacheSlotState != Metadata.CacheSlotMetadata.CacheSlotState.FREE) {
+        // Attempt to evict the chunk
+        handleChunkEviction(cacheSlotMetadata);
+      }
+      cacheSlotMetadataStore.removeListener(cacheSlotListener);
+      cacheSlotMetadataStore.close();
+      LOG.debug("Closed chunk");
     }
-    cacheSlotMetadataStore.removeListener(cacheSlotListener);
-    cacheSlotMetadataStore.close();
-    LOG.debug("Closed chunk");
   }
 
   @Override
