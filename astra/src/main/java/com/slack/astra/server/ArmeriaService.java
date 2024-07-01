@@ -176,7 +176,7 @@ public class ArmeriaService extends AbstractIdleService {
 
   @Override
   protected void shutDown() throws Exception {
-    LOG.info("Shutting down");
+    LOG.info("Shutting down ArmeriaService {}", serviceName);
 
     // On server close there is an option for a graceful shutdown, which is disabled by default.
     // When it is

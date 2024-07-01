@@ -1,6 +1,7 @@
 package com.slack.astra.chunkManager;
 
 import static com.slack.astra.server.AstraConfig.CHUNK_DATA_PREFIX;
+import static com.slack.astra.server.AstraConfig.DEFAULT_INDEXER_STOP_DURATION;
 import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.astra.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -108,8 +109,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     ThreadPoolExecutor rollOverExecutor =
         new ThreadPoolExecutor(
             1, 1, 0, MILLISECONDS, new SynchronousQueue<>(), new ThreadPoolExecutor.AbortPolicy());
-    return MoreExecutors.listeningDecorator(
-        MoreExecutors.getExitingExecutorService(rollOverExecutor));
+    return MoreExecutors.listeningDecorator(rollOverExecutor);
   }
 
   public IndexingChunkManager(
@@ -407,37 +407,50 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   @Override
   protected void shutDown() throws IOException {
     LOG.info("Closing indexing chunk manager.");
+    Duration timeRemaining = DEFAULT_INDEXER_STOP_DURATION;
 
-    chunkRollOverStrategy.close();
-
-    // Stop executor service from taking on new tasks.
-    rolloverExecutorService.shutdown();
-
-    // Finish existing rollovers.
+    // Finish ongoing rollovers
     if (rolloverFuture != null && !rolloverFuture.isDone()) {
+      long start = System.nanoTime();
       try {
-        LOG.info("Waiting for roll over to complete before closing..");
+        LOG.info("Waiting for existing chunk rollover to complete before shutting down");
         rolloverFuture.get(DEFAULT_START_STOP_DURATION.get(ChronoUnit.SECONDS), TimeUnit.SECONDS);
-        LOG.info("Roll over completed successfully. Closing rollover task.");
+        LOG.info("Roll over completed successfully");
       } catch (Exception e) {
-        LOG.warn("Roll over failed with Exception", e);
-        // TODO: Throw a roll over failed exception and stop the indexer.
+        LOG.warn("Existing chunk rollover failed with exception", e);
       }
+      timeRemaining = timeRemaining.minus(Duration.ofNanos(System.nanoTime() - start));
     } else {
-      LOG.info("Roll over future completed successfully.");
+      LOG.info("No ongoing chunk rollover to wait for");
     }
 
-    // Forcefully close rollover executor service. There may be a pending rollover, but we have
-    // reached the max time.
-    rolloverExecutorService.shutdownNow();
+    // try to rollover existing chunk
+    if (getActiveChunk() != null) {
+      doRollover(getActiveChunk());
+      if (rolloverFuture != null && !rolloverFuture.isDone()) {
+        try {
+          LOG.info("Waiting for current chunk rollover to complete before shutting down");
+          rolloverFuture.get(timeRemaining.getSeconds(), TimeUnit.SECONDS);
+          LOG.info("Roll over completed successfully");
+        } catch (Exception e) {
+          LOG.warn("Current chunk rollover failed with exception", e);
+        }
+      }
+    } else {
+      LOG.info("No active chunk to rollover");
+    }
 
     for (Chunk<T> chunk : chunkList) {
       try {
         chunk.close();
       } catch (IOException e) {
-        LOG.error("Failed to close chunk.", e);
+        LOG.error("Failed to close chunk", e);
       }
     }
+    chunkRollOverStrategy.close();
+
+    // Close rollover executor service. We should not have any pending tasks.
+    rolloverExecutorService.shutdownNow();
 
     searchMetadataStore.close();
     snapshotMetadataStore.close();

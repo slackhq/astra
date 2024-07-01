@@ -31,6 +31,8 @@ public class BlobFsUtils {
       }
       blobFs.copyFromLocalFile(fileToCopy, createURI(bucket, prefix, fileName));
       success++;
+      LOG.info(
+          "Copied file {} to bucket={} prefix={} totalCount={}", fileName, bucket, prefix, success);
     }
     return success;
   }
