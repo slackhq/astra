@@ -680,4 +680,324 @@ public class SpanFormatterWithSchemaTest {
     assertThat(luceneDocument2.get("list_field")).isEqualTo("host3");
     assertThat(luceneDocument2.get("map_field")).isEqualTo("f1=v1");
   }
+
+  @Test
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  public void testDefaultStringFields() throws Exception {
+    final File schemaFile =
+        new File(
+            getClass().getClassLoader().getResource("schema/test_schema_defaults.yaml").getFile());
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(schemaFile.toPath());
+
+    byte[] rawRequest = getIndexRequestBytes("index_text_defaults");
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    AssertionsForClassTypes.assertThat(indexRequests.size()).isEqualTo(2);
+
+    Trace.Span doc1 =
+        BulkApiRequestParser.fromIngestDocument(
+            convertRequestToDocument(indexRequests.get(0)), schema);
+    Trace.Span doc2 =
+        BulkApiRequestParser.fromIngestDocument(
+            convertRequestToDocument(indexRequests.get(1)), schema);
+
+    assertThat(doc1.getId().toStringUtf8()).isEqualTo("1");
+    assertThat(doc1.getTagsList().size()).isEqualTo(7);
+
+    // field defined in schema
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("host"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("ip"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.IP);
+
+    // using default behavior
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("message"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("message.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("my_date"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("my_date.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+
+    assertThat(doc2.getId().toStringUtf8()).isEqualTo("2");
+    assertThat(doc2.getTagsList().size()).isEqualTo(11);
+
+    // field defined in schema
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("ip"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.IP);
+
+    // using default behavior
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("value1"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("value1.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("value2"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("value2.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("field1"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("field1.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("username"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("username.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+
+    // default non-string behavior
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("number"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.INTEGER);
+    assertThat(doc2.getTagsList().stream().anyMatch((tag) -> tag.getKey().equals("bucket")))
+        .isFalse();
+  }
+
+  @Test
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  public void testDefaultStringFieldsOnly() throws Exception {
+    final File schemaFile =
+        new File(
+            getClass()
+                .getClassLoader()
+                .getResource("schema/test_schema_defaults_only.yaml")
+                .getFile());
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(schemaFile.toPath());
+
+    byte[] rawRequest = getIndexRequestBytes("index_text_defaults");
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    AssertionsForClassTypes.assertThat(indexRequests.size()).isEqualTo(2);
+
+    Trace.Span doc1 =
+        BulkApiRequestParser.fromIngestDocument(
+            convertRequestToDocument(indexRequests.get(0)), schema);
+    Trace.Span doc2 =
+        BulkApiRequestParser.fromIngestDocument(
+            convertRequestToDocument(indexRequests.get(1)), schema);
+
+    assertThat(doc1.getId().toStringUtf8()).isEqualTo("1");
+    assertThat(doc1.getTagsList().size()).isEqualTo(9);
+
+    // using default behavior
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("host"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("host.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("ip"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("ip.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("message"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("message.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("my_date"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc1.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("my_date.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+
+    assertThat(doc2.getId().toStringUtf8()).isEqualTo("2");
+    assertThat(doc2.getTagsList().size()).isEqualTo(12);
+
+    // using default behavior
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("ip"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("ip.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("value1"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("value1.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("value2"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("value2.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("field1"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("field1.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("username"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.TEXT);
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("username.keyword"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.KEYWORD);
+
+    // default non-string behavior
+    assertThat(
+            doc2.getTagsList().stream()
+                .filter((tag) -> tag.getKey().equals("number"))
+                .findFirst()
+                .get()
+                .getFieldType())
+        .isEqualTo(Schema.SchemaFieldType.INTEGER);
+    assertThat(doc2.getTagsList().stream().anyMatch((tag) -> tag.getKey().equals("bucket")))
+        .isFalse();
+  }
 }

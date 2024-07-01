@@ -1,0 +1,14 @@
+defaults:
+  example:
+    match_mapping_type: 'string'
+    mapping:
+      type: TEXT
+      fields:
+        keyword:
+          type: KEYWORD
+          ignore_above: 256
+fields:
+  host:
+    type: KEYWORD
+  ip:
+    type: IP

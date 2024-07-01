@@ -1,0 +1,9 @@
+defaults:
+  string_fields:
+    match_mapping_type: 'string'
+    mapping:
+      type: TEXT
+      fields:
+        keyword:
+          type: KEYWORD
+          ignore_above: 256
