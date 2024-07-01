@@ -87,7 +87,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       Long startTimeMsEpoch,
       Long endTimeMsEpoch,
       int howMany,
-      AggBuilder aggBuilder) {
+      AggBuilder aggBuilder
+      //??
+
+      ) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");

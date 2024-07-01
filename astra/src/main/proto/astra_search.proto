@@ -199,6 +199,8 @@ message SearchRequest {
       }
     }
   }
+
+  bytes opensearch_query_dsl_object = 8;
 }
 
 message SearchResult {

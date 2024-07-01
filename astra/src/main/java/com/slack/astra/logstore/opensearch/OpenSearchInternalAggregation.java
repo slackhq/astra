@@ -6,12 +6,30 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.common.xcontent.json.JsonXContentParser;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.query.AbstractQueryBuilder;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryStringQueryBuilder;
+import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.plugins.SearchPlugin;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.InternalAggregation;
@@ -57,6 +75,7 @@ import org.opensearch.search.aggregations.pipeline.MovAvgModel;
 import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.MovFnPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.SimpleModel;
+import org.opensearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -258,6 +277,8 @@ public class OpenSearchInternalAggregation {
     InternalAggregation internalAggregation;
     try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
       try (StreamInput streamInput = new InputStreamStreamInput(inputStream)) {
+
+
         try (NamedWriteableAwareStreamInput namedWriteableAwareStreamInput =
             new NamedWriteableAwareStreamInput(streamInput, NAMED_WRITEABLE_REGISTRY)) {
           // the use of this InternalAggregations wrapper lightly follows OpenSearch
@@ -269,5 +290,120 @@ public class OpenSearchInternalAggregation {
       }
     }
     return internalAggregation;
+  }
+
+
+  /*
+  private void registerQuery(QuerySpec<?> spec) {
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, spec.getName().getPreferredName(), spec.getReader()));
+        namedXContents.add(new NamedXContentRegistry.Entry(QueryBuilder.class, spec.getName(), (p, c) -> spec.getParser().fromXContent(p)));
+    }*/
+
+
+
+  public static QueryBuilder fromByteArrayTest(byte[] bytes) throws IOException {
+    if (bytes.length == 0) {
+      return null;
+    }
+
+    /*
+        registerQuery(new QuerySpec<>(QueryStringQueryBuilder.NAME, QueryStringQueryBuilder::new, QueryStringQueryBuilder::fromXContent));
+        registerQuery(new QuerySpec<>(BoostingQueryBuilder.NAME, BoostingQueryBuilder::new, BoostingQueryBuilder::fromXContent));
+        BooleanQuery.setMaxClauseCount(INDICES_MAX_CLAUSE_COUNT_SETTING.get(settings));
+        registerQuery(new QuerySpec<>(BoolQueryBuilder.NAME, BoolQueryBuilder::new, BoolQueryBuilder::fromXContent));
+        registerQuery(new QuerySpec<>(TermQueryBuilder.NAME, TermQueryBuilder::new, TermQueryBuilder::fromXContent));
+        registerQuery(new QuerySpec<>(TermsQueryBuilder.NAME, TermsQueryBuilder::new, TermsQueryBuilder::fromXContent));
+     */
+    //namedXContents.add(new NamedXContentRegistry.Entry(QueryBuilder.class, spec.getName(), (p, c) -> spec.getParser().fromXContent(p)));
+
+    List<SearchPlugin.QuerySpec<?>> querySpecs = List.of(
+        new SearchPlugin.QuerySpec(BoolQueryBuilder.NAME, BoolQueryBuilder::new, BoolQueryBuilder::fromXContent),
+        new SearchPlugin.QuerySpec<>(RangeQueryBuilder.NAME, RangeQueryBuilder::new, RangeQueryBuilder::fromXContent),
+        new SearchPlugin.QuerySpec<>(QueryStringQueryBuilder.NAME, QueryStringQueryBuilder::new, QueryStringQueryBuilder::fromXContent)
+    ) ;
+
+
+    List<NamedXContentRegistry.Entry> entryList = querySpecs.stream().map(querySpec -> {
+      return new NamedXContentRegistry.Entry(
+          QueryBuilder.class, querySpec.getName(), (p, c) -> querySpec.getParser().fromXContent(p));
+    }).collect(Collectors.toList());
+
+    NamedXContentRegistry namedXContentRegistry = new NamedXContentRegistry(entryList);
+//        List.of(
+//            new NamedXContentRegistry.Entry(
+//                QueryBuilder.class, boolQuerySpec.getName(), (p, c) -> boolQuerySpec.getParser().fromXContent(p)
+//
+////                BoolQueryBuilder.NAME,  BoolQueryBuilder::new, BoolQueryBuilder::fromXContent
+//            )
+//        )
+//    );
+
+//    NamedWriteableRegistry registry = new NamedWriteableRegistry(List.of(
+//
+//
+//    ));
+
+    //InternalAggregation internalAggregation;
+    QueryBuilder queryBuilder;
+    try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+      try (StreamInput streamInput = new InputStreamStreamInput(inputStream)) {
+
+        ObjectMapper om = new ObjectMapper();
+
+        ///om.reader()
+
+        //JsonParser jsonParser
+
+        JsonXContentParser parser = new JsonXContentParser(namedXContentRegistry, DeprecationHandler.IGNORE_DEPRECATIONS, om.createParser(bytes));
+        //XContentParser parser = xContent.createParser(registry, LoggingDeprecationHandler.INSTANCE, stream)
+        //searchSourceBuilder = SearchSourceBuilder.fromXContent(, false);
+
+
+        queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(parser);
+
+
+        //QuerySearchRequest request = new QuerySearchRequest(streamInput);
+
+
+        // (manually instantiate query)
+        //
+
+
+
+//        XContentParser parser = xContent.createParser(registry, LoggingDeprecationHandler.INSTANCE, stream)
+//
+//        SearchSourceBuilder example = new SearchSourceBuilder();
+//
+//
+//
+//        searchSourceBuilder = new SearchSourceBuilder(streamInput);
+
+        /*
+        XContentBuilder builder =
+        XContentFactory.jsonBuilder().startObject().startObject("_doc").startObject("properties");
+         */
+        //XContentFactory.jsonBuilder().
+
+        //new JsonXContent();
+
+        //XContentParser
+
+//        SearchSourceBuilder.fromXContent()
+
+        //request.
+
+//        try (NamedWriteableAwareStreamInput namedWriteableAwareStreamInput =
+//                 new NamedWriteableAwareStreamInput(streamInput, NAMED_WRITEABLE_REGISTRY)) {
+//          // the use of this InternalAggregations wrapper lightly follows OpenSearch
+//          // See OpenSearch InternalAggregationsTest.writeToAndReadFrom() for more details
+//          InternalAggregations internalAggregations =
+//              InternalAggregations.readFrom(namedWriteableAwareStreamInput);
+//          internalAggregation = internalAggregations.copyResults().get(0);
+//        }
+      }
+    }
+
+    return queryBuilder;
+    //return internalAggregation;
   }
 }

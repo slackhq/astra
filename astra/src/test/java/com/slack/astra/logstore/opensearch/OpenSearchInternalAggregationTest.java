@@ -2,6 +2,7 @@ package com.slack.astra.logstore.opensearch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.common.io.Resources;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.aggregations.AutoDateHistogramAggBuilder;
 import com.slack.astra.logstore.search.aggregations.AvgAggBuilder;
@@ -12,6 +13,7 @@ import com.slack.astra.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.astra.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -19,8 +21,10 @@ import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 public class OpenSearchInternalAggregationTest {
 
@@ -173,5 +177,19 @@ public class OpenSearchInternalAggregationTest {
         OpenSearchInternalAggregation.fromByteArray(serialize2);
 
     assertThat(internalAggregation3.toString()).isEqualTo(internalAggregation4.toString());
+  }
+
+
+  @Test
+  public void foo() throws IOException {
+
+      String content = Resources.toString(
+          Resources.getResource("test/example.ndjson"),
+          Charset.defaultCharset());
+    QueryBuilder searchSourceBuilder = OpenSearchInternalAggregation.fromByteArrayTest(content.getBytes());
+
+    searchSourceBuilder.toQuery()
+
+    System.out.println(searchSourceBuilder);
   }
 }

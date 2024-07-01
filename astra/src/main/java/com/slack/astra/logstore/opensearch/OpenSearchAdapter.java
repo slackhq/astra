@@ -205,6 +205,15 @@ public class OpenSearchAdapter {
         boolQueryBuilder.filter(queryStringQueryBuilder);
       }
       return boolQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
+
+//      boolean v2 = true;
+//      if (v2) {
+//        byte[]/string - "deseriliazed" by opensearch
+//
+//
+//
+//      }
+
     } catch (Exception e) {
       LOG.error("Query parse exception", e);
       throw new IllegalArgumentException(e);
