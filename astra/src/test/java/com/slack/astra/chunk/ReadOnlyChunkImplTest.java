@@ -26,6 +26,8 @@ import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.astra.metadata.cache.CacheNodeAssignment;
+import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadata;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
@@ -483,6 +485,105 @@ public class ReadOnlyChunkImplTest {
     assertThat(ReadOnlyChunkImpl.determineEndTime(12, 10)).isNull();
   }
 
+  @Test
+  public void shouldHandleDynamicChunkSizeLifecycle() throws Exception {
+    AstraConfigs.AstraConfig AstraConfig = makeCacheConfig();
+    AstraConfigs.ZookeeperConfig zkConfig =
+        AstraConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testingServer.getConnectString())
+            .setZkPathPrefix("shouldHandleChunkLivecycle")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+
+    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
+    CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    CacheNodeAssignmentStore cacheNodeAssignmentStore =
+        new CacheNodeAssignmentStore(curatorFramework);
+
+    String replicaId = "foo";
+    String snapshotId = "bar";
+    String assignmentId = "dog";
+    String cacheNodeId = "baz";
+    String replicaSet = "cat";
+
+    // setup Zk, BlobFs so data can be loaded
+    initializeZkReplica(curatorFramework, replicaId, snapshotId);
+    initializeZkSnapshot(curatorFramework, snapshotId);
+    initializeBlobStorageWithIndex(snapshotId);
+    initializeCacheNodeAssignment(
+        cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet);
+
+    SearchContext searchContext =
+        SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig());
+    ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
+        new ReadOnlyChunkImpl<>(
+            curatorFramework,
+            meterRegistry,
+            s3CrtBlobFs,
+            searchContext,
+            AstraConfig.getS3Config().getS3Bucket(),
+            AstraConfig.getCacheConfig().getDataDirectory(),
+            AstraConfig.getCacheConfig().getReplicaSet(),
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            searchMetadataStore,
+            cacheNodeAssignmentStore,
+            assignmentId,
+            cacheNodeId);
+
+    // wait for chunk to register
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getCacheNodeAssignment().state
+                    == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
+
+    SearchResult<LogMessage> logMessageSearchResult =
+        readOnlyChunk.query(
+            new SearchQuery(
+                MessageUtil.TEST_DATASET_NAME,
+                "*:*",
+                Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                500,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                Collections.emptyList()));
+    assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
+
+    //    await()
+    //        .until(
+    //            () ->
+    //                meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful",
+    // "true").timer().count()
+    //                    == 1);
+    //    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful",
+    // "false").timer().count())
+    //        .isEqualTo(0);
+    //    assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful",
+    // "true").timer().count())
+    //        .isEqualTo(0);
+    //    assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful",
+    // "false").timer().count())
+    //        .isEqualTo(0);
+
+    // ensure we registered a search node for this cache assignment
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+    assertThat(searchMetadataStore.listSync().get(0).snapshotName).isEqualTo(snapshotId);
+
+    assertThat(searchMetadataStore.listSync().get(0).url).isEqualTo("gproto+http://localhost:8080");
+    assertThat(searchMetadataStore.listSync().get(0).name)
+        .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
+
+    curatorFramework.unwrap().close();
+  }
+
   private void assignReplicaToChunk(
       CacheSlotMetadataStore cacheSlotMetadataStore,
       String replicaId,
@@ -567,6 +668,22 @@ public class ReadOnlyChunkImplTest {
 
     // Copy files to S3.
     copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3CrtBlobFs);
+  }
+
+  private void initializeCacheNodeAssignment(
+      CacheNodeAssignmentStore cacheNodeAssignmentStore,
+      String assignmentId,
+      String snapshotId,
+      String cacheNodeId,
+      String replicaSet)
+      throws Exception {
+    cacheNodeAssignmentStore.createSync(
+        new CacheNodeAssignment(
+            assignmentId,
+            cacheNodeId,
+            snapshotId,
+            replicaSet,
+            Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING));
   }
 
   private AstraConfigs.AstraConfig makeCacheConfig() {
