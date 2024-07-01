@@ -138,36 +138,55 @@ public class SpanFormatter {
       }
       return tags;
     } else {
-      return List.of(SpanFormatter.convertKVtoProto(key, value));
+      // do default without setting a default behavior
+      return SpanFormatter.convertKVtoProtoDefault(key, value, schema);
     }
   }
 
-  private static Trace.KeyValue convertKVtoProto(String key, Object value) {
-    Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
-    tagBuilder.setKey(key);
+  private static List<Trace.KeyValue> convertKVtoProtoDefault(
+      String key, Object value, Schema.IngestSchema schema) {
+    List<Trace.KeyValue> tags = new ArrayList<>();
     if (value instanceof String || value instanceof List || value instanceof Map) {
-      tagBuilder.setFieldType(Schema.SchemaFieldType.KEYWORD);
-      tagBuilder.setVStr(value.toString());
+      if (schema
+          .getDefaultsMap()
+          .containsKey(Schema.DefaultCategories.STRING_FIELDS.toString().toLowerCase())) {
+        Schema.SchemaField schemaFieldDef =
+            schema
+                .getDefaultsMap()
+                .get(Schema.DefaultCategories.STRING_FIELDS.toString().toLowerCase());
+        tags.add(makeTraceKV(key, value, schemaFieldDef.getType()));
+        for (Map.Entry<String, Schema.SchemaField> additionalField :
+            schemaFieldDef.getFieldsMap().entrySet()) {
+          // skip conditions
+          if (additionalField.getValue().getIgnoreAbove() > 0
+              && additionalField.getValue().getType() == Schema.SchemaFieldType.KEYWORD
+              && value.toString().length() > additionalField.getValue().getIgnoreAbove()) {
+            continue;
+          }
+          Trace.KeyValue additionalKV =
+              makeTraceKV(
+                  STR."\{key}.\{additionalField.getKey()}",
+                  value,
+                  additionalField.getValue().getType());
+          tags.add(additionalKV);
+        }
+      } else {
+        tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.KEYWORD));
+      }
     } else if (value instanceof Boolean) {
-      tagBuilder.setFieldType(Schema.SchemaFieldType.BOOLEAN);
-      tagBuilder.setVBool((boolean) value);
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BOOLEAN));
     } else if (value instanceof Integer) {
-      tagBuilder.setFieldType(Schema.SchemaFieldType.INTEGER);
-      tagBuilder.setVInt32((int) value);
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.INTEGER));
     } else if (value instanceof Long) {
-      tagBuilder.setFieldType(Schema.SchemaFieldType.LONG);
-      tagBuilder.setVInt64((long) value);
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.LONG));
     } else if (value instanceof Float) {
-      tagBuilder.setFieldType(Schema.SchemaFieldType.FLOAT);
-      tagBuilder.setVFloat32((float) value);
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.FLOAT));
     } else if (value instanceof Double) {
-      tagBuilder.setFieldType(Schema.SchemaFieldType.DOUBLE);
-      tagBuilder.setVFloat64((double) value);
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.DOUBLE));
     } else if (value != null) {
-      tagBuilder.setFieldType(Schema.SchemaFieldType.BINARY);
-      tagBuilder.setVBinary(ByteString.copyFrom(value.toString().getBytes()));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BINARY));
     }
-    return tagBuilder.build();
+    return tags;
   }
 
   /**

@@ -1,0 +1,12 @@
+defaults:
+  string_fields:
+    type: TEXT
+    fields:
+      keyword:
+        type: KEYWORD
+        ignore_above: 256
+fields:
+  host:
+    type: KEYWORD
+  ip:
+    type: IP

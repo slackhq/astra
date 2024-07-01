@@ -10,6 +10,11 @@ option java_package = "com.slack.astra.proto.schema";
 message IngestSchema {
   // convert to a map
   map<string, SchemaField> fields = 1;
+  map<string, SchemaField> defaults = 2;
+}
+
+enum DefaultCategories {
+  STRING_FIELDS = 0;
 }
 
 message SchemaField {
