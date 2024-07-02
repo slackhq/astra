@@ -8,21 +8,27 @@ public class CacheNodeAssignment extends AstraPartitionedMetadata {
   public final String assignmentId;
   public final String cacheNodeId;
   public final String snapshotId;
+  public final String replicaId;
   public final String replicaSet;
+  public final long snapshotSize;
   public Metadata.CacheNodeAssignment.CacheNodeAssignmentState state;
 
   public CacheNodeAssignment(
       String assignmentId,
       String cacheNodeId,
       String snapshotId,
+      String replicaId,
       String replicaSet,
+      long snapshotSize,
       Metadata.CacheNodeAssignment.CacheNodeAssignmentState state) {
     super(assignmentId);
     this.assignmentId = assignmentId;
     this.cacheNodeId = cacheNodeId;
     this.snapshotId = snapshotId;
+    this.replicaId = replicaId;
     this.replicaSet = replicaSet;
     this.state = state;
+    this.snapshotSize = snapshotSize;
   }
 
   @Override
@@ -38,7 +44,10 @@ public class CacheNodeAssignment extends AstraPartitionedMetadata {
 
     if (!assignmentId.equals(that.assignmentId)) return false;
     if (!snapshotId.equals(that.snapshotId)) return false;
+    if (!replicaId.equals(that.replicaId)) return false;
+    if (!replicaSet.equals(that.replicaSet)) return false;
     if (!Objects.equals(cacheNodeId, that.cacheNodeId)) return false;
+    if (!(snapshotSize == that.snapshotSize)) return false;
     return Objects.equals(state, that.state);
   }
 
@@ -47,8 +56,11 @@ public class CacheNodeAssignment extends AstraPartitionedMetadata {
     int result = super.hashCode();
     result = 31 * result + assignmentId.hashCode();
     result = 31 * result + cacheNodeId.hashCode();
+    result = 31 * result + replicaId.hashCode();
+    result = 31 * result + replicaSet.hashCode();
     result = 31 * result + snapshotId.hashCode();
     result = 31 * result + state.hashCode();
+    result = 31 * result + Long.hashCode(snapshotSize);
     return result;
   }
 
@@ -63,8 +75,12 @@ public class CacheNodeAssignment extends AstraPartitionedMetadata {
         + '\''
         + ", snapshotId="
         + snapshotId
+        + ", replicaId="
+        + replicaId
         + ", state='"
         + state
+        + ", replicaSet='"
+        + replicaSet
         + '\''
         + '}';
   }

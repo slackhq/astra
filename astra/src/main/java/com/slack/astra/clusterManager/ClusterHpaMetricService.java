@@ -1,12 +1,17 @@
 package com.slack.astra.clusterManager;
 
+import static com.slack.astra.clusterManager.CacheNodeAssignmentService.getSnapshotsFromIds;
+import static com.slack.astra.clusterManager.CacheNodeAssignmentService.snapshotMetadataBySnapshotId;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
+import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.hpa.HpaMetricMetadata;
 import com.slack.astra.metadata.hpa.HpaMetricMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
+import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.metadata.Metadata;
 import java.time.Duration;
 import java.time.Instant;
@@ -35,21 +40,27 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
   // todo - consider making HPA_TOLERANCE and CACHE_SCALEDOWN_LOCK configurable
   // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#algorithm-details
   private static final double HPA_TOLERANCE = 0.1;
+  private final SnapshotMetadataStore snapshotMetadataStore;
   protected Duration CACHE_SCALEDOWN_LOCK = Duration.of(15, ChronoUnit.MINUTES);
 
   private final ReplicaMetadataStore replicaMetadataStore;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final HpaMetricMetadataStore hpaMetricMetadataStore;
+  private final CacheNodeMetadataStore cacheNodeMetadataStore;
   protected final Map<String, Instant> cacheScalingLock = new ConcurrentHashMap<>();
   protected static final String CACHE_HPA_METRIC_NAME = "hpa_cache_demand_factor_%s";
 
   public ClusterHpaMetricService(
       ReplicaMetadataStore replicaMetadataStore,
       CacheSlotMetadataStore cacheSlotMetadataStore,
-      HpaMetricMetadataStore hpaMetricMetadataStore) {
+      HpaMetricMetadataStore hpaMetricMetadataStore,
+      CacheNodeMetadataStore cacheNodeMetadataStore,
+      SnapshotMetadataStore snapshotMetadataStore) {
     this.replicaMetadataStore = replicaMetadataStore;
     this.cacheSlotMetadataStore = cacheSlotMetadataStore;
     this.hpaMetricMetadataStore = hpaMetricMetadataStore;
+    this.cacheNodeMetadataStore = cacheNodeMetadataStore;
+    this.snapshotMetadataStore = snapshotMetadataStore;
   }
 
   @Override
@@ -58,7 +69,7 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
   }
 
   @Override
-  protected void runOneIteration() {
+  protected synchronized void runOneIteration() {
     LOG.info("Running ClusterHpaMetricService");
     try {
       publishCacheHpaMetrics();
@@ -106,7 +117,27 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
               .filter(replicaMetadata -> replicaMetadata.getReplicaSet().equals(replicaSet))
               .count();
 
-      double demandFactor = calculateDemandFactor(totalCacheSlotCapacity, totalReplicaDemand);
+      long totalCacheNodeCapacityBytes =
+          cacheNodeMetadataStore.listSync().stream()
+              .mapToLong(node -> node.nodeCapacityBytes)
+              .sum();
+      long totalDemandBytes =
+          getSnapshotsFromIds(
+                  snapshotMetadataBySnapshotId(snapshotMetadataStore),
+                  replicaMetadataStore.listSync().stream()
+                      .filter(replicaMetadata -> replicaMetadata.getReplicaSet().equals(replicaSet))
+                      .map(replica -> replica.snapshotId)
+                      .collect(Collectors.toSet()))
+              .stream()
+              .mapToLong(snapshot -> snapshot.sizeInBytesOnDisk)
+              .sum();
+
+      double demandFactor =
+          calculateDemandFactor(
+              totalCacheSlotCapacity,
+              totalReplicaDemand,
+              totalCacheNodeCapacityBytes,
+              totalDemandBytes);
       String action;
       if (demandFactor > 1) {
         // scale-up
@@ -133,7 +164,7 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
         persistCacheConfig(replicaSet, demandFactor);
       }
 
-      LOG.debug(
+      LOG.info(
           "Cache autoscaler for replicaset '{}' took action '{}', demandFactor: '{}', totalReplicaDemand: '{}', totalCacheSlotCapacity: '{}'",
           replicaSet,
           action,
@@ -141,6 +172,23 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
           totalReplicaDemand,
           totalCacheSlotCapacity);
     }
+  }
+
+  private static double calculateDemandFactor(
+      long totalCacheSlotCapacity,
+      long totalReplicaDemand,
+      long totalCacheNodeCapacityBytes,
+      long totalAssignedBytes) {
+    // Attempt to calculate hpa value from ng dynamic chunk cache nodes if no cache slot capacity
+    if (totalCacheSlotCapacity == 0) {
+      LOG.info(
+          "Cache slot capacity is 0, attempting to calculate HPA value from dynamic chunk cache node capacities");
+      return calculateDemandFactorFromCacheNodeCapacity(
+          totalAssignedBytes, totalCacheNodeCapacityBytes);
+    }
+
+    // Fallback to old cache slot calculation
+    return calculateDemandFactor(totalCacheSlotCapacity, totalReplicaDemand);
   }
 
   @VisibleForTesting
@@ -160,15 +208,35 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
     return Math.ceil(rawDemandFactor * 100) / 100;
   }
 
+  private static double calculateDemandFactorFromCacheNodeCapacity(
+      long totalBytesRequiringAssignment, long totalCacheNodeCapacityBytes) {
+    if (totalCacheNodeCapacityBytes == 0) {
+      LOG.error("No cache node capacity is detected");
+      return 1;
+    }
+
+    double rawDemandFactor = (double) totalBytesRequiringAssignment / totalCacheNodeCapacityBytes;
+    LOG.info(
+        "Calculating demand factor from ng cache nodes: bytes needed: {}, capacity: {}, demandFactor: {}",
+        totalBytesRequiringAssignment,
+        totalCacheNodeCapacityBytes,
+        Math.ceil(rawDemandFactor * 100) / 100);
+    return Math.ceil(rawDemandFactor * 100) / 100;
+  }
+
   /** Updates or inserts an (ephemeral) HPA metric for the cache nodes. This is NOT threadsafe. */
   private void persistCacheConfig(String replicaSet, Double demandFactor) {
     String key = String.format(CACHE_HPA_METRIC_NAME, replicaSet);
-    if (hpaMetricMetadataStore.hasSync(key)) {
-      hpaMetricMetadataStore.updateSync(
-          new HpaMetricMetadata(key, Metadata.HpaMetricMetadata.NodeRole.CACHE, demandFactor));
-    } else {
-      hpaMetricMetadataStore.createSync(
-          new HpaMetricMetadata(key, Metadata.HpaMetricMetadata.NodeRole.CACHE, demandFactor));
+    try {
+      if (hpaMetricMetadataStore.hasSync(key)) {
+        hpaMetricMetadataStore.updateSync(
+            new HpaMetricMetadata(key, Metadata.HpaMetricMetadata.NodeRole.CACHE, demandFactor));
+      } else {
+        hpaMetricMetadataStore.createSync(
+            new HpaMetricMetadata(key, Metadata.HpaMetricMetadata.NodeRole.CACHE, demandFactor));
+      }
+    } catch (Exception e) {
+      LOG.error("Failed to persist hpa metric metadata", e);
     }
   }
 

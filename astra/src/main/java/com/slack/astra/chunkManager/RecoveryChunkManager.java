@@ -140,7 +140,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     if (activeChunk == null) {
       recoveryChunkFactory.setKafkaPartitionId(kafkaPartitionId);
       ReadWriteChunk<T> newChunk = recoveryChunkFactory.makeChunk();
-      chunkList.add(newChunk);
+      chunkMap.put(newChunk.id(), newChunk);
       // Run post create actions on the chunk.
       newChunk.postCreate();
       activeChunk = newChunk;
@@ -197,7 +197,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     readOnly = true;
 
     // Close all chunks.
-    for (Chunk<T> chunk : chunkList) {
+    for (Chunk<T> chunk : chunkMap.values()) {
       try {
         chunk.close();
       } catch (IOException e) {
@@ -245,20 +245,20 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
 
     LOG.info("Stale chunks to be removed are: {}", staleChunks);
 
-    if (chunkList.isEmpty()) {
+    if (chunkMap.isEmpty()) {
       LOG.warn("Possible race condition, there are no chunks in chunkList");
     }
 
     staleChunks.forEach(
         chunk -> {
           try {
-            if (chunkList.contains(chunk)) {
+            if (chunkMap.containsKey(chunk.id())) {
               String chunkInfo = chunk.info().toString();
               LOG.info("Deleting chunk {}.", chunkInfo);
 
               // Remove the chunk first from the map so we don't search it anymore.
               // Note that any pending queries may still hold references to these chunks
-              chunkList.remove(chunk);
+              chunkMap.remove(chunk.id());
 
               chunk.close();
               LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
@@ -266,7 +266,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
               LOG.warn(
                   "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",
                   chunk,
-                  chunkList);
+                  chunkMap.values());
             }
           } catch (Exception e) {
             LOG.warn("Exception when deleting chunk", e);

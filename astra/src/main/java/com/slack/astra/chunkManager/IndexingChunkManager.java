@@ -275,7 +275,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
               snapshotMetadataStore,
               searchContext,
               kafkaPartitionId);
-      chunkList.add(newChunk);
+      chunkMap.put(newChunk.id(), newChunk);
       // Register the chunk, so we can search it.
       newChunk.postCreate();
       activeChunk = newChunk;
@@ -350,20 +350,20 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     LOG.info("Stale chunks to be removed are: {}", staleChunks);
 
-    if (chunkList.isEmpty()) {
+    if (chunkMap.isEmpty()) {
       LOG.warn("Possible race condition, there are no chunks in chunkList");
     }
 
     staleChunks.forEach(
         chunk -> {
           try {
-            if (chunkList.contains(chunk)) {
+            if (chunkMap.containsKey(chunk.id())) {
               String chunkInfo = chunk.info().toString();
               LOG.debug("Deleting chunk {}.", chunkInfo);
 
               // Remove the chunk first from the map so we don't search it anymore.
               // Note that any pending queries may still hold references to these chunks
-              chunkList.remove(chunk);
+              chunkMap.remove(chunk.id(), chunk);
 
               chunk.close();
               LOG.debug("Deleted and cleaned up chunk {}.", chunkInfo);
@@ -371,7 +371,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
               LOG.warn(
                   "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",
                   chunk,
-                  chunkList);
+                  chunkMap.values());
             }
           } catch (Exception e) {
             LOG.warn("Exception when deleting chunk", e);
@@ -431,7 +431,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     // reached the max time.
     rolloverExecutorService.shutdownNow();
 
-    for (Chunk<T> chunk : chunkList) {
+    for (Chunk<T> chunk : chunkMap.values()) {
       try {
         chunk.close();
       } catch (IOException e) {

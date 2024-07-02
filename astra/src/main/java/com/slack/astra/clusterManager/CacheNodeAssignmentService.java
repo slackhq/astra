@@ -17,8 +17,6 @@ import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheNodeMetadata;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
-import com.slack.astra.metadata.hpa.HpaMetricMetadata;
-import com.slack.astra.metadata.hpa.HpaMetricMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
@@ -31,7 +29,6 @@ import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,16 +61,16 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   private final CacheNodeMetadataStore cacheNodeMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final CacheNodeAssignmentStore cacheNodeAssignmentStore;
-  private final HpaMetricMetadataStore hpaMetricMetadataStore;
 
   private final AstraMetadataStoreChangeListener<CacheNodeMetadata> cacheNodeListener =
       (cacheNodeMetadata) -> runOneIteration();
   private final AstraMetadataStoreChangeListener<ReplicaMetadata> replicaListener =
       (replicaMetadata) -> runOneIteration();
+  private final AstraMetadataStoreChangeListener<CacheNodeAssignment> cacheNodeAssignmentListener =
+      this::assignmentListener;
 
   protected static final Logger LOG = LoggerFactory.getLogger(ReplicaCreationService.class);
   private static final String NEW_BIN_PREFIX = "NEW_";
-  protected static final String CACHE_HPA_METRIC_NAME = "hpa_capacity_demand_factor_%s";
   @VisibleForTesting protected static int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
 
   public static final String ASSIGNMENT_CREATE_SUCCEEDED = "assignment_create_succeeded";
@@ -96,15 +93,13 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
       ReplicaMetadataStore replicaMetadataStore,
       CacheNodeMetadataStore cacheNodeMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      CacheNodeAssignmentStore cacheNodeAssignmentStore,
-      HpaMetricMetadataStore hpaMetricMetadataStore) {
+      CacheNodeAssignmentStore cacheNodeAssignmentStore) {
     this.managerConfig = managerConfig;
     this.meterRegistry = meterRegistry;
     this.replicaMetadataStore = replicaMetadataStore;
     this.cacheNodeMetadataStore = cacheNodeMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.cacheNodeAssignmentStore = cacheNodeAssignmentStore;
-    this.hpaMetricMetadataStore = hpaMetricMetadataStore;
 
     assignmentCreateSucceeded = meterRegistry.counter(ASSIGNMENT_CREATE_SUCCEEDED);
     assignmentCreateFailed = meterRegistry.counter(ASSIGNMENT_CREATE_FAILED);
@@ -115,15 +110,15 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   }
 
   @Override
-  protected void runOneIteration() {
+  protected synchronized void runOneIteration() {
     if (pendingTask == null || pendingTask.getDelay(TimeUnit.SECONDS) <= 0) {
       pendingTask =
           executorService.schedule(
               this::assignReplicasToCacheNodes,
-              managerConfig.getCacheNodeAssignmentServiceConfig().getSchedulePeriodMins(),
+              managerConfig.getEventAggregationSecs(),
               TimeUnit.SECONDS);
     } else {
-      LOG.info(
+      LOG.debug(
           "Cache node assignment task already scheduled, will run in {} ms",
           pendingTask.getDelay(TimeUnit.MILLISECONDS));
     }
@@ -134,6 +129,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     LOG.info("Starting cache node assignment service");
     cacheNodeMetadataStore.addListener(cacheNodeListener);
     replicaMetadataStore.addListener(replicaListener);
+    cacheNodeAssignmentStore.addListener(cacheNodeAssignmentListener);
   }
 
   @Override
@@ -163,6 +159,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
     List<String> replicaSets =
         managerConfig.getCacheNodeAssignmentServiceConfig().getReplicaSetsList();
+    Instant now = Instant.now();
 
     for (String replicaSet : replicaSets) {
       List<ReplicaMetadata> replicas =
@@ -178,18 +175,24 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
               .filter(assignment -> replicaSet.equals(assignment.replicaSet))
               .toList();
 
-      markAssignmentsForEviction(
-          currentAssignments, replicaMetadataBySnapshotId(replicas), Instant.now());
+      markAssignmentsForEviction(currentAssignments, replicaMetadataBySnapshotId(replicas), now);
 
       Map<String, SnapshotMetadata> snapshotIdsToMetadata =
           snapshotMetadataBySnapshotId(snapshotMetadataStore);
 
       List<SnapshotMetadata> assignedSnapshots =
           getSnapshotsFromIds(
-              snapshotIdsToMetadata, currentAssignments.stream().map(x -> x.snapshotId).toList());
+              snapshotIdsToMetadata,
+              currentAssignments.stream().map(x -> x.snapshotId).collect(Collectors.toSet()));
       List<SnapshotMetadata> snapshotsWithReplicas =
           getSnapshotsFromIds(
-              snapshotIdsToMetadata, replicas.stream().map(x -> x.snapshotId).toList());
+              snapshotIdsToMetadata,
+              replicas.stream()
+                  .filter(replica -> replica.expireAfterEpochMs > now.toEpochMilli())
+                  .map(x -> x.snapshotId)
+                  .collect(Collectors.toSet()));
+      // Unassigned snapshots are the difference between snapshots with replicas and assigned
+      // snapshots
       List<SnapshotMetadata> unassignedSnapshots =
           getUnassignedSnapshots(snapshotsWithReplicas, assignedSnapshots);
 
@@ -201,21 +204,45 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
               unassignedSnapshots,
               cacheNodes);
       int successfulAssignments =
-          createAssignments(cacheNodeAssignmentStore, newAssignments, replicaSet);
-      int failedAssignments = newAssignments.size() - successfulAssignments;
-
-      calculateAndPersistHpaMetric(hpaMetricMetadataStore, replicaSet, newAssignments, cacheNodes);
+          persistAssignments(
+              cacheNodeAssignmentStore,
+              newAssignments,
+              replicaSet,
+              replicaMetadataBySnapshotId(replicas),
+              cacheNodesByLoadingAssignments(currentAssignments),
+              managerConfig.getCacheNodeAssignmentServiceConfig().getMaxConcurrentPerNode());
+      int skippedAssignments = replicas.size() - successfulAssignments;
 
       assignmentCreateSucceeded.increment(successfulAssignments);
-      assignmentCreateFailed.increment(failedAssignments);
 
       long evictionDuration = assignmentTimer.stop(assignmentCreateTimer);
       LOG.info(
-          "Completed cache node assignments - successfully assigned {} replicas, failed to assign {} replicas in {} ms",
+          "Completed cache node assignments for {} - successfully assigned {} replicas ({} total snapshots), skipped {} out of {} replicas in {} ms",
+          replicaSet,
           successfulAssignments,
-          failedAssignments,
+          unassignedSnapshots.size(),
+          skippedAssignments,
+          replicas.size(),
           nanosToMillis(evictionDuration));
     }
+  }
+
+  private Map<String, Integer> cacheNodesByLoadingAssignments(
+      List<CacheNodeAssignment> currentAssignments) {
+    Map<String, Integer> cacheNodesByAssignments = new HashMap<>();
+
+    for (CacheNodeAssignment assignment : currentAssignments) {
+      if (cacheNodesByAssignments.containsKey(assignment.cacheNodeId)
+          && assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING) {
+        cacheNodesByAssignments.compute(
+            assignment.cacheNodeId, (k, currentValue) -> currentValue + 1);
+      } else {
+        if (assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING) {
+          cacheNodesByAssignments.put(assignment.cacheNodeId, 1);
+        }
+      }
+    }
+    return cacheNodesByAssignments;
   }
 
   /**
@@ -281,76 +308,56 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   }
 
   /**
-   * Calculates and persists the HPA (Horizontal Pod Autoscaler) metric based on new assignments.
-   * This method calculates the demand factor from new assignments and persists it in the HPA metric
-   * metadata store.
-   *
-   * @param hpaMetricMetadataStore the store to persist HPA metrics
-   * @param replicaSet the replica set for which to calculate the HPA metric
-   * @param newAssignments the new assignments of cache nodes to snapshots
-   * @param cacheNodes the list of cache nodes
-   */
-  private static void calculateAndPersistHpaMetric(
-      HpaMetricMetadataStore hpaMetricMetadataStore,
-      String replicaSet,
-      Map<String, CacheNodeBin> newAssignments,
-      List<CacheNodeMetadata> cacheNodes) {
-    double demandFactor =
-        calculateHpaValueFromNewAssignments(
-            newAssignments, cacheNodes.stream().mapToLong(node -> node.nodeCapacityBytes).sum());
-    persistCacheConfig(hpaMetricMetadataStore, replicaSet, demandFactor);
-  }
-
-  /**
    * Persists cache node assignments in the cache node assignment store.
    *
    * @param cacheNodeAssignmentStore the store to persist cache node assignments
    * @param newAssignments a map of new assignments keyed by cache node ID
    * @param replicaSet the replica set for which to persist assignments
+   * @param maxConcurrentAssignments the maximum amount of assignments to create for each cache node
    * @return the number of successful assignments
    */
-  private static int createAssignments(
+  private static int persistAssignments(
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
       Map<String, CacheNodeBin> newAssignments,
-      String replicaSet) {
-    int numAssigned = 0;
+      String replicaSet,
+      Map<String, ReplicaMetadata> replicasBySnapshotId,
+      Map<String, Integer> cacheNodesByLoadingAssignments,
+      int maxConcurrentAssignments) {
+    int numCreated = 0;
     for (Map.Entry<String, CacheNodeBin> entry : newAssignments.entrySet()) {
       String cacheNodeId = entry.getKey();
-      for (String snapshotId : entry.getValue().getSnapshotIds()) {
+      for (SnapshotMetadata snapshot : entry.getValue().getSnapshots()) {
         if (cacheNodeId.startsWith(NEW_BIN_PREFIX)) {
           continue;
         }
+
+        if (cacheNodesByLoadingAssignments.containsKey(cacheNodeId)
+            && cacheNodesByLoadingAssignments.get(cacheNodeId) >= maxConcurrentAssignments) {
+          continue;
+        }
+
         CacheNodeAssignment newAssignment =
             new CacheNodeAssignment(
                 UUID.randomUUID().toString(),
                 cacheNodeId,
-                snapshotId,
+                snapshot.snapshotId,
+                replicasBySnapshotId.get(snapshot.snapshotId).name,
                 replicaSet,
+                snapshot.sizeInBytesOnDisk,
                 Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING);
         cacheNodeAssignmentStore.createSync(newAssignment);
-        numAssigned++;
+
+        if (cacheNodesByLoadingAssignments.containsKey(cacheNodeId)) {
+          cacheNodesByLoadingAssignments.compute(
+              cacheNodeId, (key, loadingAssignments) -> loadingAssignments + 1);
+        } else {
+          cacheNodesByLoadingAssignments.put(cacheNodeId, 1);
+        }
+
+        numCreated++;
       }
     }
-    return numAssigned;
-  }
-
-  /**
-   * Gets the list of unassigned snapshots by comparing the snapshots with replicas and the assigned
-   * snapshots.
-   *
-   * <p>Unassigned snapshots are the set difference between snapshots with replicas and snapshots
-   * with existing assignments. e.g. if a snapshot has a replica created, but no assignment to a
-   * cache node, it is "unassigned".
-   *
-   * @param snapshotsWithReplicas the list of snapshots that have replicas
-   * @param assignedSnapshots the list of already assigned snapshots
-   * @return the list of unassigned snapshots
-   */
-  private static List<SnapshotMetadata> getUnassignedSnapshots(
-      List<SnapshotMetadata> snapshotsWithReplicas, List<SnapshotMetadata> assignedSnapshots) {
-    return new ArrayList<>(
-        Sets.difference(
-            Sets.newHashSet(snapshotsWithReplicas), Sets.newHashSet(assignedSnapshots)));
+    return numCreated;
   }
 
   /**
@@ -378,30 +385,27 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     // Initialize bins with existing cache nodes
     for (CacheNodeMetadata cacheNodeMetadata : existingCacheNodes) {
       cacheNodeBins.put(
-          cacheNodeMetadata.name, new CacheNodeBin(cacheNodeMetadata.nodeCapacityBytes));
+          cacheNodeMetadata.id, new CacheNodeBin(cacheNodeMetadata.nodeCapacityBytes));
     }
 
     // Add existing assignments to bins
     for (CacheNodeAssignment assignment : currentAssignments) {
       if (cacheNodeBins.containsKey(assignment.cacheNodeId)) {
         CacheNodeBin bin = cacheNodeBins.get(assignment.cacheNodeId);
-        bin.addSnapshot(assignment.snapshotId);
         bin.subtractFromSize(
             snapshotMetadataStore.findSync(assignment.snapshotId).sizeInBytesOnDisk);
       } else {
+        // delete this assignment since its cache node is no longer around
         cacheNodeAssignmentStore.deleteSync(assignment);
-        snapshotsToAssign.add(snapshotMetadataStore.findSync(assignment.snapshotId));
       }
     }
 
     // do first-fit packing for remaining snapshots
     for (SnapshotMetadata snapshot : snapshotsToAssign) {
       boolean assigned = false;
-      for (Map.Entry<String, CacheNodeBin> binEntry : cacheNodeBins.entrySet()) {
-        CacheNodeBin cacheNodeBin = binEntry.getValue();
+      for (CacheNodeBin cacheNodeBin : cacheNodeBins.values()) {
         if (snapshot.sizeInBytesOnDisk <= cacheNodeBin.getRemainingCapacityBytes()) {
-          cacheNodeBin.addSnapshot(snapshot.snapshotId);
-          cacheNodeBin.subtractFromSize(snapshot.sizeInBytesOnDisk);
+          cacheNodeBin.addSnapshot(snapshot);
           assigned = true;
           break;
         }
@@ -411,8 +415,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
         String newBinKey = String.format(NEW_BIN_PREFIX + "%s", newBinsCreated);
         CacheNodeBin newBin = new CacheNodeBin(snapshot.sizeInBytesOnDisk);
 
-        newBin.subtractFromSize(snapshot.sizeInBytesOnDisk);
-        newBin.addSnapshot(snapshot.snapshotId);
+        newBin.addSnapshot(snapshot);
         cacheNodeBins.put(newBinKey, newBin);
         newBinsCreated++;
       }
@@ -422,13 +425,32 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   }
 
   /**
+   * Gets the list of unassigned snapshots by comparing the snapshots with replicas and the assigned
+   * snapshots.
+   *
+   * <p>Unassigned snapshots are the set difference between snapshots with replicas and snapshots
+   * with existing assignments. e.g. if a snapshot has a replica created, but no assignment to a
+   * cache node, it is "unassigned".
+   *
+   * @param snapshotsWithReplicas the list of snapshots that have replicas
+   * @param assignedSnapshots the list of already assigned snapshots
+   * @return the list of unassigned snapshots
+   */
+  private static List<SnapshotMetadata> getUnassignedSnapshots(
+      List<SnapshotMetadata> snapshotsWithReplicas, List<SnapshotMetadata> assignedSnapshots) {
+    Set<SnapshotMetadata> unassignedSnapshots = Sets.newHashSet(snapshotsWithReplicas);
+    unassignedSnapshots.removeAll(Sets.newHashSet(assignedSnapshots));
+    return new ArrayList<>(unassignedSnapshots);
+  }
+
+  /**
    * Generates a map of snapshot metadata keyed by snapshot ID. This method retrieves a list of
    * snapshot metadata from the store and maps each snapshot ID to its corresponding metadata.
    *
    * @param snapshotMetadataStore the store containing snapshot metadata
    * @return a map of snapshot IDs to snapshot metadata
    */
-  private static Map<String, SnapshotMetadata> snapshotMetadataBySnapshotId(
+  public static Map<String, SnapshotMetadata> snapshotMetadataBySnapshotId(
       SnapshotMetadataStore snapshotMetadataStore) {
     Map<String, SnapshotMetadata> snapshotIdsToMetadata = new HashMap<>();
     snapshotMetadataStore
@@ -447,7 +469,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
    * @param replicaMetadataList the list of replica metadata
    * @return a map of snapshot IDs to replica metadata
    */
-  private static Map<String, ReplicaMetadata> replicaMetadataBySnapshotId(
+  public static Map<String, ReplicaMetadata> replicaMetadataBySnapshotId(
       List<ReplicaMetadata> replicaMetadataList) {
     Map<String, ReplicaMetadata> snapshotIdsToMetadata = new HashMap<>();
     replicaMetadataList.forEach(
@@ -466,9 +488,8 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
    * @param snapshotIds the list of snapshot IDs to retrieve metadata for
    * @return a list of snapshot metadata corresponding to the given snapshot IDs
    */
-  private static List<SnapshotMetadata> getSnapshotsFromIds(
-      Map<String, SnapshotMetadata> snapshotIdsToMetadata, List<String> snapshotIds) {
-    // use snapshotID to get size of each replica
+  public static List<SnapshotMetadata> getSnapshotsFromIds(
+      Map<String, SnapshotMetadata> snapshotIdsToMetadata, Set<String> snapshotIds) {
     List<SnapshotMetadata> snapshots = new ArrayList<>();
     for (String snapshotId : snapshotIds) {
       if (snapshotIdsToMetadata.containsKey(snapshotId)) {
@@ -479,51 +500,23 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   }
 
   /**
-   * Calculates the HPA (Horizontal Pod Autoscaler) value based on new assignments. This method
-   * computes the demand factor as the ratio of total bytes requiring assignment to the total
-   * capacity of cache nodes.
-   *
-   * @param newAssignments a map of new assignments keyed by cache node ID
-   * @param totalCacheNodeCapacityBytes the total capacity of all cache nodes in bytes
-   * @return the calculated HPA value
-   */
-  private static double calculateHpaValueFromNewAssignments(
-      Map<String, CacheNodeBin> newAssignments, long totalCacheNodeCapacityBytes) {
-    long totalBytesRequiringAssignment =
-        newAssignments.values().stream()
-            .mapToLong(
-                cacheNodeBin ->
-                    cacheNodeBin.getTotalCapacityBytes() - cacheNodeBin.getRemainingCapacityBytes())
-            .sum();
-
-    return (double) totalBytesRequiringAssignment / totalCacheNodeCapacityBytes;
-  }
-
-  /** Updates or inserts an (ephemeral) HPA metric for the cache nodes. This is NOT threadsafe. */
-  private static void persistCacheConfig(
-      HpaMetricMetadataStore hpaMetricMetadataStore, String replicaSet, Double demandFactor) {
-    String key = String.format(CACHE_HPA_METRIC_NAME, replicaSet);
-    if (hpaMetricMetadataStore.hasSync(key)) {
-      hpaMetricMetadataStore.updateSync(
-          new HpaMetricMetadata(key, Metadata.HpaMetricMetadata.NodeRole.CACHE, demandFactor));
-    } else {
-      hpaMetricMetadataStore.createSync(
-          new HpaMetricMetadata(key, Metadata.HpaMetricMetadata.NodeRole.CACHE, demandFactor));
-    }
-  }
-
-  /**
    * Checks if the cache slot should be evicted (currently live, and has an expiration in the past)
    */
   private static boolean shouldEvictReplica(
       Instant expireOlderThan,
-      Map<String, ReplicaMetadata> replicaMetadataByReplicaId,
+      Map<String, ReplicaMetadata> replicaMetadataBySnapshotId,
       CacheNodeAssignment cacheNodeAssignment) {
     return cacheNodeAssignment.state.equals(
             Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
-        && replicaMetadataByReplicaId.containsKey(cacheNodeAssignment.snapshotId)
-        && replicaMetadataByReplicaId.get(cacheNodeAssignment.snapshotId).expireAfterEpochMs
+        && replicaMetadataBySnapshotId.containsKey(cacheNodeAssignment.snapshotId)
+        && replicaMetadataBySnapshotId.get(cacheNodeAssignment.snapshotId).expireAfterEpochMs
             < expireOlderThan.toEpochMilli();
+  }
+
+  private void assignmentListener(CacheNodeAssignment assignment) {
+    if (assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE) {
+      runOneIteration();
+    }
   }
 }
 
@@ -533,12 +526,12 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
  */
 class CacheNodeBin {
   private long remainingCapacityBytes;
-  private final Set<String> snapshotIds;
+  private final List<SnapshotMetadata> snapshots;
   private final long totalCapacityBytes;
 
   public CacheNodeBin(long totalCapacityBytes) {
     this.remainingCapacityBytes = totalCapacityBytes;
-    this.snapshotIds = new HashSet<>();
+    this.snapshots = new ArrayList<>();
     this.totalCapacityBytes = totalCapacityBytes;
   }
 
@@ -554,11 +547,12 @@ class CacheNodeBin {
     this.remainingCapacityBytes -= sizeToSubtract;
   }
 
-  public Set<String> getSnapshotIds() {
-    return snapshotIds;
+  public List<SnapshotMetadata> getSnapshots() {
+    return snapshots;
   }
 
-  public void addSnapshot(String snapshotId) {
-    this.snapshotIds.add(snapshotId);
+  public void addSnapshot(SnapshotMetadata snapshot) {
+    this.snapshots.add(snapshot);
+    subtractFromSize(snapshot.sizeInBytesOnDisk);
   }
 }

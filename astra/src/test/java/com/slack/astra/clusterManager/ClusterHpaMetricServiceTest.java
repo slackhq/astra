@@ -1,12 +1,17 @@
 package com.slack.astra.clusterManager;
 
 import static com.slack.astra.clusterManager.ClusterHpaMetricService.CACHE_HPA_METRIC_NAME;
+import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import brave.Tracing;
+import com.slack.astra.metadata.cache.CacheNodeAssignment;
+import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
+import com.slack.astra.metadata.cache.CacheNodeMetadata;
+import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadata;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.CuratorBuilder;
@@ -14,6 +19,8 @@ import com.slack.astra.metadata.hpa.HpaMetricMetadata;
 import com.slack.astra.metadata.hpa.HpaMetricMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
+import com.slack.astra.metadata.snapshot.SnapshotMetadata;
+import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -21,6 +28,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -38,6 +46,9 @@ class ClusterHpaMetricServiceTest {
   private CacheSlotMetadataStore cacheSlotMetadataStore;
 
   private HpaMetricMetadataStore hpaMetricMetadataStore;
+  private CacheNodeAssignmentStore cacheNodeAssignmentStore;
+  private CacheNodeMetadataStore cacheNodeMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -58,6 +69,9 @@ class ClusterHpaMetricServiceTest {
 
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
     cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework));
+    cacheNodeAssignmentStore = spy(new CacheNodeAssignmentStore(curatorFramework));
+    cacheNodeMetadataStore = spy(new CacheNodeMetadataStore(curatorFramework));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     hpaMetricMetadataStore = spy(new HpaMetricMetadataStore(curatorFramework, true));
   }
 
@@ -76,7 +90,11 @@ class ClusterHpaMetricServiceTest {
   void testLocking() throws Exception {
     ClusterHpaMetricService clusterHpaMetricService =
         new ClusterHpaMetricService(
-            replicaMetadataStore, cacheSlotMetadataStore, hpaMetricMetadataStore);
+            replicaMetadataStore,
+            cacheSlotMetadataStore,
+            hpaMetricMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore);
     clusterHpaMetricService.CACHE_SCALEDOWN_LOCK = Duration.ofSeconds(2);
 
     assertThat(clusterHpaMetricService.tryCacheReplicasetLock("foo")).isTrue();
@@ -93,17 +111,18 @@ class ClusterHpaMetricServiceTest {
   void oneReplicasetScaledown() {
     ClusterHpaMetricService clusterHpaMetricService =
         new ClusterHpaMetricService(
-            replicaMetadataStore, cacheSlotMetadataStore, hpaMetricMetadataStore);
+            replicaMetadataStore,
+            cacheSlotMetadataStore,
+            hpaMetricMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore);
 
     when(replicaMetadataStore.listSync())
         .thenReturn(
             List.of(
-                new ReplicaMetadata(
-                    "foo", "foo", "rep1", 1L, 0L, false, Metadata.IndexType.LOGS_LUCENE9),
-                new ReplicaMetadata(
-                    "bar", "bar", "rep2", 1L, 0L, false, Metadata.IndexType.LOGS_LUCENE9),
-                new ReplicaMetadata(
-                    "baz", "baz", "rep1", 1L, 0L, false, Metadata.IndexType.LOGS_LUCENE9)));
+                new ReplicaMetadata("foo", "foo", "rep1", 1L, 0L, false, LOGS_LUCENE9),
+                new ReplicaMetadata("bar", "bar", "rep2", 1L, 0L, false, LOGS_LUCENE9),
+                new ReplicaMetadata("baz", "baz", "rep1", 1L, 0L, false, LOGS_LUCENE9)));
 
     when(cacheSlotMetadataStore.listSync())
         .thenReturn(
@@ -113,7 +132,7 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(Metadata.IndexType.LOGS_LUCENE9),
+                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1"),
                 new CacheSlotMetadata(
@@ -121,7 +140,7 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(Metadata.IndexType.LOGS_LUCENE9),
+                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1"),
                 new CacheSlotMetadata(
@@ -129,7 +148,7 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(Metadata.IndexType.LOGS_LUCENE9),
+                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep2"),
                 new CacheSlotMetadata(
@@ -137,7 +156,7 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(Metadata.IndexType.LOGS_LUCENE9),
+                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1")));
 
@@ -178,15 +197,17 @@ class ClusterHpaMetricServiceTest {
   void twoReplicasetScaledown() {
     ClusterHpaMetricService clusterHpaMetricService =
         new ClusterHpaMetricService(
-            replicaMetadataStore, cacheSlotMetadataStore, hpaMetricMetadataStore);
+            replicaMetadataStore,
+            cacheSlotMetadataStore,
+            hpaMetricMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore);
 
     when(replicaMetadataStore.listSync())
         .thenReturn(
             List.of(
-                new ReplicaMetadata(
-                    "foo", "foo", "rep1", 1L, 0L, false, Metadata.IndexType.LOGS_LUCENE9),
-                new ReplicaMetadata(
-                    "bar", "bar", "rep2", 1L, 0L, false, Metadata.IndexType.LOGS_LUCENE9)));
+                new ReplicaMetadata("foo", "foo", "rep1", 1L, 0L, false, LOGS_LUCENE9),
+                new ReplicaMetadata("bar", "bar", "rep2", 1L, 0L, false, LOGS_LUCENE9)));
 
     when(cacheSlotMetadataStore.listSync())
         .thenReturn(
@@ -196,7 +217,7 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(Metadata.IndexType.LOGS_LUCENE9),
+                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1"),
                 new CacheSlotMetadata(
@@ -204,7 +225,7 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(Metadata.IndexType.LOGS_LUCENE9),
+                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1"),
                 new CacheSlotMetadata(
@@ -212,7 +233,7 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(Metadata.IndexType.LOGS_LUCENE9),
+                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep2"),
                 new CacheSlotMetadata(
@@ -220,7 +241,7 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(Metadata.IndexType.LOGS_LUCENE9),
+                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep2")));
 
@@ -264,19 +285,19 @@ class ClusterHpaMetricServiceTest {
   void twoReplicasetScaleup() {
     ClusterHpaMetricService clusterHpaMetricService =
         new ClusterHpaMetricService(
-            replicaMetadataStore, cacheSlotMetadataStore, hpaMetricMetadataStore);
+            replicaMetadataStore,
+            cacheSlotMetadataStore,
+            hpaMetricMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore);
 
     when(replicaMetadataStore.listSync())
         .thenReturn(
             List.of(
-                new ReplicaMetadata(
-                    "foo", "foo", "rep1", 1L, 0L, false, Metadata.IndexType.LOGS_LUCENE9),
-                new ReplicaMetadata(
-                    "bar", "bar", "rep1", 1L, 0L, false, Metadata.IndexType.LOGS_LUCENE9),
-                new ReplicaMetadata(
-                    "baz", "bar", "rep2", 1L, 0L, false, Metadata.IndexType.LOGS_LUCENE9),
-                new ReplicaMetadata(
-                    "bal", "bar", "rep2", 1L, 0L, false, Metadata.IndexType.LOGS_LUCENE9)));
+                new ReplicaMetadata("foo", "foo", "rep1", 1L, 0L, false, LOGS_LUCENE9),
+                new ReplicaMetadata("bar", "bar", "rep1", 1L, 0L, false, LOGS_LUCENE9),
+                new ReplicaMetadata("baz", "bar", "rep2", 1L, 0L, false, LOGS_LUCENE9),
+                new ReplicaMetadata("bal", "bar", "rep2", 1L, 0L, false, LOGS_LUCENE9)));
 
     when(cacheSlotMetadataStore.listSync())
         .thenReturn(
@@ -286,7 +307,7 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(Metadata.IndexType.LOGS_LUCENE9),
+                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1")));
 
@@ -327,5 +348,119 @@ class ClusterHpaMetricServiceTest {
     assertThat(ClusterHpaMetricService.calculateDemandFactor(100, 98)).isEqualTo(0.98);
     assertThat(ClusterHpaMetricService.calculateDemandFactor(98, 100)).isEqualTo(1.03);
     assertThat(ClusterHpaMetricService.calculateDemandFactor(9999, 10000)).isEqualTo(1.01);
+  }
+
+  @Test
+  public void testHpaScaleUp() throws Exception {
+    ClusterHpaMetricService clusterHpaMetricService =
+        new ClusterHpaMetricService(
+            replicaMetadataStore,
+            cacheSlotMetadataStore,
+            hpaMetricMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore);
+
+    // Register 1 snapshot
+    when(snapshotMetadataStore.listSync())
+        .thenReturn(
+            List.of(
+                new SnapshotMetadata(
+                    "snapshot2", "snapshot2", 1L, 2L, 5L, "abcd", LOGS_LUCENE9, 10),
+                new SnapshotMetadata(
+                    "snapshot1", "snapshot1", 1L, 2L, 5L, "abcd", LOGS_LUCENE9, 5)));
+
+    // Register 1 replica associated with the snapshot
+    when(replicaMetadataStore.listSync())
+        .thenReturn(
+            List.of(
+                new ReplicaMetadata("replica2", "snapshot2", "rep1", 1L, 2L, false, LOGS_LUCENE9),
+                new ReplicaMetadata("replica1", "snapshot1", "rep1", 1L, 2L, false, LOGS_LUCENE9)));
+
+    // Register 2 cache nodes with lots of capacity
+    when(cacheNodeMetadataStore.listSync())
+        .thenReturn(List.of(new CacheNodeMetadata("node1", "node1.com", 10, "rep1")));
+
+    // Assign replicas to cache nodes
+    when(cacheNodeAssignmentStore.listSync())
+        .thenReturn(
+            List.of(
+                new CacheNodeAssignment(
+                    "jfkl",
+                    "node1",
+                    "snapshot2",
+                    "replica2",
+                    "rep1",
+                    10,
+                    Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE),
+                new CacheNodeAssignment(
+                    "abcd",
+                    "node1",
+                    "snapshot1",
+                    "replica1",
+                    "rep1",
+                    5,
+                    Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)));
+
+    clusterHpaMetricService.runOneIteration();
+
+    // Assert scale down in HPA Store
+    await()
+        .timeout(10, TimeUnit.SECONDS)
+        .until(() -> hpaMetricMetadataStore.hasSync(String.format(CACHE_HPA_METRIC_NAME, "rep1")));
+    assertThat(hpaMetricMetadataStore.getSync(String.format(CACHE_HPA_METRIC_NAME, "rep1")).value)
+        .isEqualTo(1.5);
+  }
+
+  @Test
+  public void testHpaScaleDown() throws Exception {
+    ClusterHpaMetricService clusterHpaMetricService =
+        new ClusterHpaMetricService(
+            replicaMetadataStore,
+            cacheSlotMetadataStore,
+            hpaMetricMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore);
+
+    // Register 1 snapshot
+    when(snapshotMetadataStore.listSync())
+        .thenReturn(
+            List.of(
+                new SnapshotMetadata(
+                    "snapshot1", "snapshot1", 1L, 2L, 5L, "abcd", LOGS_LUCENE9, 5)));
+
+    // Register 1 replica associated with the snapshot
+    when(replicaMetadataStore.listSync())
+        .thenReturn(
+            List.of(
+                new ReplicaMetadata("replica1", "snapshot1", "rep1", 1L, 2L, false, LOGS_LUCENE9)));
+
+    // Register 2 cache nodes with lots of capacity
+    when(cacheNodeMetadataStore.listSync())
+        .thenReturn(
+            List.of(
+                new CacheNodeMetadata("node2", "node2.com", 10, "rep1"),
+                new CacheNodeMetadata("node1", "node1.com", 10, "rep1")));
+
+    // Assign replicas to cache nodes
+    when(cacheNodeAssignmentStore.listSync())
+        .thenReturn(
+            List.of(
+                new CacheNodeAssignment(
+                    "abcd",
+                    "node1",
+                    "snapshot1",
+                    "replica1",
+                    "rep1",
+                    5,
+                    Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)));
+
+    clusterHpaMetricService.runOneIteration();
+
+    // Assert scale down in HPA Store
+    await()
+        .timeout(10, TimeUnit.SECONDS)
+        .until(() -> hpaMetricMetadataStore.hasSync(String.format(CACHE_HPA_METRIC_NAME, "rep1")));
+    assertThat(hpaMetricMetadataStore.getSync(String.format(CACHE_HPA_METRIC_NAME, "rep1")).value)
+        .isEqualTo(0.25);
   }
 }

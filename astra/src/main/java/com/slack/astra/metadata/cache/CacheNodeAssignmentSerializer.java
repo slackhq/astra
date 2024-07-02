@@ -12,7 +12,9 @@ public class CacheNodeAssignmentSerializer implements MetadataSerializer<CacheNo
         cacheSlotMetadataProto.getAssignmentId(),
         cacheSlotMetadataProto.getCacheNodeId(),
         cacheSlotMetadataProto.getSnapshotId(),
+        cacheSlotMetadataProto.getReplicaId(),
         cacheSlotMetadataProto.getReplicaSet(),
+        cacheSlotMetadataProto.getSnapshotSize(),
         cacheSlotMetadataProto.getState());
   }
 
@@ -22,8 +24,10 @@ public class CacheNodeAssignmentSerializer implements MetadataSerializer<CacheNo
         .setAssignmentId(metadata.assignmentId)
         .setCacheNodeId(metadata.cacheNodeId)
         .setSnapshotId(metadata.snapshotId)
+        .setReplicaId(metadata.replicaId)
         .setReplicaSet(metadata.replicaSet)
         .setState(metadata.state)
+        .setSnapshotSize(metadata.snapshotSize)
         .build();
   }
 

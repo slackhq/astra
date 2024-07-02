@@ -1,6 +1,5 @@
 package com.slack.astra.clusterManager;
 
-import static com.slack.astra.clusterManager.CacheNodeAssignmentService.CACHE_HPA_METRIC_NAME;
 import static com.slack.astra.clusterManager.CacheNodeAssignmentService.assign;
 import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,7 +12,6 @@ import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheNodeMetadata;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.core.CuratorBuilder;
-import com.slack.astra.metadata.hpa.HpaMetricMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
@@ -25,6 +23,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +48,6 @@ public class CacheNodeAssignmentServiceTest {
   private AstraConfigs.ManagerConfig managerConfig;
   private CacheNodeMetadataStore cacheNodeMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
-  private HpaMetricMetadataStore hpaMetricMetadataStore;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -70,7 +68,7 @@ public class CacheNodeAssignmentServiceTest {
         AstraConfigs.ManagerConfig.CacheNodeAssignmentServiceConfig.newBuilder()
             .addAllReplicaSets(List.of("rep1"))
             .setSchedulePeriodMins(1)
-            .setReplicaLifespanMins(60)
+            .setMaxConcurrentPerNode(2)
             .build();
 
     managerConfig =
@@ -84,7 +82,6 @@ public class CacheNodeAssignmentServiceTest {
     cacheNodeMetadataStore = spy(new CacheNodeMetadataStore(curatorFramework));
     snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
-    hpaMetricMetadataStore = spy(new HpaMetricMetadataStore(curatorFramework, false));
   }
 
   @AfterEach
@@ -108,7 +105,14 @@ public class CacheNodeAssignmentServiceTest {
       snapshotMetadataStore.createSync(snapshotMetadata);
 
       ReplicaMetadata replicaMetadata =
-          new ReplicaMetadata("replica" + i, "snapshot" + i, "rep1", 1L, 2L, false, LOGS_LUCENE9);
+          new ReplicaMetadata(
+              "replica" + i,
+              "snapshot" + i,
+              "rep1",
+              1L,
+              Instant.now().plus(15, ChronoUnit.MINUTES).toEpochMilli(),
+              false,
+              LOGS_LUCENE9);
       replicaMetadataStore.createSync(replicaMetadata);
     }
     CacheNodeAssignmentService cacheNodeAssignmentService =
@@ -118,8 +122,7 @@ public class CacheNodeAssignmentServiceTest {
             replicaMetadataStore,
             cacheNodeMetadataStore,
             snapshotMetadataStore,
-            cacheNodeAssignmentStore,
-            hpaMetricMetadataStore);
+            cacheNodeAssignmentStore);
 
     cacheNodeAssignmentService.startAsync();
     cacheNodeAssignmentService.awaitRunning(Duration.ofSeconds(15));
@@ -132,8 +135,6 @@ public class CacheNodeAssignmentServiceTest {
                 .map(assignment -> assignment.snapshotId)
                 .toList())
         .containsOnly("snapshot0", "snapshot1", "snapshot2");
-    assertThat(hpaMetricMetadataStore.getSync(String.format(CACHE_HPA_METRIC_NAME, "rep1")).value)
-        .isEqualTo(1.0);
   }
 
   @Test
@@ -142,6 +143,7 @@ public class CacheNodeAssignmentServiceTest {
     String snapshotKey = "snapshot_%s";
     String replicaKey = "replica_%s";
     String replicaSet = "rep1";
+    String replicaId = "replica1";
     for (int i = 0; i < 3; i++) {
       // create assignments in the past
       CacheNodeAssignment newAssignment =
@@ -149,7 +151,9 @@ public class CacheNodeAssignmentServiceTest {
               UUID.randomUUID().toString(),
               name,
               String.format(snapshotKey, i),
+              replicaId,
               replicaSet,
+              0,
               Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
       cacheNodeAssignmentStore.createSync(newAssignment);
 
@@ -186,8 +190,7 @@ public class CacheNodeAssignmentServiceTest {
             replicaMetadataStore,
             cacheNodeMetadataStore,
             snapshotMetadataStore,
-            cacheNodeAssignmentStore,
-            hpaMetricMetadataStore);
+            cacheNodeAssignmentStore);
     cacheNodeAssignmentService.startAsync();
     cacheNodeAssignmentService.awaitRunning(Duration.ofSeconds(15));
 
@@ -202,6 +205,7 @@ public class CacheNodeAssignmentServiceTest {
     String snapshotKey = "snapshot_%s";
     String replicaKey = "replica_%s";
     String replicaSet = "rep1";
+    String replicaId = "replica1";
     for (int i = 0; i < 6; i++) {
       // create assignments in the past, half LIVE half EVICT
       CacheNodeAssignment newAssignment =
@@ -209,7 +213,9 @@ public class CacheNodeAssignmentServiceTest {
               UUID.randomUUID().toString(),
               name,
               String.format(snapshotKey, i),
+              replicaId,
               replicaSet,
+              0,
               i % 2 == 0
                   ? Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE
                   : Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
@@ -252,8 +258,7 @@ public class CacheNodeAssignmentServiceTest {
             replicaMetadataStore,
             cacheNodeMetadataStore,
             snapshotMetadataStore,
-            cacheNodeAssignmentStore,
-            hpaMetricMetadataStore);
+            cacheNodeAssignmentStore);
     cacheNodeAssignmentService.markAssignmentsForEviction(
         cacheNodeAssignmentStore.listSync(),
         replicaMetadataStore.listSync().stream()
@@ -267,6 +272,83 @@ public class CacheNodeAssignmentServiceTest {
                 filterAssignmentsByState(
                         Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT)
                     == 6);
+  }
+
+  @Test
+  public void testShouldntCreateDuplicateAssignments() throws TimeoutException {
+    String name = "foo";
+    String snapshotId = "snapshot1";
+    String replicaSet = "rep1";
+    String replicaId = "replica1";
+
+    // Create a CacheNodeAssignment for rep1 with ID: snapshot1
+    CacheNodeAssignment existingAssignment =
+        new CacheNodeAssignment(
+            UUID.randomUUID().toString(),
+            name,
+            snapshotId,
+            replicaId,
+            replicaSet,
+            0,
+            Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
+    cacheNodeAssignmentStore.createSync(existingAssignment);
+
+    // Create snapshot1 and store it in the store
+    SnapshotMetadata snapshotMetadata =
+        new SnapshotMetadata(snapshotId, snapshotId, 1L, 2L, 10L, "abcd", LOGS_LUCENE9, 5);
+    snapshotMetadataStore.createSync(snapshotMetadata);
+
+    // Create a replica for snapshot1
+    ReplicaMetadata replicaMetadata =
+        new ReplicaMetadata(
+            "replica1",
+            snapshotId,
+            replicaSet,
+            1L,
+            Instant.now().toEpochMilli(),
+            false,
+            LOGS_LUCENE9);
+    replicaMetadataStore.createSync(replicaMetadata);
+
+    CacheNodeAssignmentService cacheNodeAssignmentService =
+        new CacheNodeAssignmentService(
+            meterRegistry,
+            managerConfig,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore,
+            cacheNodeAssignmentStore);
+
+    // Run the service once
+    cacheNodeAssignmentService.startAsync();
+    cacheNodeAssignmentService.awaitRunning(Duration.ofSeconds(15));
+
+    // Assert assignment created
+    await()
+        .timeout(10, TimeUnit.SECONDS)
+        .until(() -> cacheNodeAssignmentStore.listSync().size() == 1);
+
+    assertThat(cacheNodeAssignmentStore.listSync().size()).isEqualTo(1);
+    assertThat(
+            cacheNodeAssignmentStore.listSync().stream()
+                .map(assignment -> assignment.snapshotId)
+                .toList())
+        .containsOnly(snapshotId);
+
+    // Run the service once more
+    cacheNodeAssignmentService.runOneIteration();
+
+    // Assert no duplicate assignment created
+    await()
+        .timeout(10, TimeUnit.SECONDS)
+        .until(() -> cacheNodeAssignmentStore.listSync().size() == 1);
+
+    assertThat(cacheNodeAssignmentStore.listSync().size()).isEqualTo(1);
+    assertThat(
+            cacheNodeAssignmentStore.listSync().stream()
+                .map(assignment -> assignment.snapshotId)
+                .toList())
+        .containsOnly(snapshotId);
   }
 
   /* Test Case 1: Simple Case with Exact Fit
@@ -284,8 +366,10 @@ public class CacheNodeAssignmentServiceTest {
         assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(2);
-    assertThat(result.get("node0").getSnapshotIds()).contains("snapshot0", "snapshot1");
-    assertThat(result.get("node1").getSnapshotIds()).contains("snapshot2", "snapshot3");
+    assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
+        .contains("snapshot0", "snapshot1");
+    assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots()))
+        .contains("snapshot2", "snapshot3");
   }
 
   /* Test Case 2: Simple Case with Excess Capacity
@@ -303,9 +387,10 @@ public class CacheNodeAssignmentServiceTest {
         assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(3);
-    assertThat(result.get("node0").getSnapshotIds()).contains("snapshot0", "snapshot2");
-    assertThat(result.get("node1").getSnapshotIds()).contains("snapshot3");
-    assertThat(result.get("NEW_0").getSnapshotIds()).contains("snapshot1");
+    assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
+        .contains("snapshot0", "snapshot2");
+    assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots())).contains("snapshot3");
+    assertThat(snapshotsToSnapshotIds(result.get("NEW_0").getSnapshots())).contains("snapshot1");
   }
 
   /* Test Case 3: Multiple Small Items
@@ -324,10 +409,11 @@ public class CacheNodeAssignmentServiceTest {
         assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(3);
-    assertThat(result.get("node0").getSnapshotIds())
+    assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
         .contains("snapshot5", "snapshot6", "snapshot7");
-    assertThat(result.get("node1").getSnapshotIds()).contains("snapshot8", "snapshot9");
-    assertThat(result.get("node2").getSnapshotIds())
+    assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots()))
+        .contains("snapshot8", "snapshot9");
+    assertThat(snapshotsToSnapshotIds(result.get("node2").getSnapshots()))
         .contains("snapshot3", "snapshot2", "snapshot1", "snapshot0", "snapshot4");
   }
 
@@ -346,7 +432,7 @@ public class CacheNodeAssignmentServiceTest {
         assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(1);
-    assertThat(result.get("node0").getSnapshotIds())
+    assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
         .contains("snapshot0", "snapshot1", "snapshot2", "snapshot3", "snapshot4");
   }
 
@@ -365,7 +451,7 @@ public class CacheNodeAssignmentServiceTest {
         assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(1);
-    assertThat(result.get("node0").getSnapshotIds()).isEmpty();
+    assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots())).isEmpty();
   }
 
   /* Test Case 8: Single Item Larger than Bin Capacity
@@ -383,7 +469,7 @@ public class CacheNodeAssignmentServiceTest {
         assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(2);
-    assertThat(result.get("node0").getSnapshotIds()).isEmpty();
+    assertThat(result.get("node0").getSnapshots()).isEmpty();
   }
 
   /* Test Case 10: Complex Combination
@@ -401,13 +487,74 @@ public class CacheNodeAssignmentServiceTest {
         assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(6);
-    assertThat(result.get("node0").getSnapshotIds()).contains("snapshot1", "snapshot7");
-    assertThat(result.get("node1").getSnapshotIds()).contains("snapshot3");
-    assertThat(result.get("node2").getSnapshotIds())
+    assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
+        .contains("snapshot1", "snapshot7");
+    assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots())).contains("snapshot3");
+    assertThat(snapshotsToSnapshotIds(result.get("node2").getSnapshots()))
         .contains("snapshot0", "snapshot2", "snapshot5");
   }
 
-  private List<SnapshotMetadata> makeSnapshotsWithSizes(List<Integer> sizes) {
+  @Test
+  public void testComplyWithMaxConcurrentAssignments() throws TimeoutException {
+    String name = "foo";
+    for (int i = 0; i < 4; i++) {
+      CacheNodeMetadata cacheNodeMetadata = new CacheNodeMetadata(name + i, "foo.com", 6, "rep1");
+      cacheNodeMetadataStore.createSync(cacheNodeMetadata);
+
+      SnapshotMetadata snapshotMetadata =
+          new SnapshotMetadata(
+              "snapshot" + i, "snapshot" + i, 1L, 2L, 10L, "abcd", LOGS_LUCENE9, 1);
+      snapshotMetadataStore.createSync(snapshotMetadata);
+
+      ReplicaMetadata replicaMetadata =
+          new ReplicaMetadata(
+              "replica" + i,
+              "snapshot" + i,
+              "rep1",
+              1L,
+              Instant.now().plus(15, ChronoUnit.MINUTES).toEpochMilli(),
+              false,
+              LOGS_LUCENE9);
+      replicaMetadataStore.createSync(replicaMetadata);
+    }
+    CacheNodeAssignmentService cacheNodeAssignmentService =
+        new CacheNodeAssignmentService(
+            meterRegistry,
+            managerConfig,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore,
+            cacheNodeAssignmentStore);
+
+    cacheNodeAssignmentService.runOneIteration();
+
+    await()
+        .timeout(10, TimeUnit.SECONDS)
+        .until(() -> cacheNodeAssignmentStore.listSync().size() == 2);
+
+    markAllAssignmentsLive(cacheNodeAssignmentStore, cacheNodeAssignmentStore.listSync());
+    cacheNodeAssignmentService.runOneIteration();
+
+    await()
+        .timeout(10, TimeUnit.SECONDS)
+        .until(() -> cacheNodeAssignmentStore.listSync().size() == 4);
+    assertThat(
+            cacheNodeAssignmentStore.listSync().stream()
+                .map(assignment -> assignment.snapshotId)
+                .toList())
+        .containsOnly("snapshot0", "snapshot1", "snapshot2", "snapshot3");
+  }
+
+  private static void markAllAssignmentsLive(
+      CacheNodeAssignmentStore cacheNodeAssignmentStore,
+      List<CacheNodeAssignment> cacheNodeAssignments) {
+    for (CacheNodeAssignment cacheNodeAssignment : cacheNodeAssignments) {
+      cacheNodeAssignmentStore.updateAssignmentState(
+          cacheNodeAssignment, Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
+    }
+  }
+
+  private static List<SnapshotMetadata> makeSnapshotsWithSizes(List<Integer> sizes) {
     List<SnapshotMetadata> snapshots = new ArrayList<>();
     for (int i = 0; i < sizes.size(); i++) {
       Integer size = sizes.get(i);
@@ -418,7 +565,7 @@ public class CacheNodeAssignmentServiceTest {
   }
 
   // given N capacities, create N cache nodes with respective capacities
-  private List<CacheNodeMetadata> makeCacheNodesWithCapacities(List<Integer> capacities) {
+  private static List<CacheNodeMetadata> makeCacheNodesWithCapacities(List<Integer> capacities) {
     List<CacheNodeMetadata> cacheNodes = new ArrayList<>();
     for (int i = 0; i < capacities.size(); i++) {
       Integer size = capacities.get(i);
@@ -426,6 +573,10 @@ public class CacheNodeAssignmentServiceTest {
     }
 
     return cacheNodes;
+  }
+
+  private static List<String> snapshotsToSnapshotIds(List<SnapshotMetadata> snapshots) {
+    return snapshots.stream().map(snapshot -> snapshot.snapshotId).toList();
   }
 
   private long filterAssignmentsByState(

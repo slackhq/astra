@@ -26,7 +26,9 @@ public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<Cac
             cacheNodeAssignment.assignmentId,
             cacheNodeAssignment.cacheNodeId,
             cacheNodeAssignment.snapshotId,
+            cacheNodeAssignment.replicaId,
             cacheNodeAssignment.replicaSet,
+            cacheNodeAssignment.snapshotSize,
             state);
 
     return JdkFutureAdapters.listenInPoolThread(

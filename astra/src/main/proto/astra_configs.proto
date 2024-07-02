@@ -155,7 +155,7 @@ message CacheConfig {
   int32 default_query_timeout_ms = 4;
   string replica_set = 5;
   // Capacity of the cache node in bytes. For use when dynamic chunk sizes are enabled.
-  int32 capacity_bytes = 6;
+  int64 capacity_bytes = 6;
 }
 
 // Cluster manager config. As a convention we define a config struct for
@@ -164,6 +164,7 @@ message ManagerConfig {
   message CacheNodeAssignmentServiceConfig {
     int32 schedule_period_mins = 1;
     repeated string replica_sets = 2;
+    int32 max_concurrent_per_node = 3;
   }
 
   message ReplicaCreationServiceConfig {
@@ -202,6 +203,10 @@ message ManagerConfig {
     repeated string replica_sets = 4;
   }
 
+  message ClusterMonitorServiceConfig {
+    int32 schedule_period_mins = 1;
+  }
+
   // Event aggregation secs is a de-bounce setting. It's the time
   // a service waits to take an action after a zk notification.
   int32 event_aggregation_secs = 1;
@@ -220,7 +225,7 @@ message ManagerConfig {
   SnapshotDeletionServiceConfig snapshot_deletion_service_config = 9;
   ReplicaRestoreServiceConfig replica_restore_service_config = 10;
   CacheNodeAssignmentServiceConfig cache_node_assignment_service_config = 11;
-
+  ClusterMonitorServiceConfig cluster_monitor_service_config = 12;
 }
 
 // Config for the recovery node.
