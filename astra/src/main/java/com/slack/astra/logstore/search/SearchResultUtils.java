@@ -28,12 +28,15 @@ import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.NotImplementedException;
+import org.opensearch.core.common.io.stream.ByteBufferStreamInput;
+import org.opensearch.index.query.QueryBuilder;
 
 public class SearchResultUtils {
   public static Map<String, Object> fromValueStruct(AstraSearch.Struct struct) {
@@ -657,14 +660,21 @@ public class SearchResultUtils {
   }
 
   public static SearchQuery fromSearchRequest(AstraSearch.SearchRequest searchRequest) {
-    return new SearchQuery(
-        searchRequest.getDataset(),
-        searchRequest.getQueryString(),
-        searchRequest.getStartTimeEpochMs(),
-        searchRequest.getEndTimeEpochMs(),
-        searchRequest.getHowMany(),
-        fromSearchAggregations(searchRequest.getAggregations()),
-        searchRequest.getChunkIdsList());
+    try (ByteBufferStreamInput queryByteBufferStreamInput =
+        new ByteBufferStreamInput(ByteBuffer.wrap(searchRequest.getQuery().toByteArray()))) {
+      QueryBuilder queryBuilder = queryByteBufferStreamInput.readNamedWriteable(QueryBuilder.class);
+      return new SearchQuery(
+          searchRequest.getDataset(),
+          searchRequest.getQueryString(),
+          searchRequest.getStartTimeEpochMs(),
+          searchRequest.getEndTimeEpochMs(),
+          searchRequest.getHowMany(),
+          fromSearchAggregations(searchRequest.getAggregations()),
+          searchRequest.getChunkIdsList(),
+          queryBuilder);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(

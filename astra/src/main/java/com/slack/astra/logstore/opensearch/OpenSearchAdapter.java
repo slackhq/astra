@@ -60,6 +60,7 @@ import org.opensearch.index.fielddata.IndexFieldDataService;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
@@ -149,7 +150,8 @@ public class OpenSearchAdapter {
       String queryStr,
       Long startTimeMsEpoch,
       Long endTimeMsEpoch,
-      IndexSearcher indexSearcher)
+      IndexSearcher indexSearcher,
+      QueryBuilder queryBuilder)
       throws IOException {
     LOG.trace("Query raw input string: '{}'", queryStr);
     QueryShardContext queryShardContext =
@@ -159,6 +161,11 @@ public class OpenSearchAdapter {
             indexSearcher,
             similarityService,
             mapperService);
+
+    if (queryBuilder != null) {
+      return queryBuilder.toQuery(queryShardContext);
+    }
+
     try {
       BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
 

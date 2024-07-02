@@ -35,6 +35,7 @@ import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +88,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       Long startTimeMsEpoch,
       Long endTimeMsEpoch,
       int howMany,
-      AggBuilder aggBuilder) {
+      AggBuilder aggBuilder,
+      QueryBuilder queryBuilder) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");
@@ -114,7 +116,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
       Query query =
           openSearchAdapter.buildQuery(
-              dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch, searcher);
+              dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch, searcher, queryBuilder);
       try {
         List<LogMessage> results;
         InternalAggregation internalAggregation = null;

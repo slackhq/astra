@@ -20,6 +20,9 @@ message SearchRequest {
   // Only a single top-level aggregation is currently supported
   SearchAggregation aggregations = 7;
 
+  // Serialized version of the OpenSearch QueryBuilder object
+  bytes query = 8;
+
   message SearchAggregation {
     // The type of aggregation (ie, avg, date_histogram, etc)
     string type = 1;

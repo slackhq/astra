@@ -2,6 +2,7 @@ package com.slack.astra.logstore.search;
 
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
+import org.opensearch.index.query.QueryBuilder;
 
 public class IllegalArgumentLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
@@ -11,7 +12,8 @@ public class IllegalArgumentLogIndexSearcherImpl implements LogIndexSearcher<Log
       Long minTime,
       Long maxTime,
       int howMany,
-      AggBuilder aggBuilder) {
+      AggBuilder aggBuilder,
+      QueryBuilder queryBuilder) {
     throw new IllegalArgumentException("Failed to acquire an index searcher");
   }
 

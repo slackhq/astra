@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.protobuf.ByteString;
 import com.slack.astra.logstore.search.SearchResultUtils;
 import com.slack.astra.logstore.search.aggregations.AutoDateHistogramAggBuilder;
 import com.slack.astra.logstore.search.aggregations.AvgAggBuilder;
@@ -24,12 +25,25 @@ import com.slack.astra.logstore.search.aggregations.SumAggBuilder;
 import com.slack.astra.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.astra.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.astra.proto.service.AstraSearch;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.NotImplementedException;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.json.JsonXContentParser;
+import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.index.query.AbstractQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.search.SearchModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility class for parsing an OpenSearch NDJSON search request into a list of appropriate
@@ -40,6 +54,7 @@ import org.apache.commons.lang3.NotImplementedException;
 public class OpenSearchRequest {
   private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+  private static final Logger log = LoggerFactory.getLogger(OpenSearchRequest.class);
 
   public List<AstraSearch.SearchRequest> parseHttpPostBody(String postBody)
       throws JsonProcessingException {
@@ -63,9 +78,41 @@ public class OpenSearchRequest {
               .setStartTimeEpochMs(getStartTimeEpochMs(body))
               .setEndTimeEpochMs(getEndTimeEpochMs(body))
               .setAggregations(getAggregations(body))
+              .setQuery(getQueryBuilder(body))
               .build());
     }
     return searchRequests;
+  }
+
+  private static ByteString getQueryBuilder(JsonNode body) {
+    if (!body.get("query").isNull()) {
+      SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
+      ObjectMapper objectMapper = new ObjectMapper();
+      try {
+        NamedXContentRegistry namedXContentRegistry =
+            new NamedXContentRegistry(searchModule.getNamedXContents());
+        JsonXContentParser jsonXContentParser =
+            new JsonXContentParser(
+                namedXContentRegistry,
+                DeprecationHandler.IGNORE_DEPRECATIONS,
+                objectMapper.createParser(body.asText()));
+        QueryBuilder queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(jsonXContentParser);
+
+        byte[] returnBytes;
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+          try (StreamOutput streamOutput = new OutputStreamStreamOutput(byteArrayOutputStream)) {
+            queryBuilder.writeTo(streamOutput);
+            returnBytes = byteArrayOutputStream.toByteArray();
+            return ByteString.copyFrom(returnBytes);
+          }
+        }
+
+      } catch (IOException e) {
+        log.error("Unable to parse query body!");
+        return null;
+      }
+    }
+    return null;
   }
 
   private static String getDataset(JsonNode header) {
