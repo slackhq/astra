@@ -36,6 +36,7 @@ import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.metrics.TopHitsAggregationBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,6 +124,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         InternalAggregation internalAggregation = null;
 
         if (howMany > 0) {
+          // sorts? if so you can pass a "Sort" to the topFieldCollector
+          TopHitsAggregationBuilder factory = new TopHitsAggregationBuilder(aggregationName);
+
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
               buildTopFieldCollector(howMany, aggBuilder != null ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
@@ -192,6 +196,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       int howMany, int totalHitsThreshold) {
     if (howMany > 0) {
       SortField sortField = new SortField(SystemField.TIME_SINCE_EPOCH.fieldName, Type.LONG, true);
+
+
+      TopHitsAggregationBuilder factory = new TopHitsAggregationBuilder(aggregationName);
+
+
       return TopFieldCollector.createSharedManager(
           new Sort(sortField), howMany, null, totalHitsThreshold);
     } else {

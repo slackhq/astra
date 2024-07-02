@@ -4,12 +4,15 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.lucene.search.Sort;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.json.JsonXContent;
@@ -76,6 +79,8 @@ import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregationBuil
 import org.opensearch.search.aggregations.pipeline.MovFnPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.SimpleModel;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.SortAndFormats;
+import org.opensearch.search.sort.SortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -357,6 +362,13 @@ public class OpenSearchInternalAggregation {
         JsonXContentParser parser = new JsonXContentParser(namedXContentRegistry, DeprecationHandler.IGNORE_DEPRECATIONS, om.createParser(bytes));
         //XContentParser parser = xContent.createParser(registry, LoggingDeprecationHandler.INSTANCE, stream)
         //searchSourceBuilder = SearchSourceBuilder.fromXContent(, false);
+
+
+
+        List<SortBuilder<?>> sorts = new ArrayList<>(SortBuilder.fromXContent(parser));
+        Optional<SortAndFormats> optionalSort = SortBuilder.buildSort(sorts, context.getQueryShardContext());
+        Sort sort = optionalSort.get().sort;
+        // sort is passed to the top field collector
 
 
         queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(parser);
