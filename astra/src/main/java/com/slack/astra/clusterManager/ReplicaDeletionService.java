@@ -10,6 +10,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
@@ -48,16 +49,19 @@ public class ReplicaDeletionService extends AbstractScheduledService {
   private final Counter replicaDeleteSuccess;
   private final Counter replicaDeleteFailed;
   private final Timer replicaDeleteTimer;
+  private CacheNodeAssignmentStore cacheNodeAssignmentStore;
 
   public ReplicaDeletionService(
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
+      CacheNodeAssignmentStore cacheNodeAssignmentStore,
       AstraConfigs.ManagerConfig managerConfig,
       MeterRegistry meterRegistry) {
     this.cacheSlotMetadataStore = cacheSlotMetadataStore;
     this.replicaMetadataStore = replicaMetadataStore;
     this.managerConfig = managerConfig;
     this.meterRegistry = meterRegistry;
+    this.cacheNodeAssignmentStore = cacheNodeAssignmentStore;
 
     // schedule configs checked as part of the AbstractScheduledService
 
@@ -101,7 +105,12 @@ public class ReplicaDeletionService extends AbstractScheduledService {
     Set<String> replicaIdsWithAssignments =
         cacheSlotMetadataStore.listSync().stream()
             .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
-            .collect(Collectors.toUnmodifiableSet());
+            .collect(Collectors.toSet());
+
+    replicaIdsWithAssignments.addAll(
+        cacheNodeAssignmentStore.listSync().stream()
+            .map(assignment -> assignment.replicaId)
+            .collect(Collectors.toUnmodifiableSet()));
 
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> replicaDeletions =

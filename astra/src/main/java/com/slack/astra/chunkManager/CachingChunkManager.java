@@ -1,6 +1,9 @@
 package com.slack.astra.chunkManager;
 
+import static com.slack.astra.clusterManager.CacheNodeAssignmentService.snapshotMetadataBySnapshotId;
+
 import com.slack.astra.blobfs.BlobFs;
+import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ReadOnlyChunkImpl;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.logstore.LogMessage;
@@ -12,13 +15,13 @@ import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadataStore;
+import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -32,6 +35,7 @@ import org.slf4j.LoggerFactory;
  */
 public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private static final Logger LOG = LoggerFactory.getLogger(CachingChunkManager.class);
+  public static final String ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG = "astra.ng.dynamicChunkSizes";
 
   private final MeterRegistry meterRegistry;
   private final AsyncCuratorFramework curatorFramework;
@@ -53,7 +57,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private final String cacheNodeId;
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private CacheNodeMetadataStore cacheNodeMetadataStore;
-  private final Map<String, ReadOnlyChunkImpl<T>> chunksMap;
 
   public CachingChunkManager(
       MeterRegistry registry,
@@ -75,7 +78,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     this.slotCountPerInstance = slotCountPerInstance;
     this.cacheNodeId = UUID.randomUUID().toString();
     this.capacityBytes = capacityBytes;
-    this.chunksMap = new HashMap<>();
   }
 
   @Override
@@ -89,13 +91,15 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework);
     cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
 
-    if (Boolean.getBoolean("astra.ng.dynamicChunkSizes")) {
+    if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
       cacheNodeMetadataStore.createSync(
           new CacheNodeMetadata(cacheNodeId, searchContext.hostname, capacityBytes, replicaSet));
+      LOG.info(
+          "New cache node registered with {} bytes capacity and ID {}", capacityBytes, cacheNodeId);
     } else {
       for (int i = 0; i < slotCountPerInstance; i++) {
-        chunkList.add(
+        ReadOnlyChunkImpl<T> newChunk =
             new ReadOnlyChunkImpl<>(
                 curatorFramework,
                 meterRegistry,
@@ -107,7 +111,9 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                 cacheSlotMetadataStore,
                 replicaMetadataStore,
                 snapshotMetadataStore,
-                searchMetadataStore));
+                searchMetadataStore);
+
+        chunkMap.put(newChunk.getSlotId(), newChunk);
       }
     }
   }
@@ -116,35 +122,28 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   protected void shutDown() throws Exception {
     LOG.info("Closing caching chunk manager.");
 
-    if (Boolean.getBoolean("astra.ng.dynamicChunkSizes")) {
-      chunksMap
-          .values()
-          .forEach(
-              chunk -> {
-                try {
-                  chunk.close();
-                } catch (IOException e) {
-                  LOG.error("Error closing readonly chunk", e);
-                }
-              });
+    chunkMap
+        .values()
+        .forEach(
+            chunk -> {
+              try {
+                chunk.close();
+              } catch (IOException e) {
+                LOG.error("Error closing readonly chunk", e);
+              }
+            });
+
+    if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.removeListener(cacheNodeAssignmentChangeListener);
       cacheNodeMetadataStore.deleteSync(cacheNodeId);
-    } else {
-      chunkList.forEach(
-          (readonlyChunk) -> {
-            try {
-              readonlyChunk.close();
-            } catch (IOException e) {
-              LOG.error("Error closing readonly chunk", e);
-            }
-          });
     }
 
+    cacheNodeMetadataStore.close();
+    cacheNodeAssignmentStore.close();
     cacheSlotMetadataStore.close();
     searchMetadataStore.close();
     snapshotMetadataStore.close();
     replicaMetadataStore.close();
-    cacheNodeAssignmentStore.close();
 
     LOG.info("Closed caching chunk manager.");
   }
@@ -177,32 +176,56 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
   private void onAssignmentHandler(CacheNodeAssignment assignment) {
     if (Objects.equals(assignment.cacheNodeId, this.cacheNodeId)) {
+      LOG.info(
+          "Assignment handler fired for cache node {} and assignment {}",
+          cacheNodeId,
+          assignment.assignmentId);
+      Map<String, SnapshotMetadata> snapshotsBySnapshotId =
+          snapshotMetadataBySnapshotId(snapshotMetadataStore);
       try {
-        if (chunksMap.containsKey(assignment.assignmentId)) {
-          ReadOnlyChunkImpl<T> chunk = chunksMap.get(assignment.assignmentId);
+        if (chunkMap.containsKey(assignment.assignmentId)) {
+          ReadOnlyChunkImpl<T> chunk = (ReadOnlyChunkImpl) chunkMap.get(assignment.assignmentId);
 
           if (chunkStateChangedToEvict(assignment, chunk)) {
+            LOG.info(
+                "Starting eviction for assignment {} from node {}",
+                assignment.assignmentId,
+                cacheNodeId);
             chunk.evictChunk(assignment);
-            chunksMap.remove(assignment.assignmentId);
+            chunkMap.remove(assignment.assignmentId);
+            LOG.info("Evicted assignment {} from node {}", assignment.assignmentId, cacheNodeId);
+          } else if (assignment.state == chunk.getLastKnownAssignmentState()) {
+            LOG.info("Chunk listener fired, but state remained the same");
           }
         } else {
-          ReadOnlyChunkImpl<T> newChunk =
-              new ReadOnlyChunkImpl<>(
-                  curatorFramework,
-                  meterRegistry,
-                  blobFs,
-                  searchContext,
-                  s3Bucket,
-                  dataDirectoryPrefix,
-                  replicaSet,
-                  cacheSlotMetadataStore,
-                  replicaMetadataStore,
-                  snapshotMetadataStore,
-                  searchMetadataStore,
-                  cacheNodeAssignmentStore,
-                  assignment.assignmentId,
-                  assignment.cacheNodeId);
-          chunksMap.put(assignment.assignmentId, newChunk);
+          if (assignment.state != Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING) {
+            LOG.info(
+                "Encountered an new assignment with a non LOADING state, state: {}",
+                assignment.state);
+          } else {
+            LOG.info(
+                "Created new chunk for assignment {} in cache node {}",
+                assignment.assignmentId,
+                cacheNodeId);
+            ReadOnlyChunkImpl<T> newChunk =
+                new ReadOnlyChunkImpl<>(
+                    curatorFramework,
+                    meterRegistry,
+                    blobFs,
+                    searchContext,
+                    s3Bucket,
+                    dataDirectoryPrefix,
+                    replicaSet,
+                    cacheSlotMetadataStore,
+                    replicaMetadataStore,
+                    snapshotMetadataStore,
+                    searchMetadataStore,
+                    cacheNodeAssignmentStore,
+                    assignment,
+                    snapshotsBySnapshotId.get(assignment.snapshotId));
+            Thread.ofVirtual().start(newChunk::downloadChunkData);
+            chunkMap.put(assignment.assignmentId, newChunk);
+          }
         }
       } catch (Exception e) {
         LOG.error("Error instantiating readonly chunk", e);
@@ -213,8 +236,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private static <T> boolean chunkStateChangedToEvict(
       CacheNodeAssignment assignment, ReadOnlyChunkImpl<T> chunk) {
     return (chunk.getLastKnownAssignmentState() != assignment.state)
-        && (chunk.getLastKnownAssignmentState()
-            == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
         && (assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
   }
 
@@ -222,7 +243,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     return cacheNodeId;
   }
 
-  public Map<String, ReadOnlyChunkImpl<T>> getChunksMap() {
-    return chunksMap;
+  public Map<String, Chunk<T>> getChunksMap() {
+    return chunkMap;
   }
 }

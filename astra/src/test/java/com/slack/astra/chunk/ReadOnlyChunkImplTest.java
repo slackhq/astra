@@ -55,6 +55,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -122,7 +123,7 @@ public class ReadOnlyChunkImplTest {
 
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, replicaId, snapshotId);
-    initializeZkSnapshot(curatorFramework, snapshotId);
+    initializeZkSnapshot(curatorFramework, snapshotId, 0);
     initializeBlobStorageWithIndex(snapshotId);
 
     SearchContext searchContext =
@@ -257,7 +258,7 @@ public class ReadOnlyChunkImplTest {
 
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, replicaId, snapshotId);
-    initializeZkSnapshot(curatorFramework, snapshotId);
+    initializeZkSnapshot(curatorFramework, snapshotId, 0);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
@@ -389,7 +390,7 @@ public class ReadOnlyChunkImplTest {
 
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, replicaId, snapshotId);
-    initializeZkSnapshot(curatorFramework, snapshotId);
+    initializeZkSnapshot(curatorFramework, snapshotId, 0);
     initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
@@ -509,17 +510,17 @@ public class ReadOnlyChunkImplTest {
         new CacheNodeAssignmentStore(curatorFramework);
 
     String replicaId = "foo";
-    String snapshotId = "bar";
+    String snapshotId = "boo";
     String assignmentId = "dog";
     String cacheNodeId = "baz";
     String replicaSet = "cat";
 
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, replicaId, snapshotId);
-    initializeZkSnapshot(curatorFramework, snapshotId);
+    initializeZkSnapshot(curatorFramework, snapshotId, 29);
     initializeBlobStorageWithIndex(snapshotId);
     initializeCacheNodeAssignment(
-        cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet);
+        cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
 
     SearchContext searchContext =
         SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig());
@@ -537,15 +538,32 @@ public class ReadOnlyChunkImplTest {
             snapshotMetadataStore,
             searchMetadataStore,
             cacheNodeAssignmentStore,
-            assignmentId,
-            cacheNodeId);
+            cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
+            snapshotMetadataStore.findSync(snapshotId));
 
     // wait for chunk to register
+    // ignoreExceptions is workaround for https://github.com/aws/aws-sdk-java-v2/issues/3658
     await()
+        .ignoreExceptions()
         .until(
-            () ->
-                readOnlyChunk.getCacheNodeAssignment().state
-                    == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
+            () -> {
+              Path dataDirectory =
+                  Path.of(
+                      String.format(
+                          "%s/astra-chunk-%s",
+                          AstraConfig.getCacheConfig().getDataDirectory(), assignmentId));
+
+              if (java.nio.file.Files.isDirectory(dataDirectory)) {
+                FileUtils.cleanDirectory(dataDirectory.toFile());
+              }
+              readOnlyChunk.downloadChunkData();
+
+              return cacheNodeAssignmentStore.getSync(
+                          readOnlyChunk.getCacheNodeAssignment().cacheNodeId,
+                          readOnlyChunk.getCacheNodeAssignment().assignmentId)
+                      .state
+                  == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;
+            });
 
     SearchResult<LogMessage> logMessageSearchResult =
         readOnlyChunk.query(
@@ -557,24 +575,9 @@ public class ReadOnlyChunkImplTest {
                 500,
                 new DateHistogramAggBuilder(
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-                Collections.emptyList()));
+                Collections.emptyList(),
+                null));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
-
-    //    await()
-    //        .until(
-    //            () ->
-    //                meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful",
-    // "true").timer().count()
-    //                    == 1);
-    //    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful",
-    // "false").timer().count())
-    //        .isEqualTo(0);
-    //    assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful",
-    // "true").timer().count())
-    //        .isEqualTo(0);
-    //    assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful",
-    // "false").timer().count())
-    //        .isEqualTo(0);
 
     // ensure we registered a search node for this cache assignment
     await().until(() -> searchMetadataStore.listSync().size() == 1);
@@ -583,6 +586,14 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.listSync().get(0).url).isEqualTo("gproto+http://localhost:8080");
     assertThat(searchMetadataStore.listSync().get(0).name)
         .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
+
+    // simulate eviction
+    readOnlyChunk.evictChunk(cacheNodeAssignmentStore.findSync(assignmentId));
+
+    // verify that the directory has been cleaned up
+    try (var files = java.nio.file.Files.list(readOnlyChunk.getDataDirectory())) {
+      assertThat(files.findFirst().isPresent()).isFalse();
+    }
 
     curatorFramework.unwrap().close();
   }
@@ -604,7 +615,8 @@ public class ReadOnlyChunkImplTest {
     cacheSlotMetadataStore.updateAsync(updatedCacheSlotMetadata);
   }
 
-  private void initializeZkSnapshot(AsyncCuratorFramework curatorFramework, String snapshotId)
+  private void initializeZkSnapshot(
+      AsyncCuratorFramework curatorFramework, String snapshotId, long sizeInBytesOnDisk)
       throws Exception {
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     snapshotMetadataStore.createSync(
@@ -616,7 +628,7 @@ public class ReadOnlyChunkImplTest {
             1,
             "partitionId",
             LOGS_LUCENE9,
-            0));
+            sizeInBytesOnDisk));
   }
 
   private void initializeZkReplica(
@@ -678,14 +690,17 @@ public class ReadOnlyChunkImplTest {
       String assignmentId,
       String snapshotId,
       String cacheNodeId,
-      String replicaSet)
+      String replicaSet,
+      String replicaId)
       throws Exception {
     cacheNodeAssignmentStore.createSync(
         new CacheNodeAssignment(
             assignmentId,
             cacheNodeId,
             snapshotId,
+            replicaId,
             replicaSet,
+            0,
             Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING));
   }
 

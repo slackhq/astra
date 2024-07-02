@@ -10,6 +10,7 @@ import com.slack.astra.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.astra.bulkIngestApi.DatasetRateLimitingService;
 import com.slack.astra.chunkManager.CachingChunkManager;
 import com.slack.astra.chunkManager.IndexingChunkManager;
+import com.slack.astra.clusterManager.CacheNodeAssignmentService;
 import com.slack.astra.clusterManager.ClusterHpaMetricService;
 import com.slack.astra.clusterManager.ClusterMonitorService;
 import com.slack.astra.clusterManager.RecoveryTaskAssignmentService;
@@ -24,6 +25,8 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.schema.ReservedFields;
 import com.slack.astra.logstore.search.AstraDistributedQueryService;
 import com.slack.astra.logstore.search.AstraLocalQueryService;
+import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
+import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.CloseableLifecycleManager;
 import com.slack.astra.metadata.core.CuratorBuilder;
@@ -317,11 +320,6 @@ public class Astra {
               cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
       services.add(replicaEvictionService);
 
-      ReplicaDeletionService replicaDeletionService =
-          new ReplicaDeletionService(
-              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
-      services.add(replicaDeletionService);
-
       RecoveryTaskAssignmentService recoveryTaskAssignmentService =
           new RecoveryTaskAssignmentService(
               recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
@@ -337,6 +335,19 @@ public class Astra {
               replicaMetadataStore, snapshotMetadataStore, blobFs, managerConfig, meterRegistry);
       services.add(snapshotDeletionService);
 
+      CacheNodeMetadataStore cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
+      CacheNodeAssignmentStore cacheNodeAssignmentStore =
+          new CacheNodeAssignmentStore(curatorFramework);
+
+      ClusterHpaMetricService clusterHpaMetricService =
+          new ClusterHpaMetricService(
+              replicaMetadataStore,
+              cacheSlotMetadataStore,
+              hpaMetricMetadataStore,
+              cacheNodeMetadataStore,
+              snapshotMetadataStore);
+      services.add(clusterHpaMetricService);
+
       ClusterMonitorService clusterMonitorService =
           new ClusterMonitorService(
               replicaMetadataStore,
@@ -345,13 +356,30 @@ public class Astra {
               recoveryNodeMetadataStore,
               cacheSlotMetadataStore,
               datasetMetadataStore,
+              cacheNodeAssignmentStore,
+              cacheNodeMetadataStore,
+              managerConfig,
               meterRegistry);
       services.add(clusterMonitorService);
 
-      ClusterHpaMetricService clusterHpaMetricService =
-          new ClusterHpaMetricService(
-              replicaMetadataStore, cacheSlotMetadataStore, hpaMetricMetadataStore);
-      services.add(clusterHpaMetricService);
+      ReplicaDeletionService replicaDeletionService =
+          new ReplicaDeletionService(
+              cacheSlotMetadataStore,
+              replicaMetadataStore,
+              cacheNodeAssignmentStore,
+              managerConfig,
+              meterRegistry);
+      services.add(replicaDeletionService);
+
+      CacheNodeAssignmentService cacheNodeAssignmentService =
+          new CacheNodeAssignmentService(
+              meterRegistry,
+              managerConfig,
+              replicaMetadataStore,
+              cacheNodeMetadataStore,
+              snapshotMetadataStore,
+              cacheNodeAssignmentStore);
+      services.add(cacheNodeAssignmentService);
     }
 
     if (roles.contains(AstraConfigs.NodeRole.RECOVERY)) {

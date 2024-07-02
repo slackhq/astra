@@ -1,54 +1,35 @@
 package com.slack.astra.metadata.cache;
 
-import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.slack.astra.proto.metadata.Metadata;
-import java.time.Instant;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 public class CacheNodeMetadataSerializerTest {
-  private final CacheSlotMetadataSerializer serDe = new CacheSlotMetadataSerializer();
+  private final CacheNodeMetadataSerializer serDe = new CacheNodeMetadataSerializer();
 
   @Test
-  public void testCacheSlotMetadataSerializer() throws InvalidProtocolBufferException {
-    String name = "name";
-    String hostname = "hostname";
+  public void testCacheNodeMetadataSerializer() throws InvalidProtocolBufferException {
+    String id = "abcd";
+    String hostname = "host";
     String replicaSet = "rep1";
-    com.slack.astra.proto.metadata.Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
-        com.slack.astra.proto.metadata.Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
-    String replicaId = "123";
-    long updatedTimeEpochMs = Instant.now().toEpochMilli();
-    List<Metadata.IndexType> supportedIndexTypes = List.of(LOGS_LUCENE9, LOGS_LUCENE9);
+    long nodeCapacityBytes = 4096;
 
-    CacheSlotMetadata cacheSlotMetadata =
-        new CacheSlotMetadata(
-            name,
-            cacheSlotState,
-            replicaId,
-            updatedTimeEpochMs,
-            supportedIndexTypes,
-            hostname,
-            replicaSet);
+    CacheNodeMetadata cacheNodeMetadata =
+        new CacheNodeMetadata(id, hostname, nodeCapacityBytes, replicaSet);
 
-    String serializedCacheSlotMetadata = serDe.toJsonStr(cacheSlotMetadata);
-    assertThat(serializedCacheSlotMetadata).isNotEmpty();
+    String serializedCacheNodeMetadata = serDe.toJsonStr(cacheNodeMetadata);
+    assertThat(serializedCacheNodeMetadata).isNotEmpty();
 
-    CacheSlotMetadata deserializedCacheSlotMetadata =
-        serDe.fromJsonStr(serializedCacheSlotMetadata);
-    assertThat(deserializedCacheSlotMetadata).isEqualTo(cacheSlotMetadata);
+    CacheNodeMetadata deserializedCacheNodeMetadata =
+        serDe.fromJsonStr(serializedCacheNodeMetadata);
+    assertThat(deserializedCacheNodeMetadata).isEqualTo(cacheNodeMetadata);
 
-    assertThat(deserializedCacheSlotMetadata.name).isEqualTo(name);
-    assertThat(deserializedCacheSlotMetadata.hostname).isEqualTo(hostname);
-    assertThat(deserializedCacheSlotMetadata.replicaSet).isEqualTo(replicaSet);
-    assertThat(deserializedCacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
-    assertThat(deserializedCacheSlotMetadata.replicaId).isEqualTo(replicaId);
-    assertThat(deserializedCacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
-    assertThat(deserializedCacheSlotMetadata.supportedIndexTypes)
-        .containsExactlyInAnyOrderElementsOf(supportedIndexTypes);
+    assertThat(deserializedCacheNodeMetadata.id).isEqualTo(id);
+    assertThat(deserializedCacheNodeMetadata.hostname).isEqualTo(hostname);
+    assertThat(deserializedCacheNodeMetadata.nodeCapacityBytes).isEqualTo(nodeCapacityBytes);
+    assertThat(deserializedCacheNodeMetadata.replicaSet).isEqualTo(replicaSet);
   }
 
   @Test

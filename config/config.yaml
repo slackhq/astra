@@ -64,6 +64,7 @@ cacheConfig:
   replicaSet: ${ASTRA_CACHE_REPLICA_SET:-rep1}
   dataDirectory: ${ASTRA_CACHE_DATA_DIR:-/tmp}
   defaultQueryTimeoutMs: ${ASTRA_CACHE_DEFAULT_QUERY_TIMEOUT_MS:-2500}
+  capacityBytes: ${ASTRA_CACHE_CAPACITY_BYTES:-0}
   serverConfig:
     serverPort: ${ASTRA_CACHE_SERVER_PORT:-8082}
     serverAddress: ${ASTRA_CACHE_SERVER_ADDRESS:-localhost}
@@ -71,7 +72,7 @@ cacheConfig:
 
 managerConfig:
   eventAggregationSecs: ${ASTRA_MANAGER_AGGREGATION_SECS:-10}
-  scheduleInitialDelayMins: ${ASTRA_MANAGER_INITIAL_DELAY_MINS:-1}
+  scheduleInitialDelayMins: ${ASTRA_MANAGER_INITIAL_DELAY_MINS:-2}
   serverConfig:
     serverPort: ${ASTRA_MANAGER_SERVER_PORT:-8083}
     serverAddress: ${ASTRA_MANAGER_SERVER_ADDRESS:-localhost}
@@ -98,6 +99,12 @@ managerConfig:
     maxReplicasPerRequest: ${ASTRA_MANAGER_REPLICA_RESTORE_MAX_REPLICAS_PER_REQUEST:-200}
     replicaLifespanMins: ${ASTRA_MANAGER_REPLICA_RESTORE_LIFESPAN_MINS:-60}
     replicaSets: [${ASTRA_MANAGER_REPLICA_SETS:-rep1}]
+  cacheNodeAssignmentServiceConfig:
+    schedulePeriodMins: ${ASTRA_MANAGER_ASSIGNMENT_PERIOD_MINS:-15}
+    replicaSets: [${ASTRA_MANAGER_REPLICA_SETS:-rep1}]
+    maxConcurrentPerNode: ${ASTRA_MANAGER_MAX_CONCURRENT_ASSIGNMENTS_PER_NODE:-2}
+  clusterMonitorServiceConfig:
+    schedulePeriodMins: ${ASTRA_MANAGER_CLUSTER_MONITOR_PERIOD_MINS:-15}
 
 clusterConfig:
   clusterName: ${ASTRA_CLUSTER_NAME:-ASTRA_local}

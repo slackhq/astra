@@ -223,8 +223,10 @@ message CacheNodeAssignment {
   string assignment_id = 1;
   string cache_node_id = 2;
   string snapshot_id = 3;
-  string replica_set = 4;
-  CacheNodeAssignmentState state = 5;
+  string replica_id = 4;
+  string replica_set = 5;
+  int64 snapshot_size = 6;
+  CacheNodeAssignmentState state = 7;
 }
 
 message CacheNodeMetadata {
