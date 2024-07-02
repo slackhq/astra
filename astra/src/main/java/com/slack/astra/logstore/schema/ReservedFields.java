@@ -20,6 +20,7 @@ public class ReservedFields {
         Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.ID).build();
 
     return Schema.IngestSchema.newBuilder()
+        .putAllDefaults(currentSchema.getDefaultsMap())
         .putAllFields(currentSchema.getFieldsMap())
         .putFields(TIMESTAMP, timestampField)
         .putFields(LogMessage.ReservedField.MESSAGE.fieldName, messageField)

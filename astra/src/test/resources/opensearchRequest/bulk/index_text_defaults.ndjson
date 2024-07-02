@@ -1,0 +1,4 @@
+{ "index" : { "_index" : "test", "_id" : "1" } }
+{ "host" : "host1", "message" : "foo bar", "ip" : "192.168.1.1", "my_date" : "2014-09-01T12:00:00Z"}
+{ "index" : { "_index" : "test", "_id" : "2" } }
+{ "value1" : "1", "value2" : "2", "field1": "check", "ip" :  "::afff:4567:890a", "number" : 20000, "username": "me", "bucket": null }
