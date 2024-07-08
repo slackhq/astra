@@ -1,5 +1,6 @@
 package com.slack.astra.writer;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import com.slack.astra.proto.schema.Schema;
@@ -144,10 +145,20 @@ public class SpanFormatter {
     }
   }
 
-  private static List<Trace.KeyValue> convertKVtoProtoDefault(
+  @VisibleForTesting
+  public static List<Trace.KeyValue> convertKVtoProtoDefault(
       String key, Object value, Schema.IngestSchema schema) {
     List<Trace.KeyValue> tags = new ArrayList<>();
-    if (value instanceof String || value instanceof List || value instanceof Map) {
+    if (value instanceof Map) {
+      // todo - consider adding a depth param to prevent excessively nested fields
+      ((Map<?, ?>) value)
+          .forEach(
+              (key1, value1) -> {
+                List<Trace.KeyValue> nestedValues =
+                    convertKVtoProtoDefault(STR."\{key}.\{key1}", value1, schema);
+                tags.addAll(nestedValues);
+              });
+    } else if (value instanceof String || value instanceof List) {
       Optional<Schema.DefaultField> defaultStringField =
           schema.getDefaultsMap().values().stream()
               .filter((defaultField) -> defaultField.getMatchMappingType().equals("string"))

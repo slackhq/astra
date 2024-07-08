@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -485,7 +486,10 @@ public class OpenSearchAdapter {
         XContentBuilder mapping;
         if (fieldName.contains(".")) {
           String[] fieldParts = fieldName.split("\\.");
-          MappedFieldType parent = mapperService.fieldType(fieldParts[0]);
+          String parentFieldName =
+              String.join(".", Arrays.copyOfRange(fieldParts, 0, fieldParts.length - 1));
+          String localFieldName = fieldParts[fieldParts.length - 1];
+          MappedFieldType parent = mapperService.fieldType(parentFieldName);
 
           if (parent == null) {
             // if we don't have a parent, register this dot separated name as its own thing
@@ -497,7 +501,8 @@ public class OpenSearchAdapter {
             mapping = fieldMapping(fieldName, buildField);
           } else {
             mapping =
-                fieldMappingWithFields(parent.typeName(), fieldParts[0], fieldParts[1], buildField);
+                fieldMappingWithFields(
+                    parent.typeName(), parentFieldName, localFieldName, buildField);
           }
         } else {
           mapping = fieldMapping(fieldName, buildField);
