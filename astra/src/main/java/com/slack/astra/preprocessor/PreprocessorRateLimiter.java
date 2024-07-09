@@ -156,7 +156,7 @@ public class PreprocessorRateLimiter {
           // message should be dropped due to rate limit
           meterRegistry
               .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
-              .increment();
+              .increment(docs.size());
           meterRegistry
               .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
               .increment(totalBytes);
