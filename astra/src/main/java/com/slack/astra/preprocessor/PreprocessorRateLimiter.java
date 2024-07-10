@@ -7,6 +7,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.RateLimiter;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import java.lang.reflect.Constructor;
@@ -15,6 +16,7 @@ import java.lang.reflect.Method;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import javax.annotation.concurrent.ThreadSafe;
@@ -118,8 +120,26 @@ public class PreprocessorRateLimiter {
       List<DatasetMetadata> datasetMetadataList) {
 
     List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
-
     Map<String, RateLimiter> rateLimiterMap = getRateLimiterMap(throughputSortedDatasets);
+
+    throughputSortedDatasets.forEach(
+        datasetMetadata -> {
+          // get the currently active partition, and then calculate the active partitions
+          Optional<Integer> activePartitionCount =
+              datasetMetadata.getPartitionConfigs().stream()
+                  .filter((item) -> item.getEndTimeEpochMs() == Long.MAX_VALUE)
+                  .map(item -> item.getPartitions().size())
+                  .findFirst();
+
+          activePartitionCount.ifPresent(
+              integer ->
+                  Gauge.builder(
+                          "preprocessor_rate_limit_bytes_limit",
+                          () -> datasetMetadata.getThroughputBytes() / integer)
+                      .description("The configured rate limit per service, per indexer, in bytes")
+                      .tags(List.of(Tag.of("service", datasetMetadata.getName())))
+                      .register(meterRegistry));
+        });
 
     return (index, docs) -> {
       if (docs == null) {
@@ -133,7 +153,7 @@ public class PreprocessorRateLimiter {
         LOG.debug("Message was dropped due to missing index name - '{}'", index);
         meterRegistry
             .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
-            .increment();
+            .increment(docs.size());
         meterRegistry
             .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
             .increment(totalBytes);
@@ -170,7 +190,7 @@ public class PreprocessorRateLimiter {
       // message should be dropped due to no matching service name being provisioned
       meterRegistry
           .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
-          .increment();
+          .increment(docs.size());
       meterRegistry
           .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
           .increment(totalBytes);
