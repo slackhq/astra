@@ -616,7 +616,7 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(2);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
@@ -679,7 +679,7 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(2);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);

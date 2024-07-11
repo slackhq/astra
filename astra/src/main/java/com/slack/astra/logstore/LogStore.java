@@ -21,6 +21,11 @@ public interface LogStore extends Closeable {
 
   void refresh();
 
+  /**
+   * Final merge likely requires a following commit to ensure the data is appropriately flushed to
+   * disk. Without a following commit this can result in work that is done as part of the final
+   * merge that is never written to the disk.
+   */
   void finalMerge();
 
   boolean isOpen();

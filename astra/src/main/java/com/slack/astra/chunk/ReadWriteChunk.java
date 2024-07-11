@@ -200,6 +200,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     this.readOnly = readOnly;
   }
 
+  @VisibleForTesting
   public void commit() {
     logStore.commit();
     logStore.refresh();
@@ -209,8 +210,10 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public void preSnapshot() {
     logger.info("Started RW chunk pre-snapshot {}", chunkInfo);
     setReadOnly(true);
-    commit();
+    logStore.refresh();
     logStore.finalMerge();
+    logStore.commit();
+    logStore.refresh();
     logger.info("Finished RW chunk pre-snapshot {}", chunkInfo);
   }
 
