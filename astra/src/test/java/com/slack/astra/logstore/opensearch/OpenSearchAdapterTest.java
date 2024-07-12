@@ -80,6 +80,7 @@ public class OpenSearchAdapterTest {
             true,
             true));
     openSearchAdapter = new OpenSearchAdapter(fieldDefBuilder.build());
+    System.setProperty("astra.query.useOpenSearchParsing", "true");
 
     // We need to reload the schema so that query optimizations take into account the schema
     openSearchAdapter.reloadSchema();

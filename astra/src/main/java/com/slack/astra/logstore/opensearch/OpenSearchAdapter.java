@@ -143,7 +143,7 @@ public class OpenSearchAdapter {
     this.mapperService = buildMapperService(indexSettings, similarityService);
     this.chunkSchema = chunkSchema;
     this.useOpenSearchQueryParsing =
-        Boolean.parseBoolean(System.getProperty("astra.bulkIngest.useKafkaTransactions", "false"));
+        Boolean.parseBoolean(System.getProperty("astra.query.useOpenSearchParsing", "false"));
   }
 
   /**
