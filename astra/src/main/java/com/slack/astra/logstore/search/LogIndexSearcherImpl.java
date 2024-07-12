@@ -111,13 +111,12 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       // Acquire an index searcher from searcher manager.
       // This is a useful optimization for indexes that are static.
       IndexSearcher searcher = searcherManager.acquire();
-
-      Query query =
-          openSearchAdapter.buildQuery(
-              dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch, searcher);
       try {
         List<LogMessage> results;
         InternalAggregation internalAggregation = null;
+        Query query =
+            openSearchAdapter.buildQuery(
+                dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch, searcher);
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
