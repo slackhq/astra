@@ -29,8 +29,310 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.IntervalQueryBuilder;
+import org.opensearch.index.query.QueryStringQueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 
 public class SearchResultUtilsTest {
+
+  @Test
+  public void shouldParseBasicMustNotQueryIntoQueryBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQueryString("")
+            .setQuery(
+                """
+            {
+              "bool": {
+                "must_not": {
+                  "query_string": {
+                    "query": "this is a test"
+                  }
+                }
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryStr).isEmpty();
+    assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
+
+    BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
+    assertThat(boolQueryBuilder.mustNot().size()).isEqualTo(1);
+    assertThat(boolQueryBuilder.mustNot().getFirst()).isInstanceOf(QueryStringQueryBuilder.class);
+
+    QueryStringQueryBuilder queryStringQueryBuilder =
+        (QueryStringQueryBuilder) boolQueryBuilder.mustNot().getFirst();
+    assertThat(queryStringQueryBuilder.queryString()).isEqualTo("this is a test");
+  }
+
+  @Test
+  public void shouldParseMustNotTermsQueryIntoQueryBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQueryString("")
+            .setQuery(
+                """
+            {
+              "bool": {
+                "must_not": {
+                  "terms": {
+                    "test_field": [
+                      "this",
+                      "is",
+                      "a",
+                      "test"
+                    ]
+                  }
+                }
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryStr).isEmpty();
+    assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
+
+    BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
+    assertThat(boolQueryBuilder.mustNot().size()).isEqualTo(1);
+    assertThat(boolQueryBuilder.mustNot().getFirst()).isInstanceOf(TermsQueryBuilder.class);
+
+    TermsQueryBuilder termsQueryBuilder = (TermsQueryBuilder) boolQueryBuilder.mustNot().getFirst();
+    assertThat(termsQueryBuilder.fieldName()).isEqualTo("test_field");
+  }
+
+  @Test
+  public void shouldParseBasicFilterQueryIntoQueryBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQueryString("")
+            .setQuery(
+                """
+            {
+              "bool": {
+                "filter": [{
+                  "query_string": {
+                    "query": "this is a test"
+                  }
+                }]
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryStr).isEmpty();
+    assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
+
+    BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
+    assertThat(boolQueryBuilder.filter().size()).isEqualTo(1);
+    assertThat(boolQueryBuilder.filter().getFirst()).isInstanceOf(QueryStringQueryBuilder.class);
+
+    QueryStringQueryBuilder queryStringQueryBuilder =
+        (QueryStringQueryBuilder) boolQueryBuilder.filter().getFirst();
+    assertThat(queryStringQueryBuilder.queryString()).isEqualTo("this is a test");
+  }
+
+  @Test
+  public void shouldParseFilterTermsQueryIntoQueryBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQueryString("")
+            .setQuery(
+                """
+            {
+              "bool": {
+                "filter": {
+                  "terms": {
+                    "test_field": [
+                      "this",
+                      "is",
+                      "a",
+                      "test"
+                    ]
+                  }
+                }
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryStr).isEmpty();
+    assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
+
+    BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
+    assertThat(boolQueryBuilder.filter().size()).isEqualTo(1);
+    assertThat(boolQueryBuilder.filter().getFirst()).isInstanceOf(TermsQueryBuilder.class);
+
+    TermsQueryBuilder termsQueryBuilder = (TermsQueryBuilder) boolQueryBuilder.filter().getFirst();
+    assertThat(termsQueryBuilder.fieldName()).isEqualTo("test_field");
+  }
+
+  @Test
+  public void shouldParseBasicMustQueryIntoQueryBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQueryString("")
+            .setQuery(
+                """
+            {
+              "bool": {
+                "must": {
+                  "query_string": {
+                    "query": "this is a test"
+                  }
+                }
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryStr).isEmpty();
+    assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
+
+    BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
+    assertThat(boolQueryBuilder.must().size()).isEqualTo(1);
+    assertThat(boolQueryBuilder.must().getFirst()).isInstanceOf(QueryStringQueryBuilder.class);
+
+    QueryStringQueryBuilder queryStringQueryBuilder =
+        (QueryStringQueryBuilder) boolQueryBuilder.must().getFirst();
+    assertThat(queryStringQueryBuilder.queryString()).isEqualTo("this is a test");
+  }
+
+  @Test
+  public void shouldParseMustTermsQueryIntoQueryBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQueryString("")
+            .setQuery(
+                """
+            {
+              "bool": {
+                "must": {
+                  "terms": {
+                    "test_field": [
+                      "this",
+                      "is",
+                      "a",
+                      "test"
+                    ]
+                  }
+                }
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryStr).isEmpty();
+    assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
+
+    BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
+    assertThat(boolQueryBuilder.must().size()).isEqualTo(1);
+    assertThat(boolQueryBuilder.must().getFirst()).isInstanceOf(TermsQueryBuilder.class);
+
+    TermsQueryBuilder termsQueryBuilder = (TermsQueryBuilder) boolQueryBuilder.must().getFirst();
+    assertThat(termsQueryBuilder.fieldName()).isEqualTo("test_field");
+  }
+
+  @Test
+  public void shouldParseBasicShouldQueryIntoQueryBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQueryString("")
+            .setQuery(
+                """
+            {
+              "bool": {
+                "should": {
+                  "query_string": {
+                    "query": "this is a test"
+                  }
+                }
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryStr).isEmpty();
+    assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
+
+    BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
+    assertThat(boolQueryBuilder.should().size()).isEqualTo(1);
+    assertThat(boolQueryBuilder.should().getFirst()).isInstanceOf(QueryStringQueryBuilder.class);
+
+    QueryStringQueryBuilder queryStringQueryBuilder =
+        (QueryStringQueryBuilder) boolQueryBuilder.should().getFirst();
+    assertThat(queryStringQueryBuilder.queryString()).isEqualTo("this is a test");
+  }
+
+  @Test
+  public void shouldParseShouldTermsQueryIntoQueryBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQueryString("")
+            .setQuery(
+                """
+            {
+              "bool": {
+                "should": {
+                  "terms": {
+                    "test_field": [
+                      "this",
+                      "is",
+                      "a",
+                      "test"
+                    ]
+                  }
+                }
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryStr).isEmpty();
+    assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
+
+    BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
+    assertThat(boolQueryBuilder.should().size()).isEqualTo(1);
+    assertThat(boolQueryBuilder.should().getFirst()).isInstanceOf(TermsQueryBuilder.class);
+
+    TermsQueryBuilder termsQueryBuilder = (TermsQueryBuilder) boolQueryBuilder.should().getFirst();
+    assertThat(termsQueryBuilder.fieldName()).isEqualTo("test_field");
+  }
+
+  @Test
+  public void shouldParseNonBoolQueryIntoQueryBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQueryString("")
+            .setQuery(
+                """
+            {
+              "intervals" : {
+                 "my_text" : {
+                   "all_of" : {
+                     "ordered" : true,
+                     "intervals" : [
+                       {
+                         "match" : {
+                           "query" : "my favorite food",
+                           "max_gaps" : 0,
+                           "ordered" : true
+                         }
+                       },
+                       {
+                         "any_of" : {
+                           "intervals" : [
+                             { "match" : { "query" : "hot water" } },
+                             { "match" : { "query" : "cold porridge" } }
+                           ]
+                         }
+                       }
+                   ]
+                 }
+               }
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryStr).isEmpty();
+    assertThat(output.queryBuilder).isInstanceOf(IntervalQueryBuilder.class);
+
+    IntervalQueryBuilder intervalQueryBuilder = (IntervalQueryBuilder) output.queryBuilder;
+    assertThat(intervalQueryBuilder.getField()).isEqualTo("my_text");
+  }
 
   @Test
   public void shouldConvertMinAggToFromProto() {

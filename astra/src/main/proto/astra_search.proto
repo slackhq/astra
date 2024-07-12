@@ -20,6 +20,9 @@ message SearchRequest {
   // Only a single top-level aggregation is currently supported
   SearchAggregation aggregations = 7;
 
+  // The fully query object, to be used in the leaf nodes and parsed by OpenSearch
+  string query = 8;
+
   message SearchAggregation {
     // The type of aggregation (ie, avg, date_histogram, etc)
     string type = 1;

@@ -63,9 +63,17 @@ public class OpenSearchRequest {
               .setStartTimeEpochMs(getStartTimeEpochMs(body))
               .setEndTimeEpochMs(getEndTimeEpochMs(body))
               .setAggregations(getAggregations(body))
+              .setQuery(getQuery(body))
               .build());
     }
     return searchRequests;
+  }
+
+  private static String getQuery(JsonNode body) {
+    if (!body.get("query").isNull() && !body.get("query").isEmpty()) {
+      return body.get("query").toString();
+    }
+    return null;
   }
 
   private static String getDataset(JsonNode header) {

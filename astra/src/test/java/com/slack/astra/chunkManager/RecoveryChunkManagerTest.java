@@ -197,7 +197,8 @@ public class RecoveryChunkManagerTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
     SearchResult<LogMessage> results = chunkManager.getActiveChunk().query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -239,7 +240,8 @@ public class RecoveryChunkManagerTest {
                         10,
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-                        Collections.emptyList()))
+                        Collections.emptyList(),
+                        null))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -269,7 +271,8 @@ public class RecoveryChunkManagerTest {
                         10,
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-                        Collections.emptyList()))
+                        Collections.emptyList(),
+                        null))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -341,7 +344,8 @@ public class RecoveryChunkManagerTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
     SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);

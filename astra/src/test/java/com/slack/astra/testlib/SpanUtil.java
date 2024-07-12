@@ -9,6 +9,7 @@ import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_LONG_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Timestamp;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
@@ -147,6 +148,15 @@ public class SpanUtil {
             .setTimestamp(
                 TimeUnit.MICROSECONDS.convert(timestamp.toEpochMilli(), TimeUnit.MILLISECONDS))
             .setId(ByteString.copyFromUtf8(id))
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVDate(
+                        Timestamp.newBuilder()
+                            .setSeconds(timestamp.getEpochSecond())
+                            .setNanos(timestamp.getNano()))
+                    .setKey("@timestamp")
+                    .setFieldType(Schema.SchemaFieldType.DATE)
+                    .build())
             .addTags(
                 Trace.KeyValue.newBuilder()
                     .setVStr(message)
