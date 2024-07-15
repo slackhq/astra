@@ -123,7 +123,8 @@ public class LuceneIndexStoreImplTest {
               MAX_TIME,
               100,
               new DateHistogramAggBuilder(
-                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+              null);
       assertThat(result1.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result2 =
@@ -134,7 +135,8 @@ public class LuceneIndexStoreImplTest {
               MAX_TIME,
               100,
               new DateHistogramAggBuilder(
-                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+              null);
       assertThat(result2.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result3 =
@@ -145,7 +147,8 @@ public class LuceneIndexStoreImplTest {
               MAX_TIME,
               100,
               new DateHistogramAggBuilder(
-                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+              null);
       assertThat(result3.hits.size()).isEqualTo(1);
     }
 

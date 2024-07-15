@@ -3,6 +3,7 @@ package com.slack.astra.logstore.opensearch;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
+import static org.opensearch.common.settings.IndexScopedSettings.BUILT_IN_INDEX_SETTINGS;
 
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
@@ -31,6 +32,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -45,6 +47,7 @@ import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.compress.CompressedXContent;
+import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -61,6 +64,7 @@ import org.opensearch.index.fielddata.IndexFieldDataService;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
@@ -128,16 +132,22 @@ public class OpenSearchAdapter {
   // set this to a high number for now
   private static final int TOTAL_FIELDS_LIMIT = 2500;
 
+  // This will enable OpenSearch query parsing by default, rather than going down the
+  // QueryString parsing path we have been using
+  private final boolean useOpenSearchQueryParsing;
+
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     this.indexSettings = buildIndexSettings();
     this.similarityService = new SimilarityService(indexSettings, null, emptyMap());
     this.mapperService = buildMapperService(indexSettings, similarityService);
     this.chunkSchema = chunkSchema;
+    this.useOpenSearchQueryParsing =
+        Boolean.parseBoolean(System.getProperty("astra.query.useOpenSearchParsing", "false"));
   }
 
   /**
-   * Builds a Lucene query using the provided arguments, and the currently loaded schema. Uses the
-   * Opensearch Query String builder. TODO - use the dataset param in building query
+   * Builds a Lucene query using the provided arguments, and the currently loaded schema. Uses
+   * Opensearch QueryBuilder's. TODO - use the dataset param in building query
    *
    * @see <a href="https://opensearch.org/docs/latest/query-dsl/full-text/query-string/">Query
    *     parsing OpenSearch docs</a>
@@ -150,7 +160,8 @@ public class OpenSearchAdapter {
       String queryStr,
       Long startTimeMsEpoch,
       Long endTimeMsEpoch,
-      IndexSearcher indexSearcher)
+      IndexSearcher indexSearcher,
+      QueryBuilder queryBuilder)
       throws IOException {
     LOG.trace("Query raw input string: '{}'", queryStr);
     QueryShardContext queryShardContext =
@@ -160,6 +171,11 @@ public class OpenSearchAdapter {
             indexSearcher,
             similarityService,
             mapperService);
+
+    if (queryBuilder != null && this.useOpenSearchQueryParsing) {
+      return queryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
+    }
+
     try {
       BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
 
@@ -193,11 +209,14 @@ public class OpenSearchAdapter {
 
         if (queryShardContext.getMapperService().fieldType(LogMessage.SystemField.ALL.fieldName)
             != null) {
-          queryStringQueryBuilder.defaultField(LogMessage.SystemField.ALL.fieldName);
           // setting lenient=false will not throw error when the query fails to parse against
           // numeric fields
           queryStringQueryBuilder.lenient(false);
         } else {
+          // The _all field is the default field for all queries. If we explicitly don't want
+          // to search that field, or that field isn't mapped, then we need to set the default to be
+          // *
+          queryStringQueryBuilder.defaultField("*");
           queryStringQueryBuilder.lenient(true);
         }
 
@@ -394,9 +413,20 @@ public class OpenSearchAdapter {
             // index sort info to be present as a setting here.
             .put("index.sort.field", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
             .put("index.sort.order", "desc")
+            .put("index.query.default_field", LogMessage.SystemField.ALL.fieldName)
+            .put("index.query_string.lenient", false)
             .build();
+
+    Settings nodeSetings =
+        Settings.builder().put("indices.query.query_string.analyze_wildcard", true).build();
+
+    IndexScopedSettings indexScopedSettings =
+        new IndexScopedSettings(settings, new HashSet<>(BUILT_IN_INDEX_SETTINGS));
+
     return new IndexSettings(
-        IndexMetadata.builder("index").settings(settings).build(), Settings.EMPTY);
+        IndexMetadata.builder("index").settings(settings).build(),
+        nodeSetings,
+        indexScopedSettings);
   }
 
   /**

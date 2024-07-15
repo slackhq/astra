@@ -81,7 +81,8 @@ public class SearchResultAggregatorImplTest {
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -151,7 +152,8 @@ public class SearchResultAggregatorImplTest {
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m"),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -243,7 +245,8 @@ public class SearchResultAggregatorImplTest {
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
     List<SearchResult<LogMessage>> searchResults =
         List.of(searchResult1, searchResult4, searchResult3, searchResult2);
     SearchResult<LogMessage> aggSearchResult =
@@ -297,7 +300,8 @@ public class SearchResultAggregatorImplTest {
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -360,7 +364,8 @@ public class SearchResultAggregatorImplTest {
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -419,7 +424,8 @@ public class SearchResultAggregatorImplTest {
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -484,7 +490,8 @@ public class SearchResultAggregatorImplTest {
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m"),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -556,7 +563,8 @@ public class SearchResultAggregatorImplTest {
                 0,
                 "",
                 Map.of("min", histogramStartMs, "max", histogramEndMs),
-                List.of()));
+                List.of()),
+            null);
 
     try {
       return messageSearchResult.internalAggregation;

@@ -53,7 +53,8 @@ public class StatsCollectorTest {
             time.plusSeconds(4 * 60).toEpochMilli(),
             0,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
 

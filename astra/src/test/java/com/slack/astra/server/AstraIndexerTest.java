@@ -736,7 +736,8 @@ public class AstraIndexerTest {
                 10,
                 new DateHistogramAggBuilder(
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-                Collections.emptyList()),
+                Collections.emptyList(),
+                null),
             Duration.ofMillis(3000));
 
     // Validate search response

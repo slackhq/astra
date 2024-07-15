@@ -3,6 +3,7 @@ package com.slack.astra.logstore.search;
 import brave.ScopedSpan;
 import brave.Tracing;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogWireMessage;
@@ -34,6 +35,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.NotImplementedException;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.json.JsonXContentParser;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.index.query.AbstractQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.search.SearchModule;
 
 public class SearchResultUtils {
   public static Map<String, Object> fromValueStruct(AstraSearch.Struct struct) {
@@ -657,6 +665,24 @@ public class SearchResultUtils {
   }
 
   public static SearchQuery fromSearchRequest(AstraSearch.SearchRequest searchRequest) {
+    QueryBuilder queryBuilder = null;
+    if (!searchRequest.getQuery().isEmpty()) {
+      SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
+      try {
+        ObjectMapper objectMapper = new ObjectMapper();
+        NamedXContentRegistry namedXContentRegistry =
+            new NamedXContentRegistry(searchModule.getNamedXContents());
+        JsonXContentParser jsonXContentParser =
+            new JsonXContentParser(
+                namedXContentRegistry,
+                DeprecationHandler.IGNORE_DEPRECATIONS,
+                objectMapper.createParser(searchRequest.getQuery()));
+        queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(jsonXContentParser);
+      } catch (Exception e) {
+        throw new IllegalArgumentException(e);
+      }
+    }
+
     return new SearchQuery(
         searchRequest.getDataset(),
         searchRequest.getQueryString(),
@@ -664,7 +690,8 @@ public class SearchResultUtils {
         searchRequest.getEndTimeEpochMs(),
         searchRequest.getHowMany(),
         fromSearchAggregations(searchRequest.getAggregations()),
-        searchRequest.getChunkIdsList());
+        searchRequest.getChunkIdsList(),
+        queryBuilder);
   }
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(

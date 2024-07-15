@@ -84,7 +84,7 @@ public class FieldConflictStrategyTests {
             2, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagInt));
 
     Document msg1Doc = raiseErrorDocBuilder.fromMessage(doc1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(28);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(30);
 
     try {
       raiseErrorDocBuilder.fromMessage(doc2);
@@ -94,23 +94,23 @@ public class FieldConflictStrategyTests {
     }
 
     msg1Doc = dropFieldDocBuilder.fromMessage(doc1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(28);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(30);
 
     Document msg2Doc = dropFieldDocBuilder.fromMessage(doc2);
     // 2 less because docValue is also missing
-    assertThat(msg2Doc.getFields().size()).isEqualTo(26);
-
-    msg1Doc = convertFieldDocBuilder.fromMessage(doc1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(28);
-
-    msg2Doc = convertFieldDocBuilder.fromMessage(doc2);
     assertThat(msg2Doc.getFields().size()).isEqualTo(28);
 
+    msg1Doc = convertFieldDocBuilder.fromMessage(doc1);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(30);
+
+    msg2Doc = convertFieldDocBuilder.fromMessage(doc2);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(30);
+
     msg1Doc = convertAndDuplicateFieldDocBuilder.fromMessage(doc1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(28);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(30);
 
     msg2Doc = convertAndDuplicateFieldDocBuilder.fromMessage(doc2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(30);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(32);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.INTEGER);
     // Value converted and new field is added.
     assertThat(getFieldCount(msg2Doc, Set.of(conflictingFieldName, additionalCreatedFieldName)))
@@ -170,7 +170,7 @@ public class FieldConflictStrategyTests {
             3, "Test message", Instant.now(), List.of(hostField, tagField, conflictingTagInt));
 
     Document msg1Doc = raiseErrorDocBuilder.fromMessage(doc1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(28);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(30);
 
     try {
       raiseErrorDocBuilder.fromMessage(doc2);
@@ -187,40 +187,40 @@ public class FieldConflictStrategyTests {
     }
 
     msg1Doc = dropFieldDocBuilder.fromMessage(doc1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(28);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(30);
 
     Document msg2Doc = dropFieldDocBuilder.fromMessage(doc2);
     // 2 less because docValue is also missing
-    assertThat(msg2Doc.getFields().size()).isEqualTo(26);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(28);
 
     Document msg3Doc = dropFieldDocBuilder.fromMessage(doc3);
     // 2 less because docValue is also missing
-    assertThat(msg3Doc.getFields().size()).isEqualTo(26);
+    assertThat(msg3Doc.getFields().size()).isEqualTo(28);
 
     msg1Doc = convertFieldDocBuilder.fromMessage(doc1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(28);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(30);
 
     msg2Doc = convertFieldDocBuilder.fromMessage(doc2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(28);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(30);
     // If this ever fails is because message ordering changed the getField returns the DV variant
     assertThat(msg2Doc.getField(conflictingFieldName).binaryValue().utf8ToString()).isEqualTo("F");
 
     msg3Doc = convertFieldDocBuilder.fromMessage(doc3);
-    assertThat(msg3Doc.getFields().size()).isEqualTo(28);
+    assertThat(msg3Doc.getFields().size()).isEqualTo(30);
     assertThat(msg3Doc.getField(conflictingFieldName).binaryValue().utf8ToString()).isEqualTo("T");
 
     msg1Doc = convertAndDuplicateFieldDocBuilder.fromMessage(doc1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(28);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(30);
 
     msg2Doc = convertAndDuplicateFieldDocBuilder.fromMessage(doc2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(30);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(32);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.KEYWORD);
     // Value converted and new field is added.
     assertThat(getFieldCount(msg2Doc, Set.of(conflictingFieldName, additionalCreatedFieldName)))
         .isEqualTo(4);
 
     msg3Doc = convertAndDuplicateFieldDocBuilder.fromMessage(doc3);
-    assertThat(msg3Doc.getFields().size()).isEqualTo(30);
+    assertThat(msg3Doc.getFields().size()).isEqualTo(32);
     additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.INTEGER);
     // Value converted and new field is added.
     assertThat(getFieldCount(msg3Doc, Set.of(conflictingFieldName, additionalCreatedFieldName)))

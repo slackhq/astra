@@ -103,7 +103,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(10).toEpochMilli(),
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -119,7 +120,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(90).toEpochMilli(),
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -135,7 +137,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(100).toEpochMilli(),
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -151,7 +154,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(1000).toEpochMilli(),
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -180,7 +184,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(10).toEpochMilli(),
                     100,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -195,7 +200,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(10).toEpochMilli(),
                     100,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -210,7 +216,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(10).toEpochMilli(),
                     100,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(0);
@@ -225,7 +232,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(10).toEpochMilli(),
                     100,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(0);
@@ -243,7 +251,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(babies.hits.size()).isEqualTo(1);
 
     InternalDateHistogram histogram =
@@ -275,7 +284,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> noTermStrQuery =
@@ -286,7 +296,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(noTermStrQuery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> noTermNumericQuery =
@@ -297,7 +308,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(noTermNumericQuery.hits.size()).isEqualTo(1);
   }
 
@@ -323,7 +335,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> noTermStrQuery =
@@ -334,7 +347,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(noTermStrQuery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> noTermNumericQuery =
@@ -345,7 +359,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(noTermNumericQuery.hits.size()).isEqualTo(1);
   }
 
@@ -377,7 +392,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(exists.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> termQuery =
@@ -388,7 +404,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> notExists =
@@ -399,7 +416,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(notExists.hits.size()).isEqualTo(0);
   }
 
@@ -439,7 +457,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(rangeBoundInclusive.hits.size()).isEqualTo(3);
 
     SearchResult<LogMessage> rangeBoundExclusive =
@@ -450,7 +469,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(rangeBoundExclusive.hits.size()).isEqualTo(1);
   }
 
@@ -507,7 +527,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(boolquery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> intquery =
@@ -518,7 +539,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(intquery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> longquery =
@@ -529,7 +551,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(longquery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> floatquery =
@@ -540,7 +563,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(floatquery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> doublequery =
@@ -551,7 +575,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(doublequery.hits.size()).isEqualTo(1);
   }
 
@@ -568,7 +593,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(100).toEpochMilli(),
             2,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(apples.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("Message5", "Message3"));
     assertThat(apples.hits.size()).isEqualTo(2);
@@ -599,7 +625,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(10).toEpochMilli(),
             2,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(baby.hits.size()).isEqualTo(1);
     assertThat(baby.hits.get(0).getId()).isEqualTo("Message2");
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(2);
@@ -621,7 +648,8 @@ public class LogIndexSearcherImplTest {
         time.toEpochMilli(),
         time.plusSeconds(10).toEpochMilli(),
         2,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+        null);
 
     // Commit but no refresh. Item is still not available for search.
     strictLogStore.logStore.commit();
@@ -637,7 +665,8 @@ public class LogIndexSearcherImplTest {
         time.toEpochMilli(),
         time.plusSeconds(10).toEpochMilli(),
         2,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+        null);
 
     // Car can be searched after refresh.
     strictLogStore.logStore.refresh();
@@ -653,7 +682,8 @@ public class LogIndexSearcherImplTest {
         time.toEpochMilli(),
         time.plusSeconds(10).toEpochMilli(),
         2,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+        null);
 
     // Add another message to search, refresh but don't commit.
     strictLogStore.logStore.addMessage(SpanUtil.makeSpan(4, "apple baby car", time.plusSeconds(4)));
@@ -673,7 +703,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(10).toEpochMilli(),
             2,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(babies.hits.size()).isEqualTo(2);
     assertThat(babies.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("Message4", "Message2"));
@@ -698,7 +729,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -725,7 +757,8 @@ public class LogIndexSearcherImplTest {
             0L,
             MAX_TIME,
             1000,
-            new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, null));
+            new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, null),
+            null);
     assertThat(((InternalAvg) scriptNull.internalAggregation).value()).isEqualTo(3.25);
 
     SearchResult<LogMessage> scriptEmpty =
@@ -735,7 +768,8 @@ public class LogIndexSearcherImplTest {
             0L,
             MAX_TIME,
             1000,
-            new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, ""));
+            new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, ""),
+            null);
     assertThat(((InternalAvg) scriptEmpty.internalAggregation).value()).isEqualTo(3.25);
 
     SearchResult<LogMessage> scripted =
@@ -745,7 +779,8 @@ public class LogIndexSearcherImplTest {
             0L,
             MAX_TIME,
             1000,
-            new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, "return 9;"));
+            new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, "return 9;"),
+            null);
     assertThat(((InternalAvg) scripted.internalAggregation).value()).isEqualTo(9);
   }
 
@@ -778,7 +813,8 @@ public class LogIndexSearcherImplTest {
                                 "%s:>%s",
                                 LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
                                 time.plusSeconds(2).toEpochMilli()),
-                            true))));
+                            true))),
+            null);
 
     assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().size()).isEqualTo(2);
     assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(0).getDocCount())
@@ -806,8 +842,8 @@ public class LogIndexSearcherImplTest {
             0L,
             MAX_TIME,
             1000,
-            new MinAggBuilder(
-                "test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null));
+            new MinAggBuilder("test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null),
+            null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -829,8 +865,8 @@ public class LogIndexSearcherImplTest {
             0L,
             MAX_TIME,
             1000,
-            new MaxAggBuilder(
-                "test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null));
+            new MaxAggBuilder("test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null),
+            null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -854,7 +890,8 @@ public class LogIndexSearcherImplTest {
             0L,
             MAX_TIME,
             1000,
-            new SumAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null));
+            new SumAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null),
+            null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -877,7 +914,8 @@ public class LogIndexSearcherImplTest {
             0L,
             MAX_TIME,
             1000,
-            new ExtendedStatsAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null, null));
+            new ExtendedStatsAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null, null),
+            null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -908,13 +946,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new TermsAggBuilder(
-                "1",
-                List.of(),
-                TEST_SOURCE_STRING_PROPERTY,
-                "foo",
-                10,
-                0,
-                Map.of("_count", "asc")));
+                "1", List.of(), TEST_SOURCE_STRING_PROPERTY, "foo", 10, 0, Map.of("_count", "asc")),
+            null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -959,7 +992,8 @@ public class LogIndexSearcherImplTest {
                         null,
                         null),
                     new MovingAvgAggBuilder("movAvgCount", "_count", "simple", 2, 1))),
-            List.of());
+            List.of(),
+            null);
 
     SearchResult<LogMessage> allIndexItems =
         strictLogStore.logSearcher.search(
@@ -968,7 +1002,8 @@ public class LogIndexSearcherImplTest {
             query.startTimeEpochMs,
             query.endTimeEpochMs,
             query.howMany,
-            query.aggBuilder);
+            query.aggBuilder,
+            query.queryBuilder);
 
     SearchResultAggregatorImpl<LogMessage> aggregator = new SearchResultAggregatorImpl<>(query);
     SearchResult<LogMessage> allIndexItemsFinal =
@@ -1016,7 +1051,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new TermsAggBuilder(
-                "1", List.of(), "thisFieldDoesNotExist", "foo", 10, 0, Map.of("_count", "asc")));
+                "1", List.of(), "thisFieldDoesNotExist", "foo", 10, 0, Map.of("_count", "asc")),
+            null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -1050,7 +1086,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1065,7 +1102,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1085,7 +1123,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1099,7 +1138,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1114,7 +1154,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1128,7 +1169,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1147,7 +1189,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1161,7 +1204,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(3);
@@ -1176,7 +1220,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1190,7 +1235,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(3);
@@ -1206,7 +1252,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(3);
@@ -1221,7 +1268,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1237,7 +1285,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1253,7 +1302,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(3);
@@ -1268,7 +1318,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(0);
@@ -1305,7 +1356,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isZero();
@@ -1320,7 +1372,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isZero();
@@ -1337,7 +1390,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1352,7 +1406,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(0);
@@ -1367,7 +1422,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1383,7 +1439,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isZero();
@@ -1398,7 +1455,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isZero();
@@ -1414,7 +1472,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isZero();
@@ -1430,7 +1489,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isZero();
@@ -1445,7 +1505,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null)
                 .hits
                 .size())
         .isZero();
@@ -1466,7 +1527,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null));
   }
 
   @Test
@@ -1483,7 +1545,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
 
@@ -1511,7 +1574,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(elephants.hits.size()).isEqualTo(0);
 
     InternalDateHistogram histogram =
@@ -1530,6 +1594,7 @@ public class LogIndexSearcherImplTest {
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
             100,
+            null,
             null);
     assertThat(results.hits.size()).isEqualTo(2);
     assertThat(results.internalAggregation).isNull();
@@ -1547,7 +1612,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(10).toEpochMilli(),
             0,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(babies.hits.size()).isEqualTo(0);
 
     InternalDateHistogram histogram =
@@ -1580,7 +1646,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null));
   }
 
   @Test
@@ -1597,7 +1664,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null));
   }
 
   @Test
@@ -1614,7 +1682,8 @@ public class LogIndexSearcherImplTest {
                     MAX_TIME,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null));
   }
 
   @Test
@@ -1631,7 +1700,8 @@ public class LogIndexSearcherImplTest {
                     -1L,
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null));
   }
 
   @Test
@@ -1648,7 +1718,8 @@ public class LogIndexSearcherImplTest {
                     time.minusSeconds(1).toEpochMilli(),
                     1000,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null));
   }
 
   @Test
@@ -1664,6 +1735,7 @@ public class LogIndexSearcherImplTest {
                     time.toEpochMilli(),
                     time.plusSeconds(1).toEpochMilli(),
                     0,
+                    null,
                     null));
   }
 
@@ -1681,7 +1753,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(1).toEpochMilli(),
                     -1,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null));
   }
 
   @Test
@@ -1698,7 +1771,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(1).toEpochMilli(),
                     1,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "-1s")));
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "-1s"),
+                    null));
   }
 
   @Test
@@ -1715,7 +1789,8 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(1).toEpochMilli(),
                     1,
                     new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null));
   }
 
   @Test
@@ -1740,7 +1815,8 @@ public class LogIndexSearcherImplTest {
                       MAX_TIME,
                       100,
                       new DateHistogramAggBuilder(
-                          "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                          "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                      null);
               if (babies.hits.size() != 2) {
                 searchFailures.addAndGet(1);
               } else {
@@ -1776,7 +1852,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(2).toEpochMilli(),
             10,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null);
     assertThat(index.hits.size()).isEqualTo(1);
   }
 }

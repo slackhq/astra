@@ -2,6 +2,7 @@ package com.slack.astra.preprocessor;
 
 import static com.slack.astra.preprocessor.PreprocessorRateLimiter.BYTES_DROPPED;
 import static com.slack.astra.preprocessor.PreprocessorRateLimiter.MESSAGES_DROPPED;
+import static com.slack.astra.preprocessor.PreprocessorRateLimiter.RATE_LIMIT_BYTES;
 import static com.slack.astra.preprocessor.PreprocessorRateLimiter.SERVICE_NAME_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -40,7 +41,7 @@ public class PreprocessorRateLimiterTest {
             name,
             name,
             targetThroughput,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             DatasetMetadata.MATCH_ALL_SERVICE);
     BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
@@ -56,6 +57,13 @@ public class PreprocessorRateLimiterTest {
     assertThat(predicate.test("key", List.of(span))).isTrue();
     assertThat(predicate.test("key", List.of(span))).isFalse();
 
+    assertThat(
+            meterRegistry
+                .get(RATE_LIMIT_BYTES)
+                .tag("service", datasetMetadata.getName())
+                .gauge()
+                .value())
+        .isEqualTo(targetThroughput);
     assertThat(
             meterRegistry
                 .get(MESSAGES_DROPPED)
@@ -97,7 +105,7 @@ public class PreprocessorRateLimiterTest {
             name,
             name,
             targetThroughput,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             DatasetMetadata.MATCH_ALL_SERVICE);
     BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
@@ -113,6 +121,13 @@ public class PreprocessorRateLimiterTest {
     assertThat(predicate.test("key", List.of(span))).isTrue();
     assertThat(predicate.test("key", List.of(span))).isFalse();
 
+    assertThat(
+            meterRegistry
+                .get(RATE_LIMIT_BYTES)
+                .tag("service", datasetMetadata.getName())
+                .gauge()
+                .value())
+        .isEqualTo(targetThroughput);
     assertThat(
             meterRegistry
                 .get(MESSAGES_DROPPED)
@@ -138,7 +153,7 @@ public class PreprocessorRateLimiterTest {
             name,
             name,
             targetThroughput,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             DatasetMetadata.MATCH_STAR_SERVICE);
     BiPredicate<String, List<Trace.Span>> predicate1 =
         rateLimiter1.createBulkIngestRateLimiter(List.of(datasetMetadata1));
@@ -154,6 +169,13 @@ public class PreprocessorRateLimiterTest {
     assertThat(predicate1.test("key", List.of(span))).isTrue();
     assertThat(predicate1.test("key", List.of(span))).isFalse();
 
+    assertThat(
+            meterRegistry1
+                .get(RATE_LIMIT_BYTES)
+                .tag("service", datasetMetadata.getName())
+                .gauge()
+                .value())
+        .isEqualTo(targetThroughput);
     assertThat(
             meterRegistry1
                 .get(MESSAGES_DROPPED)
@@ -179,7 +201,7 @@ public class PreprocessorRateLimiterTest {
             name,
             name,
             targetThroughput,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             "key");
     BiPredicate<String, List<Trace.Span>> predicate2 =
         rateLimiter2.createBulkIngestRateLimiter(List.of(datasetMetadata2));
@@ -195,6 +217,13 @@ public class PreprocessorRateLimiterTest {
     assertThat(predicate2.test("key", List.of(span))).isTrue();
     assertThat(predicate2.test("key", List.of(span))).isFalse();
 
+    assertThat(
+            meterRegistry2
+                .get(RATE_LIMIT_BYTES)
+                .tag("service", datasetMetadata.getName())
+                .gauge()
+                .value())
+        .isEqualTo(targetThroughput);
     assertThat(
             meterRegistry2
                 .get(MESSAGES_DROPPED)
@@ -237,14 +266,14 @@ public class PreprocessorRateLimiterTest {
             name1,
             name1,
             targetThroughput,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             "no_service_matching_docs");
     DatasetMetadata datasetMetadata2 =
         new DatasetMetadata(
             name2,
             name2,
             targetThroughput,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             DatasetMetadata.MATCH_ALL_SERVICE);
 
     // ensure we always drop for dataset1
@@ -266,6 +295,13 @@ public class PreprocessorRateLimiterTest {
     assertThat(predicate2.test("key", List.of(span))).isTrue();
     assertThat(predicate2.test("key", List.of(span))).isFalse();
 
+    assertThat(
+            meterRegistry
+                .get(RATE_LIMIT_BYTES)
+                // .tag("service", datasetMetadata.getName())
+                .gauge()
+                .value())
+        .isEqualTo(targetThroughput);
     assertThat(
             meterRegistry
                 .get(MESSAGES_DROPPED)
@@ -301,7 +337,7 @@ public class PreprocessorRateLimiterTest {
             "wrong_service",
             "wrong_service",
             Long.MAX_VALUE,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             "wrong_service");
     BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
@@ -309,6 +345,13 @@ public class PreprocessorRateLimiterTest {
     // this should be immediately dropped
     assertThat(predicate.test("key", List.of(span))).isFalse();
 
+    assertThat(
+            meterRegistry
+                .get(RATE_LIMIT_BYTES)
+                .tag("service", datasetMetadata.getName())
+                .gauge()
+                .value())
+        .isEqualTo(Long.MAX_VALUE);
     assertThat(
             meterRegistry
                 .get(MESSAGES_DROPPED)
@@ -346,7 +389,7 @@ public class PreprocessorRateLimiterTest {
             name,
             name,
             targetThroughput,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             name);
     BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
@@ -381,7 +424,7 @@ public class PreprocessorRateLimiterTest {
             name,
             name,
             targetThroughput,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             DatasetMetadata.MATCH_ALL_SERVICE);
     BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
@@ -415,7 +458,7 @@ public class PreprocessorRateLimiterTest {
             name,
             name,
             targetThroughput,
-            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
             DatasetMetadata.MATCH_ALL_SERVICE);
     BiPredicate<String, List<Trace.Span>> predicate =
         rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));

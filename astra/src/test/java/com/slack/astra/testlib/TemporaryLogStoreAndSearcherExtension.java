@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.opensearch.index.query.QueryBuilder;
 
 public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback {
 
@@ -43,6 +44,15 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
 
   public static List<LogMessage> findAllMessages(
       LogIndexSearcherImpl searcher, String dataset, String query, int howMany) {
+    return findAllMessages(searcher, dataset, query, howMany, null);
+  }
+
+  public static List<LogMessage> findAllMessages(
+      LogIndexSearcherImpl searcher,
+      String dataset,
+      String query,
+      int howMany,
+      QueryBuilder queryBuilder) {
     SearchResult<LogMessage> results =
         searcher.search(
             dataset,
@@ -51,7 +61,8 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
             MAX_TIME,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            queryBuilder);
     return results.hits;
   }
 

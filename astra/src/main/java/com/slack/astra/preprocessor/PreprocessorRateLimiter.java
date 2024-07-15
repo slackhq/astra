@@ -7,15 +7,19 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.RateLimiter;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.service.murron.trace.Trace;
-import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.MultiGauge;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
@@ -33,15 +37,19 @@ import org.slf4j.LoggerFactory;
 public class PreprocessorRateLimiter {
   private static final Logger LOG = LoggerFactory.getLogger(PreprocessorRateLimiter.class);
 
-  private final MeterRegistry meterRegistry;
   private final int preprocessorCount;
 
   private final int maxBurstSeconds;
 
   private final boolean initializeWarm;
 
+  public static final String RATE_LIMIT_BYTES = "preprocessor_rate_limit_bytes_limit";
   public static final String MESSAGES_DROPPED = "preprocessor_rate_limit_messages_dropped";
   public static final String BYTES_DROPPED = "preprocessor_rate_limit_bytes_dropped";
+
+  private final MultiGauge rateLimitBytesLimit;
+  private final Meter.MeterProvider<Counter> messagesDroppedCounterProvider;
+  private final Meter.MeterProvider<Counter> bytesDroppedCounterProvider;
 
   /** Span key for KeyValue pair to use as the service name */
   public static String SERVICE_NAME_KEY = "service_name";
@@ -61,10 +69,22 @@ public class PreprocessorRateLimiter {
     Preconditions.checkArgument(
         maxBurstSeconds >= 1, "Preprocessor maxBurstSeconds must be greater than or equal to 1");
 
-    this.meterRegistry = meterRegistry;
     this.preprocessorCount = preprocessorCount;
     this.maxBurstSeconds = maxBurstSeconds;
     this.initializeWarm = initializeWarm;
+
+    this.rateLimitBytesLimit =
+        MultiGauge.builder(RATE_LIMIT_BYTES)
+            .description("The configured rate limit per service, per indexer, in bytes")
+            .register(meterRegistry);
+    this.messagesDroppedCounterProvider =
+        Counter.builder(MESSAGES_DROPPED)
+            .description("Number of messages dropped")
+            .withRegistry(meterRegistry);
+    this.bytesDroppedCounterProvider =
+        Counter.builder(BYTES_DROPPED)
+            .description("Bytes of messages dropped")
+            .withRegistry(meterRegistry);
   }
 
   /**
@@ -122,24 +142,28 @@ public class PreprocessorRateLimiter {
     List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
     Map<String, RateLimiter> rateLimiterMap = getRateLimiterMap(throughputSortedDatasets);
 
-    throughputSortedDatasets.forEach(
-        datasetMetadata -> {
-          // get the currently active partition, and then calculate the active partitions
-          Optional<Integer> activePartitionCount =
-              datasetMetadata.getPartitionConfigs().stream()
-                  .filter((item) -> item.getEndTimeEpochMs() == Long.MAX_VALUE)
-                  .map(item -> item.getPartitions().size())
-                  .findFirst();
+    rateLimitBytesLimit.register(
+        throughputSortedDatasets.stream()
+            .map(
+                datasetMetadata -> {
+                  // get the currently active partition, and then calculate the active partitions
+                  Optional<Integer> activePartitionCount =
+                      datasetMetadata.getPartitionConfigs().stream()
+                          .filter((item) -> item.getEndTimeEpochMs() == Long.MAX_VALUE)
+                          .map(item -> item.getPartitions().size())
+                          .findFirst();
 
-          activePartitionCount.ifPresent(
-              integer ->
-                  Gauge.builder(
-                          "preprocessor_rate_limit_bytes_limit",
-                          () -> datasetMetadata.getThroughputBytes() / integer)
-                      .description("The configured rate limit per service, per indexer, in bytes")
-                      .tags(List.of(Tag.of("service", datasetMetadata.getName())))
-                      .register(meterRegistry));
-        });
+                  return activePartitionCount
+                      .map(
+                          integer ->
+                              MultiGauge.Row.of(
+                                  Tags.of(Tag.of("service", datasetMetadata.getName())),
+                                  datasetMetadata.getThroughputBytes() / integer))
+                      .orElse(null);
+                })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toUnmodifiableList()),
+        true);
 
     return (index, docs) -> {
       if (docs == null) {
@@ -151,11 +175,11 @@ public class PreprocessorRateLimiter {
       if (index == null) {
         // index name wasn't provided
         LOG.debug("Message was dropped due to missing index name - '{}'", index);
-        meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+        messagesDroppedCounterProvider
+            .withTags(getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
             .increment(docs.size());
-        meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+        bytesDroppedCounterProvider
+            .withTags(getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
             .increment(totalBytes);
         return false;
       }
@@ -174,11 +198,11 @@ public class PreprocessorRateLimiter {
             return true;
           }
           // message should be dropped due to rate limit
-          meterRegistry
-              .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
+          messagesDroppedCounterProvider
+              .withTags(getMeterTags(index, MessageDropReason.OVER_LIMIT))
               .increment(docs.size());
-          meterRegistry
-              .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
+          bytesDroppedCounterProvider
+              .withTags(getMeterTags(index, MessageDropReason.OVER_LIMIT))
               .increment(totalBytes);
           LOG.debug(
               "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",
@@ -188,11 +212,11 @@ public class PreprocessorRateLimiter {
         }
       }
       // message should be dropped due to no matching service name being provisioned
-      meterRegistry
-          .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
+      messagesDroppedCounterProvider
+          .withTags(getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
           .increment(docs.size());
-      meterRegistry
-          .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
+      bytesDroppedCounterProvider
+          .withTags(getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
           .increment(totalBytes);
       return false;
     };

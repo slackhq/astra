@@ -37,6 +37,8 @@ import org.apache.lucene.util.BytesRef;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.index.mapper.Uid;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
@@ -61,10 +63,11 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherExtension(false);
 
+  private final ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder;
   private final OpenSearchAdapter openSearchAdapter;
 
   public OpenSearchAdapterTest() throws IOException {
-    ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
+    fieldDefBuilder = ImmutableMap.builder();
     fieldDefBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new LuceneFieldDef(
@@ -78,7 +81,6 @@ public class OpenSearchAdapterTest {
             true,
             true));
     openSearchAdapter = new OpenSearchAdapter(fieldDefBuilder.build());
-
     // We need to reload the schema so that query optimizations take into account the schema
     openSearchAdapter.reloadSchema();
   }
@@ -453,12 +455,34 @@ public class OpenSearchAdapterTest {
   }
 
   @Test
+  public void shouldProduceQueryFromQueryBuilder() throws Exception {
+    BoolQueryBuilder boolQueryBuilder =
+        new BoolQueryBuilder().filter(new RangeQueryBuilder("_timesinceepoch").gte(1).lte(100));
+    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+
+    // We need to recreate the OpenSearchAdapter object here to get the feature flag set to true.
+    // Once this feature flag is removed, we can once again use the class-level object
+    System.setProperty("astra.query.useOpenSearchParsing", "true");
+    OpenSearchAdapter openSearchAdapterWithFeatureFlagEnabled =
+        new OpenSearchAdapter(fieldDefBuilder.build());
+    openSearchAdapterWithFeatureFlagEnabled.reloadSchema();
+    System.setProperty("astra.query.useOpenSearchParsing", "false");
+
+    Query rangeQuery =
+        openSearchAdapterWithFeatureFlagEnabled.buildQuery(
+            "foo", null, null, null, indexSearcher, boolQueryBuilder);
+    assertThat(rangeQuery).isNotNull();
+    assertThat(rangeQuery.toString()).isEqualTo("#_timesinceepoch:[1 TO 100]");
+  }
+
+  @Test
   public void shouldParseIdFieldSearch() throws Exception {
     String idField = "_id";
     String idValue = "1";
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
     Query idQuery =
-        openSearchAdapter.buildQuery("foo", STR."\{idField}:\{idValue}", null, null, indexSearcher);
+        openSearchAdapter.buildQuery(
+            "foo", STR."\{idField}:\{idValue}", null, null, indexSearcher, null);
     BytesRef queryStrBytes = new BytesRef(Uid.encodeId("1").bytes);
     // idQuery.toString="#_id:([fe 1f])"
     // queryStrBytes.toString="[fe 1f]"
@@ -468,11 +492,13 @@ public class OpenSearchAdapterTest {
   @Test
   public void shouldExcludeDateFilterWhenNullTimestamps() throws Exception {
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
-    Query nullBothTimestamps = openSearchAdapter.buildQuery("foo", "", null, null, indexSearcher);
+    Query nullBothTimestamps =
+        openSearchAdapter.buildQuery("foo", "", null, null, indexSearcher, null);
     // null for both timestamps with no query string should be optimized into a matchall
     assertThat(nullBothTimestamps).isInstanceOf(MatchAllDocsQuery.class);
 
-    Query nullStartTimestamp = openSearchAdapter.buildQuery("foo", "a", null, 100L, indexSearcher);
+    Query nullStartTimestamp =
+        openSearchAdapter.buildQuery("foo", "a", null, 100L, indexSearcher, null);
     assertThat(nullStartTimestamp).isInstanceOf(BooleanQuery.class);
 
     Optional<IndexSortSortedNumericDocValuesRangeQuery> filterNullStartQuery =
@@ -492,7 +518,8 @@ public class OpenSearchAdapterTest {
     assertThat(filterNullStartQuery.get().toString()).contains(String.valueOf(Long.MIN_VALUE));
     assertThat(filterNullStartQuery.get().toString()).contains(String.valueOf(100L));
 
-    Query nullEndTimestamp = openSearchAdapter.buildQuery("foo", "", 100L, null, indexSearcher);
+    Query nullEndTimestamp =
+        openSearchAdapter.buildQuery("foo", "", 100L, null, indexSearcher, null);
     Optional<IndexSortSortedNumericDocValuesRangeQuery> filterNullEndQuery =
         ((BooleanQuery) nullEndTimestamp)
             .clauses().stream()
