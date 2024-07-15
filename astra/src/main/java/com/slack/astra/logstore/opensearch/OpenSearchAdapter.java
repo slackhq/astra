@@ -130,7 +130,8 @@ public class OpenSearchAdapter {
 
   // we can make this configurable when SchemaAwareLogDocumentBuilderImpl enforces a limit
   // set this to a high number for now
-  private static final int TOTAL_FIELDS_LIMIT = 2500;
+  private static final int TOTAL_FIELDS_LIMIT =
+      Integer.parseInt(System.getProperty("astra.mapping.totalFieldsLimit", "2500"));
 
   // This will enable OpenSearch query parsing by default, rather than going down the
   // QueryString parsing path we have been using
