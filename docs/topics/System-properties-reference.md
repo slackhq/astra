@@ -74,3 +74,12 @@ schema.
 {style="narrow"}
 defaultValue
 : 500
+
+
+## astra.mapping.totalFieldsLimit
+<tldr>experimental</tldr>
+Maximum amount of total fields used by the mapper service for query parsing.
+
+{style="narrow"}
+defaultValue
+: 2500
