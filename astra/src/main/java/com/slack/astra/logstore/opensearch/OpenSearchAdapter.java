@@ -34,7 +34,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.ObjectUtils;
@@ -48,7 +47,6 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.compress.CompressedXContent;
 import org.opensearch.common.settings.IndexScopedSettings;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -421,7 +419,8 @@ public class OpenSearchAdapter {
     Settings nodeSetings =
         Settings.builder().put("indices.query.query_string.analyze_wildcard", true).build();
 
-    IndexScopedSettings indexScopedSettings = new IndexScopedSettings(settings, new HashSet<>(BUILT_IN_INDEX_SETTINGS));
+    IndexScopedSettings indexScopedSettings =
+        new IndexScopedSettings(settings, new HashSet<>(BUILT_IN_INDEX_SETTINGS));
 
     return new IndexSettings(
         IndexMetadata.builder("index").settings(settings).build(),
