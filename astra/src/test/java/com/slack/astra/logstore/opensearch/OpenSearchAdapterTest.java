@@ -63,10 +63,11 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherExtension(false);
 
+  private final ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder;
   private final OpenSearchAdapter openSearchAdapter;
 
   public OpenSearchAdapterTest() throws IOException {
-    ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
+    fieldDefBuilder = ImmutableMap.builder();
     fieldDefBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new LuceneFieldDef(
@@ -455,15 +456,23 @@ public class OpenSearchAdapterTest {
 
   @Test
   public void shouldProduceQueryFromQueryBuilder() throws Exception {
-    System.setProperty("astra.query.useOpenSearchParsing", "true");
     BoolQueryBuilder boolQueryBuilder =
         new BoolQueryBuilder().filter(new RangeQueryBuilder("_timesinceepoch").gte(1).lte(100));
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+
+    // We need to recreate the OpenSearchAdapter object here to get the feature flag set to true.
+    // Once this feature flag is removed, we can once again use the class-level object
+    System.setProperty("astra.query.useOpenSearchParsing", "true");
+    OpenSearchAdapter openSearchAdapterWithFeatureFlagEnabled =
+        new OpenSearchAdapter(fieldDefBuilder.build());
+    openSearchAdapterWithFeatureFlagEnabled.reloadSchema();
+    System.setProperty("astra.query.useOpenSearchParsing", "false");
+
     Query rangeQuery =
-        openSearchAdapter.buildQuery("foo", null, null, null, indexSearcher, boolQueryBuilder);
+        openSearchAdapterWithFeatureFlagEnabled.buildQuery(
+            "foo", null, null, null, indexSearcher, boolQueryBuilder);
     assertThat(rangeQuery).isNotNull();
     assertThat(rangeQuery.toString()).isEqualTo("#_timesinceepoch:[1 TO 100]");
-    System.setProperty("astra.query.useOpenSearchParsing", "false");
   }
 
   @Test
