@@ -135,7 +135,7 @@ public class OpenSearchAdapter {
 
   // This will enable OpenSearch query parsing by default, rather than going down the
   // QueryString parsing path we have been using
-  private boolean useOpenSearchQueryParsing = false;
+  private final boolean useOpenSearchQueryParsing;
 
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     this.indexSettings = buildIndexSettings();
@@ -421,9 +421,7 @@ public class OpenSearchAdapter {
     Settings nodeSetings =
         Settings.builder().put("indices.query.query_string.analyze_wildcard", true).build();
 
-    Set<Setting<?>> built = new HashSet<>(BUILT_IN_INDEX_SETTINGS);
-
-    IndexScopedSettings indexScopedSettings = new IndexScopedSettings(settings, built);
+    IndexScopedSettings indexScopedSettings = new IndexScopedSettings(settings, new HashSet<>(BUILT_IN_INDEX_SETTINGS));
 
     return new IndexSettings(
         IndexMetadata.builder("index").settings(settings).build(),

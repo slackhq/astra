@@ -679,7 +679,7 @@ public class SearchResultUtils {
                 objectMapper.createParser(searchRequest.getQuery()));
         queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(jsonXContentParser);
       } catch (Exception e) {
-        throw new RuntimeException(e);
+        throw new IllegalArgumentException(e);
       }
     }
 

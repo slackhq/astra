@@ -80,8 +80,6 @@ public class OpenSearchAdapterTest {
             true,
             true));
     openSearchAdapter = new OpenSearchAdapter(fieldDefBuilder.build());
-    System.setProperty("astra.query.useOpenSearchParsing", "true");
-
     // We need to reload the schema so that query optimizations take into account the schema
     openSearchAdapter.reloadSchema();
   }
@@ -457,6 +455,7 @@ public class OpenSearchAdapterTest {
 
   @Test
   public void shouldProduceQueryFromQueryBuilder() throws Exception {
+    System.setProperty("astra.query.useOpenSearchParsing", "true");
     BoolQueryBuilder boolQueryBuilder =
         new BoolQueryBuilder().filter(new RangeQueryBuilder("_timesinceepoch").gte(1).lte(100));
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
@@ -464,6 +463,7 @@ public class OpenSearchAdapterTest {
         openSearchAdapter.buildQuery("foo", null, null, null, indexSearcher, boolQueryBuilder);
     assertThat(rangeQuery).isNotNull();
     assertThat(rangeQuery.toString()).isEqualTo("#_timesinceepoch:[1 TO 100]");
+    System.setProperty("astra.query.useOpenSearchParsing", "false");
   }
 
   @Test
