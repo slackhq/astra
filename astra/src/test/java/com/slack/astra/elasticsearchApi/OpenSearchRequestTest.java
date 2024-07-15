@@ -2,6 +2,8 @@ package com.slack.astra.elasticsearchApi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.proto.service.AstraSearch;
@@ -9,9 +11,17 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class OpenSearchRequestTest {
+
+  private static ObjectMapper objectMapper;
+
+  @BeforeAll
+  public static void beforeClass() {
+    objectMapper = new ObjectMapper();
+  }
 
   private String getRawQueryString(String filename) throws IOException {
     return Resources.toString(
@@ -36,6 +46,9 @@ public class OpenSearchRequestTest {
     assertThat(request.getQueryString()).isEqualTo("*:*");
     assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -55,6 +68,9 @@ public class OpenSearchRequestTest {
     assertThat(request.getQueryString()).isEqualTo("*:*");
     assertThat(request.getStartTimeEpochMs()).isEqualTo(1676498801027L);
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1676500240688L);
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -86,6 +102,10 @@ public class OpenSearchRequestTest {
                 "max", 1676500240688L));
     assertThat(dateHistogramAggregation.getFormat()).isEqualTo("epoch_millis");
     assertThat(dateHistogramAggregation.getOffset()).isEqualTo("5s");
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -110,6 +130,10 @@ public class OpenSearchRequestTest {
         histogramAggregation = histogramAggBuilder.getValueSource().getHistogram();
     assertThat(histogramAggregation.getInterval()).isEqualTo("1000");
     assertThat(histogramAggregation.getMinDocCount()).isEqualTo(1);
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -140,6 +164,10 @@ public class OpenSearchRequestTest {
                 .getPrecisionThreshold()
                 .getLongValue())
         .isEqualTo(1);
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -166,6 +194,10 @@ public class OpenSearchRequestTest {
         .containsExactly(25D, 50D, 75D, 95D, 99D);
     assertThat(percentileAggBuilder.getValueSource().getScript().getStringValue())
         .isEqualTo("return 8;");
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -191,6 +223,10 @@ public class OpenSearchRequestTest {
     assertThat(extendedStatsAgg.getValueSource().getField()).isEqualTo("duration_ms");
     assertThat(extendedStatsAgg.getValueSource().getExtendedStats().getSigma().getDoubleValue())
         .isEqualTo(2D);
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -217,6 +253,10 @@ public class OpenSearchRequestTest {
     assertThat(
             cumulativeSumAggBuilder.getPipeline().getCumulativeSum().getFormat().getStringValue())
         .isEqualTo("##0.#####E0");
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -244,6 +284,10 @@ public class OpenSearchRequestTest {
         .isEqualTo("return 8;");
     assertThat(movingFunctionAggBuilder.getPipeline().getMovingFunction().getWindow()).isEqualTo(2);
     assertThat(movingFunctionAggBuilder.getPipeline().getMovingFunction().getShift()).isEqualTo(3);
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -269,6 +313,10 @@ public class OpenSearchRequestTest {
     assertThat(derivativeAggBuilder.getPipeline().getBucketsPath()).isEqualTo("_count");
     assertThat(derivativeAggBuilder.getPipeline().getDerivative().getUnit().getStringValue())
         .isEqualTo("1m");
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -303,6 +351,10 @@ public class OpenSearchRequestTest {
         parsedRequestList.get(0).getAggregations().getSubAggregations(0);
     assertThat(avgAggBuilder.getName()).isEqualTo("3");
     assertThat(avgAggBuilder.getValueSource().getField()).isEqualTo("duration_ms");
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -327,6 +379,10 @@ public class OpenSearchRequestTest {
     assertThat(sumAggBuilder.getValueSource().getField()).isEqualTo("duration_ms");
     assertThat(sumAggBuilder.getValueSource().getScript().getStringValue()).isEqualTo("return 8;");
     assertThat(sumAggBuilder.getValueSource().getMissing().getStringValue()).isEqualTo("2");
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -352,6 +408,10 @@ public class OpenSearchRequestTest {
     assertThat(movAvgAggBuilder.getName()).isEqualTo("3");
     assertThat(movAvgAggBuilder.getType()).isEqualTo("moving_avg");
     assertThat(movAvgAggBuilder.getPipeline().getBucketsPath()).isEqualTo("_count");
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -378,6 +438,10 @@ public class OpenSearchRequestTest {
         .isEqualTo("*");
     assertThat(filtersAggregation.getFilters().getFiltersMap().get("bar").getAnalyzeWildcard())
         .isEqualTo(false);
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 
   @Test
@@ -399,5 +463,9 @@ public class OpenSearchRequestTest {
     assertThat(typedTermsAggregation.getMinDocCount()).isEqualTo(1);
     assertThat(typedTermsAggregation.getSize()).isEqualTo(10);
     assertThat(typedTermsAggregation.getOrderMap().get("_term")).isEqualTo("desc");
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(parsedRequestList.getFirst().getQuery())
+        .isEqualTo(parsedRequest.get("query").toString());
   }
 }

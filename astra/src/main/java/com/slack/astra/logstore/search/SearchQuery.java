@@ -2,6 +2,7 @@ package com.slack.astra.logstore.search;
 
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import java.util.List;
+import org.opensearch.index.query.QueryBuilder;
 
 /** A class that represents a search query internally to LogStore. */
 public class SearchQuery {
@@ -9,6 +10,7 @@ public class SearchQuery {
   @Deprecated public final String dataset;
 
   public final String queryStr;
+  public final QueryBuilder queryBuilder;
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
   public final int howMany;
@@ -22,7 +24,8 @@ public class SearchQuery {
       long endTimeEpochMs,
       int howMany,
       AggBuilder aggBuilder,
-      List<String> chunkIds) {
+      List<String> chunkIds,
+      QueryBuilder queryBuilder) {
     this.dataset = dataset;
     this.queryStr = queryStr;
     this.startTimeEpochMs = startTimeEpochMs;
@@ -30,6 +33,7 @@ public class SearchQuery {
     this.howMany = howMany;
     this.aggBuilder = aggBuilder;
     this.chunkIds = chunkIds;
+    this.queryBuilder = queryBuilder;
   }
 
   @Override
@@ -51,6 +55,8 @@ public class SearchQuery {
         + chunkIds
         + ", aggBuilder="
         + aggBuilder
+        + ", queryBuilder="
+        + queryBuilder
         + '}';
   }
 }
