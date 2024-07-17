@@ -132,6 +132,32 @@ public class SpanFormatterWithSchemaTest {
   }
 
   @Test
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  public void canParseSimpleMapValues() throws Exception {
+    List<Trace.KeyValue> list =
+        SpanFormatter.convertKVtoProtoDefault(
+            "item1",
+            Map.of("subitem1", "value1", "subitem2", Map.of("subsubitem1", "subsubvalue1")),
+            schema);
+
+    assertThat(list.size()).isEqualTo(2);
+    assertThat(
+            list.stream()
+                .filter(item -> item.getKey().equals("item1.subitem1"))
+                .findFirst()
+                .get()
+                .getVStr())
+        .isEqualTo("value1");
+    assertThat(
+            list.stream()
+                .filter(item -> item.getKey().equals("item1.subitem2.subsubitem1"))
+                .findFirst()
+                .get()
+                .getVStr())
+        .isEqualTo("subsubvalue1");
+  }
+
+  @Test
   public void parseIndexRequestWithNullValues() throws Exception {
     final File schemaFile =
         new File(getClass().getClassLoader().getResource("schema/test_schema.yaml").getFile());
@@ -652,7 +678,7 @@ public class SpanFormatterWithSchemaTest {
 
     byte[] rawRequest = getIndexRequestBytes("index_nested_fields");
     List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
-    assertThat(indexRequests.size()).isEqualTo(2);
+    assertThat(indexRequests.size()).isEqualTo(3);
 
     Trace.Span span1 = fromIngestDocument(convertRequestToDocument(indexRequests.get(0)), schema);
     assertThat(span1.getTagsCount()).isEqualTo(3);
@@ -665,7 +691,7 @@ public class SpanFormatterWithSchemaTest {
 
     Document luceneDocument1 = dropFieldBuilder.fromMessage(span1);
     assertThat(luceneDocument1.get("list_field")).isEqualTo("[host1, host2]");
-    assertThat(luceneDocument1.get("map_field")).isEqualTo("{f1=v1}");
+    assertThat(luceneDocument1.get("map_field.f1")).isEqualTo("v1");
 
     Trace.Span span2 = fromIngestDocument(convertRequestToDocument(indexRequests.get(1)), schema);
     assertThat(span2.getTagsCount()).isEqualTo(3);
@@ -679,6 +705,19 @@ public class SpanFormatterWithSchemaTest {
     Document luceneDocument2 = dropFieldBuilder.fromMessage(span2);
     assertThat(luceneDocument2.get("list_field")).isEqualTo("host3");
     assertThat(luceneDocument2.get("map_field")).isEqualTo("f1=v1");
+
+    Trace.Span span3 = fromIngestDocument(convertRequestToDocument(indexRequests.get(2)), schema);
+    assertThat(span3.getTagsCount()).isEqualTo(3);
+    Map<String, Trace.KeyValue> tags3 =
+        span3.getTagsList().stream()
+            .map(kv -> Map.entry(kv.getKey(), kv))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    assertThat(tags3.get("list_field").getVStr()).isEqualTo("host4");
+
+    Document luceneDocument3 = dropFieldBuilder.fromMessage(span3);
+    assertThat(luceneDocument3.get("list_field")).isEqualTo("host4");
+    assertThat(luceneDocument3.get("map_field.f1.f2")).isEqualTo("v3");
   }
 
   @Test
