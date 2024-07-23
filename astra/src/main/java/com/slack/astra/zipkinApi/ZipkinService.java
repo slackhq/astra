@@ -58,6 +58,7 @@ public class ZipkinService {
         continue;
       }
 
+      String id = message.getId();
       String messageTraceId = null;
       String parentId = null;
       String name = null;
@@ -78,6 +79,8 @@ public class ZipkinService {
           serviceName = (String) value;
         } else if (LogMessage.ReservedField.DURATION.fieldName.equals(k)) {
           duration = (Long) value;
+        } else if (LogMessage.ReservedField.ID.fieldName.equals(k)) {
+          id = (String) value;
         } else {
           messageTags.put(k, String.valueOf(value));
         }
@@ -105,7 +108,7 @@ public class ZipkinService {
         continue;
       }
 
-      final ZipkinSpanResponse span = new ZipkinSpanResponse(message.getId(), messageTraceId);
+      final ZipkinSpanResponse span = new ZipkinSpanResponse(id, messageTraceId);
       span.setParentId(parentId);
       span.setName(name);
       if (serviceName != null) {
