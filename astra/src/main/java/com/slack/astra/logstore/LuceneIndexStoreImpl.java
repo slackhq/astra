@@ -12,10 +12,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
@@ -55,7 +56,11 @@ public class LuceneIndexStoreImpl implements LogStore {
   private final SearcherManager searcherManager;
   private final DocumentBuilder documentBuilder;
   private final FSDirectory indexDirectory;
-  private final Timer timer;
+
+  private final ScheduledExecutorService scheduledCommit =
+      Executors.newSingleThreadScheduledExecutor();
+  private final ScheduledExecutorService scheduledRefresh =
+      Executors.newSingleThreadScheduledExecutor();
   private final SnapshotDeletionPolicy snapshotDeletionPolicy;
   private Optional<IndexWriter> indexWriter;
 
@@ -123,25 +128,29 @@ public class LuceneIndexStoreImpl implements LogStore {
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
     this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
 
-    timer = new Timer(true);
-    timer.schedule(
-        new TimerTask() {
-          @Override
-          public void run() {
+    scheduledCommit.scheduleWithFixedDelay(
+        () -> {
+          try {
             commit();
+          } catch (Exception e) {
+            LOG.error("Error running scheduled commit", e);
           }
         },
         config.commitDuration.toMillis(),
-        config.commitDuration.toMillis());
-    timer.schedule(
-        new TimerTask() {
-          @Override
-          public void run() {
+        config.commitDuration.toMillis(),
+        TimeUnit.MILLISECONDS);
+
+    scheduledRefresh.scheduleWithFixedDelay(
+        () -> {
+          try {
             refresh();
+          } catch (Exception e) {
+            LOG.error("Error running scheduled commit", e);
           }
         },
         config.refreshDuration.toMillis(),
-        config.refreshDuration.toMillis());
+        config.refreshDuration.toMillis(),
+        TimeUnit.MILLISECONDS);
 
     // Initialize stats counters
     messagesReceivedCounter = registry.counter(MESSAGES_RECEIVED_COUNTER);
@@ -364,7 +373,21 @@ public class LuceneIndexStoreImpl implements LogStore {
    * ensure that the data is already committed before close.
    */
   @Override
-  public void close() {
+  public void close() throws IOException {
+    LOG.info("Closing index {}", id);
+    scheduledCommit.close();
+    scheduledRefresh.close();
+    try {
+      if (!scheduledCommit.awaitTermination(30, TimeUnit.SECONDS)) {
+        LOG.error("Timed out waiting for scheduled commit to close");
+      }
+      if (!scheduledRefresh.awaitTermination(30, TimeUnit.SECONDS)) {
+        LOG.error("Timed out waiting for scheduled refresh to close");
+      }
+    } catch (InterruptedException e) {
+      throw new IOException(e);
+    }
+
     indexWriterLock.lock();
     try {
       if (indexWriter.isEmpty()) {
@@ -372,8 +395,6 @@ public class LuceneIndexStoreImpl implements LogStore {
         // exception
         return;
       }
-
-      timer.cancel();
       try {
         indexWriter.get().close();
       } catch (IllegalStateException | IOException | NoSuchElementException e) {
