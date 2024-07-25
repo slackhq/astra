@@ -1,0 +1,47 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+  jaeger:
+    protocols:
+      grpc:
+      thrift_http:
+      thrift_compact:
+      thrift_binary:
+  zipkin:
+    endpoint: "0.0.0.0:9411"  # Default Zipkin endpoint
+
+exporters:
+  opensearch:
+    http:
+      endpoint: "http://astra_preprocessor:8086"
+      tls:
+        insecure: true
+
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 4000
+    spike_limit_mib: 500
+  batch:
+    send_batch_max_size: 100
+    send_batch_size: 100
+    timeout: 10s
+
+extensions:
+  health_check:
+    endpoint: "0.0.0.0:13133"
+  pprof:
+    endpoint: "0.0.0.0:1888"
+
+service:
+  extensions: [health_check, pprof]
+  pipelines:
+    traces:
+      receivers: [otlp, jaeger, zipkin]
+      processors: [memory_limiter, batch]
+      exporters: [opensearch]

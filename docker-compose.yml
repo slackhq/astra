@@ -52,12 +52,6 @@ services:
     environment:
       - initialBuckets=test-s3-bucket
 
-  openzipkin:
-    image: 'openzipkin/zipkin-slim'
-    container_name: dep_openzipkin
-    ports:
-      - 9411:9411
-
   #to build this image run 'docker build -t slackhq/astra .'
   astra_preprocessor:
     image: 'slackhq/astra'
@@ -72,13 +66,12 @@ services:
       # Shared settings
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
+      - ZIPKIN_TRACING_ENDPOINT=http://host.docker.internal:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
       - zookeeper
       - kafka
       - s3
-      - openzipkin
 
   astra_index:
     image: 'slackhq/astra'
@@ -92,7 +85,7 @@ services:
       # Shared settings
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
+      - ZIPKIN_TRACING_ENDPOINT=http://host.docker.internal:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
       - astra_preprocessor
@@ -109,7 +102,7 @@ services:
       # Shared settings
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
+      - ZIPKIN_TRACING_ENDPOINT=http://host.docker.internal:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
       - astra_preprocessor
@@ -127,7 +120,7 @@ services:
       # Shared settings
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
+      - ZIPKIN_TRACING_ENDPOINT=http://host.docker.internal:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
       - astra_preprocessor
@@ -144,7 +137,7 @@ services:
       # Shared settings
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
+      - ZIPKIN_TRACING_ENDPOINT=http://host.docker.internal:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
       - astra_preprocessor
@@ -161,7 +154,23 @@ services:
       # Shared settings
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
+      - ZIPKIN_TRACING_ENDPOINT=http://host.docker.internal:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
     depends_on:
       - astra_preprocessor
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib
+    volumes:
+      - ./otel-collector-config.yml:/etc/otel/config.yaml
+    ports:
+      - 1888:1888 # pprof extension
+      - 8888:8888 # Prometheus metrics exposed by the Collector
+      - 8889:8889 # Prometheus exporter metrics
+      - 13133:13133 # health_check extension
+      - 4317:4317 # OTLP gRPC receiver
+      - 4318:4318 # OTLP http receiver
+      - 55679:55679 # zpages extension
+      - 9411:9411 #zipkin
+    command:
+      --config /etc/otel/config.yaml
