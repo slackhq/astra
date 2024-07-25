@@ -309,7 +309,7 @@ public class LuceneIndexStoreImplTest {
     public SuppressExceptionsOnClosedWriter() throws IOException {}
 
     @Test
-    public void testSearcherOnclosedWriter() {
+    public void testSearcherOnclosedWriter() throws IOException {
       addMessages(testLogStore.logStore, 1, 100, true);
       testLogStore.logStore.close();
       testLogStore.logStore = null;
