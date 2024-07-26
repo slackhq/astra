@@ -463,4 +463,51 @@ class ClusterHpaMetricServiceTest {
     assertThat(hpaMetricMetadataStore.getSync(String.format(CACHE_HPA_METRIC_NAME, "rep1")).value)
         .isEqualTo(0.25);
   }
+
+  @Test
+  public void testHpaReplicaSetFiltering() throws Exception {
+    ClusterHpaMetricService clusterHpaMetricService =
+        new ClusterHpaMetricService(
+            replicaMetadataStore,
+            cacheSlotMetadataStore,
+            hpaMetricMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore);
+
+    // Register snapshot of size 15
+    when(snapshotMetadataStore.listSync())
+        .thenReturn(
+            List.of(
+                new SnapshotMetadata(
+                    "snapshot1", "snapshot1", 1L, 2L, 5L, "abcd", LOGS_LUCENE9, 15)));
+
+    // Register 2 replicas for rep1 and rep2
+    when(replicaMetadataStore.listSync())
+        .thenReturn(
+            List.of(
+                new ReplicaMetadata("replica2", "snapshot1", "rep1", 1L, 2L, false, LOGS_LUCENE9),
+                new ReplicaMetadata("replica1", "snapshot1", "rep2", 1L, 2L, false, LOGS_LUCENE9)));
+
+    // Register 2 cache nodes (rep1, rep2), of size 10 each
+    when(cacheNodeMetadataStore.listSync())
+        .thenReturn(
+            List.of(
+                new CacheNodeMetadata("node1", "node1.com", 10, "rep1"),
+                new CacheNodeMetadata("node2", "node1.com", 10, "rep2")));
+
+    clusterHpaMetricService.runOneIteration();
+
+    // assert scale up for both replicaSets
+    await()
+        .timeout(10, TimeUnit.SECONDS)
+        .until(() -> hpaMetricMetadataStore.hasSync(String.format(CACHE_HPA_METRIC_NAME, "rep1")));
+    assertThat(hpaMetricMetadataStore.getSync(String.format(CACHE_HPA_METRIC_NAME, "rep1")).value)
+        .isEqualTo(1.5);
+
+    await()
+        .timeout(10, TimeUnit.SECONDS)
+        .until(() -> hpaMetricMetadataStore.hasSync(String.format(CACHE_HPA_METRIC_NAME, "rep2")));
+    assertThat(hpaMetricMetadataStore.getSync(String.format(CACHE_HPA_METRIC_NAME, "rep2")).value)
+        .isEqualTo(1.5);
+  }
 }
