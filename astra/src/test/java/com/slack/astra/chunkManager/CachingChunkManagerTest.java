@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -56,6 +57,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 public class CachingChunkManagerTest {
@@ -64,6 +66,7 @@ public class CachingChunkManagerTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
   private S3CrtBlobFs s3CrtBlobFs;
+  @TempDir private Path tmpPath;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -135,8 +138,8 @@ public class CachingChunkManagerTest {
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("test")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
+            .setZkSessionTimeoutMs(10000)
+            .setZkConnectionTimeoutMs(10000)
             .setSleepBetweenRetriesMs(1000)
             .build();
 
@@ -178,7 +181,7 @@ public class CachingChunkManagerTest {
     return newAssignment;
   }
 
-  private void initializeBlobStorageWithIndex(String snapshotId) throws Exception {
+  private int initializeBlobStorageWithIndex(String snapshotId) throws Exception {
     LuceneIndexStoreImpl logStore =
         LuceneIndexStoreImpl.makeLogStore(
             Files.newTemporaryFolder(),
@@ -216,6 +219,7 @@ public class CachingChunkManagerTest {
 
     // Copy files to S3.
     copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3CrtBlobFs);
+    return filesToUpload.size();
   }
 
   @Test
@@ -257,14 +261,17 @@ public class CachingChunkManagerTest {
     enableDynamicChunksFlag();
     String snapshotId = "abcd";
 
-    cachingChunkManager = initChunkManager();
-    initializeBlobStorageWithIndex(snapshotId);
+    int numUploadedFiles = initializeBlobStorageWithIndex(snapshotId);
     await()
         .ignoreExceptions()
         .until(
-            () ->
-                copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, Path.of("/tmp/test1")).length
-                    > 0);
+            () -> {
+              FileUtils.cleanDirectory(tmpPath.toFile());
+              return copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, tmpPath.toAbsolutePath())
+                      .length
+                  == numUploadedFiles;
+            });
+    cachingChunkManager = initChunkManager();
     initAssignment(snapshotId);
 
     await()
@@ -295,14 +302,16 @@ public class CachingChunkManagerTest {
     enableDynamicChunksFlag();
     String snapshotId = "abcd";
 
-    cachingChunkManager = initChunkManager();
-    initializeBlobStorageWithIndex(snapshotId);
+    int numUploadedFiles = initializeBlobStorageWithIndex(snapshotId);
     await()
         .ignoreExceptions()
         .until(
-            () ->
-                copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, Path.of("/tmp/test2")).length
-                    > 0);
+            () -> {
+              FileUtils.cleanDirectory(tmpPath.toFile());
+              return copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, tmpPath).length
+                  == numUploadedFiles;
+            });
+    cachingChunkManager = initChunkManager();
     CacheNodeAssignment assignment = initAssignment(snapshotId);
 
     // assert chunks created

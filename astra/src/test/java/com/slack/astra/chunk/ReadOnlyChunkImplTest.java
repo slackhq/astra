@@ -3,6 +3,7 @@ package com.slack.astra.chunk;
 import static com.slack.astra.chunk.ReadOnlyChunkImpl.CHUNK_ASSIGNMENT_TIMER;
 import static com.slack.astra.chunk.ReadOnlyChunkImpl.CHUNK_EVICTION_TIMER;
 import static com.slack.astra.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
+import static com.slack.astra.logstore.BlobFsUtils.copyFromS3;
 import static com.slack.astra.logstore.BlobFsUtils.copyToS3;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
@@ -65,6 +66,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 public class ReadOnlyChunkImplTest {
@@ -73,6 +75,7 @@ public class ReadOnlyChunkImplTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
   private S3CrtBlobFs s3CrtBlobFs;
+  @TempDir private Path tmpPath;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -495,9 +498,9 @@ public class ReadOnlyChunkImplTest {
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("shouldHandleChunkLivecycle")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
+            .setZkPathPrefix("shouldHandleDynamicChunkLivecycle")
+            .setZkSessionTimeoutMs(10000)
+            .setZkConnectionTimeoutMs(10000)
             .setSleepBetweenRetriesMs(1000)
             .build();
 
@@ -515,12 +518,24 @@ public class ReadOnlyChunkImplTest {
     String cacheNodeId = "baz";
     String replicaSet = "cat";
 
+    // wait for chunk to register
+    // ignoreExceptions is workaround for https://github.com/aws/aws-sdk-java-v2/issues/3658
+    int numUploadedFiles = initializeBlobStorageWithIndex(snapshotId);
+    await()
+        .ignoreExceptions()
+        .until(
+            () -> {
+              FileUtils.cleanDirectory(tmpPath.toFile());
+              return copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, tmpPath.toAbsolutePath())
+                      .length
+                  == numUploadedFiles;
+            });
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, snapshotId, 29);
-    initializeBlobStorageWithIndex(snapshotId);
-    initializeCacheNodeAssignment(
-        cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
+    CacheNodeAssignment assignment =
+        initializeCacheNodeAssignment(
+            cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
 
     SearchContext searchContext =
         SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig());
@@ -538,32 +553,15 @@ public class ReadOnlyChunkImplTest {
             snapshotMetadataStore,
             searchMetadataStore,
             cacheNodeAssignmentStore,
-            cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
+            assignment,
             snapshotMetadataStore.findSync(snapshotId));
+    Thread.ofVirtual().start(readOnlyChunk::downloadChunkData);
 
-    // wait for chunk to register
-    // ignoreExceptions is workaround for https://github.com/aws/aws-sdk-java-v2/issues/3658
     await()
-        .ignoreExceptions()
         .until(
-            () -> {
-              Path dataDirectory =
-                  Path.of(
-                      String.format(
-                          "%s/astra-chunk-%s",
-                          AstraConfig.getCacheConfig().getDataDirectory(), assignmentId));
-
-              if (java.nio.file.Files.isDirectory(dataDirectory)) {
-                FileUtils.cleanDirectory(dataDirectory.toFile());
-              }
-              readOnlyChunk.downloadChunkData();
-
-              return cacheNodeAssignmentStore.getSync(
-                          readOnlyChunk.getCacheNodeAssignment().cacheNodeId,
-                          readOnlyChunk.getCacheNodeAssignment().assignmentId)
-                      .state
-                  == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;
-            });
+            () ->
+                cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId).state
+                    == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
 
     SearchResult<LogMessage> logMessageSearchResult =
         readOnlyChunk.query(
@@ -646,7 +644,7 @@ public class ReadOnlyChunkImplTest {
             LOGS_LUCENE9));
   }
 
-  private void initializeBlobStorageWithIndex(String snapshotId) throws Exception {
+  private int initializeBlobStorageWithIndex(String snapshotId) throws Exception {
     LuceneIndexStoreImpl logStore =
         LuceneIndexStoreImpl.makeLogStore(
             Files.newTemporaryFolder(),
@@ -683,9 +681,10 @@ public class ReadOnlyChunkImplTest {
 
     // Copy files to S3.
     copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3CrtBlobFs);
+    return filesToUpload.size();
   }
 
-  private void initializeCacheNodeAssignment(
+  private CacheNodeAssignment initializeCacheNodeAssignment(
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
       String assignmentId,
       String snapshotId,
@@ -693,7 +692,7 @@ public class ReadOnlyChunkImplTest {
       String replicaSet,
       String replicaId)
       throws Exception {
-    cacheNodeAssignmentStore.createSync(
+    CacheNodeAssignment newAssignment =
         new CacheNodeAssignment(
             assignmentId,
             cacheNodeId,
@@ -701,7 +700,10 @@ public class ReadOnlyChunkImplTest {
             replicaId,
             replicaSet,
             0,
-            Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING));
+            Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING);
+
+    cacheNodeAssignmentStore.createSync(newAssignment);
+    return newAssignment;
   }
 
   private AstraConfigs.AstraConfig makeCacheConfig() {
