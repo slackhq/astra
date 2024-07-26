@@ -13,6 +13,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import brave.Tracing;
+import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadata;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.CuratorBuilder;
@@ -49,6 +50,7 @@ public class ReplicaDeletionServiceTest {
   private AsyncCuratorFramework curatorFramework;
   private CacheSlotMetadataStore cacheSlotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
+  private CacheNodeAssignmentStore cacheNodeMetadataStore;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -68,6 +70,7 @@ public class ReplicaDeletionServiceTest {
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework));
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
+    cacheNodeMetadataStore = spy(new CacheNodeAssignmentStore(curatorFramework));
   }
 
   @AfterEach
@@ -97,7 +100,11 @@ public class ReplicaDeletionServiceTest {
         .isThrownBy(
             () ->
                 new ReplicaDeletionService(
-                        cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
+                        cacheSlotMetadataStore,
+                        replicaMetadataStore,
+                        cacheNodeMetadataStore,
+                        managerConfig,
+                        meterRegistry)
                     .scheduler());
   }
 
@@ -116,7 +123,11 @@ public class ReplicaDeletionServiceTest {
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            managerConfig,
+            meterRegistry);
 
     int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
@@ -170,7 +181,11 @@ public class ReplicaDeletionServiceTest {
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            managerConfig,
+            meterRegistry);
 
     int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(1);
@@ -253,7 +268,11 @@ public class ReplicaDeletionServiceTest {
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            managerConfig,
+            meterRegistry);
 
     int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
@@ -313,7 +332,11 @@ public class ReplicaDeletionServiceTest {
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            managerConfig,
+            meterRegistry);
 
     int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
@@ -370,7 +393,11 @@ public class ReplicaDeletionServiceTest {
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            managerConfig,
+            meterRegistry);
 
     AsyncStage asyncStage = mock(AsyncStage.class);
     when(asyncStage.toCompletableFuture())
@@ -456,7 +483,11 @@ public class ReplicaDeletionServiceTest {
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            managerConfig,
+            meterRegistry);
     replicaDeletionService.futuresListTimeoutSecs = 2;
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -575,7 +606,11 @@ public class ReplicaDeletionServiceTest {
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            managerConfig,
+            meterRegistry);
 
     replicaDeletionService.startAsync();
     replicaDeletionService.awaitRunning(DEFAULT_START_STOP_DURATION);

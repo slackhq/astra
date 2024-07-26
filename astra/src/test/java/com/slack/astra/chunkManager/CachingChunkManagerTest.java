@@ -1,29 +1,57 @@
 package com.slack.astra.chunkManager;
 
+import static com.slack.astra.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
+import static com.slack.astra.chunkManager.CachingChunkManager.ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG;
+import static com.slack.astra.logstore.BlobFsUtils.copyFromS3;
+import static com.slack.astra.logstore.BlobFsUtils.copyToS3;
+import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
+import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
+import static com.slack.astra.testlib.MetricsUtil.getCount;
+import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
+import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
+import com.slack.astra.blobfs.LocalBlobFs;
 import com.slack.astra.blobfs.s3.S3CrtBlobFs;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ReadOnlyChunkImpl;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.logstore.LuceneIndexStoreImpl;
+import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.astra.metadata.cache.CacheNodeAssignment;
+import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
+import com.slack.astra.metadata.cache.CacheNodeMetadata;
+import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.schema.ChunkSchema;
+import com.slack.astra.metadata.snapshot.SnapshotMetadata;
+import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.SpanUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.lucene.index.IndexCommit;
+import org.assertj.core.util.Files;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +75,8 @@ public class CachingChunkManagerTest {
 
   private AsyncCuratorFramework curatorFramework;
   private CachingChunkManager<LogMessage> cachingChunkManager;
+  private CacheNodeAssignmentStore cacheNodeAssignmentStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
 
   @BeforeEach
   public void startup() throws Exception {
@@ -70,6 +100,7 @@ public class CachingChunkManagerTest {
     s3CrtBlobFs.close();
     testingServer.close();
     meterRegistry.close();
+    disableDynamicChunksFlag();
   }
 
   private CachingChunkManager<LogMessage> initChunkManager() throws TimeoutException {
@@ -85,6 +116,7 @@ public class CachingChunkManagerTest {
                     .setServerAddress("localhost")
                     .setServerPort(8080)
                     .build())
+            .setCapacityBytes(4096)
             .build();
 
     AstraConfigs.S3Config s3Config =
@@ -119,11 +151,71 @@ public class CachingChunkManagerTest {
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
             AstraConfig.getCacheConfig().getReplicaSet(),
-            AstraConfig.getCacheConfig().getSlotsPerInstance());
+            AstraConfig.getCacheConfig().getSlotsPerInstance(),
+            AstraConfig.getCacheConfig().getCapacityBytes());
 
     cachingChunkManager.startAsync();
     cachingChunkManager.awaitRunning(15, TimeUnit.SECONDS);
     return cachingChunkManager;
+  }
+
+  private CacheNodeAssignment initAssignment(String snapshotId) throws Exception {
+    cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    snapshotMetadataStore.createSync(
+        new SnapshotMetadata(
+            snapshotId, TEST_S3_BUCKET, 1, 1, 0, "abcd", Metadata.IndexType.LOGS_LUCENE9, 29));
+    CacheNodeAssignment newAssignment =
+        new CacheNodeAssignment(
+            "abcd",
+            cachingChunkManager.getId(),
+            snapshotId,
+            "replica1",
+            "rep1",
+            0,
+            Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING);
+    cacheNodeAssignmentStore.createSync(newAssignment);
+    return newAssignment;
+  }
+
+  private void initializeBlobStorageWithIndex(String snapshotId) throws Exception {
+    LuceneIndexStoreImpl logStore =
+        LuceneIndexStoreImpl.makeLogStore(
+            Files.newTemporaryFolder(),
+            Duration.ofSeconds(60),
+            Duration.ofSeconds(60),
+            true,
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
+            meterRegistry);
+    addMessages(logStore, 1, 10, true);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(10);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, meterRegistry)).isEqualTo(1);
+    assertThat(getTimerCount(COMMITS_TIMER, meterRegistry)).isEqualTo(1);
+
+    Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
+
+    // Create schema file to upload
+    ChunkSchema chunkSchema =
+        new ChunkSchema(snapshotId, logStore.getSchema(), new ConcurrentHashMap<>());
+    File schemaFile = new File(dirPath + "/" + SCHEMA_FILE_NAME);
+    ChunkSchema.serializeToFile(chunkSchema, schemaFile);
+
+    // Prepare list of files to upload.
+    List<String> filesToUpload = new ArrayList<>();
+    filesToUpload.add(schemaFile.getName());
+    IndexCommit indexCommit = logStore.getIndexCommit();
+    filesToUpload.addAll(indexCommit.getFileNames());
+    System.out.println(filesToUpload.size());
+
+    LocalBlobFs localBlobFs = new LocalBlobFs();
+
+    logStore.close();
+    assertThat(localBlobFs.listFiles(dirPath.toUri(), false).length)
+        .isGreaterThanOrEqualTo(filesToUpload.size());
+
+    // Copy files to S3.
+    copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3CrtBlobFs);
   }
 
   @Test
@@ -158,6 +250,82 @@ public class CachingChunkManagerTest {
     cachingChunkManager = initChunkManager();
     assertThatThrownBy(() -> cachingChunkManager.addMessage(SpanUtil.makeSpan(1), 10, "1", 1))
         .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  public void testCreatesChunksOnAssignment() throws Exception {
+    enableDynamicChunksFlag();
+    String snapshotId = "abcd";
+
+    cachingChunkManager = initChunkManager();
+    initializeBlobStorageWithIndex(snapshotId);
+    await()
+        .ignoreExceptions()
+        .until(
+            () ->
+                copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, Path.of("/tmp/test1")).length
+                    > 0);
+    initAssignment(snapshotId);
+
+    await()
+        .timeout(10000, TimeUnit.MILLISECONDS)
+        .until(() -> cachingChunkManager.getChunksMap().size() == 1);
+    assertThat(cachingChunkManager.getChunksMap().size()).isEqualTo(1);
+  }
+
+  @Test
+  public void testChunkManagerRegistration() throws Exception {
+    enableDynamicChunksFlag();
+
+    cachingChunkManager = initChunkManager();
+    CacheNodeMetadataStore cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
+
+    List<CacheNodeMetadata> cacheNodeMetadatas = cacheNodeMetadataStore.listSync();
+    assertThat(cachingChunkManager.getChunkList().size()).isEqualTo(0);
+    assertThat(cacheNodeMetadatas.size()).isEqualTo(1);
+    assertThat(cacheNodeMetadatas.getFirst().nodeCapacityBytes).isEqualTo(4096);
+    assertThat(cacheNodeMetadatas.getFirst().replicaSet).isEqualTo("rep1");
+    assertThat(cacheNodeMetadatas.getFirst().id).isEqualTo(cachingChunkManager.getId());
+
+    cacheNodeMetadataStore.close();
+  }
+
+  @Test
+  public void testBasicChunkEviction() throws Exception {
+    enableDynamicChunksFlag();
+    String snapshotId = "abcd";
+
+    cachingChunkManager = initChunkManager();
+    initializeBlobStorageWithIndex(snapshotId);
+    await()
+        .ignoreExceptions()
+        .until(
+            () ->
+                copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, Path.of("/tmp/test2")).length
+                    > 0);
+    CacheNodeAssignment assignment = initAssignment(snapshotId);
+
+    // assert chunks created
+    await()
+        .timeout(10000, TimeUnit.MILLISECONDS)
+        .until(() -> cachingChunkManager.getChunksMap().size() == 1);
+    assertThat(cachingChunkManager.getChunksMap().size()).isEqualTo(1);
+
+    cacheNodeAssignmentStore.updateAssignmentState(
+        assignment, Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
+
+    await()
+        .timeout(10000, TimeUnit.MILLISECONDS)
+        .until(() -> cachingChunkManager.getChunksMap().isEmpty());
+    assertThat(cacheNodeAssignmentStore.listSync().size()).isEqualTo(0);
+  }
+
+  private static void enableDynamicChunksFlag() {
+    System.setProperty(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG, "true");
+  }
+
+  private static void disableDynamicChunksFlag() {
+    System.setProperty(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG, "false");
   }
 
   // TODO: Add a unit test to ensure caching chunk manager can search messages.

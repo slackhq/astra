@@ -212,3 +212,27 @@ message ChunkSchema {
   // A generic field to store metadata for a chunk.
   map<string, string> metadata = 3;
 }
+
+message CacheNodeAssignment {
+  enum CacheNodeAssignmentState {
+    LOADING = 0;
+    LIVE = 1;
+    EVICTING = 2;
+    EVICT = 3;
+  };
+  string assignment_id = 1;
+  string cache_node_id = 2;
+  string snapshot_id = 3;
+  string replica_id = 4;
+  string replica_set = 5;
+  int64 snapshot_size = 6;
+  CacheNodeAssignmentState state = 7;
+}
+
+message CacheNodeMetadata {
+  string name = 1;
+  string id = 2;
+  string hostname = 3;
+  int64  node_capacity_bytes = 4;
+  string replica_set = 5;
+}

@@ -19,7 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeoutException;
@@ -38,7 +38,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
 
   // we use a CopyOnWriteArrayList as we expect to have very few edits to this list compared
   // to the amount of reads, and it must be a threadsafe implementation
-  protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
+  protected final Map<String, Chunk<T>> chunkMap = new ConcurrentHashMap<>();
   private final Semaphore concurrentQueries;
 
   public ChunkManagerBase() {
@@ -68,12 +68,12 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     List<Chunk<T>> chunksMatchingQuery;
     if (query.chunkIds.isEmpty()) {
       chunksMatchingQuery =
-          chunkList.stream()
+          chunkMap.values().stream()
               .filter(c -> c.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
               .collect(Collectors.toList());
     } else {
       chunksMatchingQuery =
-          chunkList.stream()
+          chunkMap.values().stream()
               .filter(c -> query.chunkIds.contains(c.id()))
               .collect(Collectors.toList());
     }
@@ -183,13 +183,13 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
 
   @VisibleForTesting
   public List<Chunk<T>> getChunkList() {
-    return chunkList;
+    return new ArrayList<>(chunkMap.values());
   }
 
   @Override
   public Map<String, FieldType> getSchema() {
     Map<String, FieldType> schema = new HashMap<>();
-    chunkList.forEach(chunk -> schema.putAll(chunk.getSchema()));
+    chunkMap.values().forEach(chunk -> schema.putAll(chunk.getSchema()));
     return Collections.unmodifiableMap(schema);
   }
 }

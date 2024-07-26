@@ -672,7 +672,7 @@ public class IndexingChunkManagerTest {
     // Contains messages 1-10
     @SuppressWarnings("OptionalGetWithoutIsPresent")
     String firstChunkId =
-        chunkManager.chunkList.stream()
+        chunkManager.chunkMap.values().stream()
             .filter(c -> !c.id().equals(activeChunkId))
             .findFirst()
             .get()
