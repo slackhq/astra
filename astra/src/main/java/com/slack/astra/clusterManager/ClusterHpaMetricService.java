@@ -119,6 +119,7 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
 
       long totalCacheNodeCapacityBytes =
           cacheNodeMetadataStore.listSync().stream()
+              .filter(metadata -> metadata.getReplicaSet().equals(replicaSet))
               .mapToLong(node -> node.nodeCapacityBytes)
               .sum();
       long totalDemandBytes =
