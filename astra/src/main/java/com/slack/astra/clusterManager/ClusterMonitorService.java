@@ -101,6 +101,18 @@ public class ClusterMonitorService extends AbstractScheduledService {
     meterRegistry.gauge(
         "cached_recovery_nodes_size", recoveryNodeMetadataStore, store -> store.listSync().size());
 
+    for (Metadata.CacheNodeAssignment.CacheNodeAssignmentState assignmentState :
+        Metadata.CacheNodeAssignment.CacheNodeAssignmentState.values()) {
+      meterRegistry.gauge(
+          "assignments_size",
+          List.of(Tag.of("assignmentState", assignmentState.toString())),
+          cacheNodeAssignmentStore,
+          store ->
+              store.listSync().stream()
+                  .filter(assignment -> assignment.state.equals(assignmentState))
+                  .count());
+    }
+
     for (String replicaSet :
         managerConfig.getCacheNodeAssignmentServiceConfig().getReplicaSetsList()) {
       meterRegistry.gauge(
