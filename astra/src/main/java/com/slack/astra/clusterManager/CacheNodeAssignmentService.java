@@ -69,7 +69,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   private final AstraMetadataStoreChangeListener<CacheNodeAssignment> cacheNodeAssignmentListener =
       this::assignmentListener;
 
-  protected static final Logger LOG = LoggerFactory.getLogger(ReplicaCreationService.class);
+  protected static final Logger LOG = LoggerFactory.getLogger(CacheNodeAssignment.class);
   private static final String NEW_BIN_PREFIX = "NEW_";
   @VisibleForTesting protected static int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
 
@@ -202,22 +202,22 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
               snapshotMetadataStore,
               currentAssignments,
               unassignedSnapshots,
-              cacheNodes);
+              cacheNodes,
+              2,
+              cacheNodesByLoadingAssignments(currentAssignments));
       int successfulAssignments =
           persistAssignments(
               cacheNodeAssignmentStore,
               newAssignments,
               replicaSet,
-              replicaMetadataBySnapshotId(replicas),
-              cacheNodesByLoadingAssignments(currentAssignments),
-              managerConfig.getCacheNodeAssignmentServiceConfig().getMaxConcurrentPerNode());
+              replicaMetadataBySnapshotId(replicas));
       int skippedAssignments = replicas.size() - successfulAssignments;
 
       assignmentCreateSucceeded.increment(successfulAssignments);
 
       long evictionDuration = assignmentTimer.stop(assignmentCreateTimer);
       LOG.info(
-          "Completed cache node assignments for {} - successfully assigned {} replicas ({} total snapshots), skipped {} out of {} replicas in {} ms",
+          "Completed cache node assignments for {} - successfully assigned {} replicas (out of {} unassigned snapshots), skipped {} out of {} replicas in {} ms",
           replicaSet,
           successfulAssignments,
           unassignedSnapshots.size(),
@@ -294,8 +294,8 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     int successfulEvictions = successCounter.get();
     int failedEvictions = replicaEvictions.size() - successfulEvictions;
 
-    assignmentCreateSucceeded.increment(successfulEvictions);
-    assignmentCreateFailed.increment(failedEvictions);
+    evictSucceeded.increment(successfulEvictions);
+    evictFailed.increment(failedEvictions);
 
     long evictionDuration = evictionTimer.stop(evictAssignmentTimer);
     LOG.info(
@@ -313,26 +313,18 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
    * @param cacheNodeAssignmentStore the store to persist cache node assignments
    * @param newAssignments a map of new assignments keyed by cache node ID
    * @param replicaSet the replica set for which to persist assignments
-   * @param maxConcurrentAssignments the maximum amount of assignments to create for each cache node
    * @return the number of successful assignments
    */
   private static int persistAssignments(
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
       Map<String, CacheNodeBin> newAssignments,
       String replicaSet,
-      Map<String, ReplicaMetadata> replicasBySnapshotId,
-      Map<String, Integer> cacheNodesByLoadingAssignments,
-      int maxConcurrentAssignments) {
+      Map<String, ReplicaMetadata> replicasBySnapshotId) {
     int numCreated = 0;
     for (Map.Entry<String, CacheNodeBin> entry : newAssignments.entrySet()) {
       String cacheNodeId = entry.getKey();
       for (SnapshotMetadata snapshot : entry.getValue().getSnapshots()) {
         if (cacheNodeId.startsWith(NEW_BIN_PREFIX)) {
-          continue;
-        }
-
-        if (cacheNodesByLoadingAssignments.containsKey(cacheNodeId)
-            && cacheNodesByLoadingAssignments.get(cacheNodeId) >= maxConcurrentAssignments) {
           continue;
         }
 
@@ -346,13 +338,6 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
                 snapshot.sizeInBytesOnDisk,
                 Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING);
         cacheNodeAssignmentStore.createSync(newAssignment);
-
-        if (cacheNodesByLoadingAssignments.containsKey(cacheNodeId)) {
-          cacheNodesByLoadingAssignments.compute(
-              cacheNodeId, (key, loadingAssignments) -> loadingAssignments + 1);
-        } else {
-          cacheNodesByLoadingAssignments.put(cacheNodeId, 1);
-        }
 
         numCreated++;
       }
@@ -370,6 +355,8 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
    * @param currentAssignments the current assignments of cache nodes to snapshots
    * @param snapshotsToAssign the list of snapshots to be assigned
    * @param existingCacheNodes the list of existing cache nodes
+   * @param maxConcurrentAssignments the maximum amount of assignments to create for each cache node
+   * @param loadingAssignmentsByCacheNodeId # of loading assignments, keyed by cache node id
    * @return a map of cache node bins keyed by cache node ID
    */
   @VisibleForTesting
@@ -378,14 +365,19 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
       SnapshotMetadataStore snapshotMetadataStore,
       List<CacheNodeAssignment> currentAssignments,
       List<SnapshotMetadata> snapshotsToAssign,
-      List<CacheNodeMetadata> existingCacheNodes) {
+      List<CacheNodeMetadata> existingCacheNodes,
+      int maxConcurrentAssignments,
+      Map<String, Integer> loadingAssignmentsByCacheNodeId) {
     int newBinsCreated = 0;
     Map<String, CacheNodeBin> cacheNodeBins = new HashMap<>();
 
     // Initialize bins with existing cache nodes
     for (CacheNodeMetadata cacheNodeMetadata : existingCacheNodes) {
-      cacheNodeBins.put(
-          cacheNodeMetadata.id, new CacheNodeBin(cacheNodeMetadata.nodeCapacityBytes));
+      CacheNodeBin newBin =
+          new CacheNodeBin(cacheNodeMetadata.id, cacheNodeMetadata.nodeCapacityBytes);
+      newBin.setNumLoadingSnapshots(
+          loadingAssignmentsByCacheNodeId.getOrDefault(cacheNodeMetadata.id, 0));
+      cacheNodeBins.put(cacheNodeMetadata.id, newBin);
     }
 
     // Add existing assignments to bins
@@ -401,19 +393,36 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     }
 
     // do first-fit packing for remaining snapshots
+    int numLoading = loadingAssignmentsByCacheNodeId.values().stream().mapToInt(a -> a).sum();
     for (SnapshotMetadata snapshot : snapshotsToAssign) {
+      if (numLoading >= maxConcurrentAssignments * cacheNodeBins.size()) {
+        break;
+      }
       boolean assigned = false;
       for (CacheNodeBin cacheNodeBin : cacheNodeBins.values()) {
+        if (cacheNodeBin.getNumLoadingSnapshots() >= maxConcurrentAssignments) {
+          continue;
+        }
         if (snapshot.sizeInBytesOnDisk <= cacheNodeBin.getRemainingCapacityBytes()) {
           cacheNodeBin.addSnapshot(snapshot);
           assigned = true;
+          numLoading += 1;
+          loadingAssignmentsByCacheNodeId.compute(
+              cacheNodeBin.getCacheNodeId(),
+              (_, numLoadingAssignments) -> {
+                if (numLoadingAssignments == null) {
+                  return 1;
+                }
+                return numLoadingAssignments + 1;
+              });
+
           break;
         }
       }
       if (!assigned) {
         // if no bin can fit current item -> create new bin
         String newBinKey = String.format(NEW_BIN_PREFIX + "%s", newBinsCreated);
-        CacheNodeBin newBin = new CacheNodeBin(snapshot.sizeInBytesOnDisk);
+        CacheNodeBin newBin = new CacheNodeBin(newBinKey, snapshot.sizeInBytesOnDisk);
 
         newBin.addSnapshot(snapshot);
         cacheNodeBins.put(newBinKey, newBin);
@@ -527,28 +536,37 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
 class CacheNodeBin {
   private long remainingCapacityBytes;
   private final List<SnapshotMetadata> snapshots;
-  private final long totalCapacityBytes;
+  private int numLoadingSnapshots;
+  private String cacheNodeId;
 
-  public CacheNodeBin(long totalCapacityBytes) {
+  public CacheNodeBin(String cacheNodeId, long totalCapacityBytes) {
     this.remainingCapacityBytes = totalCapacityBytes;
     this.snapshots = new ArrayList<>();
-    this.totalCapacityBytes = totalCapacityBytes;
-  }
-
-  public long getTotalCapacityBytes() {
-    return totalCapacityBytes;
+    this.cacheNodeId = cacheNodeId;
   }
 
   public long getRemainingCapacityBytes() {
     return remainingCapacityBytes;
   }
 
-  public void subtractFromSize(long sizeToSubtract) {
-    this.remainingCapacityBytes -= sizeToSubtract;
+  public String getCacheNodeId() {
+    return cacheNodeId;
   }
 
   public List<SnapshotMetadata> getSnapshots() {
     return snapshots;
+  }
+
+  public int getNumLoadingSnapshots() {
+    return numLoadingSnapshots;
+  }
+
+  public void setNumLoadingSnapshots(int numLoadingSnapshots) {
+    this.numLoadingSnapshots = numLoadingSnapshots;
+  }
+
+  public void subtractFromSize(long sizeToSubtract) {
+    this.remainingCapacityBytes -= sizeToSubtract;
   }
 
   public void addSnapshot(SnapshotMetadata snapshot) {
