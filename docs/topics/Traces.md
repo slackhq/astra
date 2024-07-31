@@ -13,7 +13,7 @@ In order to render traces using the [Zipkin compatible API](API-zipkin.md), the 
 <def title="trace_id">Unique trace ID</def>
 <def title="service_name">String identifying producing service</def>
 <def title="name">String identifying the span</def>
-<def title="duration">Duration in milliseconds</def>
+<def title="duration">Duration in microseconds</def>
 </deflist>
 
 
