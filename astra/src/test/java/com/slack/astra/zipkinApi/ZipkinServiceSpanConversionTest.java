@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.Test;
 
 public class ZipkinServiceSpanConversionTest {
@@ -21,7 +23,7 @@ public class ZipkinServiceSpanConversionTest {
       Instant ts,
       String traceId,
       Optional<String> parentId,
-      long duration,
+      Object duration,
       String serviceName,
       String name) {
     Map<String, Object> fieldMap = new HashMap<>();
@@ -36,7 +38,7 @@ public class ZipkinServiceSpanConversionTest {
   private static List<LogWireMessage> generateLogWireMessagesForOneTrace(
       Instant time, int count, String traceId) {
     List<LogWireMessage> messages = new ArrayList<>();
-    for (int i = 1; i <= count; i++) {
+    for (long i = 1; i <= count; i++) {
       String parentId = null;
       if (i > 1) {
         parentId = String.valueOf(i - 1);
@@ -68,5 +70,22 @@ public class ZipkinServiceSpanConversionTest {
     assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
 
     assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(new ArrayList<>())).isEqualTo("[]");
+  }
+
+  @Test
+  public void testLogWireMessageToZipkinSpanWithIntDurationConversion()
+      throws JsonProcessingException {
+    Instant time = Instant.now();
+    List<LogWireMessage> messages;
+    int duration = 10;
+    LogWireMessage logWireMessage = makeWireMessageForSpans("na", time, "na", Optional.empty(), duration, "na", "na");
+    messages = Lists.newArrayList(logWireMessage);
+
+    // follows output format from https://zipkin.io/zipkin-api/#/default/get_trace__traceId_
+    String output =
+        String.format(
+            "[{\"duration\":10,\"id\":\"na\",\"name\":\"na\",\"remoteEndpoint\":{\"serviceName\":\"na\"},\"timestamp\":%d,\"traceId\":\"na\"}]",
+            ZipkinService.convertToMicroSeconds(time));
+    assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
   }
 }
