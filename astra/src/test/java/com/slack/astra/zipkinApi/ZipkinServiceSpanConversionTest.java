@@ -38,7 +38,7 @@ public class ZipkinServiceSpanConversionTest {
   private static List<LogWireMessage> generateLogWireMessagesForOneTrace(
       Instant time, int count, String traceId) {
     List<LogWireMessage> messages = new ArrayList<>();
-    for (long i = 1; i <= count; i++) {
+    for (int i = 1; i <= count; i++) {
       String parentId = null;
       if (i > 1) {
         parentId = String.valueOf(i - 1);
@@ -73,19 +73,20 @@ public class ZipkinServiceSpanConversionTest {
   }
 
   @Test
-  public void testLogWireMessageToZipkinSpanWithIntDurationConversion()
+  public void testLogWireMessageToZipkinSpanWithIntOrLongForDuration()
       throws JsonProcessingException {
     Instant time = Instant.now();
     List<LogWireMessage> messages;
     int duration = 10;
-    LogWireMessage logWireMessage = makeWireMessageForSpans("na", time, "na", Optional.empty(), duration, "na", "na");
-    messages = Lists.newArrayList(logWireMessage);
+    LogWireMessage logWireMessageInt = makeWireMessageForSpans("na", time, "na", Optional.empty(), duration, "na", "na");
+    LogWireMessage logWireMessageWithLong = makeWireMessageForSpans("na", time, "na", Optional.empty(), (long) duration, "na", "na");
+    messages = Lists.newArrayList(logWireMessageInt, logWireMessageWithLong);
 
     // follows output format from https://zipkin.io/zipkin-api/#/default/get_trace__traceId_
     String output =
         String.format(
-            "[{\"duration\":10,\"id\":\"na\",\"name\":\"na\",\"remoteEndpoint\":{\"serviceName\":\"na\"},\"timestamp\":%d,\"traceId\":\"na\"}]",
-            ZipkinService.convertToMicroSeconds(time));
+            "[{\"duration\":10,\"id\":\"na\",\"name\":\"na\",\"remoteEndpoint\":{\"serviceName\":\"na\"},\"timestamp\":%d,\"traceId\":\"na\"},{\"duration\":10,\"id\":\"na\",\"name\":\"na\",\"remoteEndpoint\":{\"serviceName\":\"na\"},\"timestamp\":%d,\"traceId\":\"na\"}]",
+            ZipkinService.convertToMicroSeconds(time), ZipkinService.convertToMicroSeconds(time));
     assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
   }
 }
