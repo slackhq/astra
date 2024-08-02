@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
 import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.Test;
 
@@ -78,8 +77,10 @@ public class ZipkinServiceSpanConversionTest {
     Instant time = Instant.now();
     List<LogWireMessage> messages;
     int duration = 10;
-    LogWireMessage logWireMessageInt = makeWireMessageForSpans("na", time, "na", Optional.empty(), duration, "na", "na");
-    LogWireMessage logWireMessageWithLong = makeWireMessageForSpans("na", time, "na", Optional.empty(), (long) duration, "na", "na");
+    LogWireMessage logWireMessageInt =
+        makeWireMessageForSpans("na", time, "na", Optional.empty(), duration, "na", "na");
+    LogWireMessage logWireMessageWithLong =
+        makeWireMessageForSpans("na", time, "na", Optional.empty(), (long) duration, "na", "na");
     messages = Lists.newArrayList(logWireMessageInt, logWireMessageWithLong);
 
     // follows output format from https://zipkin.io/zipkin-api/#/default/get_trace__traceId_
