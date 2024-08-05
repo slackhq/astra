@@ -2,6 +2,7 @@ package com.slack.astra.metadata.core;
 
 import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.astra.util.RuntimeHalterImpl;
 import java.io.Closeable;
 import java.util.List;
@@ -11,6 +12,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -44,6 +47,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private final Map<AstraMetadataStoreChangeListener<T>, ModeledCacheListener<T>> listenerMap =
       new ConcurrentHashMap<>();
 
+  private final ExecutorService cacheInitializedService;
+  private final ModeledCacheListener<T> initializedListener = getCacheInitializedListener();
+
   public AstraMetadataStore(
       AsyncCuratorFramework curator,
       CreateMode createMode,
@@ -64,11 +70,15 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     modeledClient = ModeledFramework.wrap(curator, modelSpec);
 
     if (shouldCache) {
+      cacheInitializedService =
+          Executors.newSingleThreadExecutor(
+              new ThreadFactoryBuilder().setNameFormat("cache-initialized-service-%d").build());
       cachedModeledFramework = modeledClient.cached();
-      cachedModeledFramework.listenable().addListener(getCacheInitializedListener());
+      cachedModeledFramework.listenable().addListener(initializedListener, cacheInitializedService);
       cachedModeledFramework.start();
     } else {
       cachedModeledFramework = null;
+      cacheInitializedService = null;
     }
   }
 
@@ -204,7 +214,12 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private void awaitCacheInitialized() {
     try {
-      cacheInitialized.await();
+      if (!cacheInitialized.await(30, TimeUnit.SECONDS)) {
+        // in the event we deadlock, go ahead and time this out at 30s and restart the pod
+        new RuntimeHalterImpl()
+            .handleFatal(
+                new TimeoutException("Timed out waiting for Zookeeper cache to initialize"));
+      }
     } catch (InterruptedException e) {
       new RuntimeHalterImpl().handleFatal(e);
     }
@@ -221,6 +236,14 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       public void initialized() {
         ModeledCacheListener.super.initialized();
         cacheInitialized.countDown();
+
+        // after it's initialized, we no longer need the listener or executor
+        if (cachedModeledFramework != null) {
+          cachedModeledFramework.listenable().removeListener(initializedListener);
+        }
+        if (cacheInitializedService != null) {
+          cacheInitializedService.shutdown();
+        }
       }
     };
   }
