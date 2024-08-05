@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.Test;
 
 public class ZipkinServiceSpanConversionTest {
@@ -21,7 +22,7 @@ public class ZipkinServiceSpanConversionTest {
       Instant ts,
       String traceId,
       Optional<String> parentId,
-      long duration,
+      Object duration,
       String serviceName,
       String name) {
     Map<String, Object> fieldMap = new HashMap<>();
@@ -68,5 +69,25 @@ public class ZipkinServiceSpanConversionTest {
     assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
 
     assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(new ArrayList<>())).isEqualTo("[]");
+  }
+
+  @Test
+  public void testLogWireMessageToZipkinSpanWithIntOrLongForDuration()
+      throws JsonProcessingException {
+    Instant time = Instant.now();
+    List<LogWireMessage> messages;
+    int duration = 10;
+    LogWireMessage logWireMessageInt =
+        makeWireMessageForSpans("na", time, "na", Optional.empty(), duration, "na", "na");
+    LogWireMessage logWireMessageWithLong =
+        makeWireMessageForSpans("na", time, "na", Optional.empty(), (long) duration, "na", "na");
+    messages = Lists.newArrayList(logWireMessageInt, logWireMessageWithLong);
+
+    // follows output format from https://zipkin.io/zipkin-api/#/default/get_trace__traceId_
+    String output =
+        String.format(
+            "[{\"duration\":10,\"id\":\"na\",\"name\":\"na\",\"remoteEndpoint\":{\"serviceName\":\"na\"},\"timestamp\":%d,\"traceId\":\"na\"},{\"duration\":10,\"id\":\"na\",\"name\":\"na\",\"remoteEndpoint\":{\"serviceName\":\"na\"},\"timestamp\":%d,\"traceId\":\"na\"}]",
+            ZipkinService.convertToMicroSeconds(time), ZipkinService.convertToMicroSeconds(time));
+    assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
   }
 }

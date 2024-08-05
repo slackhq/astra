@@ -78,7 +78,7 @@ public class ZipkinService {
         } else if (LogMessage.ReservedField.SERVICE_NAME.fieldName.equals(k)) {
           serviceName = (String) value;
         } else if (LogMessage.ReservedField.DURATION.fieldName.equals(k)) {
-          duration = (Long) value;
+          duration = ((Number) value).longValue();
         } else if (LogMessage.ReservedField.ID.fieldName.equals(k)) {
           id = (String) value;
         } else {
