@@ -184,9 +184,9 @@ public class ClusterMonitorService extends AbstractScheduledService {
             .map(
                 cacheNodeMetadata ->
                     MultiGauge.Row.of(
-                        Tags.of(Tag.of("pod", cacheNodeMetadata.getName())),
+                        Tags.of(Tag.of("pod", cacheNodeMetadata.hostname)),
                         cacheNodeIdToLiveChunksPerPod.computeIfAbsent(
-                            cacheNodeMetadata.getName(),
+                            cacheNodeMetadata.hostname,
                             (_) -> new AtomicInteger(calculateLiveChunks(cacheNodeMetadata.id)))))
             .collect(Collectors.toUnmodifiableList()),
         true);
@@ -196,9 +196,9 @@ public class ClusterMonitorService extends AbstractScheduledService {
             .map(
                 cacheNodeMetadata ->
                     MultiGauge.Row.of(
-                        Tags.of(Tag.of("pod", cacheNodeMetadata.getName())),
+                        Tags.of(Tag.of("pod", cacheNodeMetadata.hostname)),
                         cacheNodeIdToFreeSpaceBytes.computeIfAbsent(
-                            cacheNodeMetadata.getName(),
+                            cacheNodeMetadata.hostname,
                             (_) -> new AtomicLong(calculateFreeSpaceForPod(cacheNodeMetadata.id)))))
             .collect(Collectors.toUnmodifiableList()),
         true);
@@ -236,7 +236,7 @@ public class ClusterMonitorService extends AbstractScheduledService {
               TimeUnit.SECONDS);
     } else {
       LOG.info(
-          "Cache node assignment task already scheduled, will run in {} ms",
+          "Cluster monitor task already scheduled, will run in {} ms",
           pendingTask.getDelay(TimeUnit.MILLISECONDS));
     }
   }

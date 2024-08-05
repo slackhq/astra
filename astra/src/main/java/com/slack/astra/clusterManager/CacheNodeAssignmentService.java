@@ -46,9 +46,8 @@ import org.slf4j.LoggerFactory;
  * Service responsible for managing the assignment & cleanup of replicas to cache nodes.
  *
  * <p>Periodically assign replicas to cache nodes based on the configured replica sets. It fetches
- * metadata from various stores, performs the assignments, and calculates HPA (Horizontal Pod
- * Autoscaler) metrics for capacity management. Metrics are tracked for assignment and eviction
- * operations.
+ * metadata from various stores, calculates the assignments, and persists them in ZK. Metrics are
+ * tracked for assignment and eviction operations.
  */
 public class CacheNodeAssignmentService extends AbstractScheduledService {
   private ScheduledFuture<?> pendingTask;
@@ -69,7 +68,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   private final AstraMetadataStoreChangeListener<CacheNodeAssignment> cacheNodeAssignmentListener =
       this::assignmentListener;
 
-  protected static final Logger LOG = LoggerFactory.getLogger(ReplicaCreationService.class);
+  protected static final Logger LOG = LoggerFactory.getLogger(CacheNodeAssignmentService.class);
   private static final String NEW_BIN_PREFIX = "NEW_";
   @VisibleForTesting protected static int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
 
@@ -294,8 +293,8 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     int successfulEvictions = successCounter.get();
     int failedEvictions = replicaEvictions.size() - successfulEvictions;
 
-    assignmentCreateSucceeded.increment(successfulEvictions);
-    assignmentCreateFailed.increment(failedEvictions);
+    evictSucceeded.increment(successfulEvictions);
+    evictFailed.increment(failedEvictions);
 
     long evictionDuration = evictionTimer.stop(evictAssignmentTimer);
     LOG.info(
