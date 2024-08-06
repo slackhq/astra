@@ -88,7 +88,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
     cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
-    cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework);
+    cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework, cacheNodeId);
     cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
 
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
