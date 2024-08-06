@@ -4,6 +4,7 @@ import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
 import com.slack.astra.proto.metadata.Metadata;
+import java.util.List;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
 
@@ -16,6 +17,16 @@ public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<Cac
         CreateMode.PERSISTENT,
         new CacheNodeAssignmentSerializer().toModelSerializer(),
         CACHE_NODE_ASSIGNMENT_STORE_ZK_PATH);
+  }
+
+  /** Restricts the cache node assignment store to only watching events for cacheNodeId */
+  public CacheNodeAssignmentStore(AsyncCuratorFramework curator, String cacheNodeId) {
+    super(
+        curator,
+        CreateMode.PERSISTENT,
+        new CacheNodeAssignmentSerializer().toModelSerializer(),
+        CACHE_NODE_ASSIGNMENT_STORE_ZK_PATH,
+        List.of(cacheNodeId));
   }
 
   public ListenableFuture<?> updateAssignmentState(
