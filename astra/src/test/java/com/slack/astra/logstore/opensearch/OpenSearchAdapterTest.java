@@ -482,7 +482,7 @@ public class OpenSearchAdapterTest {
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
     Query idQuery =
         openSearchAdapter.buildQuery(
-            "foo", STR."\{idField}:\{idValue}", null, null, indexSearcher, null);
+            "foo", String.format("%s:%s", idField, idValue), null, null, indexSearcher, null);
     BytesRef queryStrBytes = new BytesRef(Uid.encodeId("1").bytes);
     // idQuery.toString="#_id:([fe 1f])"
     // queryStrBytes.toString="[fe 1f]"
