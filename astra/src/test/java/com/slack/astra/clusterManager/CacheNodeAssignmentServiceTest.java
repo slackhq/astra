@@ -1,6 +1,7 @@
 package com.slack.astra.clusterManager;
 
 import static com.slack.astra.clusterManager.CacheNodeAssignmentService.assign;
+import static com.slack.astra.clusterManager.CacheNodeAssignmentService.sortSnapshotsByReplicaCreationTime;
 import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -25,6 +26,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -387,10 +390,10 @@ public class CacheNodeAssignmentServiceTest {
         assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(3);
-    assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
+    assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots())).contains("snapshot1");
+    assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots()))
         .contains("snapshot0", "snapshot2");
-    assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots())).contains("snapshot3");
-    assertThat(snapshotsToSnapshotIds(result.get("NEW_0").getSnapshots())).contains("snapshot1");
+    assertThat(snapshotsToSnapshotIds(result.get("NEW_0").getSnapshots())).contains("snapshot3");
   }
 
   /* Test Case 3: Multiple Small Items
@@ -410,11 +413,11 @@ public class CacheNodeAssignmentServiceTest {
 
     assertThat(result.size()).isEqualTo(3);
     assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
-        .contains("snapshot5", "snapshot6", "snapshot7");
+        .contains("snapshot2", "snapshot3", "snapshot4");
     assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots()))
-        .contains("snapshot8", "snapshot9");
+        .contains("snapshot0", "snapshot1");
     assertThat(snapshotsToSnapshotIds(result.get("node2").getSnapshots()))
-        .contains("snapshot3", "snapshot2", "snapshot1", "snapshot0", "snapshot4");
+        .contains("snapshot5", "snapshot6", "snapshot7", "snapshot8", "snapshot9");
   }
 
   /* Test Case 5: All Items Fit into One Bin
@@ -488,14 +491,14 @@ public class CacheNodeAssignmentServiceTest {
 
     assertThat(result.size()).isEqualTo(6);
     assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
-        .contains("snapshot1", "snapshot7");
-    assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots())).contains("snapshot3");
-    assertThat(snapshotsToSnapshotIds(result.get("node2").getSnapshots()))
-        .contains("snapshot0", "snapshot2", "snapshot5");
+        .contains("snapshot3", "snapshot5", "snapshot7");
+    assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots()))
+        .contains("snapshot0", "snapshot2");
+    assertThat(snapshotsToSnapshotIds(result.get("node2").getSnapshots())).contains("snapshot1");
   }
 
   @Test
-  public void testComplyWithMaxConcurrentAssignments() throws TimeoutException {
+  public void testComplyWithMaxConcurrentAssignments() {
     String name = "foo";
     for (int i = 0; i < 4; i++) {
       CacheNodeMetadata cacheNodeMetadata = new CacheNodeMetadata(name + i, "foo.com", 6, "rep1");
@@ -543,6 +546,179 @@ public class CacheNodeAssignmentServiceTest {
                 .map(assignment -> assignment.snapshotId)
                 .toList())
         .containsOnly("snapshot0", "snapshot1", "snapshot2", "snapshot3");
+  }
+
+  @Test
+  public void testAssignMostRecentSnapshotsFirst() {
+    String SNAPSHOT_ID_KEY = "snapshot_%s";
+    String CACHE_NODE_ID_KEY = "snapshot_%s";
+    for (int i = 0; i < 2; i++) {
+      CacheNodeMetadata cacheNodeMetadata =
+          new CacheNodeMetadata(String.format(CACHE_NODE_ID_KEY, i), "foo.com", 20, "rep1");
+      cacheNodeMetadataStore.createSync(cacheNodeMetadata);
+    }
+
+    Instant now = Instant.now();
+    for (int i = 0; i < 6; i++) {
+      SnapshotMetadata snapshotMetadata =
+          new SnapshotMetadata(
+              String.format(SNAPSHOT_ID_KEY, i),
+              String.format(SNAPSHOT_ID_KEY, i),
+              1L,
+              2L,
+              5L,
+              "abcd",
+              LOGS_LUCENE9,
+              10);
+      snapshotMetadataStore.createSync(snapshotMetadata);
+
+      ReplicaMetadata replicaMetadata =
+          new ReplicaMetadata(
+              "replica" + i,
+              String.format(SNAPSHOT_ID_KEY, i),
+              "rep1",
+              now.plus(15 * i, ChronoUnit.MINUTES).toEpochMilli(),
+              now.plus(15, ChronoUnit.MINUTES).toEpochMilli(),
+              false,
+              LOGS_LUCENE9);
+      replicaMetadataStore.createSync(replicaMetadata);
+    }
+
+    CacheNodeAssignmentService cacheNodeAssignmentService =
+        new CacheNodeAssignmentService(
+            meterRegistry,
+            managerConfig,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore,
+            cacheNodeAssignmentStore);
+
+    cacheNodeAssignmentService.runOneIteration();
+
+    await().until(() -> cacheNodeAssignmentStore.listSync().size() == 4);
+    Map<String, List<CacheNodeAssignment>> assignmentsByCacheNode =
+        cacheNodeAssignmentStore.listSync().stream()
+            .collect(Collectors.groupingBy(CacheNodeAssignment::getPartition));
+
+    // assert that assignments contain only 4 most recent snapshots
+    assertThat(
+            assignmentsByCacheNode.get(String.format(CACHE_NODE_ID_KEY, 0)).stream()
+                .map(assignment -> assignment.snapshotId)
+                .toList())
+        .containsExactlyInAnyOrder(
+            String.format(SNAPSHOT_ID_KEY, 0), String.format(SNAPSHOT_ID_KEY, 1));
+
+    assertThat(
+            assignmentsByCacheNode.get(String.format(CACHE_NODE_ID_KEY, 1)).stream()
+                .map(assignment -> assignment.snapshotId)
+                .toList())
+        .containsExactlyInAnyOrder(
+            String.format(SNAPSHOT_ID_KEY, 2), String.format(SNAPSHOT_ID_KEY, 3));
+  }
+
+  @Test
+  public void testSortSnapshotsByReplicaCreationTime() {
+    List<SnapshotMetadata> snapshots = new ArrayList<>();
+    Map<String, ReplicaMetadata> replicas = new HashMap<>();
+    String SNAPSHOT_ID_KEY = "snapshot_%s";
+
+    for (int i = 0; i < 4; i++) {
+      String snapshotId = String.format(SNAPSHOT_ID_KEY, i);
+      SnapshotMetadata snapshotMetadata =
+          new SnapshotMetadata(snapshotId, snapshotId, 1L, 2L, 10L, "abcd", LOGS_LUCENE9, 1);
+      snapshots.add(snapshotMetadata);
+
+      ReplicaMetadata replicaMetadata =
+          new ReplicaMetadata(
+              "replica" + i,
+              snapshotId,
+              "rep1",
+              10 + i,
+              Instant.now().plus(15, ChronoUnit.MINUTES).toEpochMilli(),
+              false,
+              LOGS_LUCENE9);
+      replicas.put(snapshotId, replicaMetadata);
+    }
+    Collections.shuffle(snapshots);
+
+    sortSnapshotsByReplicaCreationTime(snapshots, replicas);
+
+    assertThat(snapshots.stream().map(snapshot -> snapshot.snapshotId).toList())
+        .containsExactly(
+            String.format(SNAPSHOT_ID_KEY, 0),
+            String.format(SNAPSHOT_ID_KEY, 1),
+            String.format(SNAPSHOT_ID_KEY, 2),
+            String.format(SNAPSHOT_ID_KEY, 3));
+  }
+
+  @Test
+  public void testPacksMostEmptyBinsFirst() {
+    String SNAPSHOT_ID_KEY = "snapshot_%s";
+    String CACHE_NODE_ID_KEY = "snapshot_%s";
+
+    CacheNodeMetadata cacheNodeMetadata =
+        new CacheNodeMetadata(String.format(CACHE_NODE_ID_KEY, 0), "foo.com", 200, "rep1");
+    cacheNodeMetadataStore.createSync(cacheNodeMetadata);
+
+    CacheNodeMetadata cacheNodeMetadata2 =
+        new CacheNodeMetadata(String.format(CACHE_NODE_ID_KEY, 1), "foo.com", 20, "rep1");
+    cacheNodeMetadataStore.createSync(cacheNodeMetadata2);
+
+    Instant now = Instant.now();
+    for (int i = 0; i < 3; i++) {
+      SnapshotMetadata snapshotMetadata =
+          new SnapshotMetadata(
+              String.format(SNAPSHOT_ID_KEY, i),
+              String.format(SNAPSHOT_ID_KEY, i),
+              1L,
+              2L,
+              5L,
+              "abcd",
+              LOGS_LUCENE9,
+              10);
+      snapshotMetadataStore.createSync(snapshotMetadata);
+
+      ReplicaMetadata replicaMetadata =
+          new ReplicaMetadata(
+              "replica" + i,
+              String.format(SNAPSHOT_ID_KEY, i),
+              "rep1",
+              now.plus(15 * i, ChronoUnit.MINUTES).toEpochMilli(),
+              now.plus(15, ChronoUnit.MINUTES).toEpochMilli(),
+              false,
+              LOGS_LUCENE9);
+      replicaMetadataStore.createSync(replicaMetadata);
+    }
+
+    CacheNodeAssignmentService cacheNodeAssignmentService =
+        new CacheNodeAssignmentService(
+            meterRegistry,
+            managerConfig,
+            replicaMetadataStore,
+            cacheNodeMetadataStore,
+            snapshotMetadataStore,
+            cacheNodeAssignmentStore);
+
+    cacheNodeAssignmentService.runOneIteration();
+
+    await().until(() -> cacheNodeAssignmentStore.listSync().size() == 3);
+    Map<String, List<CacheNodeAssignment>> assignmentsByCacheNode =
+        cacheNodeAssignmentStore.listSync().stream()
+            .collect(Collectors.groupingBy(CacheNodeAssignment::getPartition));
+
+    // assert that bigger bin has 1 assignment & smaller bin has 2 assignments
+    assertThat(
+            assignmentsByCacheNode.get(String.format(CACHE_NODE_ID_KEY, 0)).stream()
+                .map(assignment -> assignment.snapshotId)
+                .toList())
+        .containsExactlyInAnyOrder(String.format(SNAPSHOT_ID_KEY, 2));
+
+    assertThat(
+            assignmentsByCacheNode.get(String.format(CACHE_NODE_ID_KEY, 1)).stream()
+                .map(assignment -> assignment.snapshotId)
+                .toList())
+        .containsExactlyInAnyOrder(
+            String.format(SNAPSHOT_ID_KEY, 0), String.format(SNAPSHOT_ID_KEY, 1));
   }
 
   private static void markAllAssignmentsLive(
