@@ -14,14 +14,17 @@ import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
+import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MultiCollectorManager;
@@ -53,6 +56,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   private final ReferenceManager.RefreshListener refreshListener;
 
+  private final boolean allowIncludeAndExcludeSource;
+
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
@@ -79,6 +84,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // initialize the adapter with whatever the default schema is
     openSearchAdapter.reloadSchema();
+    allowIncludeAndExcludeSource =
+        Boolean.parseBoolean(
+            System.getProperty("astra.query.allowIncludeAndExcludeSource", "false"));
   }
 
   @Override
@@ -89,7 +97,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       Long endTimeMsEpoch,
       int howMany,
       AggBuilder aggBuilder,
-      QueryBuilder queryBuilder) {
+      QueryBuilder queryBuilder,
+      AstraSearch.SearchRequest.FieldInclusion includeFields,
+      AstraSearch.SearchRequest.FieldInclusion excludeFields) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");
@@ -138,7 +148,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           ScoreDoc[] hits = ((TopFieldDocs) collector[0]).scoreDocs;
           results = new ArrayList<>(hits.length);
           for (ScoreDoc hit : hits) {
-            results.add(buildLogMessage(searcher, hit));
+            results.add(buildLogMessage(searcher, hit, includeFields, excludeFields));
           }
           if (aggBuilder != null) {
             internalAggregation = (InternalAggregation) collector[1];
@@ -164,17 +174,54 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     }
   }
 
-  private LogMessage buildLogMessage(IndexSearcher searcher, ScoreDoc hit) {
+  public boolean appliesToField(
+      AstraSearch.SearchRequest.FieldInclusion fieldInclusion, String fieldname) {
+    if (fieldInclusion.hasAll()) {
+      return fieldInclusion.getAll();
+    }
+
+    if (fieldInclusion.getFieldsMap().containsKey(fieldname)) {
+      return fieldInclusion.getFieldsMap().get(fieldname);
+    }
+
+    for (String wildcard : fieldInclusion.getWildcardsList()) {
+      if (fieldname.matches(wildcard)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private LogMessage buildLogMessage(
+      IndexSearcher searcher,
+      ScoreDoc hit,
+      AstraSearch.SearchRequest.FieldInclusion includeFields,
+      AstraSearch.SearchRequest.FieldInclusion excludeFields) {
     String s = "";
     try {
       s = searcher.doc(hit.doc).get(SystemField.SOURCE.fieldName);
       LogWireMessage wireMessage = JsonUtil.read(s, LogWireMessage.class);
+      Map<String, Object> source = wireMessage.getSource();
+
+      if (allowIncludeAndExcludeSource && includeFields != null) {
+        source =
+            wireMessage.getSource().keySet().stream()
+                .filter((key) -> appliesToField(includeFields, key))
+                .collect(Collectors.toMap((key) -> key, (key) -> wireMessage.getSource().get(key)));
+      } else if (allowIncludeAndExcludeSource && excludeFields != null) {
+        source =
+            wireMessage.getSource().keySet().stream()
+                .filter((key) -> !appliesToField(excludeFields, key))
+                .collect(Collectors.toMap((key) -> key, (key) -> wireMessage.getSource().get(key)));
+      }
+
       return new LogMessage(
           wireMessage.getIndex(),
           wireMessage.getType(),
           wireMessage.getId(),
           wireMessage.getTimestamp(),
-          wireMessage.getSource());
+          source);
     } catch (Exception e) {
       throw new IllegalStateException("Error fetching and parsing a result from index: " + s, e);
     }

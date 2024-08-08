@@ -153,6 +153,8 @@ public class RecoveryChunkImplTest {
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
+              null,
+              null,
               null));
 
       chunk.query(
@@ -165,6 +167,8 @@ public class RecoveryChunkImplTest {
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
+              null,
+              null,
               null));
 
       SearchResult<LogMessage> results =
@@ -178,6 +182,8 @@ public class RecoveryChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
+                  null,
+                  null,
                   null));
       assertThat(results.hits.size()).isEqualTo(10);
 
@@ -304,6 +310,8 @@ public class RecoveryChunkImplTest {
                           new DateHistogramAggBuilder(
                               "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                           Collections.emptyList(),
+                          null,
+                          null,
                           null))
                   .hits
                   .size())
@@ -336,6 +344,8 @@ public class RecoveryChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
+                  null,
+                  null,
                   null));
       assertThat(results.hits.size()).isEqualTo(1);
 
@@ -407,6 +417,8 @@ public class RecoveryChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
+                  null,
+                  null,
                   null));
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
@@ -424,6 +436,8 @@ public class RecoveryChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
+                  null,
+                  null,
                   null));
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
     }
@@ -604,6 +618,8 @@ public class RecoveryChunkImplTest {
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
+              null,
+              null,
               null);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
@@ -656,6 +672,8 @@ public class RecoveryChunkImplTest {
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
+              null,
+              null,
               null);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);

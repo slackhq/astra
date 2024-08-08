@@ -25,6 +25,7 @@ import com.slack.astra.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.astra.logstore.search.aggregations.SumAggBuilder;
 import com.slack.astra.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.astra.proto.schema.Schema;
+import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.service.murron.trace.Trace;
@@ -81,6 +82,458 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
+  public void testSearchWithIncludeFilters() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().putFields("message", true).build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                includeFields,
+                null)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource()).hasSize(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+    assertThat(messages.get(0).getSource().get("message"))
+        .isEqualTo("The identifier in this message is Message1");
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithIncludeFiltersWithWildcardAfter() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().addWildcards("messag.*").build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                includeFields,
+                null)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource()).hasSize(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+    assertThat(messages.get(0).getSource().get("message"))
+        .isEqualTo("The identifier in this message is Message1");
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithIncludeFiltersWithWildcardBefore() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().addWildcards(".*ssage").build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                includeFields,
+                null)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource()).hasSize(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+    assertThat(messages.get(0).getSource().get("message"))
+        .isEqualTo("The identifier in this message is Message1");
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithIncludeFilterAllTrue() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().setAll(true).build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                includeFields,
+                null)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithIncludeFilterAllFalse() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().setAll(false).build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                includeFields,
+                null)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isEqualTo(0);
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFilters() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().putFields("message", true).build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                null,
+                excludeFields)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isFalse();
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFiltersWithWildcardAfter() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().addWildcards(".*ssage").build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                null,
+                excludeFields)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isFalse();
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFiltersWithWildcardBefore() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().addWildcards(".*ssage").build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                null,
+                excludeFields)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isFalse();
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFilterAllTrue() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().setAll(true).build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                null,
+                excludeFields)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isEqualTo(0);
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFilterAllFalse() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(
+            getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+        .isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields =
+        AstraSearch.SearchRequest.FieldInclusion.newBuilder().setAll(false).build();
+
+    List<LogMessage> messages =
+        featureFlagEnabledStrictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                "Message1",
+                time.toEpochMilli(),
+                time.plusSeconds(10).toEpochMilli(),
+                1000,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                null,
+                null,
+                excludeFields)
+            .hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(0);
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
   public void testTimeBoundSearch() {
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -104,6 +557,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -121,6 +576,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -138,6 +595,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -155,6 +614,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -185,6 +646,8 @@ public class LogIndexSearcherImplTest {
                     100,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -201,6 +664,8 @@ public class LogIndexSearcherImplTest {
                     100,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -217,6 +682,8 @@ public class LogIndexSearcherImplTest {
                     100,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -233,6 +700,8 @@ public class LogIndexSearcherImplTest {
                     100,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -252,6 +721,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(babies.hits.size()).isEqualTo(1);
 
@@ -285,6 +756,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
@@ -297,6 +770,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(noTermStrQuery.hits.size()).isEqualTo(1);
 
@@ -309,6 +784,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(noTermNumericQuery.hits.size()).isEqualTo(1);
   }
@@ -336,6 +813,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
@@ -348,6 +827,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(noTermStrQuery.hits.size()).isEqualTo(1);
 
@@ -360,6 +841,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(noTermNumericQuery.hits.size()).isEqualTo(1);
   }
@@ -393,6 +876,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(exists.hits.size()).isEqualTo(1);
 
@@ -405,6 +890,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
@@ -417,6 +904,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(notExists.hits.size()).isEqualTo(0);
   }
@@ -458,6 +947,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(rangeBoundInclusive.hits.size()).isEqualTo(3);
 
@@ -470,6 +961,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(rangeBoundExclusive.hits.size()).isEqualTo(1);
   }
@@ -528,6 +1021,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(boolquery.hits.size()).isEqualTo(1);
 
@@ -540,6 +1035,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(intquery.hits.size()).isEqualTo(1);
 
@@ -552,6 +1049,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(longquery.hits.size()).isEqualTo(1);
 
@@ -564,6 +1063,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(floatquery.hits.size()).isEqualTo(1);
 
@@ -576,6 +1077,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(doublequery.hits.size()).isEqualTo(1);
   }
@@ -594,6 +1097,8 @@ public class LogIndexSearcherImplTest {
             2,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(apples.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("Message5", "Message3"));
@@ -626,6 +1131,8 @@ public class LogIndexSearcherImplTest {
             2,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(baby.hits.size()).isEqualTo(1);
     assertThat(baby.hits.get(0).getId()).isEqualTo("Message2");
@@ -649,6 +1156,8 @@ public class LogIndexSearcherImplTest {
         time.plusSeconds(10).toEpochMilli(),
         2,
         new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+        null,
+        null,
         null);
 
     // Commit but no refresh. Item is still not available for search.
@@ -666,6 +1175,8 @@ public class LogIndexSearcherImplTest {
         time.plusSeconds(10).toEpochMilli(),
         2,
         new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+        null,
+        null,
         null);
 
     // Car can be searched after refresh.
@@ -683,6 +1194,8 @@ public class LogIndexSearcherImplTest {
         time.plusSeconds(10).toEpochMilli(),
         2,
         new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+        null,
+        null,
         null);
 
     // Add another message to search, refresh but don't commit.
@@ -704,6 +1217,8 @@ public class LogIndexSearcherImplTest {
             2,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(babies.hits.size()).isEqualTo(2);
     assertThat(babies.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
@@ -730,6 +1245,8 @@ public class LogIndexSearcherImplTest {
             1000,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -758,6 +1275,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, null),
+            null,
+            null,
             null);
     assertThat(((InternalAvg) scriptNull.internalAggregation).value()).isEqualTo(3.25);
 
@@ -769,6 +1288,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, ""),
+            null,
+            null,
             null);
     assertThat(((InternalAvg) scriptEmpty.internalAggregation).value()).isEqualTo(3.25);
 
@@ -780,6 +1301,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, "return 9;"),
+            null,
+            null,
             null);
     assertThat(((InternalAvg) scripted.internalAggregation).value()).isEqualTo(9);
   }
@@ -814,6 +1337,8 @@ public class LogIndexSearcherImplTest {
                                 LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
                                 time.plusSeconds(2).toEpochMilli()),
                             true))),
+            null,
+            null,
             null);
 
     assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().size()).isEqualTo(2);
@@ -843,6 +1368,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new MinAggBuilder("test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null),
+            null,
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -866,6 +1393,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new MaxAggBuilder("test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null),
+            null,
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -891,6 +1420,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new SumAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null),
+            null,
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -915,6 +1446,8 @@ public class LogIndexSearcherImplTest {
             MAX_TIME,
             1000,
             new ExtendedStatsAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null, null),
+            null,
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -947,6 +1480,8 @@ public class LogIndexSearcherImplTest {
             1000,
             new TermsAggBuilder(
                 "1", List.of(), TEST_SOURCE_STRING_PROPERTY, "foo", 10, 0, Map.of("_count", "asc")),
+            null,
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -993,6 +1528,8 @@ public class LogIndexSearcherImplTest {
                         null),
                     new MovingAvgAggBuilder("movAvgCount", "_count", "simple", 2, 1))),
             List.of(),
+            null,
+            null,
             null);
 
     SearchResult<LogMessage> allIndexItems =
@@ -1003,7 +1540,9 @@ public class LogIndexSearcherImplTest {
             query.endTimeEpochMs,
             query.howMany,
             query.aggBuilder,
-            query.queryBuilder);
+            query.queryBuilder,
+            query.includeFields,
+            query.excludeFields);
 
     SearchResultAggregatorImpl<LogMessage> aggregator = new SearchResultAggregatorImpl<>(query);
     SearchResult<LogMessage> allIndexItemsFinal =
@@ -1052,6 +1591,8 @@ public class LogIndexSearcherImplTest {
             1000,
             new TermsAggBuilder(
                 "1", List.of(), "thisFieldDoesNotExist", "foo", 10, 0, Map.of("_count", "asc")),
+            null,
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -1087,6 +1628,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1103,6 +1646,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1124,6 +1669,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1139,6 +1686,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1155,6 +1704,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1170,6 +1721,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1190,6 +1743,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1205,6 +1760,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1221,6 +1778,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1236,6 +1795,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1253,6 +1814,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1269,6 +1832,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1286,6 +1851,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1303,6 +1870,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1319,6 +1888,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1357,6 +1928,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1373,6 +1946,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1391,6 +1966,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1407,6 +1984,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1423,6 +2002,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1440,6 +2021,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1456,6 +2039,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1473,6 +2058,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1490,6 +2077,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1506,6 +2095,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null)
                 .hits
                 .size())
@@ -1528,6 +2119,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null));
   }
 
@@ -1546,6 +2139,8 @@ public class LogIndexSearcherImplTest {
             1000,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
@@ -1575,6 +2170,8 @@ public class LogIndexSearcherImplTest {
             1000,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(elephants.hits.size()).isEqualTo(0);
 
@@ -1595,6 +2192,8 @@ public class LogIndexSearcherImplTest {
             time.plusSeconds(10).toEpochMilli(),
             100,
             null,
+            null,
+            null,
             null);
     assertThat(results.hits.size()).isEqualTo(2);
     assertThat(results.internalAggregation).isNull();
@@ -1613,6 +2212,8 @@ public class LogIndexSearcherImplTest {
             0,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(babies.hits.size()).isEqualTo(0);
 
@@ -1647,6 +2248,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null));
   }
 
@@ -1665,6 +2268,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null));
   }
 
@@ -1683,6 +2288,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null));
   }
 
@@ -1701,6 +2308,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null));
   }
 
@@ -1719,6 +2328,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null));
   }
 
@@ -1735,6 +2346,8 @@ public class LogIndexSearcherImplTest {
                     time.toEpochMilli(),
                     time.plusSeconds(1).toEpochMilli(),
                     0,
+                    null,
+                    null,
                     null,
                     null));
   }
@@ -1754,6 +2367,8 @@ public class LogIndexSearcherImplTest {
                     -1,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null));
   }
 
@@ -1772,6 +2387,8 @@ public class LogIndexSearcherImplTest {
                     1,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "-1s"),
+                    null,
+                    null,
                     null));
   }
 
@@ -1790,6 +2407,8 @@ public class LogIndexSearcherImplTest {
                     1,
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
                     null));
   }
 
@@ -1816,6 +2435,8 @@ public class LogIndexSearcherImplTest {
                       100,
                       new DateHistogramAggBuilder(
                           "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                      null,
+                      null,
                       null);
               if (babies.hits.size() != 2) {
                 searchFailures.addAndGet(1);
@@ -1853,6 +2474,8 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
     assertThat(index.hits.size()).isEqualTo(1);
   }

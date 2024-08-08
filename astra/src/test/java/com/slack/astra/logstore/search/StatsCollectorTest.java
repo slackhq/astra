@@ -54,6 +54,8 @@ public class StatsCollectorTest {
             0,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            null,
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
