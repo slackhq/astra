@@ -25,6 +25,7 @@ import com.slack.astra.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.astra.logstore.search.aggregations.SumAggBuilder;
 import com.slack.astra.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.astra.proto.schema.Schema;
+import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.service.murron.trace.Trace;
@@ -78,6 +79,425 @@ public class LogIndexSearcherImplTest {
 
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
+  }
+
+  @Test
+  public void testSearchWithIncludeFilters() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .putFields("message", true)
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+                    .logSearcher
+                    .search(
+                            TEST_DATASET_NAME,
+                            "Message1",
+                            time.toEpochMilli(),
+                            time.plusSeconds(10).toEpochMilli(),
+                            1000,
+                            new DateHistogramAggBuilder(
+                                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                            null,
+                            includeFields,
+                            null).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource()).hasSize(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+    assertThat(messages.get(0).getSource().get("message")).isEqualTo("The identifier in this message is Message1");
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithIncludeFiltersWithWildcardAfter() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .addWildcards("messag.*")
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+            .logSearcher
+            .search(
+                    TEST_DATASET_NAME,
+                    "Message1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    includeFields,
+                    null).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource()).hasSize(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+    assertThat(messages.get(0).getSource().get("message")).isEqualTo("The identifier in this message is Message1");
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithIncludeFiltersWithWildcardBefore() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .addWildcards(".*ssage")
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+            .logSearcher
+            .search(
+                    TEST_DATASET_NAME,
+                    "Message1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    includeFields,
+                    null).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource()).hasSize(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+    assertThat(messages.get(0).getSource().get("message")).isEqualTo("The identifier in this message is Message1");
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithIncludeFilterAllTrue() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .setAll(true)
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+            .logSearcher
+            .search(
+                    TEST_DATASET_NAME,
+                    "Message1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    includeFields,
+                    null).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithIncludeFilterAllFalse() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion includeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .setAll(false)
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+            .logSearcher
+            .search(
+                    TEST_DATASET_NAME,
+                    "Message1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    includeFields,
+                    null).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isEqualTo(0);
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFilters() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .putFields("message", true)
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+            .logSearcher
+            .search(
+                    TEST_DATASET_NAME,
+                    "Message1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
+                    excludeFields).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isFalse();
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFiltersWithWildcardAfter() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .addWildcards(".*ssage")
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+            .logSearcher
+            .search(
+                    TEST_DATASET_NAME,
+                    "Message1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
+                    excludeFields).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isFalse();
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFiltersWithWildcardBefore() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .addWildcards(".*ssage")
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+            .logSearcher
+            .search(
+                    TEST_DATASET_NAME,
+                    "Message1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
+                    excludeFields).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
+    assertThat(messages.get(0).getSource().containsKey("message")).isFalse();
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFilterAllTrue() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .setAll(true)
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+            .logSearcher
+            .search(
+                    TEST_DATASET_NAME,
+                    "Message1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
+                    excludeFields).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isEqualTo(0);
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
+  }
+
+  @Test
+  public void testSearchWithExcludeFilterAllFalse() throws IOException {
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
+
+    TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+            new TemporaryLogStoreAndSearcherExtension(true);
+
+    Instant time = Instant.now();
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(100)));
+    featureFlagEnabledStrictLogStore.logStore.commit();
+    featureFlagEnabledStrictLogStore.logStore.refresh();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(0);
+    assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry)).isEqualTo(1);
+
+    AstraSearch.SearchRequest.FieldInclusion excludeFields = AstraSearch.SearchRequest.FieldInclusion
+            .newBuilder()
+            .setAll(false)
+            .build();
+
+    List<LogMessage> messages = featureFlagEnabledStrictLogStore
+            .logSearcher
+            .search(
+                    TEST_DATASET_NAME,
+                    "Message1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                    null,
+                    null,
+                    excludeFields).hits;
+    assertThat(messages).hasSize(1);
+    assertThat(messages.get(0).getSource().size()).isGreaterThan(0);
+
+    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
