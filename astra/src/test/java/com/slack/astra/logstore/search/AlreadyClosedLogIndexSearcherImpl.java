@@ -2,8 +2,11 @@ package com.slack.astra.logstore.search;
 
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
+import com.slack.astra.proto.service.AstraSearch;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.opensearch.index.query.QueryBuilder;
+
+import java.util.Map;
 
 public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
@@ -14,7 +17,9 @@ public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMe
       Long maxTime,
       int howMany,
       AggBuilder aggBuilder,
-      QueryBuilder queryBuilder) {
+      QueryBuilder queryBuilder,
+      AstraSearch.SearchRequest.FieldInclusion includeFields,
+      AstraSearch.SearchRequest.FieldInclusion excludeFields) {
     throw new AlreadyClosedException("Failed to acquire an index searcher");
   }
 
