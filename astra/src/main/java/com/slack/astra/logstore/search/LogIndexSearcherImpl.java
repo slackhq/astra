@@ -181,12 +181,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       Map<String, Object> source = wireMessage.getSource();
 
       if (allowIncludeAndExcludeSource
+          && sourceFieldFilter != null
           && sourceFieldFilter.getFilterType() == SourceFieldFilter.FilterType.INCLUDE) {
         source =
             wireMessage.getSource().keySet().stream()
                 .filter(sourceFieldFilter::appliesToField)
                 .collect(Collectors.toMap((key) -> key, (key) -> wireMessage.getSource().get(key)));
       } else if (allowIncludeAndExcludeSource
+          && sourceFieldFilter != null
           && sourceFieldFilter.getFilterType() == SourceFieldFilter.FilterType.EXCLUDE) {
         source =
             wireMessage.getSource().keySet().stream()

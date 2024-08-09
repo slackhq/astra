@@ -42,11 +42,18 @@ public class SourceFieldFilter {
 
   public static SourceFieldFilter fromProto(
       AstraSearch.SearchRequest.SourceFieldFilter sourceFieldFilterProto) {
+    Optional<Boolean> includeAll = Optional.empty();
+    Optional<Boolean> excludeAll = Optional.empty();
+    if (sourceFieldFilterProto.hasIncludeAll()) {
+      includeAll = Optional.of(sourceFieldFilterProto.getIncludeAll());
+    }
+    if (sourceFieldFilterProto.hasExcludeAll()) {
+      excludeAll = Optional.of(sourceFieldFilterProto.getExcludeAll());
+    }
+
     return new SourceFieldFilter(
-        Optional.of(
-            sourceFieldFilterProto.hasIncludeAll() && sourceFieldFilterProto.getIncludeAll()),
-        Optional.of(
-            sourceFieldFilterProto.hasExcludeAll() && sourceFieldFilterProto.getExcludeAll()),
+        includeAll,
+        excludeAll,
         sourceFieldFilterProto.getIncludeFieldsMap(),
         sourceFieldFilterProto.getExcludeFieldsMap(),
         sourceFieldFilterProto.getIncludeWildcardsList(),
