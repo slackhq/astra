@@ -6,8 +6,6 @@ import com.slack.astra.proto.service.AstraSearch;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.opensearch.index.query.QueryBuilder;
 
-import java.util.Map;
-
 public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
   public SearchResult<LogMessage> search(

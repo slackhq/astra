@@ -168,8 +168,8 @@ public class ReadOnlyChunkImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
                 null,
-                    null,
-                    null));
+                null,
+                null));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
     await()
@@ -222,8 +222,8 @@ public class ReadOnlyChunkImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
                 null,
-                    null,
-                    null));
+                null,
+                null));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
 
@@ -438,8 +438,8 @@ public class ReadOnlyChunkImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             null,
-                null,
-                null);
+            null,
+            null);
     SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
@@ -583,8 +583,8 @@ public class ReadOnlyChunkImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
                 null,
-                    null,
-                    null));
+                null,
+                null));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
     // ensure we registered a search node for this cache assignment

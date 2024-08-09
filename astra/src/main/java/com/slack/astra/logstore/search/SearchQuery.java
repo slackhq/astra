@@ -1,10 +1,8 @@
 package com.slack.astra.logstore.search;
 
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
-import java.util.List;
-import java.util.Map;
-
 import com.slack.astra.proto.service.AstraSearch;
+import java.util.List;
 import org.opensearch.index.query.QueryBuilder;
 
 /** A class that represents a search query internally to LogStore. */

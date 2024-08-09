@@ -1,9 +1,8 @@
 package com.slack.astra.logstore.search;
 
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
-import java.io.Closeable;
-
 import com.slack.astra.proto.service.AstraSearch;
+import java.io.Closeable;
 import org.opensearch.index.query.QueryBuilder;
 
 public interface LogIndexSearcher<T> extends Closeable {

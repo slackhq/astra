@@ -35,7 +35,7 @@ public class OpenSearchRequestTest {
 
     OpenSearchRequest openSearchRequest = new OpenSearchRequest();
     List<AstraSearch.SearchRequest> parsedRequestList =
-            openSearchRequest.parseHttpPostBody(rawRequest);
+        openSearchRequest.parseHttpPostBody(rawRequest);
 
     assertThat(parsedRequestList.size()).isEqualTo(1);
 
@@ -53,7 +53,6 @@ public class OpenSearchRequestTest {
     assertThat(request.getIncludeFields().hasAll()).isTrue();
     assertThat(request.getIncludeFields().getAll()).isTrue();
 
-
     // Assert that the excludes fields are set correctly
     assertThat(request.getExcludeFields().getFieldsMap()).isEmpty();
     assertThat(request.getExcludeFields().getWildcardsCount()).isZero();
@@ -69,7 +68,7 @@ public class OpenSearchRequestTest {
 
     OpenSearchRequest openSearchRequest = new OpenSearchRequest();
     List<AstraSearch.SearchRequest> parsedRequestList =
-            openSearchRequest.parseHttpPostBody(rawRequest);
+        openSearchRequest.parseHttpPostBody(rawRequest);
 
     assertThat(parsedRequestList.size()).isEqualTo(1);
 
@@ -93,7 +92,6 @@ public class OpenSearchRequestTest {
     assertThat(request.getExcludeFields().getWildcardsCount()).isZero();
     assertThat(request.getExcludeFields().hasAll()).isFalse();
 
-
     JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
     assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());
   }
@@ -104,7 +102,7 @@ public class OpenSearchRequestTest {
 
     OpenSearchRequest openSearchRequest = new OpenSearchRequest();
     List<AstraSearch.SearchRequest> parsedRequestList =
-            openSearchRequest.parseHttpPostBody(rawRequest);
+        openSearchRequest.parseHttpPostBody(rawRequest);
 
     assertThat(parsedRequestList.size()).isEqualTo(1);
 
@@ -129,7 +127,6 @@ public class OpenSearchRequestTest {
     assertThat(request.getExcludeFields().getWildcardsCount()).isOne();
     assertThat(request.getExcludeFields().getWildcards(0)).isEqualTo("exclude_wildcard_test.*");
     assertThat(request.getExcludeFields().hasAll()).isFalse();
-
 
     JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
     assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());

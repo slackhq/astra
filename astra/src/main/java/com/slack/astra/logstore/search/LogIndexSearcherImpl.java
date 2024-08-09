@@ -174,7 +174,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     }
   }
 
-  public boolean appliesToField(AstraSearch.SearchRequest.FieldInclusion fieldInclusion, String fieldname) {
+  public boolean appliesToField(
+      AstraSearch.SearchRequest.FieldInclusion fieldInclusion, String fieldname) {
     if (fieldInclusion.hasAll()) {
       return fieldInclusion.getAll();
     }

@@ -5,8 +5,6 @@ import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.proto.service.AstraSearch;
 import org.opensearch.index.query.QueryBuilder;
 
-import java.util.Map;
-
 public class IllegalArgumentLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
   public SearchResult<LogMessage> search(
