@@ -293,8 +293,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         query.howMany,
         query.aggBuilder,
         query.queryBuilder,
-        query.includeFields,
-        query.excludeFields);
+        query.sourceFieldFilter);
   }
 
   @Override

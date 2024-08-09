@@ -48,15 +48,15 @@ public class OpenSearchRequestTest {
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
 
     // Assert that the includes fields are set correctly
-    assertThat(request.getIncludeFields().getFieldsMap()).isEmpty();
-    assertThat(request.getIncludeFields().getWildcardsCount()).isZero();
-    assertThat(request.getIncludeFields().hasAll()).isTrue();
-    assertThat(request.getIncludeFields().getAll()).isTrue();
+    assertThat(request.getSourceFieldFilter().getIncludeFieldsMap()).isEmpty();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcardsCount()).isZero();
+    assertThat(request.getSourceFieldFilter().hasIncludeAll()).isTrue();
+    assertThat(request.getSourceFieldFilter().getIncludeAll()).isTrue();
 
     // Assert that the excludes fields are set correctly
-    assertThat(request.getExcludeFields().getFieldsMap()).isEmpty();
-    assertThat(request.getExcludeFields().getWildcardsCount()).isZero();
-    assertThat(request.getExcludeFields().hasAll()).isFalse();
+    assertThat(request.getSourceFieldFilter().getExcludeFieldsMap()).isEmpty();
+    assertThat(request.getSourceFieldFilter().getExcludeWildcardsCount()).isZero();
+    assertThat(request.getSourceFieldFilter().hasExcludeAll()).isFalse();
 
     JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
     assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());
@@ -81,16 +81,17 @@ public class OpenSearchRequestTest {
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
 
     // Assert that the includes fields are set correctly
-    assertThat(request.getIncludeFields().getFieldsMap()).hasSize(1);
-    assertThat(request.getIncludeFields().getFieldsMap().get("normal_field_test")).isTrue();
-    assertThat(request.getIncludeFields().getWildcardsCount()).isOne();
-    assertThat(request.getIncludeFields().getWildcards(0)).isEqualTo("wildcard_test.*");
-    assertThat(request.getIncludeFields().hasAll()).isFalse();
+    assertThat(request.getSourceFieldFilter().getIncludeFieldsMap()).hasSize(1);
+    assertThat(request.getSourceFieldFilter().getIncludeFieldsMap().get("normal_field_test"))
+        .isTrue();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcardsCount()).isOne();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcards(0)).isEqualTo("wildcard_test.*");
+    assertThat(request.getSourceFieldFilter().hasIncludeAll()).isFalse();
 
     // Assert that the excludes fields are set correctly
-    assertThat(request.getExcludeFields().getFieldsMap()).isEmpty();
-    assertThat(request.getExcludeFields().getWildcardsCount()).isZero();
-    assertThat(request.getExcludeFields().hasAll()).isFalse();
+    assertThat(request.getSourceFieldFilter().getExcludeFieldsMap()).isEmpty();
+    assertThat(request.getSourceFieldFilter().getExcludeWildcardsCount()).isZero();
+    assertThat(request.getSourceFieldFilter().hasExcludeAll()).isFalse();
 
     JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
     assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());
@@ -115,18 +116,24 @@ public class OpenSearchRequestTest {
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
 
     // Assert that the includes fields are set correctly
-    assertThat(request.getIncludeFields().getFieldsMap()).hasSize(1);
-    assertThat(request.getIncludeFields().getFieldsMap().get("include_normal_field_test")).isTrue();
-    assertThat(request.getIncludeFields().getWildcardsCount()).isOne();
-    assertThat(request.getIncludeFields().getWildcards(0)).isEqualTo("include_wildcard_test.*");
-    assertThat(request.getIncludeFields().hasAll()).isFalse();
+    assertThat(request.getSourceFieldFilter().getIncludeFieldsMap()).hasSize(1);
+    assertThat(
+            request.getSourceFieldFilter().getIncludeFieldsMap().get("include_normal_field_test"))
+        .isTrue();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcardsCount()).isOne();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcards(0))
+        .isEqualTo("include_wildcard_test.*");
+    assertThat(request.getSourceFieldFilter().hasIncludeAll()).isFalse();
 
     // Assert that the excludes fields are set correctly
-    assertThat(request.getExcludeFields().getFieldsMap()).hasSize(1);
-    assertThat(request.getExcludeFields().getFieldsMap().get("exclude_normal_field_test")).isTrue();
-    assertThat(request.getExcludeFields().getWildcardsCount()).isOne();
-    assertThat(request.getExcludeFields().getWildcards(0)).isEqualTo("exclude_wildcard_test.*");
-    assertThat(request.getExcludeFields().hasAll()).isFalse();
+    assertThat(request.getSourceFieldFilter().getExcludeFieldsMap()).hasSize(1);
+    assertThat(
+            request.getSourceFieldFilter().getExcludeFieldsMap().get("exclude_normal_field_test"))
+        .isTrue();
+    assertThat(request.getSourceFieldFilter().getExcludeWildcardsCount()).isOne();
+    assertThat(request.getSourceFieldFilter().getExcludeWildcards(0))
+        .isEqualTo("exclude_wildcard_test.*");
+    assertThat(request.getSourceFieldFilter().getExcludeAll()).isFalse();
 
     JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
     assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());

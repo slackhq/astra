@@ -14,7 +14,6 @@ import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
-import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -98,8 +97,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       int howMany,
       AggBuilder aggBuilder,
       QueryBuilder queryBuilder,
-      AstraSearch.SearchRequest.FieldInclusion includeFields,
-      AstraSearch.SearchRequest.FieldInclusion excludeFields) {
+      SourceFieldFilter sourceFieldFilter) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");
@@ -148,7 +146,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           ScoreDoc[] hits = ((TopFieldDocs) collector[0]).scoreDocs;
           results = new ArrayList<>(hits.length);
           for (ScoreDoc hit : hits) {
-            results.add(buildLogMessage(searcher, hit, includeFields, excludeFields));
+            results.add(buildLogMessage(searcher, hit, sourceFieldFilter));
           }
           if (aggBuilder != null) {
             internalAggregation = (InternalAggregation) collector[1];
@@ -174,45 +172,25 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     }
   }
 
-  public boolean appliesToField(
-      AstraSearch.SearchRequest.FieldInclusion fieldInclusion, String fieldname) {
-    if (fieldInclusion.hasAll()) {
-      return fieldInclusion.getAll();
-    }
-
-    if (fieldInclusion.getFieldsMap().containsKey(fieldname)) {
-      return fieldInclusion.getFieldsMap().get(fieldname);
-    }
-
-    for (String wildcard : fieldInclusion.getWildcardsList()) {
-      if (fieldname.matches(wildcard)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
   private LogMessage buildLogMessage(
-      IndexSearcher searcher,
-      ScoreDoc hit,
-      AstraSearch.SearchRequest.FieldInclusion includeFields,
-      AstraSearch.SearchRequest.FieldInclusion excludeFields) {
+      IndexSearcher searcher, ScoreDoc hit, SourceFieldFilter sourceFieldFilter) {
     String s = "";
     try {
       s = searcher.doc(hit.doc).get(SystemField.SOURCE.fieldName);
       LogWireMessage wireMessage = JsonUtil.read(s, LogWireMessage.class);
       Map<String, Object> source = wireMessage.getSource();
 
-      if (allowIncludeAndExcludeSource && includeFields != null) {
+      if (allowIncludeAndExcludeSource
+          && sourceFieldFilter.getFilterType() == SourceFieldFilter.FilterType.INCLUDE) {
         source =
             wireMessage.getSource().keySet().stream()
-                .filter((key) -> appliesToField(includeFields, key))
+                .filter(sourceFieldFilter::appliesToField)
                 .collect(Collectors.toMap((key) -> key, (key) -> wireMessage.getSource().get(key)));
-      } else if (allowIncludeAndExcludeSource && excludeFields != null) {
+      } else if (allowIncludeAndExcludeSource
+          && sourceFieldFilter.getFilterType() == SourceFieldFilter.FilterType.EXCLUDE) {
         source =
             wireMessage.getSource().keySet().stream()
-                .filter((key) -> !appliesToField(excludeFields, key))
+                .filter((key) -> !sourceFieldFilter.appliesToField(key))
                 .collect(Collectors.toMap((key) -> key, (key) -> wireMessage.getSource().get(key)));
       }
 

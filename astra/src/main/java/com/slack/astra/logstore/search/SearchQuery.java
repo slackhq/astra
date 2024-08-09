@@ -1,7 +1,6 @@
 package com.slack.astra.logstore.search;
 
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
-import com.slack.astra.proto.service.AstraSearch;
 import java.util.List;
 import org.opensearch.index.query.QueryBuilder;
 
@@ -17,8 +16,7 @@ public class SearchQuery {
   public final int howMany;
   public final AggBuilder aggBuilder;
   public final List<String> chunkIds;
-  public final AstraSearch.SearchRequest.FieldInclusion includeFields;
-  public final AstraSearch.SearchRequest.FieldInclusion excludeFields;
+  public final SourceFieldFilter sourceFieldFilter;
 
   public SearchQuery(
       String dataset,
@@ -29,8 +27,7 @@ public class SearchQuery {
       AggBuilder aggBuilder,
       List<String> chunkIds,
       QueryBuilder queryBuilder,
-      AstraSearch.SearchRequest.FieldInclusion includeFields,
-      AstraSearch.SearchRequest.FieldInclusion excludeFields) {
+      SourceFieldFilter sourceFieldFilter) {
     this.dataset = dataset;
     this.queryStr = queryStr;
     this.startTimeEpochMs = startTimeEpochMs;
@@ -39,8 +36,7 @@ public class SearchQuery {
     this.aggBuilder = aggBuilder;
     this.chunkIds = chunkIds;
     this.queryBuilder = queryBuilder;
-    this.includeFields = includeFields;
-    this.excludeFields = excludeFields;
+    this.sourceFieldFilter = sourceFieldFilter;
   }
 
   @Override
@@ -64,10 +60,8 @@ public class SearchQuery {
         + aggBuilder
         + ", queryBuilder="
         + queryBuilder
-        + ", includeFields="
-        + includeFields
-        + ", excludeFields="
-        + excludeFields
+        + ", sourceFieldFilter="
+        + sourceFieldFilter
         + '}';
   }
 }

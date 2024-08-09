@@ -692,8 +692,7 @@ public class SearchResultUtils {
         fromSearchAggregations(searchRequest.getAggregations()),
         searchRequest.getChunkIdsList(),
         queryBuilder,
-        searchRequest.getIncludeFields(),
-        searchRequest.getExcludeFields());
+        SourceFieldFilter.fromProto(searchRequest.getSourceFieldFilter()));
   }
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(
