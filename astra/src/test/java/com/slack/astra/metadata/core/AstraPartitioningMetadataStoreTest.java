@@ -2,6 +2,7 @@ package com.slack.astra.metadata.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -112,17 +113,22 @@ class AstraPartitioningMetadataStoreTest {
 
   static class FixedPartitionExampleMetadata extends AstraPartitionedMetadata {
 
+    private final String partitionId;
     private String extraField = null;
 
-    public FixedPartitionExampleMetadata(String name) {
+    public FixedPartitionExampleMetadata(String name, String partitionId) {
       super(name);
+      this.partitionId = partitionId;
     }
 
     @JsonCreator
     public FixedPartitionExampleMetadata(
-        @JsonProperty("name") String name, @JsonProperty("extraField") String extraField) {
+        @JsonProperty("name") String name,
+        @JsonProperty("extraField") String extraField,
+        @JsonProperty("partitionId") String partitionId) {
       super(name);
       this.extraField = extraField;
+      this.partitionId = partitionId;
     }
 
     public void setExtraField(String extraField) {
@@ -137,7 +143,7 @@ class AstraPartitioningMetadataStoreTest {
     @JsonIgnore
     public String getPartition() {
       // use a fixed partition
-      return "1";
+      return partitionId;
     }
 
     @Override
@@ -640,16 +646,18 @@ class AstraPartitioningMetadataStoreTest {
       store.addListener(beforeListener);
 
       AtomicInteger afterCounter = new AtomicInteger(0);
-      FixedPartitionExampleMetadata metadata0 = new FixedPartitionExampleMetadata("foo0", "val1");
+      FixedPartitionExampleMetadata metadata0 =
+          new FixedPartitionExampleMetadata("foo0", "val1", "1");
       store.createSync(metadata0);
 
-      FixedPartitionExampleMetadata metadata1 = new FixedPartitionExampleMetadata("foo1", "val1");
+      FixedPartitionExampleMetadata metadata1 =
+          new FixedPartitionExampleMetadata("foo1", "val1", "1");
       store.createSync(metadata1);
 
       // create metadata
       for (int i = 2; i < 10; i++) {
         FixedPartitionExampleMetadata otherMetadata =
-            new FixedPartitionExampleMetadata("foo" + i, "val1");
+            new FixedPartitionExampleMetadata("foo" + i, "val1", "1");
         store.createSync(otherMetadata);
       }
 
@@ -676,6 +684,58 @@ class AstraPartitioningMetadataStoreTest {
 
       await().until(beforeCounter::get, (value) -> value == 12);
       await().until(afterCounter::get, (value) -> value == 2);
+    }
+  }
+
+  @Test
+  void testPartitionFilters() throws Exception {
+    final String partitionStoreFolder = "/test_partition_filters";
+
+    class TestMetadataStore extends AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> {
+      public TestMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            new FixedPartitionMetadataSerializer().toModelSerializer(),
+            partitionStoreFolder);
+      }
+    }
+
+    class FilteredTestMetadataStore
+        extends AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> {
+      public FilteredTestMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            new FixedPartitionMetadataSerializer().toModelSerializer(),
+            partitionStoreFolder,
+            List.of("1", "2", "4"));
+      }
+    }
+
+    try (AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> store =
+        new TestMetadataStore()) {
+      store.createSync(new FixedPartitionExampleMetadata("example1", "1"));
+      store.createSync(new FixedPartitionExampleMetadata("example2", "2"));
+      store.createSync(new FixedPartitionExampleMetadata("example3", "3"));
+      store.createSync(new FixedPartitionExampleMetadata("example4", "3"));
+    }
+
+    AtomicInteger counter = new AtomicInteger(0);
+    try (AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> store =
+        new FilteredTestMetadataStore()) {
+      store.addListener(_ -> counter.incrementAndGet());
+
+      store.createSync(new FixedPartitionExampleMetadata("example5", "1"));
+      await().until(() -> counter.get() >= 1);
+
+      assertThatThrownBy(
+          () -> store.createSync(new FixedPartitionExampleMetadata("example6", "3")));
+
+      // example1, example2, and example 5
+      assertThat(store.listSync().size()).isEqualTo(3);
+
+      store.createSync(new FixedPartitionExampleMetadata("example7", "4"));
     }
   }
 }

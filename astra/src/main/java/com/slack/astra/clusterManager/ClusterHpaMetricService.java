@@ -16,10 +16,11 @@ import com.slack.astra.proto.metadata.Metadata;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -102,10 +103,12 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
    * </pre>
    */
   private void publishCacheHpaMetrics() {
-    Set<String> replicaSets =
+    List<String> replicaSets =
         replicaMetadataStore.listSync().stream()
             .map(ReplicaMetadata::getReplicaSet)
-            .collect(Collectors.toSet());
+            .distinct()
+            .collect(Collectors.toList());
+    Collections.shuffle(replicaSets);
 
     for (String replicaSet : replicaSets) {
       long totalCacheSlotCapacity =
@@ -261,8 +264,17 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
       }
     }
 
-    // update the last-updated lock time to now
-    cacheScalingLock.put(replicaset, Instant.now());
+    // only refresh the lock if it doesn't exist, or is expired
+    if (cacheScalingLock.containsKey(replicaset)) {
+      if (cacheScalingLock.get(replicaset).isBefore(Instant.now().minus(CACHE_SCALEDOWN_LOCK))) {
+        // update the last-acquired lock time to now (ie, refresh the lock for another
+        // CACHE_SCALEDOWN_LOCK mins
+        cacheScalingLock.put(replicaset, Instant.now());
+      }
+    } else {
+      // set the last-updated lock time to now
+      cacheScalingLock.put(replicaset, Instant.now());
+    }
     return true;
   }
 }

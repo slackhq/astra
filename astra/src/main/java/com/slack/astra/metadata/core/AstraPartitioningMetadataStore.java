@@ -54,17 +54,28 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final CreateMode createMode;
   protected final ModelSerializer<T> modelSerializer;
   private final Watcher watcher;
+  private final List<String> partitionFilters;
 
   public AstraPartitioningMetadataStore(
       AsyncCuratorFramework curator,
       CreateMode createMode,
       ModelSerializer<T> modelSerializer,
       String storeFolder) {
+    this(curator, createMode, modelSerializer, storeFolder, List.of());
+  }
+
+  public AstraPartitioningMetadataStore(
+      AsyncCuratorFramework curator,
+      CreateMode createMode,
+      ModelSerializer<T> modelSerializer,
+      String storeFolder,
+      List<String> partitionFilters) {
     this.curator = curator;
     this.storeFolder = storeFolder;
     this.createMode = createMode;
     this.modelSerializer = modelSerializer;
     this.watcher = buildWatcher();
+    this.partitionFilters = partitionFilters;
 
     // register watchers for when partitions are added or removed
     curator
@@ -88,15 +99,32 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 return CompletableFuture.failedFuture(throwable);
               }
             })
-        .thenAccept((children) -> children.forEach(this::getOrCreateMetadataStore))
+        .thenAccept(
+            (children) -> {
+              if (partitionFilters.isEmpty()) {
+                children.forEach(this::getOrCreateMetadataStore);
+              } else {
+                children.stream()
+                    .filter(partitionFilters::contains)
+                    .forEach(this::getOrCreateMetadataStore);
+              }
+            })
         .toCompletableFuture()
         // wait for all the stores to be initialized prior to exiting the constructor
         .join();
 
-    LOG.info(
-        "The metadata store for folder '{}' was initialized with {} partitions",
-        storeFolder,
-        metadataStoreMap.size());
+    if (partitionFilters.isEmpty()) {
+      LOG.info(
+          "The metadata store for folder '{}' was initialized with {} partitions",
+          storeFolder,
+          metadataStoreMap.size());
+    } else {
+      LOG.info(
+          "The metadata store for folder '{}' was initialized with {} partitions (using partition filters: {})",
+          storeFolder,
+          metadataStoreMap.size(),
+          String.join(",", partitionFilters));
+    }
   }
 
   /**
@@ -118,8 +146,14 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
             .forPath(storeFolder)
             .thenAcceptAsync(
                 (partitions) -> {
-                  // create internal stores foreach partition that do not already exist
-                  partitions.forEach(this::getOrCreateMetadataStore);
+                  if (partitionFilters.isEmpty()) {
+                    // create internal stores foreach partition that do not already exist
+                    partitions.forEach(this::getOrCreateMetadataStore);
+                  } else {
+                    partitions.stream()
+                        .filter(partitionFilters::contains)
+                        .forEach(this::getOrCreateMetadataStore);
+                  }
 
                   // remove metadata stores that exist in memory but no longer exist on ZK
                   Set<String> partitionsToRemove =
@@ -253,6 +287,15 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   private AstraMetadataStore<T> getOrCreateMetadataStore(String partition) {
+    if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
+      LOG.error(
+          "Partitioning metadata store attempted to use partition {}, filters restricted to {}",
+          partition,
+          String.join(",", partitionFilters));
+      throw new InternalMetadataStoreException(
+          "Partitioning metadata store using filters that does not include provided partition");
+    }
+
     return metadataStoreMap.computeIfAbsent(
         partition,
         (p1) -> {
@@ -289,12 +332,12 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     // add this watcher to the list for new stores to add
     listeners.add(watcher);
     // add this watcher to existing stores
-    metadataStoreMap.forEach((partition, store) -> store.addListener(watcher));
+    metadataStoreMap.forEach((_, store) -> store.addListener(watcher));
   }
 
   public void removeListener(AstraMetadataStoreChangeListener<T> watcher) {
     listeners.remove(watcher);
-    metadataStoreMap.forEach((partition, store) -> store.removeListener(watcher));
+    metadataStoreMap.forEach((_, store) -> store.removeListener(watcher));
   }
 
   @Override

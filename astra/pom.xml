@@ -28,7 +28,7 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.7.0</curator.version>
         <log4j.version>2.23.1</log4j.version>
-        <aws.sdk.version>2.26.25</aws.sdk.version>
+        <aws.sdk.version>2.26.29</aws.sdk.version>
         <error.prone.version>2.29.2</error.prone.version>
         <junit.jupiter.version>5.10.3</junit.jupiter.version>
     </properties>
@@ -189,7 +189,7 @@
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
-            <version>4.13.1</version>
+            <version>4.13.2</version>
         </dependency>
         <dependency>
             <groupId>org.opensearch.plugin</groupId>
@@ -327,7 +327,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.30.3</version>
+            <version>0.30.5</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

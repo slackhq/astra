@@ -25,6 +25,7 @@ import io.micrometer.core.instrument.Tags;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -184,9 +185,9 @@ public class ClusterMonitorService extends AbstractScheduledService {
             .map(
                 cacheNodeMetadata ->
                     MultiGauge.Row.of(
-                        Tags.of(Tag.of("pod", cacheNodeMetadata.getName())),
+                        Tags.of(Tag.of("pod", cacheNodeMetadata.hostname)),
                         cacheNodeIdToLiveChunksPerPod.computeIfAbsent(
-                            cacheNodeMetadata.getName(),
+                            cacheNodeMetadata.hostname,
                             (_) -> new AtomicInteger(calculateLiveChunks(cacheNodeMetadata.id)))))
             .collect(Collectors.toUnmodifiableList()),
         true);
@@ -196,9 +197,9 @@ public class ClusterMonitorService extends AbstractScheduledService {
             .map(
                 cacheNodeMetadata ->
                     MultiGauge.Row.of(
-                        Tags.of(Tag.of("pod", cacheNodeMetadata.getName())),
+                        Tags.of(Tag.of("pod", cacheNodeMetadata.hostname)),
                         cacheNodeIdToFreeSpaceBytes.computeIfAbsent(
-                            cacheNodeMetadata.getName(),
+                            cacheNodeMetadata.hostname,
                             (_) -> new AtomicLong(calculateFreeSpaceForPod(cacheNodeMetadata.id)))))
             .collect(Collectors.toUnmodifiableList()),
         true);
@@ -236,7 +237,7 @@ public class ClusterMonitorService extends AbstractScheduledService {
               TimeUnit.SECONDS);
     } else {
       LOG.info(
-          "Cache node assignment task already scheduled, will run in {} ms",
+          "Cluster monitor task already scheduled, will run in {} ms",
           pendingTask.getDelay(TimeUnit.MILLISECONDS));
     }
   }
@@ -301,30 +302,46 @@ public class ClusterMonitorService extends AbstractScheduledService {
   }
 
   private void updateLiveChunksPerPod() {
-    for (CacheNodeMetadata cacheNodeMetadata : cacheNodeMetadataStore.listSync()) {
-      if (!cacheNodeIdToLiveChunksPerPod.containsKey(cacheNodeMetadata.id)) {
+    List<CacheNodeMetadata> cacheNodes = cacheNodeMetadataStore.listSync();
+    removeDeadCacheNodes(cacheNodes, cacheNodeIdToLiveChunksPerPod.keySet());
+
+    for (CacheNodeMetadata cacheNodeMetadata : cacheNodes) {
+      if (!cacheNodeIdToLiveChunksPerPod.containsKey(cacheNodeMetadata.hostname)) {
         cacheNodeIdToLiveChunksPerPod.put(
-            cacheNodeMetadata.id, new AtomicInteger(calculateLiveChunks(cacheNodeMetadata.id)));
+            cacheNodeMetadata.hostname,
+            new AtomicInteger(calculateLiveChunks(cacheNodeMetadata.id)));
         return;
       }
 
       cacheNodeIdToLiveChunksPerPod
-          .get(cacheNodeMetadata.id)
+          .get(cacheNodeMetadata.hostname)
           .set(calculateLiveChunks(cacheNodeMetadata.id));
     }
   }
 
   private void updateFreeSpacePerPod() {
-    for (CacheNodeMetadata cacheNodeMetadata : cacheNodeMetadataStore.listSync()) {
-      if (!cacheNodeIdToFreeSpaceBytes.containsKey(cacheNodeMetadata.id)) {
+    List<CacheNodeMetadata> cacheNodes = cacheNodeMetadataStore.listSync();
+    removeDeadCacheNodes(cacheNodes, cacheNodeIdToFreeSpaceBytes.keySet());
+
+    for (CacheNodeMetadata cacheNodeMetadata : cacheNodes) {
+      if (!cacheNodeIdToFreeSpaceBytes.containsKey(cacheNodeMetadata.hostname)) {
         cacheNodeIdToFreeSpaceBytes.put(
-            cacheNodeMetadata.id, new AtomicLong(calculateFreeSpaceForPod(cacheNodeMetadata.id)));
+            cacheNodeMetadata.hostname,
+            new AtomicLong(calculateFreeSpaceForPod(cacheNodeMetadata.id)));
         return;
       }
 
       cacheNodeIdToFreeSpaceBytes
-          .get(cacheNodeMetadata.id)
+          .get(cacheNodeMetadata.hostname)
           .set(calculateFreeSpaceForPod(cacheNodeMetadata.id));
     }
+  }
+
+  private static void removeDeadCacheNodes(
+      List<CacheNodeMetadata> cacheNodes, Set<String> perPodMetricsKeys) {
+    Set<String> liveCacheNodeKeys =
+        cacheNodes.stream().map(node -> node.hostname).collect(Collectors.toSet());
+    // remove key from map if it isn't a live cache node
+    perPodMetricsKeys.removeIf((key) -> !liveCacheNodeKeys.contains(key));
   }
 }
