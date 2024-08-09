@@ -23,10 +23,10 @@ message SearchRequest {
   // The fully query object, to be used in the leaf nodes and parsed by OpenSearch
   string query = 8;
 
-  // An explicitly list of fields to return per document (effectively an allowlist)
+  // An explicit list of fields to return per document (effectively an allowlist)
   FieldInclusion include_fields = 9;
 
-  // An explicitly list of fields to NOT return per document (effectively a blocklist)
+  // An explicit list of fields to NOT return per document (effectively a blocklist)
   FieldInclusion exclude_fields = 10;
 
   message FieldInclusion {
