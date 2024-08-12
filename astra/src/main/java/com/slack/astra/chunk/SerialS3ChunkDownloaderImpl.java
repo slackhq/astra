@@ -9,6 +9,7 @@ import java.nio.file.Path;
  * SerialS3ChunkDownloaderImpl downloads all the chunk related data from S3 to a local store one
  * file at a time.
  */
+@Deprecated
 public class SerialS3ChunkDownloaderImpl implements ChunkDownloader {
   private final String s3Bucket;
   private final String snapshotId;

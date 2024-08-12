@@ -254,7 +254,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       }
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
+
       final int success = copyToS3(dirPath, filesToUpload, bucket, prefix, blobFs);
+
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       this.fileUploadFailures.increment(filesToUpload.size() - success);
       chunkInfo.setSnapshotPath(createURI(bucket, prefix, "").toString());

@@ -17,6 +17,7 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
+import com.slack.astra.blobfs.ChunkStore;
 import com.slack.astra.blobfs.LocalBlobFs;
 import com.slack.astra.blobfs.s3.S3CrtBlobFs;
 import com.slack.astra.blobfs.s3.S3TestUtils;
@@ -73,6 +74,7 @@ public class ReadOnlyChunkImplTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
   private S3CrtBlobFs s3CrtBlobFs;
+  private ChunkStore chunkStore;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -91,6 +93,7 @@ public class ReadOnlyChunkImplTest {
     S3AsyncClient s3AsyncClient =
         S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
     s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    chunkStore = new ChunkStore(s3AsyncClient, TEST_S3_BUCKET);
   }
 
   @AfterEach
@@ -132,7 +135,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            chunkStore,
             searchContext,
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -264,7 +267,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            chunkStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -330,7 +333,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            chunkStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -397,7 +400,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            chunkStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -528,7 +531,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            chunkStore,
             searchContext,
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),

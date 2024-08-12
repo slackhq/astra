@@ -4,6 +4,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
 import com.slack.astra.blobfs.BlobFs;
+import com.slack.astra.blobfs.ChunkStore;
 import com.slack.astra.blobfs.s3.S3CrtBlobFs;
 import com.slack.astra.bulkIngestApi.BulkIngestApi;
 import com.slack.astra.bulkIngestApi.BulkIngestKafkaProducer;
@@ -142,9 +143,10 @@ public class Astra {
 
     // Initialize blobfs. Only S3 is supported currently.
     S3CrtBlobFs s3BlobFs = new S3CrtBlobFs(s3Client);
+    ChunkStore chunkStore = new ChunkStore(s3Client, astraConfig.getS3Config().getS3Bucket());
 
     Set<Service> services =
-        getServices(curatorFramework, astraConfig, s3BlobFs, prometheusMeterRegistry);
+        getServices(curatorFramework, astraConfig, s3BlobFs, chunkStore, prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
 
@@ -155,6 +157,7 @@ public class Astra {
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.AstraConfig astraConfig,
       BlobFs blobFs,
+      ChunkStore chunkStore,
       PrometheusMeterRegistry meterRegistry)
       throws Exception {
     Set<Service> services = new HashSet<>();
@@ -238,7 +241,7 @@ public class Astra {
               curatorFramework,
               astraConfig.getS3Config(),
               astraConfig.getCacheConfig(),
-              blobFs);
+              chunkStore);
       services.add(chunkManager);
 
       HpaMetricMetadataStore hpaMetricMetadataStore =
