@@ -416,6 +416,7 @@ public class IndexingChunkManagerTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
+            null,
             null);
     SearchResult<LogMessage> results = chunkManager.query(searchQuery, Duration.ofMillis(3000));
     assertThat(results.hits.size()).isEqualTo(1);
@@ -478,6 +479,7 @@ public class IndexingChunkManagerTest {
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
+                        null,
                         null),
                     Duration.ofMillis(3000))
                 .hits
@@ -509,6 +511,7 @@ public class IndexingChunkManagerTest {
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
+                        null,
                         null),
                     Duration.ofMillis(3000))
                 .hits
@@ -604,6 +607,7 @@ public class IndexingChunkManagerTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
+            null,
             null);
     return chunkManager.query(searchQuery, Duration.ofMillis(3000)).hits.size();
   }

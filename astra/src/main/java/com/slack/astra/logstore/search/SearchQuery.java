@@ -16,6 +16,7 @@ public class SearchQuery {
   public final int howMany;
   public final AggBuilder aggBuilder;
   public final List<String> chunkIds;
+  public final SourceFieldFilter sourceFieldFilter;
 
   public SearchQuery(
       String dataset,
@@ -25,7 +26,8 @@ public class SearchQuery {
       int howMany,
       AggBuilder aggBuilder,
       List<String> chunkIds,
-      QueryBuilder queryBuilder) {
+      QueryBuilder queryBuilder,
+      SourceFieldFilter sourceFieldFilter) {
     this.dataset = dataset;
     this.queryStr = queryStr;
     this.startTimeEpochMs = startTimeEpochMs;
@@ -34,6 +36,7 @@ public class SearchQuery {
     this.aggBuilder = aggBuilder;
     this.chunkIds = chunkIds;
     this.queryBuilder = queryBuilder;
+    this.sourceFieldFilter = sourceFieldFilter;
   }
 
   @Override
@@ -57,6 +60,8 @@ public class SearchQuery {
         + aggBuilder
         + ", queryBuilder="
         + queryBuilder
+        + ", sourceFieldFilter="
+        + sourceFieldFilter
         + '}';
   }
 }
