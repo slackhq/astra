@@ -106,7 +106,7 @@ public class SpanFormatter {
       }
       return tagBuilder.build();
     } catch (Exception e) {
-      tagBuilder.setKey(STR."failed_\{key}");
+      tagBuilder.setKey(String.format("failed_%s", key));
       tagBuilder.setFieldType(Schema.SchemaFieldType.KEYWORD);
       tagBuilder.setVStr(value.toString());
       return tagBuilder.build();
@@ -133,7 +133,7 @@ public class SpanFormatter {
         }
         Trace.KeyValue additionalKV =
             makeTraceKV(
-                STR."\{key}.\{additionalField.getKey()}",
+                String.format("%s.%s", key, additionalField.getKey()),
                 value,
                 additionalField.getValue().getType());
         tags.add(additionalKV);
@@ -155,7 +155,7 @@ public class SpanFormatter {
           .forEach(
               (key1, value1) -> {
                 List<Trace.KeyValue> nestedValues =
-                    convertKVtoProtoDefault(STR."\{key}.\{key1}", value1, schema);
+                    convertKVtoProtoDefault(String.format("%s.%s", key, key1), value1, schema);
                 tags.addAll(nestedValues);
               });
     } else if (value instanceof String || value instanceof List) {
@@ -176,7 +176,7 @@ public class SpanFormatter {
           }
           Trace.KeyValue additionalKV =
               makeTraceKV(
-                  STR."\{key}.\{additionalField.getKey()}",
+                  String.format("%s.%s", key, additionalField.getKey()),
                   value,
                   additionalField.getValue().getType());
           tags.add(additionalKV);

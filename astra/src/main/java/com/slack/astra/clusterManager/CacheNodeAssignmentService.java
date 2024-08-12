@@ -28,6 +28,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -194,6 +195,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
       // snapshots
       List<SnapshotMetadata> unassignedSnapshots =
           getUnassignedSnapshots(snapshotsWithReplicas, assignedSnapshots);
+      unassignedSnapshots.sort(Comparator.comparing(a -> a.snapshotId));
 
       Map<String, CacheNodeBin> newAssignments =
           assign(
@@ -325,7 +327,9 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     int numCreated = 0;
     for (Map.Entry<String, CacheNodeBin> entry : newAssignments.entrySet()) {
       String cacheNodeId = entry.getKey();
-      for (SnapshotMetadata snapshot : entry.getValue().getSnapshots()) {
+      for (SnapshotMetadata snapshot :
+          sortSnapshotsByReplicaCreationTime(
+              entry.getValue().getSnapshots(), replicasBySnapshotId)) {
         if (cacheNodeId.startsWith(NEW_BIN_PREFIX)) {
           continue;
         }
@@ -399,10 +403,15 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
       }
     }
 
+    List<CacheNodeBin> bins =
+        cacheNodeBins.values().stream()
+            .sorted(Comparator.comparingLong(CacheNodeBin::getRemainingCapacityBytes))
+            .toList();
+
     // do first-fit packing for remaining snapshots
     for (SnapshotMetadata snapshot : snapshotsToAssign) {
       boolean assigned = false;
-      for (CacheNodeBin cacheNodeBin : cacheNodeBins.values()) {
+      for (CacheNodeBin cacheNodeBin : bins) {
         if (snapshot.sizeInBytesOnDisk <= cacheNodeBin.getRemainingCapacityBytes()) {
           cacheNodeBin.addSnapshot(snapshot);
           assigned = true;
@@ -516,6 +525,16 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     if (assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE) {
       runOneIteration();
     }
+  }
+
+  @VisibleForTesting
+  public static List<SnapshotMetadata> sortSnapshotsByReplicaCreationTime(
+      List<SnapshotMetadata> snapshotsToSort,
+      Map<String, ReplicaMetadata> replicaMetadataBySnapshotId) {
+    snapshotsToSort.sort(
+        Comparator.comparingLong(
+            snapshot -> replicaMetadataBySnapshotId.get(snapshot.snapshotId).createdTimeEpochMs));
+    return snapshotsToSort;
   }
 }
 
