@@ -335,7 +335,11 @@ public class Astra {
 
       SnapshotDeletionService snapshotDeletionService =
           new SnapshotDeletionService(
-              replicaMetadataStore, snapshotMetadataStore, blobFs, managerConfig, meterRegistry);
+              replicaMetadataStore,
+              snapshotMetadataStore,
+              chunkStore,
+              managerConfig,
+              meterRegistry);
       services.add(snapshotDeletionService);
 
       CacheNodeMetadataStore cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);

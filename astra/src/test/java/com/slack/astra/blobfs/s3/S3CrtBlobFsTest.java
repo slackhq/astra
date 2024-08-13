@@ -25,10 +25,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Object;
 
 public class S3CrtBlobFsTest {
   @RegisterExtension
@@ -139,62 +136,6 @@ public class S3CrtBlobFsTest {
         Arrays.stream(actualFiles).filter(x -> x.contains("list-3")).toArray(String[]::new);
     assertEquals(actualFiles.length, expectedResultList.size());
     assertTrue(Arrays.equals(expectedResultList.toArray(), actualFiles));
-  }
-
-  @Test
-  public void testDeleteFile() throws Exception {
-    String[] originalFiles = new String[] {"a-delete.txt", "b-delete.txt", "c-delete.txt"};
-    String fileToDelete = "a-delete.txt";
-
-    List<String> expectedResultList = new ArrayList<>();
-    for (String fileName : originalFiles) {
-      createEmptyFile("", fileName);
-      if (!fileName.equals(fileToDelete)) {
-        expectedResultList.add(fileName);
-      }
-    }
-
-    s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileToDelete)), false);
-
-    ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build()).get();
-    String[] actualResponse =
-        listObjectsV2Response.contents().stream()
-            .map(S3Object::key)
-            .filter(x -> x.contains("delete"))
-            .toArray(String[]::new);
-
-    assertEquals(actualResponse.length, 2);
-    assertTrue(Arrays.equals(actualResponse, expectedResultList.toArray()));
-  }
-
-  @Test
-  public void testDeleteFolder() throws Exception {
-    String[] originalFiles = new String[] {"a-delete-2.txt", "b-delete-2.txt", "c-delete-2.txt"};
-    String folderName = "my-files";
-
-    for (String fileName : originalFiles) {
-      createEmptyFile(folderName, fileName);
-    }
-
-    s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folderName)), true);
-
-    // await ignoreExceptions is a workaround due to //
-    // https://github.com/aws/aws-sdk-java-v2/issues/3658
-    await()
-        .ignoreExceptions()
-        .until(
-            () ->
-                s3Client
-                        .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
-                        .get()
-                        .contents()
-                        .stream()
-                        .map(S3Object::key)
-                        .filter(x -> x.contains("delete-2"))
-                        .toArray(String[]::new)
-                        .length
-                    == 0);
   }
 
   @Test

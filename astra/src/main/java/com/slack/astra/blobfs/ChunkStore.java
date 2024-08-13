@@ -3,6 +3,7 @@ package com.slack.astra.blobfs;
 import static software.amazon.awssdk.services.s3.model.ListObjectsV2Request.builder;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -60,6 +61,34 @@ public class ChunkStore {
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public List<String> listFiles(String chunkId) {
+    ListObjectsV2Request listRequest = builder().bucket(bucketName).prefix(chunkId).build();
+    ListObjectsV2Publisher asyncPaginatedListResponse =
+        s3AsyncClient.listObjectsV2Paginator(listRequest);
+
+    List<String> filesList = new ArrayList<>();
+    try {
+      asyncPaginatedListResponse
+          .subscribe(
+              listResponse -> {
+                listResponse
+                    .contents()
+                    .forEach(
+                        s3Object -> {
+                          filesList.add(String.format("s3://%s/%s", bucketName, s3Object.key()));
+                        });
+              })
+          .get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
+    return filesList;
+  }
+
+  public String getRemotePath(String chunkId) {
+    return String.format("s3://%s/%s", bucketName, chunkId);
   }
 
   public boolean delete(String chunkId) {

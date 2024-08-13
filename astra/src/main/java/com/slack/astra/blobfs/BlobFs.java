@@ -23,19 +23,6 @@ import java.net.URI;
 public abstract class BlobFs implements Closeable, Serializable {
 
   /**
-   * Deletes the file at the location provided. If the segmentUri is a directory, it will delete the
-   * entire directory.
-   *
-   * @param segmentUri URI of the segment
-   * @param forceDelete true if we want the uri and any sub-uris to always be deleted, false if we
-   *     want delete to fail when we want to delete a directory and that directory is not empty
-   * @return true if delete is successful else false
-   * @throws IOException on IO failure, e.g Uri is not present or not valid
-   */
-  @Deprecated
-  public abstract boolean delete(URI segmentUri, boolean forceDelete) throws IOException;
-
-  /**
    * Checks whether the file or directory at the provided location exists.
    *
    * @param fileUri URI of file

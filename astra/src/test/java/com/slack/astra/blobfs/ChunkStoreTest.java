@@ -1,6 +1,6 @@
 package com.slack.astra.blobfs;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.astra.blobfs.s3.S3TestUtils;
@@ -9,6 +9,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -102,5 +103,33 @@ class ChunkStoreTest {
     ChunkStore chunkStore = new ChunkStore(s3Client, TEST_BUCKET);
     boolean deleted = chunkStore.delete(UUID.randomUUID().toString());
     assertThat(deleted).isFalse();
+  }
+
+  @Test
+  void testListFiles() throws IOException {
+    ChunkStore chunkStore = new ChunkStore(s3Client, TEST_BUCKET);
+    String chunkId = UUID.randomUUID().toString();
+
+    assertThat(chunkStore.listFiles(chunkId).size()).isEqualTo(0);
+
+    Path directoryUpload = Files.createTempDirectory("");
+    Path foo = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(foo.toFile())) {
+      fileWriter.write("Example test 1");
+    }
+    Path bar = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(bar.toFile())) {
+      fileWriter.write("Example test 2");
+    }
+    chunkStore.upload(chunkId, directoryUpload);
+
+    assertThat(chunkStore.listFiles(chunkId).size()).isEqualTo(2);
+    assertThat(chunkStore.listFiles(chunkId))
+        .containsExactlyInAnyOrderElementsOf(
+            List.of(
+                String.format(
+                    "%s/%s", chunkStore.getRemotePath(chunkId), foo.getFileName().toString()),
+                String.format(
+                    "%s/%s", chunkStore.getRemotePath(chunkId), bar.getFileName().toString())));
   }
 }

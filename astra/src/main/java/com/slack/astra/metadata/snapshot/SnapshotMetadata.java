@@ -29,7 +29,10 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
     return snapshotMetadata.snapshotPath.equals(LIVE_SNAPSHOT_PATH);
   }
 
-  public final String snapshotPath;
+  // snapshot path is deprecated in favor of storing these to a well-known path
+  // @see ChunkStore.getPath
+  @Deprecated public final String snapshotPath;
+
   public final String snapshotId;
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
