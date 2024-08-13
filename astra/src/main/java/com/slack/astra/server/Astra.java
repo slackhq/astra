@@ -3,9 +3,8 @@ package com.slack.astra.server;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
-import com.slack.astra.blobfs.BlobFs;
 import com.slack.astra.blobfs.ChunkStore;
-import com.slack.astra.blobfs.S3CrtBlobFs;
+import com.slack.astra.blobfs.S3AsyncUtil;
 import com.slack.astra.bulkIngestApi.BulkIngestApi;
 import com.slack.astra.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.astra.bulkIngestApi.DatasetRateLimitingService;
@@ -93,7 +92,7 @@ public class Astra {
   }
 
   Astra(AstraConfigs.AstraConfig astraConfig, PrometheusMeterRegistry prometheusMeterRegistry) {
-    this(astraConfig, S3CrtBlobFs.initS3Client(astraConfig.getS3Config()), prometheusMeterRegistry);
+    this(astraConfig, S3AsyncUtil.initS3Client(astraConfig.getS3Config()), prometheusMeterRegistry);
   }
 
   public static void main(String[] args) throws Exception {
@@ -140,13 +139,10 @@ public class Astra {
     curatorFramework =
         CuratorBuilder.build(
             prometheusMeterRegistry, astraConfig.getMetadataStoreConfig().getZookeeperConfig());
-
-    // Initialize blobfs. Only S3 is supported currently.
-    S3CrtBlobFs s3BlobFs = new S3CrtBlobFs(s3Client);
     ChunkStore chunkStore = new ChunkStore(s3Client, astraConfig.getS3Config().getS3Bucket());
 
     Set<Service> services =
-        getServices(curatorFramework, astraConfig, s3BlobFs, chunkStore, prometheusMeterRegistry);
+        getServices(curatorFramework, astraConfig, chunkStore, prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
 
@@ -156,7 +152,6 @@ public class Astra {
   private static Set<Service> getServices(
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.AstraConfig astraConfig,
-      BlobFs blobFs,
       ChunkStore chunkStore,
       PrometheusMeterRegistry meterRegistry)
       throws Exception {
@@ -170,7 +165,7 @@ public class Astra {
               meterRegistry,
               curatorFramework,
               astraConfig.getIndexerConfig(),
-              blobFs,
+              chunkStore,
               astraConfig.getS3Config());
       services.add(chunkManager);
 
@@ -404,7 +399,7 @@ public class Astra {
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(astraConfig, curatorFramework, meterRegistry, blobFs);
+          new RecoveryService(astraConfig, curatorFramework, meterRegistry, chunkStore);
       services.add(recoveryService);
     }
 

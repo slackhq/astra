@@ -15,8 +15,8 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.S3CrtBlobFs;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -35,7 +35,6 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -524,7 +523,6 @@ public class RecoveryChunkImplTest {
     private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
-    private S3CrtBlobFs s3CrtBlobFs;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -577,9 +575,6 @@ public class RecoveryChunkImplTest {
       curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
-      if (s3CrtBlobFs != null) {
-        s3CrtBlobFs.close();
-      }
     }
 
     @Test
@@ -617,14 +612,14 @@ public class RecoveryChunkImplTest {
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
 
       // create an S3 client for test
-      String bucket = "invalid-bucket";
+      String bucket = "invalid-buckets";
 
       S3AsyncClient s3AsyncClient =
           S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+      ChunkStore chunkStore = new ChunkStore(s3AsyncClient, bucket);
 
       // Snapshot to S3 without creating the s3 bucket.
-      assertThat(chunk.snapshotToS3(bucket, "", s3CrtBlobFs)).isFalse();
+      assertThat(chunk.snapshotToS3(chunkStore)).isFalse();
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // No live snapshot or search metadata is published since the S3 snapshot failed.
@@ -672,12 +667,12 @@ public class RecoveryChunkImplTest {
       String bucket = "test-bucket-with-prefix";
       S3AsyncClient s3AsyncClient =
           S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
       s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
+      ChunkStore chunkStore = new ChunkStore(s3AsyncClient, bucket);
 
       // Snapshot to S3
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-      assertThat(chunk.snapshotToS3(bucket, "", s3CrtBlobFs)).isTrue();
+      assertThat(chunk.snapshotToS3(chunkStore)).isTrue();
       assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
       // depending on heap and CFS files this can be 5 or 19.
@@ -694,7 +689,8 @@ public class RecoveryChunkImplTest {
           AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
-      assertThat(s3CrtBlobFs.exists(URI.create(afterSnapshots.get(0).snapshotPath))).isTrue();
+
+      assertThat(chunkStore.listFiles(afterSnapshots.get(0).snapshotId).size()).isGreaterThan(0);
       // Only non-live snapshots. No live snapshots.
       assertThat(afterSnapshots.stream().filter(SnapshotMetadata::isLive).count()).isZero();
       // No search nodes are added for recovery chunk.

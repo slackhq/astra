@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.astra.blobfs.ChunkStore;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;

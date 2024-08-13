@@ -3,7 +3,6 @@ package com.slack.astra.blobfs;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.s3.S3TestUtils;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;

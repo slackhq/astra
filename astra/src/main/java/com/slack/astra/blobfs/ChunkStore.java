@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
 import software.amazon.awssdk.transfer.s3.model.DownloadDirectoryRequest;
 import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
 
@@ -31,15 +32,19 @@ public class ChunkStore {
 
   public void upload(String chunkId, Path directoryToUpload) {
     try {
-      transferManager
-          .uploadDirectory(
-              UploadDirectoryRequest.builder()
-                  .source(directoryToUpload)
-                  .s3Prefix(chunkId)
-                  .bucket(bucketName)
-                  .build())
-          .completionFuture()
-          .get();
+      CompletedDirectoryUpload upload =
+          transferManager
+              .uploadDirectory(
+                  UploadDirectoryRequest.builder()
+                      .source(directoryToUpload)
+                      .s3Prefix(chunkId)
+                      .bucket(bucketName)
+                      .build())
+              .completionFuture()
+              .get();
+      if (!upload.failedTransfers().isEmpty()) {
+        throw new IllegalStateException("Some or all files failed to upload");
+      }
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException(e);
     }

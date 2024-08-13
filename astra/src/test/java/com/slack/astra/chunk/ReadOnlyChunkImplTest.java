@@ -1,6 +1,5 @@
 package com.slack.astra.chunk;
 
-import static com.slack.astra.blobfs.BlobFsUtils.copyToS3;
 import static com.slack.astra.chunk.ReadOnlyChunkImpl.CHUNK_ASSIGNMENT_TIMER;
 import static com.slack.astra.chunk.ReadOnlyChunkImpl.CHUNK_EVICTION_TIMER;
 import static com.slack.astra.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
@@ -18,8 +17,7 @@ import static org.awaitility.Awaitility.await;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.astra.blobfs.ChunkStore;
-import com.slack.astra.blobfs.S3CrtBlobFs;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -72,7 +70,6 @@ public class ReadOnlyChunkImplTest {
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
-  private S3CrtBlobFs s3CrtBlobFs;
   private ChunkStore chunkStore;
 
   @RegisterExtension
@@ -91,13 +88,11 @@ public class ReadOnlyChunkImplTest {
 
     S3AsyncClient s3AsyncClient =
         S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
     chunkStore = new ChunkStore(s3AsyncClient, TEST_S3_BUCKET);
   }
 
   @AfterEach
   public void shutdown() throws IOException {
-    s3CrtBlobFs.close();
     testingServer.close();
     meterRegistry.close();
   }
@@ -680,7 +675,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(dirPath.toFile().listFiles().length).isGreaterThanOrEqualTo(filesToUpload.size());
 
     // Copy files to S3.
-    copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3CrtBlobFs);
+    chunkStore.upload(snapshotId, dirPath);
   }
 
   private void initializeCacheNodeAssignment(

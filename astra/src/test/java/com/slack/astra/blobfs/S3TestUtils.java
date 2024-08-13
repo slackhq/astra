@@ -1,4 +1,4 @@
-package com.slack.astra.blobfs.s3;
+package com.slack.astra.blobfs;
 
 import java.net.URI;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;

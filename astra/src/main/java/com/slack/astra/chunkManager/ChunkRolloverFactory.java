@@ -1,6 +1,6 @@
 package com.slack.astra.chunkManager;
 
-import com.slack.astra.blobfs.BlobFs;
+import com.slack.astra.blobfs.ChunkStore;
 import com.slack.astra.chunk.ReadWriteChunk;
 import com.slack.astra.chunkrollover.ChunkRollOverStrategy;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -12,23 +12,18 @@ import io.micrometer.core.instrument.MeterRegistry;
  */
 public class ChunkRolloverFactory {
   private final ChunkRollOverStrategy chunkRollOverStrategy;
-  private final BlobFs blobFs;
-  private final String s3Bucket;
+  private final ChunkStore chunkStore;
   private final MeterRegistry meterRegistry;
 
   public ChunkRolloverFactory(
-      ChunkRollOverStrategy chunkRollOverStrategy,
-      BlobFs blobFs,
-      String s3Bucket,
-      MeterRegistry registry) {
+      ChunkRollOverStrategy chunkRollOverStrategy, ChunkStore chunkStore, MeterRegistry registry) {
     this.chunkRollOverStrategy = chunkRollOverStrategy;
-    this.blobFs = blobFs;
-    this.s3Bucket = s3Bucket;
+    this.chunkStore = chunkStore;
     this.meterRegistry = registry;
   }
 
-  public RollOverChunkTask getRollOverChunkTask(ReadWriteChunk chunk, String chunkId) {
-    return new RollOverChunkTask<>(chunk, meterRegistry, blobFs, s3Bucket, chunkId);
+  public RollOverChunkTask getRollOverChunkTask(ReadWriteChunk chunk) {
+    return new RollOverChunkTask<>(chunk, meterRegistry, chunkStore);
   }
 
   public ChunkRollOverStrategy getChunkRollOverStrategy() {

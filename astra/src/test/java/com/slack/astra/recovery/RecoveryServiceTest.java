@@ -24,10 +24,8 @@ import static org.mockito.Mockito.mock;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.collect.Maps;
-import com.slack.astra.blobfs.BlobFs;
-import com.slack.astra.blobfs.BlobFsUtils;
-import com.slack.astra.blobfs.S3CrtBlobFs;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.recovery.RecoveryNodeMetadata;
@@ -43,7 +41,6 @@ import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.astra.writer.kafka.AstraKafkaConsumer;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -83,7 +80,7 @@ public class RecoveryServiceTest {
 
   private TestingServer zkServer;
   private MeterRegistry meterRegistry;
-  private BlobFs blobFs;
+  private ChunkStore chunkStore;
   private TestKafkaServer kafkaServer;
   private S3AsyncClient s3AsyncClient;
   private RecoveryService recoveryService;
@@ -96,7 +93,7 @@ public class RecoveryServiceTest {
     meterRegistry = new SimpleMeterRegistry();
     zkServer = new TestingServer();
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    blobFs = new S3CrtBlobFs(s3AsyncClient);
+    chunkStore = new ChunkStore(s3AsyncClient, TEST_S3_BUCKET);
   }
 
   @AfterEach
@@ -107,9 +104,6 @@ public class RecoveryServiceTest {
     }
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
-    }
-    if (blobFs != null) {
-      blobFs.close();
     }
     if (kafkaServer != null) {
       kafkaServer.close();
@@ -126,20 +120,19 @@ public class RecoveryServiceTest {
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
-  private AstraConfigs.AstraConfig makeAstraConfig(String testS3Bucket) {
-    return makeAstraConfig(kafkaServer, testS3Bucket, RecoveryServiceTest.TEST_KAFKA_TOPIC_1);
+  private AstraConfigs.AstraConfig makeAstraConfig() {
+    return makeAstraConfig(kafkaServer, RecoveryServiceTest.TEST_KAFKA_TOPIC_1);
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
-  private AstraConfigs.AstraConfig makeAstraConfig(
-      TestKafkaServer testKafkaServer, String testS3Bucket, String topic) {
+  private AstraConfigs.AstraConfig makeAstraConfig(TestKafkaServer testKafkaServer, String topic) {
     return AstraConfigUtil.makeAstraConfig(
         "localhost:" + testKafkaServer.getBroker().getKafkaPort().get(),
         9000,
         topic,
         0,
         RecoveryServiceTest.ASTRA_TEST_CLIENT_1,
-        testS3Bucket,
+        TEST_S3_BUCKET,
         9000 + 1,
         zkServer.getConnectString(),
         "recoveryZK_",
@@ -151,12 +144,12 @@ public class RecoveryServiceTest {
 
   @Test
   public void testShouldHandleRecoveryTask() throws Exception {
-    AstraConfigs.AstraConfig astraCfg = makeAstraConfig(TEST_S3_BUCKET);
+    AstraConfigs.AstraConfig astraCfg = makeAstraConfig();
     curatorFramework =
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobFs);
+    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, chunkStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -173,10 +166,7 @@ public class RecoveryServiceTest {
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isNotEmpty();
-    assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
-    assertThat(blobFs.listFiles(URI.create(snapshots.get(0).snapshotPath), false).length)
-        .isGreaterThan(1);
+    assertThat(chunkStore.listFiles(snapshots.get(0).snapshotId).size()).isGreaterThan(0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
@@ -189,7 +179,7 @@ public class RecoveryServiceTest {
     final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
     TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_EXTENSION);
     AstraConfigs.AstraConfig astraCfg =
-        makeAstraConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
+        makeAstraConfig(components.testKafkaServer, topicPartition.topic());
     curatorFramework =
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
@@ -242,7 +232,7 @@ public class RecoveryServiceTest {
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, blobFs);
+        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, chunkStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
     long startOffset = 1;
@@ -261,7 +251,6 @@ public class RecoveryServiceTest {
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(0);
-    assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isEmpty();
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
@@ -273,7 +262,7 @@ public class RecoveryServiceTest {
     final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
     TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_EXTENSION);
     AstraConfigs.AstraConfig astraCfg =
-        makeAstraConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
+        makeAstraConfig(components.testKafkaServer, topicPartition.topic());
     curatorFramework =
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
@@ -325,7 +314,7 @@ public class RecoveryServiceTest {
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, blobFs);
+        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, chunkStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -345,10 +334,7 @@ public class RecoveryServiceTest {
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isNotEmpty();
-    assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
-    assertThat(blobFs.listFiles(URI.create(snapshots.get(0).snapshotPath), false).length)
-        .isGreaterThan(1);
+    assertThat(chunkStore.listFiles(snapshots.get(0).snapshotId).size()).isGreaterThan(0);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
@@ -358,12 +344,14 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskFailure() throws Exception {
     String fakeS3Bucket = "fakeBucket";
-    AstraConfigs.AstraConfig astraCfg = makeAstraConfig(fakeS3Bucket);
+    AstraConfigs.AstraConfig astraCfg = makeAstraConfig();
     curatorFramework =
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobFs);
+    recoveryService =
+        new RecoveryService(
+            astraCfg, curatorFramework, meterRegistry, new ChunkStore(s3AsyncClient, fakeS3Bucket));
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -397,12 +385,12 @@ public class RecoveryServiceTest {
 
   @Test
   public void testShouldHandleRecoveryTaskAssignmentSuccess() throws Exception {
-    AstraConfigs.AstraConfig astraCfg = makeAstraConfig(TEST_S3_BUCKET);
+    AstraConfigs.AstraConfig astraCfg = makeAstraConfig();
     curatorFramework =
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobFs);
+    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, chunkStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -467,10 +455,7 @@ public class RecoveryServiceTest {
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(1);
-    assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
-    assertThat(blobFs.listFiles(URI.create(snapshots.get(0).snapshotPath), false).length)
-        .isGreaterThan(1);
-
+    assertThat(chunkStore.listFiles(snapshots.get(0).snapshotId).size()).isGreaterThan(0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
@@ -481,12 +466,14 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskAssignmentFailure() throws Exception {
     String fakeS3Bucket = "fakeS3Bucket";
-    AstraConfigs.AstraConfig astraCfg = makeAstraConfig(fakeS3Bucket);
+    AstraConfigs.AstraConfig astraCfg = makeAstraConfig();
     curatorFramework =
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobFs);
+    recoveryService =
+        new RecoveryService(
+            astraCfg, curatorFramework, meterRegistry, new ChunkStore(s3AsyncClient, fakeS3Bucket));
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -656,12 +643,12 @@ public class RecoveryServiceTest {
 
   @Test
   public void shouldHandleInvalidRecoveryTasks() throws Exception {
-    AstraConfigs.AstraConfig astraCfg = makeAstraConfig(TEST_S3_BUCKET);
+    AstraConfigs.AstraConfig astraCfg = makeAstraConfig();
     curatorFramework =
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobFs);
+    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, chunkStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 

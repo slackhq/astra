@@ -17,8 +17,8 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.S3CrtBlobFs;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -634,10 +634,10 @@ public class IndexingChunkImplTest {
       String bucket = "invalid-bucket";
       S3AsyncClient s3AsyncClient =
           S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+      ChunkStore chunkStore = new ChunkStore(s3AsyncClient, bucket);
 
       // Snapshot to S3 without creating the s3 bucket.
-      assertThat(chunk.snapshotToS3(bucket, "", s3CrtBlobFs)).isFalse();
+      assertThat(chunk.snapshotToS3(chunkStore)).isFalse();
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // Metadata checks
@@ -698,12 +698,12 @@ public class IndexingChunkImplTest {
       String bucket = "test-bucket-with-prefix";
       S3AsyncClient s3AsyncClient =
           S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
       s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
+      ChunkStore chunkStore = new ChunkStore(s3AsyncClient, bucket);
 
       // Snapshot to S3
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-      assertThat(chunk.snapshotToS3(bucket, "", s3CrtBlobFs)).isTrue();
+      assertThat(chunk.snapshotToS3(chunkStore)).isTrue();
       assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
       // depending on heap and CFS files this can be 5 or 19.
@@ -714,10 +714,13 @@ public class IndexingChunkImplTest {
 
       // Check schema file exists in s3
       ListObjectsV2Response objectsResponse =
-          s3AsyncClient.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build()).get();
+          s3AsyncClient
+              .listObjectsV2(
+                  ListObjectsV2Request.builder().bucket(bucket).prefix(chunk.id()).build())
+              .get();
       assertThat(
               objectsResponse.contents().stream()
-                  .filter(o -> o.key().equals(SCHEMA_FILE_NAME))
+                  .filter(o -> o.key().contains(SCHEMA_FILE_NAME))
                   .count())
           .isEqualTo(1);
 

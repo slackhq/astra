@@ -11,7 +11,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.astra.blobfs.BlobFs;
+import com.slack.astra.blobfs.ChunkStore;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ChunkInfo;
 import com.slack.astra.chunk.IndexingChunkImpl;
@@ -60,8 +60,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
   private final String chunkDataPrefix;
 
-  private final BlobFs blobFs;
-  private final String s3Bucket;
+  private final ChunkStore chunkStore;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final AsyncCuratorFramework curatorFramework;
   private final SearchContext searchContext;
@@ -117,8 +116,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       String dataDirectory,
       ChunkRollOverStrategy chunkRollOverStrategy,
       MeterRegistry registry,
-      BlobFs blobFs,
-      String s3Bucket,
+      ChunkStore chunkStore,
       ListeningExecutorService rolloverExecutorService,
       AsyncCuratorFramework curatorFramework,
       SearchContext searchContext,
@@ -134,8 +132,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     liveMessagesIndexedGauge = registry.gauge(LIVE_MESSAGES_INDEXED, new AtomicLong(0));
     liveBytesIndexedGauge = registry.gauge(LIVE_BYTES_INDEXED, new AtomicLong(0));
 
-    this.blobFs = blobFs;
-    this.s3Bucket = s3Bucket;
+    this.chunkStore = chunkStore;
     this.rolloverExecutorService = rolloverExecutorService;
     this.rolloverFuture = null;
     this.curatorFramework = curatorFramework;
@@ -201,8 +198,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     currentChunk.info().setChunkLastUpdatedTimeEpochMs(Instant.now().toEpochMilli());
 
     RollOverChunkTask<T> rollOverChunkTask =
-        new RollOverChunkTask<>(
-            currentChunk, meterRegistry, blobFs, s3Bucket, currentChunk.info().chunkId);
+        new RollOverChunkTask<>(currentChunk, meterRegistry, chunkStore);
 
     if ((rolloverFuture == null) || rolloverFuture.isDone()) {
       rolloverFuture = rolloverExecutorService.submit(rollOverChunkTask);
@@ -448,7 +444,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       MeterRegistry meterRegistry,
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.IndexerConfig indexerConfig,
-      BlobFs blobFs,
+      ChunkStore chunkStore,
       AstraConfigs.S3Config s3Config) {
 
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -459,8 +455,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
         indexerConfig.getDataDirectory(),
         chunkRollOverStrategy,
         meterRegistry,
-        blobFs,
-        s3Config.getS3Bucket(),
+        chunkStore,
         makeDefaultRollOverExecutor(),
         curatorFramework,
         SearchContext.fromConfig(indexerConfig.getServerConfig()),
