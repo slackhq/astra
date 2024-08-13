@@ -1,6 +1,5 @@
 package com.slack.astra.chunkManager;
 
-import static com.slack.astra.blobfs.BlobFsUtils.copyFromS3;
 import static com.slack.astra.blobfs.BlobFsUtils.copyToS3;
 import static com.slack.astra.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
 import static com.slack.astra.chunkManager.CachingChunkManager.ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG;
@@ -44,6 +43,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -262,7 +262,12 @@ public class CachingChunkManagerTest {
         .ignoreExceptions()
         .until(
             () ->
-                copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, Path.of("/tmp/test1")).length
+                Objects.requireNonNull(
+                            chunkStore
+                                .download(snapshotId, Path.of("/tmp/test1"))
+                                .toFile()
+                                .listFiles())
+                        .length
                     > 0);
     initAssignment(snapshotId);
 
@@ -300,7 +305,12 @@ public class CachingChunkManagerTest {
         .ignoreExceptions()
         .until(
             () ->
-                copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, Path.of("/tmp/test2")).length
+                Objects.requireNonNull(
+                            chunkStore
+                                .download(snapshotId, Path.of("/tmp/test2"))
+                                .toFile()
+                                .listFiles())
+                        .length
                     > 0);
     CacheNodeAssignment assignment = initAssignment(snapshotId);
 

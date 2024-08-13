@@ -1,8 +1,5 @@
 package com.slack.astra.logstore;
 
-import static com.slack.astra.blobfs.BlobFsUtils.DELIMITER;
-import static com.slack.astra.blobfs.BlobFsUtils.copyFromS3;
-import static com.slack.astra.blobfs.BlobFsUtils.copyToS3;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -18,7 +15,7 @@ import static org.awaitility.Awaitility.await;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
-import com.slack.astra.blobfs.S3CrtBlobFs;
+import com.slack.astra.blobfs.ChunkStore;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.logstore.LogMessage.ReservedField;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -38,6 +35,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.io.FileUtils;
@@ -337,18 +336,9 @@ public class LuceneIndexStoreImplTest {
     public SnapshotTester() throws IOException {}
 
     @Test
-    public void testS3SnapshotWithPrefix() throws Exception {
-      testS3Snapshot("test-bucket-with-prefix", "snapshot_prefix1");
-    }
-
-    @Test
-    public void testS3SnapshotWithEmptyPrefix() throws Exception {
-      testS3Snapshot("test-bucket-no-prefix", "");
-    }
-
-    private void testS3Snapshot(String bucket, String prefix) throws Exception {
+    public void testS3Snapshot() throws Exception {
       LuceneIndexStoreImpl logStore = strictLogStore.logStore;
-      addMessages(logStore, 1, 100, true);
+      addMessages(strictLogStore.logStore, 1, 100, true);
       Collection<LogMessage> results =
           findAllMessages(
               strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
@@ -359,24 +349,27 @@ public class LuceneIndexStoreImplTest {
       assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
-      Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
-      IndexCommit indexCommit = logStore.getIndexCommit();
+      Path dirPath = strictLogStore.logStore.getDirectory().getDirectory().toAbsolutePath();
+      IndexCommit indexCommit = strictLogStore.logStore.getIndexCommit();
       Collection<String> activeFiles = indexCommit.getFileNames();
 
-      logStore.close();
+      strictLogStore.logStore.close();
       strictLogStore.logSearcher.close();
       strictLogStore.logStore = null;
       strictLogStore.logSearcher = null;
-      assertThat(dirPath.toFile().listFiles().length).isGreaterThanOrEqualTo(activeFiles.size());
+
+      assertThat(Objects.requireNonNull(dirPath.toFile().listFiles()).length)
+          .isGreaterThanOrEqualTo(activeFiles.size());
 
       // create an S3 client
       S3AsyncClient s3AsyncClient =
           S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+      String bucket = "snapshot-test";
       s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
+      ChunkStore chunkStore = new ChunkStore(s3AsyncClient, bucket);
 
-      // Copy files to S3.
-      copyToS3(dirPath, activeFiles, bucket, prefix, s3CrtBlobFs);
+      String chunkId = UUID.randomUUID().toString();
+      chunkStore.upload(chunkId, dirPath);
 
       for (String fileName : activeFiles) {
         File fileToCopy = new File(dirPath.toString(), fileName);
@@ -385,10 +378,7 @@ public class LuceneIndexStoreImplTest {
                 .headObject(
                     HeadObjectRequest.builder()
                         .bucket(bucket)
-                        .key(
-                            prefix != null && !prefix.isEmpty()
-                                ? prefix + DELIMITER + fileName
-                                : fileName)
+                        .key(String.format("%s/%s", chunkId, fileName))
                         .build())
                 .get();
         assertThat(headObjectResponse.contentLength()).isEqualTo(fileToCopy.length());
@@ -404,15 +394,11 @@ public class LuceneIndexStoreImplTest {
                 // then fail)
                 FileUtils.cleanDirectory(tmpPath.toFile());
                 // Download files from S3 to local FS.
-                String[] s3Files =
-                    copyFromS3(
-                        bucket,
-                        prefix,
-                        s3CrtBlobFs,
-                        tmpPath.toAbsolutePath()); // IO java.util.concurrent.ExecutionException:
-                // software.amazon.awssdk.core.exception.SdkClientException: Unexpected exception
-                // occurred: s3metaRequest is not initialized yet
-                return s3Files.length == activeFiles.size();
+                chunkStore.download(chunkId, tmpPath.toAbsolutePath());
+                // the delta is the presence of the write.lock file, which is released but still in
+                // the directory
+                return Objects.requireNonNull(tmpPath.toFile().listFiles()).length
+                    >= activeFiles.size();
               });
 
       // Search files in local FS.
@@ -425,9 +411,7 @@ public class LuceneIndexStoreImplTest {
       assertThat(newResults.size()).isEqualTo(1);
 
       // Clean up
-      logStore.releaseIndexCommit(indexCommit);
       newSearcher.close();
-      s3CrtBlobFs.close();
     }
   }
 
