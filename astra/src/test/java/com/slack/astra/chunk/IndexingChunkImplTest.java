@@ -17,7 +17,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
+import com.slack.astra.blobfs.S3CrtBlobFs;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
@@ -59,6 +59,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
@@ -713,7 +714,7 @@ public class IndexingChunkImplTest {
 
       // Check schema file exists in s3
       ListObjectsV2Response objectsResponse =
-          s3AsyncClient.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true)).get();
+          s3AsyncClient.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build()).get();
       assertThat(
               objectsResponse.contents().stream()
                   .filter(o -> o.key().equals(SCHEMA_FILE_NAME))

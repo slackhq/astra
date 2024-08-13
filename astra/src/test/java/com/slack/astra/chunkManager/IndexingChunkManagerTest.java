@@ -33,7 +33,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
+import com.slack.astra.blobfs.S3CrtBlobFs;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ChunkInfo;

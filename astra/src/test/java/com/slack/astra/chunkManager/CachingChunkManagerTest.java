@@ -1,9 +1,9 @@
 package com.slack.astra.chunkManager;
 
+import static com.slack.astra.blobfs.BlobFsUtils.copyFromS3;
+import static com.slack.astra.blobfs.BlobFsUtils.copyToS3;
 import static com.slack.astra.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
 import static com.slack.astra.chunkManager.CachingChunkManager.ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG;
-import static com.slack.astra.logstore.BlobFsUtils.copyFromS3;
-import static com.slack.astra.logstore.BlobFsUtils.copyToS3;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -17,8 +17,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.astra.blobfs.ChunkStore;
-import com.slack.astra.blobfs.LocalBlobFs;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
+import com.slack.astra.blobfs.S3CrtBlobFs;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ReadOnlyChunkImpl;
@@ -211,11 +210,8 @@ public class CachingChunkManagerTest {
     filesToUpload.addAll(indexCommit.getFileNames());
     System.out.println(filesToUpload.size());
 
-    LocalBlobFs localBlobFs = new LocalBlobFs();
-
     logStore.close();
-    assertThat(localBlobFs.listFiles(dirPath.toUri(), false).length)
-        .isGreaterThanOrEqualTo(filesToUpload.size());
+    assertThat(dirPath.toFile().listFiles().length).isGreaterThanOrEqualTo(filesToUpload.size());
 
     // Copy files to S3.
     copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3CrtBlobFs);

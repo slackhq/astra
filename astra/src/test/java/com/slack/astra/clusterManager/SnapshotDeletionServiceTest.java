@@ -1,6 +1,6 @@
 package com.slack.astra.clusterManager;
 
-import static com.slack.astra.logstore.BlobFsUtils.createURI;
+import static com.slack.astra.blobfs.BlobFsUtils.createURI;
 import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,7 +20,7 @@ import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
+import com.slack.astra.blobfs.S3CrtBlobFs;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.replica.ReplicaMetadata;

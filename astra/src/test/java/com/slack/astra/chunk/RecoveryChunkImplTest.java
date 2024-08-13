@@ -15,7 +15,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
+import com.slack.astra.blobfs.S3CrtBlobFs;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;

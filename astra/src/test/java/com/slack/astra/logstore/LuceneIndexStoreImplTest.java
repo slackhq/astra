@@ -1,9 +1,8 @@
 package com.slack.astra.logstore;
 
-import static com.slack.astra.logstore.BlobFsUtils.DELIMITER;
-import static com.slack.astra.logstore.BlobFsUtils.copyFromS3;
-import static com.slack.astra.logstore.BlobFsUtils.copyToLocalPath;
-import static com.slack.astra.logstore.BlobFsUtils.copyToS3;
+import static com.slack.astra.blobfs.BlobFsUtils.DELIMITER;
+import static com.slack.astra.blobfs.BlobFsUtils.copyFromS3;
+import static com.slack.astra.blobfs.BlobFsUtils.copyToS3;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -19,8 +18,7 @@ import static org.awaitility.Awaitility.await;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
-import com.slack.astra.blobfs.LocalBlobFs;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
+import com.slack.astra.blobfs.S3CrtBlobFs;
 import com.slack.astra.blobfs.s3.S3TestUtils;
 import com.slack.astra.logstore.LogMessage.ReservedField;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -51,6 +49,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 @SuppressWarnings("unused")
@@ -363,14 +362,12 @@ public class LuceneIndexStoreImplTest {
       Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
       IndexCommit indexCommit = logStore.getIndexCommit();
       Collection<String> activeFiles = indexCommit.getFileNames();
-      LocalBlobFs localBlobFs = new LocalBlobFs();
 
       logStore.close();
       strictLogStore.logSearcher.close();
       strictLogStore.logStore = null;
       strictLogStore.logSearcher = null;
-      assertThat(localBlobFs.listFiles(dirPath.toUri(), false).length)
-          .isGreaterThanOrEqualTo(activeFiles.size());
+      assertThat(dirPath.toFile().listFiles().length).isGreaterThanOrEqualTo(activeFiles.size());
 
       // create an S3 client
       S3AsyncClient s3AsyncClient =
@@ -386,11 +383,13 @@ public class LuceneIndexStoreImplTest {
         HeadObjectResponse headObjectResponse =
             s3AsyncClient
                 .headObject(
-                    S3TestUtils.getHeadObjectRequest(
-                        bucket,
-                        prefix != null && !prefix.isEmpty()
-                            ? prefix + DELIMITER + fileName
-                            : fileName))
+                    HeadObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(
+                            prefix != null && !prefix.isEmpty()
+                                ? prefix + DELIMITER + fileName
+                                : fileName)
+                        .build())
                 .get();
         assertThat(headObjectResponse.contentLength()).isEqualTo(fileToCopy.length());
       }
@@ -429,46 +428,6 @@ public class LuceneIndexStoreImplTest {
       logStore.releaseIndexCommit(indexCommit);
       newSearcher.close();
       s3CrtBlobFs.close();
-    }
-
-    @Test
-    public void testLocalSnapshot() throws IOException {
-      LuceneIndexStoreImpl logStore = strictLogStore.logStore;
-      addMessages(logStore, 1, 100, true);
-      Collection<LogMessage> results =
-          findAllMessages(
-              strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
-      assertThat(results.size()).isEqualTo(1);
-      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
-          .isEqualTo(100);
-      assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
-
-      Path dirPath = logStore.getDirectory().getDirectory().toAbsolutePath();
-      IndexCommit indexCommit = logStore.getIndexCommit();
-      Collection<String> activeFiles = indexCommit.getFileNames();
-      LocalBlobFs blobFs = new LocalBlobFs();
-      logStore.close();
-      strictLogStore.logSearcher.close();
-      strictLogStore.logStore = null;
-      strictLogStore.logSearcher = null;
-
-      assertThat(blobFs.listFiles(dirPath.toUri(), false).length)
-          .isGreaterThanOrEqualTo(activeFiles.size());
-
-      copyToLocalPath(dirPath, activeFiles, tmpPath.toAbsolutePath(), blobFs);
-
-      LogIndexSearcherImpl newSearcher =
-          new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
-              logStore.getSchema());
-
-      Collection<LogMessage> newResults =
-          findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
-      assertThat(newResults.size()).isEqualTo(1);
-      logStore.releaseIndexCommit(indexCommit);
-      newSearcher.close();
     }
   }
 

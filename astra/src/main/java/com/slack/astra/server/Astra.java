@@ -5,7 +5,7 @@ import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
 import com.slack.astra.blobfs.BlobFs;
 import com.slack.astra.blobfs.ChunkStore;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
+import com.slack.astra.blobfs.S3CrtBlobFs;
 import com.slack.astra.bulkIngestApi.BulkIngestApi;
 import com.slack.astra.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.astra.bulkIngestApi.DatasetRateLimitingService;

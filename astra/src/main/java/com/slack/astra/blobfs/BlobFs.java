@@ -3,14 +3,8 @@ package com.slack.astra.blobfs;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * BlobFs is a restricted FS API that exposes functionality that is required for a store to use
@@ -25,23 +19,8 @@ import org.slf4j.LoggerFactory;
  * <p>NOTE: This code is a fork of PinotFS from Apache Pinot. In future, we will import this code as
  * an external lib.
  */
+@Deprecated
 public abstract class BlobFs implements Closeable, Serializable {
-  private static final Logger LOGGER = LoggerFactory.getLogger(BlobFs.class);
-
-  /**
-   * Initializes the configurations specific to that filesystem. For instance, any security related
-   * parameters can be initialized here and will not be logged.
-   */
-  public abstract void init(BlobFsConfig config);
-
-  /**
-   * Creates a new directory. If parent directories are not created, it will create them. If the
-   * directory exists, it will return true without doing anything.
-   *
-   * @return true if mkdir is successful
-   * @throws IOException on IO failure
-   */
-  public abstract boolean mkdir(URI uri) throws IOException;
 
   /**
    * Deletes the file at the location provided. If the segmentUri is a directory, it will delete the
@@ -53,75 +32,8 @@ public abstract class BlobFs implements Closeable, Serializable {
    * @return true if delete is successful else false
    * @throws IOException on IO failure, e.g Uri is not present or not valid
    */
+  @Deprecated
   public abstract boolean delete(URI segmentUri, boolean forceDelete) throws IOException;
-
-  /**
-   * Moves the file or directory from the src to dst. Does not keep the original file. If the dst
-   * has parent directories that haven't been created, this method will create all the necessary
-   * parent directories. Note: In blobfs we recommend the full paths of both src and dst be
-   * specified. For example, if a file /a/b/c is moved to a file /x/y/z, in the case of overwrite,
-   * the directory /a/b still exists, but will not contain the file 'c'. Instead, /x/y/z will
-   * contain the contents of 'c'. If src is a directory /a/b which contains two files /a/b/c and
-   * /a/b/d, and the dst is /x/y, the result would be that the directory /a/b under /a gets removed
-   * and dst directory contains two files which is /x/y/c and /x/y/d. If src is a directory /a/b
-   * needs to be moved under another directory /x/y, please specify the dst to /x/y/b.
-   *
-   * @param srcUri URI of the original file
-   * @param dstUri URI of the final file location
-   * @param overwrite true if we want to overwrite the dstURI, false otherwise
-   * @return true if move is successful
-   * @throws IOException on IO failure
-   */
-  public boolean move(URI srcUri, URI dstUri, boolean overwrite) throws IOException {
-    if (!exists(srcUri)) {
-      LOGGER.warn("Source {} does not exist", srcUri);
-      return false;
-    }
-    if (exists(dstUri)) {
-      if (overwrite) {
-        delete(dstUri, true);
-      } else {
-        // dst file exists, returning
-        LOGGER.warn(
-            "Cannot move {} to {}. Destination exists and overwrite flag set to false.",
-            srcUri,
-            dstUri);
-        return false;
-      }
-    } else {
-      // ensures the parent path of dst exists.
-      try {
-        Path parentPath = Paths.get(dstUri.getPath()).getParent();
-        URI parentUri = new URI(dstUri.getScheme(), dstUri.getHost(), parentPath.toString(), null);
-        mkdir(parentUri);
-      } catch (URISyntaxException e) {
-        throw new IOException(e);
-      }
-    }
-    return doMove(srcUri, dstUri);
-  }
-
-  /** Does the actual behavior of move in each FS. */
-  public abstract boolean doMove(URI srcUri, URI dstUri) throws IOException;
-
-  /**
-   * Copies the file or directory from the src to dst. The original file is retained. If the dst has
-   * parent directories that haven't been created, this method will create all the necessary parent
-   * directories. If dst already exists, this will overwrite the existing file/directory in the
-   * path.
-   *
-   * <p>Note: In Pinot we recommend the full paths of both src and dst be specified. For example, if
-   * a file /a/b/c is copied to a file /x/y/z, the directory /a/b still exists containing the file
-   * 'c'. The dst file /x/y/z will contain the contents of 'c'. If a directory /a/b is copied to
-   * another directory /x/y, the directory /x/y will contain the content of /a/b. If a directory
-   * /a/b is copied under the directory /x/y, the dst needs to be specify as /x/y/b.
-   *
-   * @param srcUri URI of the original file
-   * @param dstUri URI of the final file location
-   * @return true if copy is successful
-   * @throws IOException on IO failure
-   */
-  public abstract boolean copy(URI srcUri, URI dstUri) throws IOException;
 
   /**
    * Checks whether the file or directory at the provided location exists.
@@ -130,16 +42,8 @@ public abstract class BlobFs implements Closeable, Serializable {
    * @return true if path exists
    * @throws IOException on IO failure
    */
+  @Deprecated
   public abstract boolean exists(URI fileUri) throws IOException;
-
-  /**
-   * Returns the length of the file at the provided location.
-   *
-   * @param fileUri location of file
-   * @return the number of bytes
-   * @throws IOException on IO failure, e.g if it's a directory.
-   */
-  public abstract long length(URI fileUri) throws IOException;
 
   /**
    * Lists all the files and directories at the location provided. Lists recursively if {@code
@@ -151,6 +55,7 @@ public abstract class BlobFs implements Closeable, Serializable {
    * @return an array of strings that contains file paths
    * @throws IOException on IO failure. See specific implementation
    */
+  @Deprecated
   public abstract String[] listFiles(URI fileUri, boolean recursive) throws IOException;
 
   /**
@@ -161,6 +66,7 @@ public abstract class BlobFs implements Closeable, Serializable {
    * @throws Exception if srcUri is not valid or not present, or timeout when downloading file to
    *     local
    */
+  @Deprecated
   public abstract void copyToLocalFile(URI srcUri, File dstFile) throws Exception;
 
   /**
@@ -172,6 +78,7 @@ public abstract class BlobFs implements Closeable, Serializable {
    * @throws Exception if fileUri is not valid or not present, or timeout when uploading file from
    *     local
    */
+  @Deprecated
   public abstract void copyFromLocalFile(File srcFile, URI dstUri) throws Exception;
 
   /**
@@ -181,39 +88,8 @@ public abstract class BlobFs implements Closeable, Serializable {
    * @return true if uri is a directory, false otherwise.
    * @throws IOException on IO failure, e.g uri is not valid or not present
    */
+  @Deprecated
   public abstract boolean isDirectory(URI uri) throws IOException;
-
-  /**
-   * Returns the age of the file
-   *
-   * @param uri location of file or directory
-   * @return A long value representing the time the file was last modified, measured in milliseconds
-   *     since epoch (00:00:00 GMT, January 1, 1970) or 0L if the file does not exist or if an I/O
-   *     error occurs
-   * @throws IOException if uri is not valid or not present
-   */
-  public abstract long lastModified(URI uri) throws IOException;
-
-  /**
-   * Updates the last modified time of an existing file or directory to be current time. If the file
-   * system object does not exist, creates an empty file.
-   *
-   * @param uri location of file or directory
-   * @throws IOException if the parent directory doesn't exist
-   */
-  public abstract boolean touch(URI uri) throws IOException;
-
-  /**
-   * Opens a file in the underlying filesystem and returns an InputStream to read it. Note that the
-   * caller can invoke close on this inputstream. Some implementations can choose to copy the
-   * original file to local temp file and return the inputstream. In this case, the implementation
-   * it should delete the temp file when close is invoked.
-   *
-   * @param uri location of the file to open
-   * @return a new InputStream
-   * @throws IOException on any IO error - missing file, not a file etc
-   */
-  public abstract InputStream open(URI uri) throws IOException;
 
   /**
    * For certain filesystems, we may need to close the filesystem and do relevant operations to
@@ -222,5 +98,6 @@ public abstract class BlobFs implements Closeable, Serializable {
    * @throws IOException on IO failure
    */
   @Override
+  @Deprecated
   public void close() throws IOException {}
 }

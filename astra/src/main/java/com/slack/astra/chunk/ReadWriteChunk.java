@@ -1,8 +1,8 @@
 package com.slack.astra.chunk;
 
+import static com.slack.astra.blobfs.BlobFsUtils.copyToS3;
+import static com.slack.astra.blobfs.BlobFsUtils.createURI;
 import static com.slack.astra.chunk.ChunkInfo.toSnapshotMetadata;
-import static com.slack.astra.logstore.BlobFsUtils.copyToS3;
-import static com.slack.astra.logstore.BlobFsUtils.createURI;
 import static com.slack.astra.writer.SpanFormatter.isValidTimestamp;
 
 import com.google.common.annotations.VisibleForTesting;

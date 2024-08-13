@@ -7,17 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.io.Resources;
+import com.slack.astra.blobfs.S3CrtBlobFs;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,8 +23,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 public class S3CrtBlobFsTest {
@@ -66,55 +67,9 @@ public class S3CrtBlobFsTest {
     }
     s3Client
         .putObject(
-            S3TestUtils.getPutObjectRequest(bucket, fileNameWithFolder),
+            PutObjectRequest.builder().bucket(bucket).key(fileNameWithFolder).build(),
             AsyncRequestBody.fromBytes(new byte[0]))
         .get();
-  }
-
-  @Test
-  public void testTouchFileInBucket() throws Exception {
-
-    String[] originalFiles = new String[] {"a-touch.txt", "b-touch.txt", "c-touch.txt"};
-
-    for (String fileName : originalFiles) {
-      s3BlobFs.touch(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
-    }
-    ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true)).get();
-
-    String[] response =
-        listObjectsV2Response.contents().stream()
-            .map(S3Object::key)
-            .filter(x -> x.contains("touch"))
-            .toArray(String[]::new);
-
-    assertEquals(response.length, originalFiles.length);
-    assertTrue(Arrays.equals(response, originalFiles));
-  }
-
-  @Test
-  public void testTouchFilesInFolder() throws Exception {
-
-    String folder = "my-files";
-    String[] originalFiles = new String[] {"a-touch.txt", "b-touch.txt", "c-touch.txt"};
-
-    for (String fileName : originalFiles) {
-      String fileNameWithFolder = folder + DELIMITER + fileName;
-      s3BlobFs.touch(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileNameWithFolder)));
-    }
-    ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, folder, false)).get();
-
-    String[] response =
-        listObjectsV2Response.contents().stream()
-            .map(S3Object::key)
-            .filter(x -> x.contains("touch"))
-            .toArray(String[]::new);
-    assertEquals(response.length, originalFiles.length);
-
-    assertTrue(
-        Arrays.equals(
-            response, Arrays.stream(originalFiles).map(x -> folder + DELIMITER + x).toArray()));
   }
 
   @Test
@@ -202,7 +157,7 @@ public class S3CrtBlobFsTest {
     s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileToDelete)), false);
 
     ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true)).get();
+        s3Client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build()).get();
     String[] actualResponse =
         listObjectsV2Response.contents().stream()
             .map(S3Object::key)
@@ -231,7 +186,7 @@ public class S3CrtBlobFsTest {
         .until(
             () ->
                 s3Client
-                        .listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true))
+                        .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
                         .get()
                         .contents()
                         .stream()
@@ -338,7 +293,7 @@ public class S3CrtBlobFsTest {
         fileToCopy, URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
 
     HeadObjectResponse headObjectResponse =
-        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, fileName)).get();
+        s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(fileName).build()).get();
 
     assertEquals(headObjectResponse.contentLength(), (Long) fileToCopy.length());
 
@@ -361,7 +316,7 @@ public class S3CrtBlobFsTest {
         fileToCopy.getParentFile(), URI.create(String.format(FILE_FORMAT, SCHEME, bucket, "")));
 
     HeadObjectResponse headObjectResponse =
-        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, fileName)).get();
+        s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(fileName).build()).get();
 
     assertEquals(headObjectResponse.contentLength(), (Long) fileToCopy.length());
 
@@ -371,33 +326,5 @@ public class S3CrtBlobFsTest {
     assertEquals(fileToCopy.length(), fileToDownload.length());
 
     fileToDownload.deleteOnExit();
-  }
-
-  @Test
-  public void testOpenFile() throws Exception {
-    String fileName = "sample.txt";
-    String fileContent = "Hello, World";
-
-    s3Client
-        .putObject(
-            S3TestUtils.getPutObjectRequest(bucket, fileName),
-            AsyncRequestBody.fromString(fileContent))
-        .get();
-
-    InputStream is =
-        s3BlobFs.open(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
-    String actualContents = IOUtils.toString(is, StandardCharsets.UTF_8);
-    assertEquals(actualContents, fileContent);
-  }
-
-  @Test
-  public void testMkdir() throws Exception {
-    String folderName = "my-test-folder";
-
-    s3BlobFs.mkdir(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folderName)));
-
-    HeadObjectResponse headObjectResponse =
-        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, folderName + DELIMITER)).get();
-    assertTrue(headObjectResponse.sdkHttpResponse().isSuccessful());
   }
 }
