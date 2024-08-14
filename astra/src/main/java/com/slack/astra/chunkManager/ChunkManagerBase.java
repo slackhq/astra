@@ -98,7 +98,6 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                                       Tracing.currentTracer()
                                           .startScopedSpan("ChunkManagerBase.chunkQuery");
                                   span.tag("chunkId", chunk.id());
-                                  span.tag("chunkSnapshotPath", chunk.info().getSnapshotPath());
                                   concurrentQueries.acquire();
                                   try {
                                     return chunk.query(query);

@@ -7,7 +7,6 @@ import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
-import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
@@ -606,7 +605,6 @@ public class ReadOnlyChunkImplTest {
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaId,
             Instant.now().toEpochMilli(),
-            List.of(LOGS_LUCENE9),
             readOnlyChunk.searchContext.hostname,
             "rep1");
     cacheSlotMetadataStore.updateAsync(updatedCacheSlotMetadata);
@@ -619,12 +617,10 @@ public class ReadOnlyChunkImplTest {
     snapshotMetadataStore.createSync(
         new SnapshotMetadata(
             snapshotId,
-            "path",
             Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().toEpochMilli(),
             1,
             "partitionId",
-            LOGS_LUCENE9,
             sizeInBytesOnDisk));
   }
 
@@ -639,8 +635,7 @@ public class ReadOnlyChunkImplTest {
             "rep1",
             Instant.now().toEpochMilli(),
             Instant.now().plusSeconds(60).toEpochMilli(),
-            false,
-            LOGS_LUCENE9));
+            false));
   }
 
   private void initializeBlobStorageWithIndex(String snapshotId) throws Exception {

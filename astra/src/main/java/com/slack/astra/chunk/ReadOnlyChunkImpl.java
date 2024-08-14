@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -152,7 +151,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              List.of(Metadata.IndexType.LOGS_LUCENE9),
               searchContext.hostname,
               replicaSet);
       cacheSlotMetadataStore.createSync(cacheSlotMetadata);
@@ -265,9 +263,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       long durationNanos = assignmentTimer.stop(chunkAssignmentTimerSuccess);
 
       LOG.info(
-          "Downloaded chunk with snapshot id '{}' at path '{}' in {} seconds, was {}",
+          "Downloaded chunk with snapshot id '{}' in {} seconds, was {}",
           snapshotMetadata.snapshotId,
-          snapshotMetadata.snapshotPath,
           TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS),
           FileUtils.byteCountToDisplaySize(FileUtils.sizeOfDirectory(dataDirectory.toFile())));
     } catch (Exception e) {
@@ -408,9 +405,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       long durationNanos = assignmentTimer.stop(chunkAssignmentTimerSuccess);
 
       LOG.debug(
-          "Downloaded chunk with snapshot id '{}' at path '{}' in {} seconds, was {}",
+          "Downloaded chunk with snapshot id '{}' in {} seconds, was {}",
           snapshotMetadata.snapshotId,
-          snapshotMetadata.snapshotPath,
           TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS),
           FileUtils.byteCountToDisplaySize(FileUtils.sizeOfDirectory(dataDirectory.toFile())));
     } catch (Exception e) {

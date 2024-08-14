@@ -3,7 +3,6 @@ package com.slack.astra.metadata.replica;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.astra.metadata.core.AstraPartitionedMetadata;
-import com.slack.astra.proto.metadata.Metadata;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -23,7 +22,6 @@ public class ReplicaMetadata extends AstraPartitionedMetadata {
   public final long createdTimeEpochMs;
   public final long expireAfterEpochMs;
   public boolean isRestored;
-  public final Metadata.IndexType indexType;
 
   public ReplicaMetadata(
       String name,
@@ -31,8 +29,7 @@ public class ReplicaMetadata extends AstraPartitionedMetadata {
       String replicaSet,
       long createdTimeEpochMs,
       long expireAfterEpochMs,
-      boolean isRestored,
-      Metadata.IndexType indexType) {
+      boolean isRestored) {
     super(name);
     checkArgument(createdTimeEpochMs > 0, "Created time must be greater than 0");
     checkArgument(expireAfterEpochMs >= 0, "Expiration time must be greater than or equal to 0");
@@ -44,7 +41,6 @@ public class ReplicaMetadata extends AstraPartitionedMetadata {
     this.createdTimeEpochMs = createdTimeEpochMs;
     this.expireAfterEpochMs = expireAfterEpochMs;
     this.isRestored = isRestored;
-    this.indexType = indexType;
   }
 
   public String getSnapshotId() {
@@ -77,8 +73,7 @@ public class ReplicaMetadata extends AstraPartitionedMetadata {
     if (expireAfterEpochMs != that.expireAfterEpochMs) return false;
     if (isRestored != that.isRestored) return false;
     if (!snapshotId.equals(that.snapshotId)) return false;
-    if (!replicaSet.equals(that.replicaSet)) return false;
-    return indexType == that.indexType;
+    return replicaSet.equals(that.replicaSet);
   }
 
   @Override
@@ -89,7 +84,6 @@ public class ReplicaMetadata extends AstraPartitionedMetadata {
     result = 31 * result + (int) (createdTimeEpochMs ^ (createdTimeEpochMs >>> 32));
     result = 31 * result + (int) (expireAfterEpochMs ^ (expireAfterEpochMs >>> 32));
     result = 31 * result + (isRestored ? 1 : 0);
-    result = 31 * result + indexType.hashCode();
     return result;
   }
 
@@ -108,8 +102,6 @@ public class ReplicaMetadata extends AstraPartitionedMetadata {
         + expireAfterEpochMs
         + ", isRestored="
         + isRestored
-        + ", indexType="
-        + indexType
         + ", name='"
         + name
         + '\''

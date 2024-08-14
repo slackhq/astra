@@ -11,12 +11,10 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
     return Metadata.SnapshotMetadata.newBuilder()
         .setName(snapshotMetadata.name)
         .setSnapshotId(snapshotMetadata.snapshotId)
-        .setSnapshotPath(snapshotMetadata.snapshotPath)
         .setStartTimeEpochMs(snapshotMetadata.startTimeEpochMs)
         .setEndTimeEpochMs(snapshotMetadata.endTimeEpochMs)
         .setPartitionId(snapshotMetadata.partitionId)
         .setMaxOffset(snapshotMetadata.maxOffset)
-        .setIndexType(snapshotMetadata.indexType)
         .setSizeInBytes(snapshotMetadata.sizeInBytesOnDisk)
         .build();
   }
@@ -25,12 +23,10 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
       Metadata.SnapshotMetadata protoSnapshotMetadata) {
     return new SnapshotMetadata(
         protoSnapshotMetadata.getSnapshotId(),
-        protoSnapshotMetadata.getSnapshotPath(),
         protoSnapshotMetadata.getStartTimeEpochMs(),
         protoSnapshotMetadata.getEndTimeEpochMs(),
         protoSnapshotMetadata.getMaxOffset(),
         protoSnapshotMetadata.getPartitionId(),
-        Metadata.IndexType.LOGS_LUCENE9,
         protoSnapshotMetadata.getSizeInBytes());
   }
 

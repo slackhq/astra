@@ -15,13 +15,11 @@ import org.junit.jupiter.api.Test;
 public class ChunkInfoTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private static final String TEST_CHUNK_NAME = "testChunkInfo1";
-  private static final String TEST_SNAPSHOT_PATH = "testSnapshotPath";
 
   @Test
   public void testChunkInfoCreation() {
     final long chunkCreationTime = 1000;
-    final ChunkInfo info =
-        new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+    final ChunkInfo info = new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTime);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTime);
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTime);
@@ -29,7 +27,6 @@ public class ChunkInfoTest {
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
     assertThat(info.getMaxOffset()).isEqualTo(DEFAULT_MAX_OFFSET);
     assertThat(info.getKafkaPartitionId()).isEqualTo(TEST_KAFKA_PARTITION_ID);
-    assertThat(info.getSnapshotPath()).isEqualTo(TEST_SNAPSHOT_PATH);
   }
 
   @Test
@@ -37,11 +34,7 @@ public class ChunkInfoTest {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
     final long chunkCreationTimeEpochMilli = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
     final ChunkInfo info =
-        new ChunkInfo(
-            TEST_CHUNK_NAME,
-            chunkCreationTimeEpochMilli,
-            TEST_KAFKA_PARTITION_ID,
-            TEST_SNAPSHOT_PATH);
+        new ChunkInfo(TEST_CHUNK_NAME, chunkCreationTimeEpochMilli, TEST_KAFKA_PARTITION_ID);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
@@ -49,7 +42,6 @@ public class ChunkInfoTest {
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
     assertThat(info.getMaxOffset()).isEqualTo(DEFAULT_MAX_OFFSET);
     assertThat(info.getKafkaPartitionId()).isEqualTo(TEST_KAFKA_PARTITION_ID);
-    assertThat(info.getSnapshotPath()).isEqualTo(TEST_SNAPSHOT_PATH);
 
     // Add message with same time range.
     info.updateDataTimeRange(chunkCreationTimeEpochMilli);
@@ -115,8 +107,7 @@ public class ChunkInfoTest {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
     final long chunkCreationTimeSecs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
     final ChunkInfo info =
-        new ChunkInfo(
-            TEST_CHUNK_NAME, chunkCreationTimeSecs, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+        new ChunkInfo(TEST_CHUNK_NAME, chunkCreationTimeSecs, TEST_KAFKA_PARTITION_ID);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTimeSecs);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTimeSecs);
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeSecs);
@@ -133,7 +124,6 @@ public class ChunkInfoTest {
     assertThat(info.containsDataInTimeRange(1000, chunkCreationTimeSecs + 1)).isTrue();
     assertThat(info.getMaxOffset()).isEqualTo(DEFAULT_MAX_OFFSET);
     assertThat(info.getKafkaPartitionId()).isEqualTo(TEST_KAFKA_PARTITION_ID);
-    assertThat(info.getSnapshotPath()).isEqualTo(TEST_SNAPSHOT_PATH);
   }
 
   @Test
@@ -141,8 +131,7 @@ public class ChunkInfoTest {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
     final long chunkCreationTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
     final ChunkInfo info =
-        new ChunkInfo(
-            TEST_CHUNK_NAME, chunkCreationTimeMs, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+        new ChunkInfo(TEST_CHUNK_NAME, chunkCreationTimeMs, TEST_KAFKA_PARTITION_ID);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTimeMs);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTimeMs);
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeMs);
@@ -256,8 +245,7 @@ public class ChunkInfoTest {
 
   @Test
   public void testNegativeStartTimeInDateRange() {
-    final ChunkInfo info =
-        new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+    final ChunkInfo info = new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID);
     info.updateDataTimeRange(980);
     info.updateDataTimeRange(1020);
 
@@ -267,8 +255,7 @@ public class ChunkInfoTest {
 
   @Test
   public void testNegativeEndTimeInDateRange() {
-    final ChunkInfo info =
-        new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+    final ChunkInfo info = new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID);
     info.updateDataTimeRange(980);
     info.updateDataTimeRange(1020);
 
@@ -278,8 +265,7 @@ public class ChunkInfoTest {
 
   @Test
   public void testNegativeIntervalInDateRange() {
-    final ChunkInfo info =
-        new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+    final ChunkInfo info = new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID);
     info.updateDataTimeRange(980);
     info.updateDataTimeRange(1020);
 
@@ -290,32 +276,30 @@ public class ChunkInfoTest {
   @Test
   public void testInvalidChunkName() {
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> new ChunkInfo(null, 100, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH));
+        .isThrownBy(() -> new ChunkInfo(null, 100, TEST_KAFKA_PARTITION_ID));
   }
 
   @Test
   public void testEmptyChunkName() {
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> new ChunkInfo("", 100, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH));
+        .isThrownBy(() -> new ChunkInfo("", 100, TEST_KAFKA_PARTITION_ID));
   }
 
   @Test
   public void testNegativeChunkCreationTime() {
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () -> new ChunkInfo(TEST_CHUNK_NAME, -1, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH));
+        .isThrownBy(() -> new ChunkInfo(TEST_CHUNK_NAME, -1, TEST_KAFKA_PARTITION_ID));
   }
 
   @Test
   public void testEmptyKafkaPartitionId() {
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> new ChunkInfo(TEST_CHUNK_NAME, 100, "", TEST_SNAPSHOT_PATH));
+        .isThrownBy(() -> new ChunkInfo(TEST_CHUNK_NAME, 100, ""));
   }
 
   @Test
   public void testMaxOffset() {
-    ChunkInfo chunkInfo =
-        new ChunkInfo(TEST_CHUNK_NAME, 100, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+    ChunkInfo chunkInfo = new ChunkInfo(TEST_CHUNK_NAME, 100, TEST_KAFKA_PARTITION_ID);
     assertThat(chunkInfo.getMaxOffset()).isEqualTo(DEFAULT_MAX_OFFSET);
     chunkInfo.updateMaxOffset(100);
     assertThat(chunkInfo.getMaxOffset()).isEqualTo(100);
@@ -334,16 +318,6 @@ public class ChunkInfoTest {
   }
 
   @Test
-  public void testSnapshotPathCanBeUpdated() {
-    ChunkInfo chunkInfo =
-        new ChunkInfo(TEST_CHUNK_NAME, 10000, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
-    assertThat(chunkInfo.getSnapshotPath()).isEqualTo(TEST_SNAPSHOT_PATH);
-    String testPath = "/path";
-    chunkInfo.setSnapshotPath(testPath);
-    assertThat(chunkInfo.getSnapshotPath()).isEqualTo(testPath);
-  }
-
-  @Test
   public void snapshotMetadataConversion() {
     long dataStart = 101;
     long dataEnd = 102;
@@ -357,7 +331,6 @@ public class ChunkInfoTest {
             dataEnd,
             1000,
             TEST_KAFKA_PARTITION_ID,
-            TEST_SNAPSHOT_PATH,
             0);
     assertThat(fromSnapshotMetadata(toSnapshotMetadata(chunkInfo, ""))).isEqualTo(chunkInfo);
   }

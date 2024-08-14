@@ -1,6 +1,5 @@
 package com.slack.astra.metadata.replica;
 
-import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
@@ -21,13 +20,7 @@ public class ReplicaMetadataSerializerTest {
 
     ReplicaMetadata replicaMetadata =
         new ReplicaMetadata(
-            name,
-            snapshotId,
-            replicaSet,
-            createdTimeEpochMs,
-            expireAfterEpochMs,
-            true,
-            LOGS_LUCENE9);
+            name, snapshotId, replicaSet, createdTimeEpochMs, expireAfterEpochMs, true);
 
     String serializedReplicaMetadata = serDe.toJsonStr(replicaMetadata);
     assertThat(serializedReplicaMetadata).isNotEmpty();
@@ -41,7 +34,6 @@ public class ReplicaMetadataSerializerTest {
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
     assertThat(deserializedReplicaMetadata.isRestored).isTrue();
-    assertThat(deserializedReplicaMetadata.indexType).isEqualTo(LOGS_LUCENE9);
   }
 
   @Test
@@ -63,7 +55,6 @@ public class ReplicaMetadataSerializerTest {
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(1639677020380L);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(0L);
     assertThat(deserializedReplicaMetadata.isRestored).isFalse();
-    assertThat(deserializedReplicaMetadata.indexType).isEqualTo(LOGS_LUCENE9);
   }
 
   @Test

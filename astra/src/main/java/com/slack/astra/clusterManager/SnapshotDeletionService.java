@@ -14,7 +14,6 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.astra.blobfs.ChunkStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
-import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.micrometer.core.instrument.Counter;
@@ -175,7 +174,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
             // served from the indexers. To avoid the whole headache of managing all the
             // different states we could be in, we should just disable the deletion of live
             // snapshots whole-cloth. We clean those up when a node boots anyhow
-            .filter(snapshotMetadata -> !SnapshotMetadata.isLive(snapshotMetadata))
+            .filter(snapshotMetadata -> !snapshotMetadata.isLive())
             .map(
                 snapshotMetadata -> {
                   ListenableFuture<?> future =

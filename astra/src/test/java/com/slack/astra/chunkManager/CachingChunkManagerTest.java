@@ -159,9 +159,7 @@ public class CachingChunkManagerTest {
   private CacheNodeAssignment initAssignment(String snapshotId) throws Exception {
     cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    snapshotMetadataStore.createSync(
-        new SnapshotMetadata(
-            snapshotId, TEST_S3_BUCKET, 1, 1, 0, "abcd", Metadata.IndexType.LOGS_LUCENE9, 29));
+    snapshotMetadataStore.createSync(new SnapshotMetadata(snapshotId, 1, 1, 0, "abcd", 29));
     CacheNodeAssignment newAssignment =
         new CacheNodeAssignment(
             "abcd",

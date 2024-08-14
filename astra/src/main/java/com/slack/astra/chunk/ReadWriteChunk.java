@@ -68,7 +68,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public static final String INDEX_FILES_UPLOAD = "index_files_upload";
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
   public static final String SNAPSHOT_TIMER = "snapshot.timer";
-  public static final String LIVE_SNAPSHOT_PREFIX = SnapshotMetadata.LIVE_SNAPSHOT_PATH + "_";
+  public static final String LIVE_SNAPSHOT_PREFIX = "LIVE_";
   public static final String SCHEMA_FILE_NAME = "schema.json";
 
   private final LogStore logStore;
@@ -111,8 +111,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         new ChunkInfo(
             chunkDataPrefix + "_" + chunkCreationTime.getEpochSecond() + "_" + logStoreId,
             chunkCreationTime.toEpochMilli(),
-            kafkaPartitionId,
-            SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+            kafkaPartitionId);
 
     readOnly = false;
     this.meterRegistry = meterRegistry;
@@ -253,7 +252,6 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       chunkStore.upload(chunkInfo.chunkId, dirPath);
 
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
-      chunkInfo.setSnapshotPath(chunkStore.getRemotePath(chunkInfo.chunkId));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);
       logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;

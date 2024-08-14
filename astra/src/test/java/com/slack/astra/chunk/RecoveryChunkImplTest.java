@@ -620,7 +620,6 @@ public class RecoveryChunkImplTest {
 
       // Snapshot to S3 without creating the s3 bucket.
       assertThat(chunk.snapshotToS3(chunkStore)).isFalse();
-      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // No live snapshot or search metadata is published since the S3 snapshot failed.
       assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
@@ -671,9 +670,7 @@ public class RecoveryChunkImplTest {
       ChunkStore chunkStore = new ChunkStore(s3AsyncClient, bucket);
 
       // Snapshot to S3
-      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
       assertThat(chunk.snapshotToS3(chunkStore)).isTrue();
-      assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
       // depending on heap and CFS files this can be 5 or 19.
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isGreaterThan(5);

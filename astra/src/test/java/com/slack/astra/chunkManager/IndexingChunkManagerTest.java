@@ -430,10 +430,9 @@ public class IndexingChunkManagerTest {
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(1);
     assertThat(fetchNonLiveSnapshot(snapshots)).isEmpty();
-    assertThat(snapshots.get(0).snapshotPath).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshots.get(0).isLive()).isTrue();
     assertThat(snapshots.get(0).maxOffset).isEqualTo(0);
     assertThat(snapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
-    assertThat(snapshots.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(snapshots.get(0).startTimeEpochMs)
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(5000L));
     assertThat(snapshots.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
@@ -442,7 +441,6 @@ public class IndexingChunkManagerTest {
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.get(0).url).contains(TEST_HOST);
     assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-    assertThat(searchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
     // Add a message with a very high offset.
     final int veryHighOffset = 1000;
@@ -1267,7 +1265,7 @@ public class IndexingChunkManagerTest {
     assertThat(fetchLiveSnapshot(snapshots)).isEmpty();
     assertThat(snapshots.get(0).maxOffset).isEqualTo(offset - 1);
     assertThat(snapshots.get(0).endTimeEpochMs).isLessThan(MAX_FUTURE_TIME);
-    assertThat(snapshots.get(0).snapshotId).doesNotContain(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshots.get(0).isLive()).isFalse();
     searchMetadataStore.close();
     snapshotMetadataStore.close();
   }

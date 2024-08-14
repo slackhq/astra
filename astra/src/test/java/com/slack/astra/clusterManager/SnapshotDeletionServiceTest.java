@@ -1,6 +1,5 @@
 package com.slack.astra.clusterManager;
 
-import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
@@ -162,13 +161,11 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
-            0);
+            100);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
@@ -219,12 +216,10 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
             0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
@@ -235,8 +230,7 @@ public class SnapshotDeletionServiceTest {
             "rep1",
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(500, ChronoUnit.MINUTES).toEpochMilli(),
-            false,
-            LOGS_LUCENE9);
+            false);
     replicaMetadataStore.createAsync(replicaMetadata);
 
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
@@ -334,12 +328,10 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(500, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
             0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
@@ -395,12 +387,10 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
             0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
@@ -412,8 +402,7 @@ public class SnapshotDeletionServiceTest {
             "rep1",
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
-            false,
-            LOGS_LUCENE9);
+            false);
     replicaMetadataStore.createAsync(replicaMetadata);
 
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
@@ -471,13 +460,11 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
-            0);
+            100);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
@@ -530,13 +517,11 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
-            0);
+            100);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
@@ -595,13 +580,11 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
-            0);
+            100);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
@@ -653,13 +636,11 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
-            0);
+            100);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
@@ -750,13 +731,11 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
-            0);
+            100);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
@@ -824,13 +803,11 @@ public class SnapshotDeletionServiceTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             chunkId,
-            chunkStore.getRemotePath(chunkId),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1",
-            LOGS_LUCENE9,
-            0);
+            100);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 

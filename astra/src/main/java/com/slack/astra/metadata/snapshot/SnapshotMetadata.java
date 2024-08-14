@@ -3,7 +3,6 @@ package com.slack.astra.metadata.snapshot;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.astra.metadata.core.AstraPartitionedMetadata;
-import com.slack.astra.proto.metadata.Metadata;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -23,55 +22,38 @@ import java.time.temporal.ChronoField;
  * here.
  */
 public class SnapshotMetadata extends AstraPartitionedMetadata {
-  public static final String LIVE_SNAPSHOT_PATH = "LIVE";
-
-  public static boolean isLive(SnapshotMetadata snapshotMetadata) {
-    return snapshotMetadata.snapshotPath.equals(LIVE_SNAPSHOT_PATH);
-  }
-
-  // snapshot path is deprecated in favor of storing these to a well-known path
-  // @see ChunkStore.getPath
-  @Deprecated public final String snapshotPath;
-
   public final String snapshotId;
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
   public final long maxOffset;
   public final String partitionId;
-  public final Metadata.IndexType indexType;
   public long sizeInBytesOnDisk;
 
   public SnapshotMetadata(
       String snapshotId,
-      String snapshotPath,
       long startTimeEpochMs,
       long endTimeEpochMs,
       long maxOffset,
       String partitionId,
-      Metadata.IndexType indexType,
       long sizeInBytesOnDisk) {
     this(
         snapshotId,
-        snapshotPath,
         snapshotId,
         startTimeEpochMs,
         endTimeEpochMs,
         maxOffset,
         partitionId,
-        sizeInBytesOnDisk,
-        indexType);
+        sizeInBytesOnDisk);
   }
 
   private SnapshotMetadata(
       String name,
-      String snapshotPath,
       String snapshotId,
       long startTimeEpochMs,
       long endTimeEpochMs,
       long maxOffset,
       String partitionId,
-      long sizeInBytesOnDisk,
-      Metadata.IndexType indexType) {
+      long sizeInBytesOnDisk) {
     super(name);
     checkArgument(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
     checkArgument(startTimeEpochMs > 0, "start time should be greater than zero.");
@@ -82,65 +64,45 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
     checkArgument(maxOffset >= 0, "max offset should be greater than or equal to zero.");
     checkArgument(
         partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
-    checkArgument(
-        snapshotPath != null && !snapshotPath.isEmpty(), "snapshotPath can't be null or empty");
 
-    this.snapshotPath = snapshotPath;
     this.snapshotId = snapshotId;
     this.startTimeEpochMs = startTimeEpochMs;
     this.endTimeEpochMs = endTimeEpochMs;
     this.maxOffset = maxOffset;
     this.partitionId = partitionId;
-    this.indexType = indexType;
     this.sizeInBytesOnDisk = sizeInBytesOnDisk;
   }
 
   @Override
-  public boolean equals(Object o) {
+  public final boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof SnapshotMetadata that)) return false;
     if (!super.equals(o)) return false;
 
-    SnapshotMetadata that = (SnapshotMetadata) o;
-
-    if (startTimeEpochMs != that.startTimeEpochMs) return false;
-    if (endTimeEpochMs != that.endTimeEpochMs) return false;
-    if (maxOffset != that.maxOffset) return false;
-    if (snapshotPath != null ? !snapshotPath.equals(that.snapshotPath) : that.snapshotPath != null)
-      return false;
-    if (snapshotId != null ? !snapshotId.equals(that.snapshotId) : that.snapshotId != null)
-      return false;
-    if (partitionId != null ? !partitionId.equals(that.partitionId) : that.partitionId != null)
-      return false;
-    if (sizeInBytesOnDisk != that.sizeInBytesOnDisk) return false;
-    return indexType == that.indexType;
+    return startTimeEpochMs == that.startTimeEpochMs
+        && endTimeEpochMs == that.endTimeEpochMs
+        && maxOffset == that.maxOffset
+        && sizeInBytesOnDisk == that.sizeInBytesOnDisk
+        && snapshotId.equals(that.snapshotId)
+        && partitionId.equals(that.partitionId);
   }
 
   @Override
   public int hashCode() {
     int result = super.hashCode();
-    result = 31 * result + (snapshotPath != null ? snapshotPath.hashCode() : 0);
-    result = 31 * result + (snapshotId != null ? snapshotId.hashCode() : 0);
-    result = 31 * result + (int) (startTimeEpochMs ^ (startTimeEpochMs >>> 32));
-    result = 31 * result + (int) (endTimeEpochMs ^ (endTimeEpochMs >>> 32));
-    result = 31 * result + (int) (maxOffset ^ (maxOffset >>> 32));
-    result = 31 * result + (partitionId != null ? partitionId.hashCode() : 0);
-    result = 31 * result + (indexType != null ? indexType.hashCode() : 0);
+    result = 31 * result + snapshotId.hashCode();
+    result = 31 * result + Long.hashCode(startTimeEpochMs);
+    result = 31 * result + Long.hashCode(endTimeEpochMs);
+    result = 31 * result + Long.hashCode(maxOffset);
+    result = 31 * result + partitionId.hashCode();
     result = 31 * result + Long.hashCode(sizeInBytesOnDisk);
     return result;
   }
 
   @Override
   public String toString() {
-    // Include name from super class in the toString method to simplify debugging.
     return "SnapshotMetadata{"
-        + "name='"
-        + name
-        + '\''
-        + ", snapshotPath='"
-        + snapshotPath
-        + '\''
-        + ", snapshotId='"
+        + "snapshotId='"
         + snapshotId
         + '\''
         + ", startTimeEpochMs="
@@ -152,16 +114,17 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
         + ", partitionId='"
         + partitionId
         + '\''
-        + ", indexType="
-        + indexType
         + ", sizeInBytesOnDisk="
         + sizeInBytesOnDisk
+        + ", name='"
+        + name
+        + '\''
         + '}';
   }
 
   @Override
   public String getPartition() {
-    if (isLive(this)) {
+    if (isLive()) {
       // this keeps all the live snapshots in a single partition - this is important as their stored
       // startTimeEpochMs is not stable, and will be updated. This would cause an update to a live
       // node to fail with a partitioned metadata store as it cannot change the path of the znode.
@@ -173,5 +136,12 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
           snapshotTime.getLong(ChronoField.EPOCH_DAY),
           snapshotTime.getLong(ChronoField.HOUR_OF_DAY));
     }
+  }
+
+  // todo - this is better than the previous version of storing a static "LIVE" string to a path
+  //  variable but not by a lot. The "isLive" functionality should be reconsidered more broadly.
+  //  The ideal way is likely to reconsider the ZK type for "LIVE" snapshots
+  public boolean isLive() {
+    return this.sizeInBytesOnDisk == 0;
   }
 }
