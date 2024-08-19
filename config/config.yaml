@@ -33,9 +33,10 @@ s3Config:
   s3AccessKey: ${S3_ACCESS_KEY:-access}
   s3SecretKey: ${S3_SECRET_KEY:-key}
   s3Region: ${S3_REGION:-us-east-1}
-  s3EndPoint: ${S3_ENDPOINT:-http://localhost:9090}
+  s3EndPoint: ${S3_ENDPOINT:-http://localhost:9090/}
   s3Bucket: ${S3_BUCKET:-test-s3-bucket}
   s3TargetThroughputGbps: ${S3_TARGET_THROUGHPUT_GBPS:-25}
+  s3ForcePathStyle: ${S3_FORCE_PATH_STYLE:-false}
 
 tracingConfig:
   zipkinEndpoint: ${ZIPKIN_TRACING_ENDPOINT:-http://localhost:9411/api/v2/spans}
