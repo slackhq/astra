@@ -45,7 +45,7 @@ services:
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "slack-astra-app,slack-astra-app-backend-datasource"
 
   s3:
-    image: 'adobe/s3mock:2.1.29'
+    image: 'adobe/s3mock:latest'
     container_name: dep_s3
     ports:
       - 9090:9090
