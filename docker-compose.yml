@@ -45,7 +45,7 @@ services:
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "slack-astra-app,slack-astra-app-backend-datasource"
 
   s3:
-    image: 'adobe/s3mock:2.1.29'
+    image: 'adobe/s3mock:latest'
     container_name: dep_s3
     ports:
       - 9090:9090
@@ -73,7 +73,11 @@ services:
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - S3_ENDPOINT=http://dep_s3:9090
+      - S3_ENDPOINT=http://s3:9090/
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
+      - S3_FORCE_PATH_STYLE=true
     depends_on:
       - zookeeper
       - kafka
@@ -93,7 +97,15 @@ services:
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - S3_ENDPOINT=http://dep_s3:9090
+      - S3_ENDPOINT=http://s3:9090/
+      - INDEXER_MAX_BYTES_PER_CHUNK=500
+      - INDEXER_MAX_MESSAGES_PER_CHUNK=100
+      - INDEXER_MAX_TIME_PER_CHUNK_SECONDS=3600
+      - INDEXER_MAX_TIME_PER_CHUNK_SECONDS=900
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
+      - S3_FORCE_PATH_STYLE=true
     depends_on:
       - astra_preprocessor
 
@@ -110,7 +122,13 @@ services:
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - S3_ENDPOINT=http://dep_s3:9090
+      - S3_ENDPOINT=http://s3:9090/
+      - S3_FORCE_PATH_STYLE=true
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
+      - ASTRA_MANAGER_REPLICA_LIFESPAN_MINS=30
+      - ASTRA_MANAGER_SNAPSHOT_LIFESPAN_MINS=120
     depends_on:
       - astra_preprocessor
 
@@ -128,7 +146,11 @@ services:
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - S3_ENDPOINT=http://dep_s3:9090
+      - S3_ENDPOINT=http://s3:9090/
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
+      - S3_FORCE_PATH_STYLE=true
     depends_on:
       - astra_preprocessor
 
@@ -145,7 +167,11 @@ services:
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - S3_ENDPOINT=http://dep_s3:9090
+      - S3_ENDPOINT=http://s3:9090/
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
+      - S3_FORCE_PATH_STYLE=true
     depends_on:
       - astra_preprocessor
 
@@ -162,6 +188,10 @@ services:
       - ASTRA_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
-      - S3_ENDPOINT=http://dep_s3:9090
+      - S3_ENDPOINT=http://s3:9090/
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
+      - S3_FORCE_PATH_STYLE=true
     depends_on:
       - astra_preprocessor
