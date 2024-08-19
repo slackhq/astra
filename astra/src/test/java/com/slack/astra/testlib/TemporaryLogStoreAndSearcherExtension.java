@@ -62,7 +62,8 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-            queryBuilder);
+            queryBuilder,
+            null);
     return results.hits;
   }
 

@@ -30,6 +30,116 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testSourceIncludesBooleanFilter() throws Exception {
+    String rawRequest = getRawQueryString("boolean_source_includes_filter");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+
+    assertThat(request.getDataset()).isEqualTo("_all");
+    assertThat(request.getHowMany()).isEqualTo(500);
+    assertThat(request.getQueryString()).isEqualTo("*:*");
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
+
+    // Assert that the includes fields are set correctly
+    assertThat(request.getSourceFieldFilter().getIncludeFieldsMap()).isEmpty();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcardsCount()).isZero();
+    assertThat(request.getSourceFieldFilter().hasIncludeAll()).isTrue();
+    assertThat(request.getSourceFieldFilter().getIncludeAll()).isTrue();
+
+    // Assert that the excludes fields are set correctly
+    assertThat(request.getSourceFieldFilter().getExcludeFieldsMap()).isEmpty();
+    assertThat(request.getSourceFieldFilter().getExcludeWildcardsCount()).isZero();
+    assertThat(request.getSourceFieldFilter().hasExcludeAll()).isFalse();
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());
+  }
+
+  @Test
+  public void testSourceIncludesListFilter() throws Exception {
+    String rawRequest = getRawQueryString("list_source_includes_filter");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+
+    assertThat(request.getDataset()).isEqualTo("_all");
+    assertThat(request.getHowMany()).isEqualTo(500);
+    assertThat(request.getQueryString()).isEqualTo("*:*");
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
+
+    // Assert that the includes fields are set correctly
+    assertThat(request.getSourceFieldFilter().getIncludeFieldsMap()).hasSize(1);
+    assertThat(request.getSourceFieldFilter().getIncludeFieldsMap().get("normal_field_test"))
+        .isTrue();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcardsCount()).isOne();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcards(0)).isEqualTo("wildcard_test.*");
+    assertThat(request.getSourceFieldFilter().hasIncludeAll()).isFalse();
+
+    // Assert that the excludes fields are set correctly
+    assertThat(request.getSourceFieldFilter().getExcludeFieldsMap()).isEmpty();
+    assertThat(request.getSourceFieldFilter().getExcludeWildcardsCount()).isZero();
+    assertThat(request.getSourceFieldFilter().hasExcludeAll()).isFalse();
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());
+  }
+
+  @Test
+  public void testSourceIncludesObjectFilter() throws Exception {
+    String rawRequest = getRawQueryString("object_source_includes_filter");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+
+    assertThat(request.getDataset()).isEqualTo("_all");
+    assertThat(request.getHowMany()).isEqualTo(500);
+    assertThat(request.getQueryString()).isEqualTo("*:*");
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
+
+    // Assert that the includes fields are set correctly
+    assertThat(request.getSourceFieldFilter().getIncludeFieldsMap()).hasSize(1);
+    assertThat(
+            request.getSourceFieldFilter().getIncludeFieldsMap().get("include_normal_field_test"))
+        .isTrue();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcardsCount()).isOne();
+    assertThat(request.getSourceFieldFilter().getIncludeWildcards(0))
+        .isEqualTo("include_wildcard_test.*");
+    assertThat(request.getSourceFieldFilter().hasIncludeAll()).isFalse();
+
+    // Assert that the excludes fields are set correctly
+    assertThat(request.getSourceFieldFilter().getExcludeFieldsMap()).hasSize(1);
+    assertThat(
+            request.getSourceFieldFilter().getExcludeFieldsMap().get("exclude_normal_field_test"))
+        .isTrue();
+    assertThat(request.getSourceFieldFilter().getExcludeWildcardsCount()).isOne();
+    assertThat(request.getSourceFieldFilter().getExcludeWildcards(0))
+        .isEqualTo("exclude_wildcard_test.*");
+    assertThat(request.getSourceFieldFilter().getExcludeAll()).isFalse();
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());
+  }
+
+  @Test
   public void testNoAggs() throws Exception {
     String rawRequest = getRawQueryString("noaggs");
 

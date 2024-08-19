@@ -167,6 +167,7 @@ public class ReadOnlyChunkImplTest {
                 new DateHistogramAggBuilder(
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
+                null,
                 null));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
@@ -219,6 +220,7 @@ public class ReadOnlyChunkImplTest {
                 new DateHistogramAggBuilder(
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
+                null,
                 null));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
@@ -433,6 +435,7 @@ public class ReadOnlyChunkImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
+            null,
             null);
     SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
@@ -576,6 +579,7 @@ public class ReadOnlyChunkImplTest {
                 new DateHistogramAggBuilder(
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
+                null,
                 null));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 

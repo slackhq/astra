@@ -13,7 +13,8 @@ public class IllegalArgumentLogIndexSearcherImpl implements LogIndexSearcher<Log
       Long maxTime,
       int howMany,
       AggBuilder aggBuilder,
-      QueryBuilder queryBuilder) {
+      QueryBuilder queryBuilder,
+      SourceFieldFilter sourceFieldFilter) {
     throw new IllegalArgumentException("Failed to acquire an index searcher");
   }
 
