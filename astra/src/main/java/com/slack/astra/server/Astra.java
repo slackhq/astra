@@ -3,7 +3,7 @@ package com.slack.astra.server;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3AsyncUtil;
 import com.slack.astra.bulkIngestApi.BulkIngestApi;
 import com.slack.astra.bulkIngestApi.BulkIngestKafkaProducer;
@@ -139,10 +139,10 @@ public class Astra {
     curatorFramework =
         CuratorBuilder.build(
             prometheusMeterRegistry, astraConfig.getMetadataStoreConfig().getZookeeperConfig());
-    ChunkStore chunkStore = new ChunkStore(s3Client, astraConfig.getS3Config().getS3Bucket());
+    BlobStore blobStore = new BlobStore(s3Client, astraConfig.getS3Config().getS3Bucket());
 
     Set<Service> services =
-        getServices(curatorFramework, astraConfig, chunkStore, prometheusMeterRegistry);
+        getServices(curatorFramework, astraConfig, blobStore, prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
 
@@ -152,7 +152,7 @@ public class Astra {
   private static Set<Service> getServices(
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.AstraConfig astraConfig,
-      ChunkStore chunkStore,
+      BlobStore blobStore,
       PrometheusMeterRegistry meterRegistry)
       throws Exception {
     Set<Service> services = new HashSet<>();
@@ -165,7 +165,7 @@ public class Astra {
               meterRegistry,
               curatorFramework,
               astraConfig.getIndexerConfig(),
-              chunkStore,
+              blobStore,
               astraConfig.getS3Config());
       services.add(chunkManager);
 
@@ -236,7 +236,7 @@ public class Astra {
               curatorFramework,
               astraConfig.getS3Config(),
               astraConfig.getCacheConfig(),
-              chunkStore);
+              blobStore);
       services.add(chunkManager);
 
       HpaMetricMetadataStore hpaMetricMetadataStore =
@@ -330,11 +330,7 @@ public class Astra {
 
       SnapshotDeletionService snapshotDeletionService =
           new SnapshotDeletionService(
-              replicaMetadataStore,
-              snapshotMetadataStore,
-              chunkStore,
-              managerConfig,
-              meterRegistry);
+              replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
       services.add(snapshotDeletionService);
 
       CacheNodeMetadataStore cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
@@ -399,7 +395,7 @@ public class Astra {
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(astraConfig, curatorFramework, meterRegistry, chunkStore);
+          new RecoveryService(astraConfig, curatorFramework, meterRegistry, blobStore);
       services.add(recoveryService);
     }
 

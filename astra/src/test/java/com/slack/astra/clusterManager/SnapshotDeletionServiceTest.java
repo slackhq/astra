@@ -17,7 +17,7 @@ import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
@@ -66,7 +66,7 @@ public class SnapshotDeletionServiceTest {
   private SnapshotMetadataStore snapshotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
   private S3AsyncClient s3AsyncClient;
-  private ChunkStore chunkStore;
+  private BlobStore blobStore;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -88,7 +88,7 @@ public class SnapshotDeletionServiceTest {
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
 
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    chunkStore = spy(new ChunkStore(s3AsyncClient, S3_TEST_BUCKET));
+    blobStore = spy(new BlobStore(s3AsyncClient, S3_TEST_BUCKET));
   }
 
   @AfterEach
@@ -128,7 +128,7 @@ public class SnapshotDeletionServiceTest {
                 new SnapshotDeletionService(
                     replicaMetadataStore,
                     snapshotMetadataStore,
-                    chunkStore,
+                    blobStore,
                     managerConfig,
                     meterRegistry));
   }
@@ -156,7 +156,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
@@ -171,13 +171,13 @@ public class SnapshotDeletionServiceTest {
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(1);
 
     await().until(() -> snapshotMetadataStore.listSync().isEmpty());
-    verify(chunkStore, times(1)).delete(eq(chunkId));
+    verify(blobStore, times(1)).delete(eq(chunkId));
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(1);
@@ -211,7 +211,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
@@ -238,9 +238,9 @@ public class SnapshotDeletionServiceTest {
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
 
-    List<String> s3CrtBlobFsFiles = chunkStore.listFiles(chunkId);
+    List<String> s3CrtBlobFsFiles = blobStore.listFiles(chunkId);
     assertThat(s3CrtBlobFsFiles.size()).isNotEqualTo(0);
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
@@ -248,8 +248,8 @@ public class SnapshotDeletionServiceTest {
 
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
     assertThat(replicaMetadataStore.listSync()).containsExactlyInAnyOrder(replicaMetadata);
-    verify(chunkStore, times(0)).delete(any());
-    assertThat(chunkStore.listFiles(chunkId)).isEqualTo(s3CrtBlobFsFiles);
+    verify(blobStore, times(0)).delete(any());
+    assertThat(blobStore.listFiles(chunkId)).isEqualTo(s3CrtBlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -282,14 +282,14 @@ public class SnapshotDeletionServiceTest {
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
     assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
-    verify(chunkStore, times(0)).delete(any());
+    verify(blobStore, times(0)).delete(any());
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -323,7 +323,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
@@ -335,19 +335,19 @@ public class SnapshotDeletionServiceTest {
             0);
     snapshotMetadataStore.createAsync(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
-    List<String> s3CrtBlobFsFiles = chunkStore.listFiles(chunkId);
+    List<String> s3CrtBlobFsFiles = blobStore.listFiles(chunkId);
     assertThat(s3CrtBlobFsFiles.size()).isNotEqualTo(0);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
-    verify(chunkStore, times(0)).delete(any());
-    assertThat(chunkStore.listFiles(chunkId)).isEqualTo(s3CrtBlobFsFiles);
+    verify(blobStore, times(0)).delete(any());
+    assertThat(blobStore.listFiles(chunkId)).isEqualTo(s3CrtBlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -381,7 +381,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
@@ -407,20 +407,20 @@ public class SnapshotDeletionServiceTest {
 
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
     await().until(() -> replicaMetadataStore.listSync().size() == 1);
-    List<String> s3CrtBlobFsFiles = chunkStore.listFiles(chunkId);
+    List<String> s3CrtBlobFsFiles = blobStore.listFiles(chunkId);
     assertThat(s3CrtBlobFsFiles.size()).isNotEqualTo(0);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
     assertThat(replicaMetadataStore.listSync()).containsExactlyInAnyOrder(replicaMetadata);
-    verify(chunkStore, times(0)).delete(any());
-    assertThat(chunkStore.listFiles(chunkId)).isEqualTo(s3CrtBlobFsFiles);
+    verify(blobStore, times(0)).delete(any());
+    assertThat(blobStore.listFiles(chunkId)).isEqualTo(s3CrtBlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -454,7 +454,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
@@ -471,8 +471,8 @@ public class SnapshotDeletionServiceTest {
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
-    doThrow(new RuntimeException()).when(chunkStore).delete(any());
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
+    doThrow(new RuntimeException()).when(blobStore).delete(any());
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
@@ -511,7 +511,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
@@ -527,20 +527,20 @@ public class SnapshotDeletionServiceTest {
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
 
     AsyncStage asyncStage = mock(AsyncStage.class);
     when(asyncStage.toCompletableFuture())
         .thenReturn(CompletableFuture.failedFuture(new Exception()));
     doReturn(asyncStage).when(snapshotMetadataStore).deleteAsync(any(SnapshotMetadata.class));
-    assertThat(chunkStore.listFiles(chunkId)).isNotEmpty();
+    assertThat(blobStore.listFiles(chunkId)).isNotEmpty();
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
-    verify(chunkStore, times(1)).delete(any());
-    assertThat(chunkStore.listFiles(chunkId)).isEmpty();
+    verify(blobStore, times(1)).delete(any());
+    assertThat(blobStore.listFiles(chunkId)).isEmpty();
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -574,7 +574,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
@@ -590,8 +590,8 @@ public class SnapshotDeletionServiceTest {
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
-    doThrow(new RuntimeException()).when(chunkStore).delete(any());
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
+    doThrow(new RuntimeException()).when(blobStore).delete(any());
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
@@ -630,7 +630,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
@@ -646,9 +646,9 @@ public class SnapshotDeletionServiceTest {
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
     snapshotDeletionService.futuresListTimeoutSecs = 2;
-    List<String> s3CrtBlobFsFiles = chunkStore.listFiles(chunkId);
+    List<String> s3CrtBlobFsFiles = blobStore.listFiles(chunkId);
     assertThat(s3CrtBlobFsFiles.size()).isNotEqualTo(0);
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -671,8 +671,8 @@ public class SnapshotDeletionServiceTest {
     assertThat(deletes).isEqualTo(0);
 
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
-    verify(chunkStore, times(1)).delete(any());
-    assertThat(chunkStore.listFiles(chunkId)).isEmpty();
+    verify(blobStore, times(1)).delete(any());
+    assertThat(blobStore.listFiles(chunkId)).isEmpty();
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -688,8 +688,8 @@ public class SnapshotDeletionServiceTest {
     assertThat(deletesRetry).isEqualTo(1);
 
     await().until(() -> snapshotMetadataStore.listSync().isEmpty());
-    verify(chunkStore, times(2)).delete(any());
-    assertThat(chunkStore.listFiles(chunkId)).isEmpty();
+    verify(blobStore, times(2)).delete(any());
+    assertThat(blobStore.listFiles(chunkId)).isEmpty();
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(1);
@@ -725,7 +725,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
@@ -742,14 +742,14 @@ public class SnapshotDeletionServiceTest {
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
-    doThrow(new RuntimeException()).when(chunkStore).delete(any());
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
+    doThrow(new RuntimeException()).when(blobStore).delete(any());
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
     assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
-    verify(chunkStore, times(1)).delete(any());
+    verify(blobStore, times(1)).delete(any());
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -759,12 +759,12 @@ public class SnapshotDeletionServiceTest {
             MetricsUtil.getTimerCount(SnapshotDeletionService.SNAPSHOT_DELETE_TIMER, meterRegistry))
         .isEqualTo(1);
 
-    doCallRealMethod().when(chunkStore).delete(any());
+    doCallRealMethod().when(blobStore).delete(any());
     int deleteRetry = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deleteRetry).isEqualTo(1);
 
     await().until(() -> snapshotMetadataStore.listSync().size() == 0);
-    verify(chunkStore, times(2)).delete(any());
+    verify(blobStore, times(2)).delete(any());
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(1);
@@ -798,7 +798,7 @@ public class SnapshotDeletionServiceTest {
     Path directory = Files.createTempDirectory("");
     Files.createTempFile(directory, "", "");
     String chunkId = UUID.randomUUID().toString();
-    chunkStore.upload(chunkId, directory);
+    blobStore.upload(chunkId, directory);
 
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
@@ -813,12 +813,12 @@ public class SnapshotDeletionServiceTest {
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
-            replicaMetadataStore, snapshotMetadataStore, chunkStore, managerConfig, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
     snapshotDeletionService.startAsync();
     snapshotDeletionService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     await().until(() -> snapshotMetadataStore.listSync().size() == 0);
-    verify(chunkStore, times(1)).delete(eq(chunkId));
+    verify(blobStore, times(1)).delete(eq(chunkId));
 
     await()
         .until(

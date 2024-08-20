@@ -8,7 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.protobuf.TextFormat;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.chunkManager.RecoveryChunkManager;
 import com.slack.astra.logstore.LogMessage;
@@ -59,7 +59,7 @@ public class RecoveryService extends AbstractIdleService {
   private final SearchContext searchContext;
   private final AsyncCuratorFramework curatorFramework;
   private final MeterRegistry meterRegistry;
-  private final ChunkStore chunkStore;
+  private final BlobStore blobStore;
   private final AstraConfigs.AstraConfig AstraConfig;
   private final AdminClient adminClient;
 
@@ -92,12 +92,12 @@ public class RecoveryService extends AbstractIdleService {
       AstraConfigs.AstraConfig AstraConfig,
       AsyncCuratorFramework curatorFramework,
       MeterRegistry meterRegistry,
-      ChunkStore chunkStore) {
+      BlobStore blobStore) {
     this.curatorFramework = curatorFramework;
     this.searchContext =
         SearchContext.fromConfig(AstraConfig.getRecoveryConfig().getServerConfig());
     this.meterRegistry = meterRegistry;
-    this.chunkStore = chunkStore;
+    this.blobStore = blobStore;
     this.AstraConfig = AstraConfig;
 
     adminClient =
@@ -299,7 +299,7 @@ public class RecoveryService extends AbstractIdleService {
                 searchMetadataStore,
                 snapshotMetadataStore,
                 AstraConfig.getIndexerConfig(),
-                chunkStore);
+                blobStore);
 
         // Ingest data in parallel
         LogMessageWriterImpl logMessageWriterImpl = new LogMessageWriterImpl(chunkManager);

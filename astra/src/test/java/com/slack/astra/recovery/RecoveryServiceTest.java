@@ -24,7 +24,7 @@ import static org.mockito.Mockito.mock;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.collect.Maps;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
@@ -80,7 +80,7 @@ public class RecoveryServiceTest {
 
   private TestingServer zkServer;
   private MeterRegistry meterRegistry;
-  private ChunkStore chunkStore;
+  private BlobStore blobStore;
   private TestKafkaServer kafkaServer;
   private S3AsyncClient s3AsyncClient;
   private RecoveryService recoveryService;
@@ -93,7 +93,7 @@ public class RecoveryServiceTest {
     meterRegistry = new SimpleMeterRegistry();
     zkServer = new TestingServer();
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    chunkStore = new ChunkStore(s3AsyncClient, TEST_S3_BUCKET);
+    blobStore = new BlobStore(s3AsyncClient, TEST_S3_BUCKET);
   }
 
   @AfterEach
@@ -149,7 +149,7 @@ public class RecoveryServiceTest {
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, chunkStore);
+    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -166,7 +166,7 @@ public class RecoveryServiceTest {
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(chunkStore.listFiles(snapshots.get(0).snapshotId).size()).isGreaterThan(0);
+    assertThat(blobStore.listFiles(snapshots.get(0).snapshotId).size()).isGreaterThan(0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
@@ -232,7 +232,7 @@ public class RecoveryServiceTest {
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, chunkStore);
+        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
     long startOffset = 1;
@@ -314,7 +314,7 @@ public class RecoveryServiceTest {
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, chunkStore);
+        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -334,7 +334,7 @@ public class RecoveryServiceTest {
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(chunkStore.listFiles(snapshots.get(0).snapshotId).size()).isGreaterThan(0);
+    assertThat(blobStore.listFiles(snapshots.get(0).snapshotId).size()).isGreaterThan(0);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
@@ -351,7 +351,7 @@ public class RecoveryServiceTest {
     // Start recovery service
     recoveryService =
         new RecoveryService(
-            astraCfg, curatorFramework, meterRegistry, new ChunkStore(s3AsyncClient, fakeS3Bucket));
+            astraCfg, curatorFramework, meterRegistry, new BlobStore(s3AsyncClient, fakeS3Bucket));
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -390,7 +390,7 @@ public class RecoveryServiceTest {
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, chunkStore);
+    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -455,7 +455,7 @@ public class RecoveryServiceTest {
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(1);
-    assertThat(chunkStore.listFiles(snapshots.get(0).snapshotId).size()).isGreaterThan(0);
+    assertThat(blobStore.listFiles(snapshots.get(0).snapshotId).size()).isGreaterThan(0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
@@ -473,7 +473,7 @@ public class RecoveryServiceTest {
     // Start recovery service
     recoveryService =
         new RecoveryService(
-            astraCfg, curatorFramework, meterRegistry, new ChunkStore(s3AsyncClient, fakeS3Bucket));
+            astraCfg, curatorFramework, meterRegistry, new BlobStore(s3AsyncClient, fakeS3Bucket));
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -648,7 +648,7 @@ public class RecoveryServiceTest {
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, chunkStore);
+    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 

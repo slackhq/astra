@@ -23,14 +23,16 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 public class S3AsyncUtil {
   private static final Logger LOG = LoggerFactory.getLogger(S3AsyncUtil.class);
 
+  private S3AsyncUtil() {}
+
   public static S3AsyncClient initS3Client(AstraConfigs.S3Config config) {
-    Preconditions.checkArgument(!isNullOrEmpty(config.getS3Region()));
+    Preconditions.checkArgument(notNullOrEmpty(config.getS3Region()));
     String region = config.getS3Region();
 
     AwsCredentialsProvider awsCredentialsProvider;
     try {
 
-      if (!isNullOrEmpty(config.getS3AccessKey()) && !isNullOrEmpty(config.getS3SecretKey())) {
+      if (notNullOrEmpty(config.getS3AccessKey()) && notNullOrEmpty(config.getS3SecretKey())) {
         String accessKey = config.getS3AccessKey();
         String secretKey = config.getS3SecretKey();
         AwsBasicCredentials awsBasicCredentials = AwsBasicCredentials.create(accessKey, secretKey);
@@ -72,7 +74,7 @@ public class S3AsyncUtil {
                       .build());
       s3AsyncClient.httpConfiguration(httpConfigurationBuilder.build());
 
-      if (!isNullOrEmpty(config.getS3EndPoint())) {
+      if (notNullOrEmpty(config.getS3EndPoint())) {
         String endpoint = config.getS3EndPoint();
         try {
           s3AsyncClient.endpointOverride(new URI(endpoint));
@@ -86,7 +88,7 @@ public class S3AsyncUtil {
     }
   }
 
-  static boolean isNullOrEmpty(String target) {
-    return target == null || "".equals(target);
+  static boolean notNullOrEmpty(String target) {
+    return target != null && !target.isEmpty();
   }
 }

@@ -33,7 +33,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ChunkInfo;
@@ -113,7 +113,7 @@ public class IndexingChunkManagerTest {
   private S3AsyncClient s3AsyncClient;
 
   private static final String ZK_PATH_PREFIX = "testZK";
-  private ChunkStore chunkStore;
+  private BlobStore blobStore;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
   private SnapshotMetadataStore snapshotMetadataStore;
@@ -125,7 +125,7 @@ public class IndexingChunkManagerTest {
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client and a bucket for test
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    chunkStore = new ChunkStore(s3AsyncClient, S3_TEST_BUCKET);
+    blobStore = new BlobStore(s3AsyncClient, S3_TEST_BUCKET);
 
     localZkServer = new TestingServer();
     localZkServer.start();
@@ -158,7 +158,7 @@ public class IndexingChunkManagerTest {
 
   private void initChunkManager(
       ChunkRollOverStrategy chunkRollOverStrategy,
-      ChunkStore chunkStore,
+      BlobStore blobStore,
       ListeningExecutorService listeningExecutorService)
       throws IOException, TimeoutException {
     SearchContext searchContext = new SearchContext(TEST_HOST, TEST_PORT);
@@ -168,7 +168,7 @@ public class IndexingChunkManagerTest {
             tmpPath.toFile().getAbsolutePath(),
             chunkRollOverStrategy,
             metricsRegistry,
-            chunkStore,
+            blobStore,
             listeningExecutorService,
             curatorFramework,
             searchContext,
@@ -179,7 +179,7 @@ public class IndexingChunkManagerTest {
 
   private void initChunkManager(
       ChunkRollOverStrategy chunkRollOverStrategy,
-      ChunkStore chunkStore,
+      BlobStore blobStore,
       ListeningExecutorService listeningExecutorService,
       AstraConfigs.IndexerConfig indexerConfig)
       throws IOException, TimeoutException {
@@ -190,7 +190,7 @@ public class IndexingChunkManagerTest {
             tmpPath.toFile().getAbsolutePath(),
             chunkRollOverStrategy,
             metricsRegistry,
-            chunkStore,
+            blobStore,
             listeningExecutorService,
             curatorFramework,
             searchContext,
@@ -207,7 +207,7 @@ public class IndexingChunkManagerTest {
     AstraConfigs.IndexerConfig indexerConfig =
         AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100, 1, 1_000_000_000L);
     initChunkManager(
-        chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService(), indexerConfig);
+        chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService(), indexerConfig);
 
     assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
     final Instant startTime =
@@ -284,7 +284,7 @@ public class IndexingChunkManagerTest {
     AstraConfigs.IndexerConfig indexerConfig =
         AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100, -1, 10_000);
     initChunkManager(
-        chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService(), indexerConfig);
+        chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService(), indexerConfig);
 
     assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
     final Instant startTime =
@@ -330,7 +330,7 @@ public class IndexingChunkManagerTest {
         new MessageSizeOrCountBasedRolloverStrategy(
             metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
 
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 11, 1, Instant.now());
     int offset = 1;
@@ -372,7 +372,7 @@ public class IndexingChunkManagerTest {
             metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
 
     final String CHUNK_DATA_PREFIX = "testData";
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
     int actualChunkSize = 0;
@@ -601,7 +601,7 @@ public class IndexingChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 15, 1, Instant.now());
     int offset = 1;
@@ -629,7 +629,7 @@ public class IndexingChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 15, 1, Instant.now());
     int offset = 1;
@@ -719,7 +719,7 @@ public class IndexingChunkManagerTest {
         new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 
     ListeningExecutorService rollOverExecutor = IndexingChunkManager.makeDefaultRollOverExecutor();
-    initChunkManager(chunkRollOverStrategy, chunkStore, rollOverExecutor);
+    initChunkManager(chunkRollOverStrategy, blobStore, rollOverExecutor);
 
     // Add a message
     int offset = 1;
@@ -781,7 +781,7 @@ public class IndexingChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 2L);
 
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     // Add a message
     List<Trace.Span> msgs = SpanUtil.makeSpansWithTimeDifference(1, 4, 1000, Instant.now());
@@ -833,7 +833,7 @@ public class IndexingChunkManagerTest {
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 
     ListeningExecutorService rollOverExecutor = IndexingChunkManager.makeDefaultRollOverExecutor();
-    initChunkManager(chunkRollOverStrategy, chunkStore, rollOverExecutor);
+    initChunkManager(chunkRollOverStrategy, blobStore, rollOverExecutor);
 
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 25, 1, Instant.now());
     // Add 11 messages to initiate first roll over.
@@ -866,7 +866,7 @@ public class IndexingChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 25, 1, Instant.now());
     // Add 11 messages to initiate first roll over.
@@ -956,7 +956,7 @@ public class IndexingChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 25, 1, Instant.now());
     // Add 11 messages to initiate first roll over.
@@ -1034,7 +1034,7 @@ public class IndexingChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     int offset = 1;
     for (Trace.Span m : messages) {
@@ -1070,7 +1070,7 @@ public class IndexingChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     int offset = 1;
     for (Trace.Span m : messages) {
@@ -1184,7 +1184,7 @@ public class IndexingChunkManagerTest {
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
     initChunkManager(
-        chunkRollOverStrategy, chunkStore, IndexingChunkManager.makeDefaultRollOverExecutor());
+        chunkRollOverStrategy, blobStore, IndexingChunkManager.makeDefaultRollOverExecutor());
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
 
@@ -1231,7 +1231,7 @@ public class IndexingChunkManagerTest {
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
     initChunkManager(
-        chunkRollOverStrategy, chunkStore, IndexingChunkManager.makeDefaultRollOverExecutor());
+        chunkRollOverStrategy, blobStore, IndexingChunkManager.makeDefaultRollOverExecutor());
 
     // Adding a message and close the chunkManager right away should still finish the failed
     // rollover.
@@ -1281,7 +1281,7 @@ public class IndexingChunkManagerTest {
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
     initChunkManager(
         chunkRollOverStrategy,
-        new ChunkStore(s3AsyncClient, S3_TEST_BUCKET + "Fail"),
+        new BlobStore(s3AsyncClient, S3_TEST_BUCKET + "Fail"),
         IndexingChunkManager.makeDefaultRollOverExecutor());
 
     // Adding a message and close the chunkManager right away should still finish the failed
@@ -1327,7 +1327,7 @@ public class IndexingChunkManagerTest {
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
     initChunkManager(
         chunkRollOverStrategy,
-        new ChunkStore(s3AsyncClient, S3_TEST_BUCKET + "Fail"),
+        new BlobStore(s3AsyncClient, S3_TEST_BUCKET + "Fail"),
         IndexingChunkManager.makeDefaultRollOverExecutor());
 
     int offset = 1;
@@ -1373,7 +1373,7 @@ public class IndexingChunkManagerTest {
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
     initChunkManager(
         chunkRollOverStrategy,
-        new ChunkStore(s3AsyncClient, S3_TEST_BUCKET + "Fail"),
+        new BlobStore(s3AsyncClient, S3_TEST_BUCKET + "Fail"),
         MoreExecutors.newDirectExecutorService());
 
     // Adding a messages very quickly when running a rollover in background would result in an
@@ -1414,7 +1414,7 @@ public class IndexingChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(
             metricsRegistry, 10 * 1024 * 1024 * 1024L, 100L);
-    initChunkManager(chunkRollOverStrategy, chunkStore, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     List<Trace.Span> messages1 = SpanUtil.makeSpansWithTimeDifference(1, 10, 1, Instant.now());
     Map<String, FieldType> schemaBefore = chunkManager.getSchema();
@@ -1463,7 +1463,7 @@ public class IndexingChunkManagerTest {
         new DiskOrMessageCountBasedRolloverStrategy(
             metricsRegistry, maxBytesPerChunk, msgsPerChunk);
     initChunkManager(
-        chunkRollOverStrategy, chunkStore, IndexingChunkManager.makeDefaultRollOverExecutor());
+        chunkRollOverStrategy, blobStore, IndexingChunkManager.makeDefaultRollOverExecutor());
 
     List<Trace.Span> messages1 = messages.subList(0, 3);
     List<Trace.Span> messages2 = messages.subList(3, 6);
@@ -1520,7 +1520,7 @@ public class IndexingChunkManagerTest {
         new DiskOrMessageCountBasedRolloverStrategy(
             metricsRegistry, 10 * 1024 * 1024 * 1024L, msgsPerChunk);
     initChunkManager(
-        chunkRollOverStrategy, chunkStore, IndexingChunkManager.makeDefaultRollOverExecutor());
+        chunkRollOverStrategy, blobStore, IndexingChunkManager.makeDefaultRollOverExecutor());
 
     List<Trace.Span> messages1 = messages.subList(0, 10);
     List<Trace.Span> messages2 = messages.subList(10, 20);

@@ -5,7 +5,7 @@ import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.chunkManager.IndexingChunkManager;
@@ -89,7 +89,7 @@ public class ChunkManagerUtil<T> {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
     s3AsyncClient = S3TestUtils.createS3CrtClient(s3MockExtension.getServiceEndpoint());
-    ChunkStore chunkStore = new ChunkStore(s3AsyncClient, s3Bucket);
+    BlobStore blobStore = new BlobStore(s3AsyncClient, s3Bucket);
 
     this.zkServer = zkServer;
     // noop if zk has already been started by the caller
@@ -107,7 +107,7 @@ public class ChunkManagerUtil<T> {
             tempFolder.getAbsolutePath(),
             chunkRollOverStrategy,
             meterRegistry,
-            chunkStore,
+            blobStore,
             MoreExecutors.newDirectExecutorService(),
             curatorFramework,
             searchContext,

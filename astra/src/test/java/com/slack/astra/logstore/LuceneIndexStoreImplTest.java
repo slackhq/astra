@@ -15,7 +15,7 @@ import static org.awaitility.Awaitility.await;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage.ReservedField;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -366,10 +366,10 @@ public class LuceneIndexStoreImplTest {
           S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
       String bucket = "snapshot-test";
       s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
-      ChunkStore chunkStore = new ChunkStore(s3AsyncClient, bucket);
+      BlobStore blobStore = new BlobStore(s3AsyncClient, bucket);
 
       String chunkId = UUID.randomUUID().toString();
-      chunkStore.upload(chunkId, dirPath);
+      blobStore.upload(chunkId, dirPath);
 
       for (String fileName : activeFiles) {
         File fileToCopy = new File(dirPath.toString(), fileName);
@@ -394,7 +394,7 @@ public class LuceneIndexStoreImplTest {
                 // then fail)
                 FileUtils.cleanDirectory(tmpPath.toFile());
                 // Download files from S3 to local FS.
-                chunkStore.download(chunkId, tmpPath.toAbsolutePath());
+                blobStore.download(chunkId, tmpPath.toAbsolutePath());
                 // the delta is the presence of the write.lock file, which is released but still in
                 // the directory
                 return Objects.requireNonNull(tmpPath.toFile().listFiles()).length

@@ -12,7 +12,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
@@ -51,7 +51,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final MeterRegistry meterRegistry;
-  private final ChunkStore chunkStore;
+  private final BlobStore blobStore;
 
   @VisibleForTesting protected int futuresListTimeoutSecs;
 
@@ -76,7 +76,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
   public SnapshotDeletionService(
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      ChunkStore chunkStore,
+      BlobStore blobStore,
       AstraConfigs.ManagerConfig managerConfig,
       MeterRegistry meterRegistry) {
 
@@ -89,7 +89,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
     this.managerConfig = managerConfig;
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
-    this.chunkStore = chunkStore;
+    this.blobStore = blobStore;
     this.meterRegistry = meterRegistry;
 
     // This functions as the overall "timeout" for deleteExpiredSnapshotsWithoutReplicas, and should
@@ -191,7 +191,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
                               // store. If for some reason the object delete fails, it will throw
                               // an exception, leaving the metadata and try again on the next run.
                               LOG.debug("Starting delete of snapshot {}", snapshotMetadata);
-                              chunkStore.delete(snapshotMetadata.snapshotId);
+                              blobStore.delete(snapshotMetadata.snapshotId);
                               snapshotMetadataStore.deleteSync(snapshotMetadata);
                             } catch (Exception e) {
                               LOG.error("Exception deleting snapshot", e);

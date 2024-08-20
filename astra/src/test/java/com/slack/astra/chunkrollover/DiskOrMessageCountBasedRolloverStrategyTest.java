@@ -14,7 +14,7 @@ import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.chunkManager.IndexingChunkManager;
@@ -69,7 +69,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private SimpleMeterRegistry metricsRegistry;
   private S3AsyncClient s3AsyncClient;
   private static final String ZK_PATH_PREFIX = "testZK";
-  private ChunkStore chunkStore;
+  private BlobStore blobStore;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
 
@@ -90,7 +90,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     metricsRegistry = new SimpleMeterRegistry();
 
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    chunkStore = new ChunkStore(s3AsyncClient, S3_TEST_BUCKET);
+    blobStore = new BlobStore(s3AsyncClient, S3_TEST_BUCKET);
 
     localZkServer = new TestingServer();
     localZkServer.start();
@@ -136,7 +136,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             tmpPath.toFile().getAbsolutePath(),
             chunkRollOverStrategy,
             metricsRegistry,
-            chunkStore,
+            blobStore,
             listeningExecutorService,
             curatorFramework,
             searchContext,

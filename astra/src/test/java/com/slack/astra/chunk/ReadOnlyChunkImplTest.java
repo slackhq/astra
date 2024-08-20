@@ -15,7 +15,7 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
@@ -69,7 +69,7 @@ public class ReadOnlyChunkImplTest {
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
-  private ChunkStore chunkStore;
+  private BlobStore blobStore;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -87,7 +87,7 @@ public class ReadOnlyChunkImplTest {
 
     S3AsyncClient s3AsyncClient =
         S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    chunkStore = new ChunkStore(s3AsyncClient, TEST_S3_BUCKET);
+    blobStore = new BlobStore(s3AsyncClient, TEST_S3_BUCKET);
   }
 
   @AfterEach
@@ -128,7 +128,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            chunkStore,
+            blobStore,
             searchContext,
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -260,7 +260,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            chunkStore,
+            blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -326,7 +326,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            chunkStore,
+            blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -393,7 +393,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            chunkStore,
+            blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -524,7 +524,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            chunkStore,
+            blobStore,
             searchContext,
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -670,7 +670,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(dirPath.toFile().listFiles().length).isGreaterThanOrEqualTo(filesToUpload.size());
 
     // Copy files to S3.
-    chunkStore.upload(snapshotId, dirPath);
+    blobStore.upload(snapshotId, dirPath);
   }
 
   private void initializeCacheNodeAssignment(

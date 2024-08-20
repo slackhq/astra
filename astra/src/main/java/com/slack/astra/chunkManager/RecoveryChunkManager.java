@@ -8,7 +8,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ChunkFactory;
 import com.slack.astra.chunk.ReadWriteChunk;
@@ -218,7 +218,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
       AstraConfigs.IndexerConfig indexerConfig,
-      ChunkStore chunkStore)
+      BlobStore blobStore)
       throws Exception {
 
     SearchContext searchContext = SearchContext.fromConfig(indexerConfig.getServerConfig());
@@ -233,7 +233,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
             searchContext);
 
     ChunkRolloverFactory chunkRolloverFactory =
-        new ChunkRolloverFactory(new NeverRolloverChunkStrategy(), chunkStore, meterRegistry);
+        new ChunkRolloverFactory(new NeverRolloverChunkStrategy(), blobStore, meterRegistry);
 
     return new RecoveryChunkManager<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
   }

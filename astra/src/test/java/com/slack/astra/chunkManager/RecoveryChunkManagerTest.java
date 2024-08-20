@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.chunk.ChunkInfo;
 import com.slack.astra.chunk.ReadWriteChunk;
@@ -83,7 +83,7 @@ public class RecoveryChunkManagerTest {
   private S3AsyncClient s3AsyncClient;
 
   private static final String ZK_PATH_PREFIX = "testZK";
-  private ChunkStore chunkStore;
+  private BlobStore blobStore;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
   private SearchMetadataStore searchMetadataStore;
@@ -97,7 +97,7 @@ public class RecoveryChunkManagerTest {
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client.
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    chunkStore = new ChunkStore(s3AsyncClient, S3_TEST_BUCKET);
+    blobStore = new BlobStore(s3AsyncClient, S3_TEST_BUCKET);
 
     localZkServer = new TestingServer();
     localZkServer.start();
@@ -130,7 +130,7 @@ public class RecoveryChunkManagerTest {
     localZkServer.stop();
   }
 
-  private void initChunkManager(ChunkStore chunkStore) throws Exception {
+  private void initChunkManager(BlobStore blobStore) throws Exception {
     AstraConfig =
         AstraConfigUtil.makeAstraConfig(
             "localhost:9090",
@@ -153,7 +153,7 @@ public class RecoveryChunkManagerTest {
             searchMetadataStore,
             snapshotMetadataStore,
             AstraConfig.getIndexerConfig(),
-            chunkStore);
+            blobStore);
 
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -161,7 +161,7 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddMessageAndRollover() throws Exception {
-    initChunkManager(chunkStore);
+    initChunkManager(blobStore);
 
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
     int actualChunkSize = 0;
@@ -365,7 +365,7 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddMessageWithPropertyTypeConflicts() throws Exception {
-    initChunkManager(chunkStore);
+    initChunkManager(blobStore);
 
     // Add a valid message
     int offset = 1;
@@ -413,7 +413,7 @@ public class RecoveryChunkManagerTest {
   @Test
   public void testAddMessagesWithFailedRollOverStopsIngestion() throws Exception {
     // Use a non-existent bucket to induce roll-over failure.
-    initChunkManager(new ChunkStore(s3AsyncClient, "fakebucket"));
+    initChunkManager(new BlobStore(s3AsyncClient, "fakebucket"));
 
     int offset = 1;
 

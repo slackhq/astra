@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ReadOnlyChunkImpl;
@@ -61,7 +61,7 @@ public class CachingChunkManagerTest {
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
-  private ChunkStore chunkStore;
+  private BlobStore blobStore;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -83,7 +83,7 @@ public class CachingChunkManagerTest {
 
     S3AsyncClient s3AsyncClient =
         S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    chunkStore = new ChunkStore(s3AsyncClient, TEST_S3_BUCKET);
+    blobStore = new BlobStore(s3AsyncClient, TEST_S3_BUCKET);
   }
 
   @AfterEach
@@ -143,7 +143,7 @@ public class CachingChunkManagerTest {
         new CachingChunkManager<>(
             meterRegistry,
             curatorFramework,
-            chunkStore,
+            blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -207,7 +207,7 @@ public class CachingChunkManagerTest {
     assertThat(dirPath.toFile().listFiles().length).isGreaterThanOrEqualTo(filesToUpload.size());
 
     // Copy files to S3.
-    chunkStore.upload(snapshotId, dirPath);
+    blobStore.upload(snapshotId, dirPath);
   }
 
   @Test
@@ -254,14 +254,11 @@ public class CachingChunkManagerTest {
     await()
         .ignoreExceptions()
         .until(
-            () ->
-                Objects.requireNonNull(
-                            chunkStore
-                                .download(snapshotId, Path.of("/tmp/test1"))
-                                .toFile()
-                                .listFiles())
-                        .length
-                    > 0);
+            () -> {
+              Path path = Path.of("/tmp/test1");
+              blobStore.download(snapshotId, path);
+              return Objects.requireNonNull(path.toFile().listFiles()).length > 0;
+            });
     initAssignment(snapshotId);
 
     await()
@@ -297,14 +294,12 @@ public class CachingChunkManagerTest {
     await()
         .ignoreExceptions()
         .until(
-            () ->
-                Objects.requireNonNull(
-                            chunkStore
-                                .download(snapshotId, Path.of("/tmp/test2"))
-                                .toFile()
-                                .listFiles())
-                        .length
-                    > 0);
+            () -> {
+              Path path = Path.of("/tmp/test2");
+              blobStore.download(snapshotId, path);
+              return Objects.requireNonNull(path.toFile().listFiles()).length > 0;
+            });
+
     CacheNodeAssignment assignment = initAssignment(snapshotId);
 
     // assert chunks created

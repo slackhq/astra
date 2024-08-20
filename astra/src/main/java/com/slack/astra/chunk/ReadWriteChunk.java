@@ -4,7 +4,7 @@ import static com.slack.astra.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.astra.writer.SpanFormatter.isValidTimestamp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.logstore.LogStore;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.search.LogIndexSearcher;
@@ -220,7 +220,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
    *
    * @return true on success, false on failure.
    */
-  public boolean snapshotToS3(ChunkStore chunkStore) {
+  public boolean snapshotToS3(BlobStore blobStore) {
     logger.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
     IndexCommit indexCommit = null;
@@ -249,7 +249,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       }
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
-      chunkStore.upload(chunkInfo.chunkId, dirPath);
+      blobStore.upload(chunkInfo.chunkId, dirPath);
 
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);

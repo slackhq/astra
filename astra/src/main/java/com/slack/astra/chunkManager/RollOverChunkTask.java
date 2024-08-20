@@ -1,6 +1,6 @@
 package com.slack.astra.chunkManager;
 
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.chunk.ReadWriteChunk;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -30,12 +30,12 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
   private final Timer rollOverTimer;
 
   private final ReadWriteChunk<T> chunk;
-  private final ChunkStore chunkStore;
+  private final BlobStore blobStore;
 
   public RollOverChunkTask(
-      ReadWriteChunk<T> chunk, MeterRegistry meterRegistry, ChunkStore chunkStore) {
+      ReadWriteChunk<T> chunk, MeterRegistry meterRegistry, BlobStore blobStore) {
     this.chunk = chunk;
-    this.chunkStore = chunkStore;
+    this.blobStore = blobStore;
     rolloversInitiatedCounter = meterRegistry.counter(ROLLOVERS_INITIATED);
     rolloversCompletedCounter = meterRegistry.counter(ROLLOVERS_COMPLETED);
     rolloversFailedCounter = meterRegistry.counter(ROLLOVERS_FAILED);
@@ -53,7 +53,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
       rolloversInitiatedCounter.increment();
       // Run pre-snapshot and upload chunk to blob store.
       chunk.preSnapshot();
-      if (!chunk.snapshotToS3(chunkStore)) {
+      if (!chunk.snapshotToS3(blobStore)) {
         LOG.warn("Failed to snapshot the chunk to S3");
         rolloversFailedCounter.increment();
         return false;

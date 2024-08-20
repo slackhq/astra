@@ -4,7 +4,7 @@ import static com.slack.astra.chunkManager.CachingChunkManager.ASTRA_NG_DYNAMIC_
 import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.slack.astra.blobfs.ChunkStore;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.logstore.search.LogIndexSearcher;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchQuery;
@@ -71,7 +71,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SearchMetadataStore searchMetadataStore;
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private final MeterRegistry meterRegistry;
-  private final ChunkStore chunkStore;
+  private final BlobStore blobStore;
 
   public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
   public static final String CHUNK_EVICTION_TIMER = "chunk_eviction_timer";
@@ -89,7 +89,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
       MeterRegistry meterRegistry,
-      ChunkStore chunkStore,
+      BlobStore blobStore,
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
@@ -105,7 +105,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this(
         curatorFramework,
         meterRegistry,
-        chunkStore,
+        blobStore,
         searchContext,
         s3Bucket,
         dataDirectoryPrefix,
@@ -123,7 +123,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
       MeterRegistry meterRegistry,
-      ChunkStore chunkStore,
+      BlobStore blobStore,
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
@@ -134,7 +134,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchMetadataStore searchMetadataStore)
       throws Exception {
     this.meterRegistry = meterRegistry;
-    this.chunkStore = chunkStore;
+    this.blobStore = blobStore;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.searchContext = searchContext;
     this.slotId = UUID.randomUUID().toString();
@@ -232,7 +232,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         }
       }
 
-      chunkStore.download(snapshotMetadata.snapshotId, dataDirectory);
+      blobStore.download(snapshotMetadata.snapshotId, dataDirectory);
       try (Stream<Path> fileList = Files.list(dataDirectory)) {
         if (fileList.findAny().isEmpty()) {
           throw new IOException("No files found on blob storage, released slot for re-assignment");
@@ -374,7 +374,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
-      chunkStore.download(snapshotMetadata.snapshotId, dataDirectory);
+      blobStore.download(snapshotMetadata.snapshotId, dataDirectory);
       try (Stream<Path> fileList = Files.list(dataDirectory)) {
         if (fileList.findAny().isEmpty()) {
           throw new IOException("No files found on blob storage, released slot for re-assignment");
