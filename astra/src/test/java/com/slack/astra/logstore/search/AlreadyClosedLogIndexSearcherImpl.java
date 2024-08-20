@@ -14,7 +14,8 @@ public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMe
       Long maxTime,
       int howMany,
       AggBuilder aggBuilder,
-      QueryBuilder queryBuilder) {
+      QueryBuilder queryBuilder,
+      SourceFieldFilter sourceFieldFilter) {
     throw new AlreadyClosedException("Failed to acquire an index searcher");
   }
 

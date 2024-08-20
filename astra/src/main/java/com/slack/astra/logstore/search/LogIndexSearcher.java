@@ -12,5 +12,6 @@ public interface LogIndexSearcher<T> extends Closeable {
       Long maxTime,
       int howMany,
       AggBuilder aggBuilder,
-      QueryBuilder queryBuilder);
+      QueryBuilder queryBuilder,
+      SourceFieldFilter sourceFieldFilter);
 }

@@ -97,6 +97,7 @@ public class LogMessageWriterImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
+            null,
             null),
         Duration.ofMillis(3000));
   }
@@ -180,6 +181,7 @@ public class LogMessageWriterImplTest {
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
+                        null,
                         null),
                     Duration.ofMillis(3000))
                 .hits

@@ -18,8 +18,8 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.4</protobuf.version>
-        <grpc.version>1.65.1</grpc.version>
-        <micrometer.version>1.13.2</micrometer.version>
+        <grpc.version>1.66.0</grpc.version>
+        <micrometer.version>1.13.3</micrometer.version>
         <armeria.version>1.27.3</armeria.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.17.0</jackson.version>
@@ -28,9 +28,9 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.7.0</curator.version>
         <log4j.version>2.23.1</log4j.version>
-        <aws.sdk.version>2.27.2</aws.sdk.version>
-        <error.prone.version>2.29.2</error.prone.version>
-        <junit.jupiter.version>5.10.3</junit.jupiter.version>
+        <aws.sdk.version>2.27.8</aws.sdk.version>
+        <error.prone.version>2.30.0</error.prone.version>
+        <junit.jupiter.version>5.11.0</junit.jupiter.version>
     </properties>
 
     <repositories>
@@ -258,7 +258,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.2.1-jre</version>
+            <version>33.3.0-jre</version>
         </dependency>
 
         <dependency>
@@ -327,7 +327,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.30.6</version>
+            <version>0.30.8</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -383,7 +383,7 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>1.10.3</version>
+            <version>1.11.0</version>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
@@ -428,7 +428,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.14.18</version>
+            <version>1.14.19</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
@@ -738,7 +738,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-site-plugin</artifactId>
-                    <version>3.12.1</version>
+                    <version>3.20.0</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-source-plugin</artifactId>
@@ -746,7 +746,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.3.1</version>
+                    <version>3.4.0</version>
                     <configuration>
                         <argLine>--enable-preview</argLine>
                         <trimStackTrace>false</trimStackTrace>

@@ -23,6 +23,23 @@ message SearchRequest {
   // The fully query object, to be used in the leaf nodes and parsed by OpenSearch
   string query = 8;
 
+  // An explicit list of fields to include/exclude return per document
+  SourceFieldFilter source_field_filter = 9;
+
+  message SourceFieldFilter {
+    // Whether or not to include/exclude _all_ fields
+    optional bool includeAll = 1;
+    optional bool excludeAll = 2;
+
+    // What fields to explicitly include/exclude
+    map<string, bool> includeFields = 3;
+    map<string, bool> excludeFields = 4;
+
+    // Wildcarded field names to include/exclude
+    repeated string includeWildcards = 5;
+    repeated string excludeWildcards = 6;
+  }
+
   message SearchAggregation {
     // The type of aggregation (ie, avg, date_histogram, etc)
     string type = 1;

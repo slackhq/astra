@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.slack.astra.logstore.search.SearchResultUtils;
@@ -64,9 +65,80 @@ public class OpenSearchRequest {
               .setEndTimeEpochMs(getEndTimeEpochMs(body))
               .setAggregations(getAggregations(body))
               .setQuery(getQuery(body))
+              .setSourceFieldFilter(getSourceFieldFilter(body))
               .build());
     }
     return searchRequests;
+  }
+
+  private static AstraSearch.SearchRequest.SourceFieldFilter getSourceFieldFilter(JsonNode body) {
+    if (body.has("_source") && body.get("_source") != null) {
+      JsonNode sourceNode = body.get("_source");
+      if (sourceNode.isBoolean()) {
+        return AstraSearch.SearchRequest.SourceFieldFilter.newBuilder()
+            .setIncludeAll(sourceNode.booleanValue())
+            .build();
+
+      } else if (sourceNode.isTextual()) {
+        return AstraSearch.SearchRequest.SourceFieldFilter.newBuilder()
+            .addIncludeWildcards(sourceNode.textValue())
+            .build();
+      } else if (sourceNode.isArray()) {
+        ArrayNode includeArrayNode = (ArrayNode) sourceNode;
+        HashMap<String, Boolean> includes = new HashMap<>();
+
+        AstraSearch.SearchRequest.SourceFieldFilter.Builder fieldInclusionBuilder =
+            AstraSearch.SearchRequest.SourceFieldFilter.newBuilder();
+
+        for (JsonNode jsonNode : includeArrayNode) {
+          String fieldname = jsonNode.asText();
+          if (fieldname.contains("*")) {
+            fieldInclusionBuilder.addIncludeWildcards(fieldname);
+          } else {
+            includes.put(fieldname, true);
+          }
+        }
+
+        return fieldInclusionBuilder.putAllIncludeFields(includes).build();
+
+      } else if (sourceNode.isObject()) {
+        AstraSearch.SearchRequest.SourceFieldFilter.Builder sourceFieldFilterBuilder =
+            AstraSearch.SearchRequest.SourceFieldFilter.newBuilder();
+
+        if (sourceNode.has("includes")) {
+          ArrayNode includeArrayNode = (ArrayNode) sourceNode.get("includes");
+          HashMap<String, Boolean> includes = new HashMap<>();
+
+          for (JsonNode jsonNode : includeArrayNode) {
+            String fieldname = jsonNode.asText();
+            if (fieldname.contains("*")) {
+              sourceFieldFilterBuilder.addIncludeWildcards(fieldname);
+            } else {
+              includes.put(fieldname, true);
+            }
+          }
+
+          sourceFieldFilterBuilder.putAllIncludeFields(includes);
+        }
+
+        if (sourceNode.has("excludes")) {
+          ArrayNode includeArrayNode = (ArrayNode) sourceNode.get("excludes");
+          HashMap<String, Boolean> excludes = new HashMap<>();
+
+          for (JsonNode jsonNode : includeArrayNode) {
+            String fieldname = jsonNode.asText();
+            if (fieldname.contains("*")) {
+              sourceFieldFilterBuilder.addExcludeWildcards(fieldname);
+            } else {
+              excludes.put(fieldname, true);
+            }
+          }
+          sourceFieldFilterBuilder.putAllExcludeFields(excludes);
+        }
+        return sourceFieldFilterBuilder.build();
+      }
+    }
+    return AstraSearch.SearchRequest.SourceFieldFilter.newBuilder().build();
   }
 
   private static String getQuery(JsonNode body) {

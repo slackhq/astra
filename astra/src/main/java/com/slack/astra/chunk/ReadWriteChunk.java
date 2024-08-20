@@ -286,7 +286,8 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         query.endTimeEpochMs,
         query.howMany,
         query.aggBuilder,
-        query.queryBuilder);
+        query.queryBuilder,
+        query.sourceFieldFilter);
   }
 
   @Override
