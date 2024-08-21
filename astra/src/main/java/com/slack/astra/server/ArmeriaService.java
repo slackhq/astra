@@ -127,6 +127,7 @@ public class ArmeriaService extends AbstractIdleService {
       GrpcServiceBuilder searchBuilder =
           GrpcService.builder()
               .addService(grpcService)
+                  .maxResponseMessageLength(Integer.MAX_VALUE)
               .enableUnframedRequests(true)
               // if not using the client timeout header - separate, lower timeouts
               // should be configured for indexer / cache nodes than that of the query server
