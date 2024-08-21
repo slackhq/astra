@@ -395,6 +395,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                                   return SearchResultUtils.fromSearchResultProtoOrEmpty(
                                       stub.withDeadlineAfter(
                                               defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
+                                              .withMaxInboundMessageSize(Integer.MAX_VALUE)
                                           .withInterceptors(
                                               GrpcTracing.newBuilder(Tracing.current())
                                                   .build()
