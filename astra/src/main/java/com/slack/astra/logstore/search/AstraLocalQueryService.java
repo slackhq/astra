@@ -37,7 +37,7 @@ public class AstraLocalQueryService<T> extends AstraQueryServiceBase {
     span.tag("hitCount", String.valueOf(result.getHitsCount()));
     span.finish();
     LOG.debug("Finished search request: {}", request);
-    LOG.error("Response too big, {}", request);
+    LOG.info("Response too big, {}, {}", result.getSerializedSize(), request);
     return result;
   }
 
