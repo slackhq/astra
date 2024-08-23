@@ -3,6 +3,12 @@ name: Build and Push Docker Image CI
 on:
   push:
     branches: [ "airbnb-main" ]
+  workflow_dispatch: # This allows manual triggering of the workflow on any branch
+    inputs:
+      branch:
+        description: 'Branch to run the workflow on'
+        required: true
+        default: 'airbnb-main'
 
 jobs:
 
@@ -23,7 +29,8 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build and push Docker image
+    - name: Build and push Docker image (for airbnb-main branch)
+      if: github.ref_name == 'airbnb-main'
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -31,4 +38,14 @@ jobs:
         push: true
         tags: |
           airbnb/airtrace:latest
+          airbnb/airtrace:${{ github.sha }}
+
+    - name: Build and push Docker image (for non airbnb-main branch)
+      if: github.ref_name != 'airbnb-main'
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: |
           airbnb/airtrace:${{ github.sha }}
