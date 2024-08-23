@@ -8,7 +8,6 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.server.AstraQueryServiceBase;
 import java.time.Duration;
 import java.util.Map;
-import java.lang.instrument.Instrumentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +36,6 @@ public class AstraLocalQueryService<T> extends AstraQueryServiceBase {
     span.tag("hitCount", String.valueOf(result.getHitsCount()));
     span.finish();
     LOG.debug("Finished search request: {}", request);
-    LOG.info("Response too big, {}, {}", result.getSerializedSize(), request);
     return result;
   }
 
