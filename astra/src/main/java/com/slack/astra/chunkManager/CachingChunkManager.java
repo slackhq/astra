@@ -2,6 +2,7 @@ package com.slack.astra.chunkManager;
 
 import static com.slack.astra.clusterManager.CacheNodeAssignmentService.snapshotMetadataBySnapshotId;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ReadOnlyChunkImpl;
@@ -25,6 +26,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +60,10 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private final String cacheNodeId;
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private CacheNodeMetadataStore cacheNodeMetadataStore;
+
+  private ExecutorService executorService =
+      Executors.newCachedThreadPool(
+          new ThreadFactoryBuilder().setNameFormat("caching-chunk-manager-%d").build());
 
   public CachingChunkManager(
       MeterRegistry registry,
@@ -223,7 +230,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                     cacheNodeAssignmentStore,
                     assignment,
                     snapshotsBySnapshotId.get(assignment.snapshotId));
-            Thread.ofVirtual().start(newChunk::downloadChunkData);
+            executorService.submit(newChunk::downloadChunkData);
             chunkMap.put(assignment.assignmentId, newChunk);
           }
         }

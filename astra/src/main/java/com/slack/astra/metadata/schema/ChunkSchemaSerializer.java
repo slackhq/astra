@@ -9,6 +9,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ChunkSchemaSerializer implements MetadataSerializer<ChunkSchema> {
+
+  private static final JsonFormat.Parser parser = JsonFormat.parser().ignoringUnknownFields();
+
   private static Metadata.ChunkSchema toChunkSchemaProto(ChunkSchema chunkSchema) {
     final Map<String, Metadata.LuceneFieldDef> fieldDefProtoMap =
         new HashMap<>(chunkSchema.fieldDefMap.size());
@@ -49,7 +52,7 @@ public class ChunkSchemaSerializer implements MetadataSerializer<ChunkSchema> {
   @Override
   public ChunkSchema fromJsonStr(String chunkSchemaStr) throws InvalidProtocolBufferException {
     Metadata.ChunkSchema.Builder chunkSchemaBuilder = Metadata.ChunkSchema.newBuilder();
-    JsonFormat.parser().ignoringUnknownFields().merge(chunkSchemaStr, chunkSchemaBuilder);
+    parser.merge(chunkSchemaStr, chunkSchemaBuilder);
     return fromChunkSchemaProto(chunkSchemaBuilder.build());
   }
 }

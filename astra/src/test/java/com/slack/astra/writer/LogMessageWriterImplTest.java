@@ -241,7 +241,6 @@ public class LogMessageWriterImplTest {
     // \"value1\"}".toString().getBytes());
     //
     //    String output = SpanFormatter.encodeBinaryTagValue(inputBytes);
-    //    System.out.println(output);
 
     String inputDocuments =
         """
