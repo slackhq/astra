@@ -332,6 +332,149 @@ public class OpenSearchAdapter {
         valuesSourceRegistry);
   }
 
+  private void putAtPath(ObjectNode root, ObjectNode newNode, String path) {
+    String[] fieldparts = path.split("\\.");
+
+    ObjectNode currentRef = root;
+    for (int i = 0; i < fieldparts.length; i++) {
+      if (!currentRef.has(fieldparts[i])) {
+        // it doesn't have the current object
+        if (i == fieldparts.length - 1) {
+          // last thing, add ours
+          currentRef.set(fieldparts[i], newNode);
+          return;
+        } else {
+          // add a parent holder
+          ObjectNode fields = new ObjectNode(JsonNodeFactory.instance);
+          fields.set("fields", new ObjectNode(JsonNodeFactory.instance));
+          currentRef.set(fieldparts[i], fields);
+          currentRef = (ObjectNode) currentRef.get(fieldparts[i]).get("fields");
+        }
+
+      } else {
+        // it has the parent
+        if (i == fieldparts.length - 1) {
+          currentRef.setAll(newNode);
+          return;
+        } else {
+          // it has the parent, does it have a fields?
+          if (!currentRef.get(fieldparts[i]).has("fields")) {
+            ((ObjectNode) currentRef.get(fieldparts[i]))
+                .set("fields", new ObjectNode(JsonNodeFactory.instance));
+          }
+          currentRef = (ObjectNode) currentRef.get(fieldparts[i]).get("fields");
+        }
+      }
+    }
+  }
+
+  public void loadSchema() {
+    ObjectNode rootNode = new ObjectNode(JsonNodeFactory.instance);
+
+    for (Map.Entry<String, LuceneFieldDef> entry : new TreeMap<>(chunkSchema).entrySet()) {
+      String fieldName = entry.getValue().name;
+
+      if (mapperService.isMetadataField(fieldName)) {
+        LOG.trace("Skipping metadata field '{}'", fieldName);
+      } else {
+        ObjectNode child = new ObjectNode(JsonNodeFactory.instance);
+        child.put("type", getFieldMapping(entry.getValue().fieldType));
+        putAtPath(rootNode, child, entry.getKey());
+      }
+    }
+
+    try {
+      XContentBuilder builder =
+          XContentFactory.jsonBuilder().startObject().startObject("_doc").startObject("properties");
+      rootNode
+          .fields()
+          .forEachRemaining(
+              (entry) -> {
+                buildObject(builder, entry);
+              });
+
+      builder.endObject().endObject().endObject();
+
+      mapperService.merge(
+          MapperService.SINGLE_MAPPING_NAME,
+          new CompressedXContent(BytesReference.bytes(builder)),
+          MapperService.MergeReason.MAPPING_UPDATE);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void buildObject(XContentBuilder builder, Map.Entry<String, JsonNode> entry) {
+    try {
+
+      builder.startObject(entry.getKey());
+
+      // does it have a type field set?
+      if (entry.getValue().has("type")) {
+        builder.field("type", entry.getValue().get("type").asText());
+      } else {
+        // todo - "default" when no field exists
+        builder.field("type", "binary");
+      }
+
+      // does it have fields set?
+      if (entry.getValue().has("fields")) {
+        builder.startObject("fields");
+        entry
+            .getValue()
+            .get("fields")
+            .fields()
+            .forEachRemaining(
+                (fieldEntry) -> {
+                  // do this same step all-over
+                  buildObject(builder, fieldEntry);
+                });
+        builder.endObject();
+      }
+
+      builder.endObject();
+    } catch (Exception e) {
+      LOG.error("Error building object", e);
+    }
+  }
+
+  // todo - is this even needed anymore?
+  private String getFieldMapping(FieldType fieldType) {
+    if (fieldType == FieldType.TEXT) {
+      return "text";
+    } else if (fieldType == FieldType.STRING
+        || fieldType == FieldType.KEYWORD
+        || fieldType == FieldType.ID) {
+      return "keyword";
+    } else if (fieldType == FieldType.IP) {
+      return "ip";
+    } else if (fieldType == FieldType.DATE) {
+      return "date";
+    } else if (fieldType == FieldType.BOOLEAN) {
+      return "boolean";
+    } else if (fieldType == FieldType.DOUBLE) {
+      return "double";
+    } else if (fieldType == FieldType.FLOAT) {
+      return "float";
+    } else if (fieldType == FieldType.HALF_FLOAT) {
+      return "half_float";
+    } else if (fieldType == FieldType.INTEGER) {
+      return "integer";
+    } else if (fieldType == FieldType.LONG) {
+      return "long";
+    } else if (fieldType == FieldType.SCALED_LONG) {
+      return "scaled_long";
+    } else if (fieldType == FieldType.SHORT) {
+      return "short";
+    } else if (fieldType == FieldType.BYTE) {
+      return "byte";
+    } else if (fieldType == FieldType.BINARY) {
+      return "binary";
+    } else {
+      return null;
+    }
+  }
+
   /**
    * Performs an initial load of the schema into the mapper service. This differs from the
    * reloadSchema in that this first builds an entire mapping and then performs a single merge into

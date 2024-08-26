@@ -54,7 +54,7 @@ public class S3AsyncUtil {
           maxNativeMemoryLimitBytes);
       S3CrtAsyncClientBuilder s3AsyncClient =
           S3AsyncClient.crtBuilder()
-              .retryConfiguration(S3CrtRetryConfiguration.builder().numRetries(3).build())
+              .retryConfiguration(S3CrtRetryConfiguration.builder().numRetries(10).build())
               .targetThroughputInGbps(config.getS3TargetThroughputGbps())
               .region(Region.of(region))
               .maxNativeMemoryLimitInBytes(maxNativeMemoryLimitBytes)

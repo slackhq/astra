@@ -33,6 +33,8 @@ public class BlobStore {
   private final S3AsyncClient s3AsyncClient;
   private final S3TransferManager transferManager;
 
+  // todo - shared cache here?
+  //  what about chunks across multiple files?
   public BlobStore(S3AsyncClient s3AsyncClient, String bucketName) {
     this.bucketName = bucketName;
     this.s3AsyncClient = s3AsyncClient;
@@ -73,6 +75,15 @@ public class BlobStore {
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  // todo - DO NOT DO THIS?
+  public S3AsyncClient getS3AsyncClient() {
+    return s3AsyncClient;
+  }
+
+  public String getBucketName() {
+    return bucketName;
   }
 
   /**

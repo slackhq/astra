@@ -3,19 +3,49 @@ package com.slack.astra.metadata.search;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.astra.metadata.core.AstraMetadata;
+import com.slack.astra.proto.metadata.Metadata;
+import java.util.List;
 
 /** Search metadata contains the metadata needed to perform a search on a snapshot. */
 public class SearchMetadata extends AstraMetadata {
-  public final String snapshotName;
+  @Deprecated public final String snapshotName;
+
   public final String url;
+  public final Metadata.SearchMetadata.SearchNodeType searchNodeType;
+  public List<String> snapshotNames;
+
+  public SearchMetadata(
+      String name,
+      String snapshotName,
+      String url,
+      Metadata.SearchMetadata.SearchNodeType searchNodeType,
+      List<String> snapshotNames) {
+    super(name);
+    this.snapshotName = snapshotName;
+    this.url = url;
+    this.searchNodeType = searchNodeType;
+    this.snapshotNames = snapshotNames;
+  }
+
+  public SearchMetadata(
+      String name,
+      String url,
+      Metadata.SearchMetadata.SearchNodeType searchNodeType,
+      List<String> snapshotNames) {
+    super(name);
+    this.url = url;
+    this.searchNodeType = searchNodeType;
+    this.snapshotNames = snapshotNames;
+    this.snapshotName = "";
+  }
 
   public SearchMetadata(String name, String snapshotName, String url) {
     super(name);
     checkArgument(url != null && !url.isEmpty(), "Url shouldn't be empty");
-    checkArgument(
-        snapshotName != null && !snapshotName.isEmpty(), "SnapshotName should not be empty");
     this.snapshotName = snapshotName;
     this.url = url;
+    this.snapshotNames = List.of(); // unmodifyable
+    this.searchNodeType = Metadata.SearchMetadata.SearchNodeType.UNRECOGNIZED;
   }
 
   public static String generateSearchContextSnapshotId(String snapshotName, String hostname) {
@@ -28,6 +58,14 @@ public class SearchMetadata extends AstraMetadata {
 
   public String getUrl() {
     return url;
+  }
+
+  public Metadata.SearchMetadata.SearchNodeType getSearchNodeType() {
+    return searchNodeType;
+  }
+
+  public List<String> getSnapshotNames() {
+    return snapshotNames;
   }
 
   @Override

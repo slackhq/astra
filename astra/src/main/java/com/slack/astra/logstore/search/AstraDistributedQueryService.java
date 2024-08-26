@@ -7,6 +7,7 @@ import brave.Tracing;
 import brave.grpc.GrpcTracing;
 import brave.propagation.CurrentTraceContext;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Sets;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
@@ -16,6 +17,7 @@ import com.slack.astra.metadata.search.SearchMetadata;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.proto.service.AstraServiceGrpc;
 import com.slack.astra.server.AstraQueryServiceBase;
@@ -24,11 +26,15 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -39,6 +45,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -333,6 +340,98 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     }
   }
 
+  public static Map<String, List<String>> getQueryPlan(
+      List<SearchMetadata> nodesForSearch, List<String> snapshotIds) {
+    int maxAssignmentsPerNode = 999;
+    // todo - start with a dumb one
+    Map<String, List<String>> nodeToSnapshotAssignments = new HashMap<>();
+
+    nodesForSearch.forEach(
+        node -> {
+          nodeToSnapshotAssignments.put(node.url, new ArrayList<>());
+        });
+
+    Queue<String> snapshotsToRandomlyAssign = new ArrayDeque<>();
+
+    // snapshot, to list of warm nodes
+    Map<String, List<String>> snapshotToWarmNodes = new HashMap<>();
+    nodesForSearch.forEach(
+        searchNode -> {
+          searchNode
+              .getSnapshotNames()
+              .forEach(
+                  warmSnapshot -> {
+                    if (snapshotToWarmNodes.containsKey(warmSnapshot)) {
+                      snapshotToWarmNodes.get(warmSnapshot).add(searchNode.url);
+                    } else {
+                      List<String> warmNodes = new ArrayList<>();
+                      warmNodes.add(searchNode.url);
+                      snapshotToWarmNodes.put(warmSnapshot, warmNodes);
+                    }
+                  });
+        });
+
+    snapshotIds.forEach(
+        snapshotId -> {
+          if (snapshotToWarmNodes.containsKey(snapshotId)) {
+            // there exists at least one node
+            // todo - least utilized?
+
+            boolean assigned = false;
+
+            for (String warmNode : snapshotToWarmNodes.get(snapshotId)) {
+              if (nodeToSnapshotAssignments.containsKey(warmNode)) {
+                if (nodeToSnapshotAssignments.get(warmNode).size() < maxAssignmentsPerNode) {
+                  // add it
+                  nodeToSnapshotAssignments.get(warmNode).add(snapshotId);
+                  assigned = true;
+                  break;
+                }
+              } else {
+                List<String> snapshots = new ArrayList<>();
+                snapshots.add(snapshotId);
+                nodeToSnapshotAssignments.put(warmNode, snapshots);
+                assigned = true;
+                break;
+              }
+            }
+
+            if (!assigned) {
+              // couldn't find a good candidate, add to random assignments
+              snapshotsToRandomlyAssign.add(snapshotId);
+            }
+
+          } else {
+            // no warm, randomly assign it
+            snapshotsToRandomlyAssign.add(snapshotId);
+          }
+        });
+
+    String snapshotId = snapshotsToRandomlyAssign.poll();
+    while (snapshotId != null) {
+      Optional<Map.Entry<String, List<String>>> leastAssignedNode =
+          nodeToSnapshotAssignments.entrySet().stream()
+              .min(
+                  new Comparator<Map.Entry<String, List<String>>>() {
+                    @Override
+                    public int compare(
+                        Map.Entry<String, List<String>> o1, Map.Entry<String, List<String>> o2) {
+                      return Integer.compare(o1.getValue().size(), o2.getValue().size());
+                    }
+                  });
+
+      if (leastAssignedNode.isEmpty()) {
+        throw new RuntimeException();
+      }
+
+      leastAssignedNode.get().getValue().add(snapshotId);
+      snapshotId = snapshotsToRandomlyAssign.poll();
+    }
+
+    LOG.info("Query plan - {} ", nodeToSnapshotAssignments);
+    return nodeToSnapshotAssignments;
+  }
+
   private AstraServiceGrpc.AstraServiceFutureStub getStub(String url) {
     if (stubs.get(url) != null) {
       return stubs.get(url);
@@ -366,6 +465,41 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     // underlying URL to query
     Map<String, List<String>> nodesAndSnapshotsToQuery =
         getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
+
+    // snapshotsMatchingQuery - LIVE_log...
+    // searchMetadataNodesMatchingQuery [log_1724703730_cad4fd26-4635-4dc8-935d-c068c5a4566a,
+    // log_1724703475_0b4a845b-01c4-4b46-b9b8-9b8bf55aa9a4]
+
+    // at this point, any unsatisfied snapshots attempt to fulfill with the new stuff
+    List<String> unsatisfiedSnapshots =
+        Sets.difference(
+                snapshotsMatchingQuery.keySet().stream()
+                    .filter(
+                        key -> {
+                          return !key.contains("LIVE");
+                        })
+                    .collect(Collectors.toSet()),
+                searchMetadataNodesMatchingQuery.keySet())
+            .stream()
+            .toList();
+    Map<String, List<String>> remainingNodesToQuery =
+        getQueryPlan(
+            searchMetadataStore.listSync().stream()
+                .filter(
+                    searchMetadata ->
+                        searchMetadata
+                            .getSearchNodeType()
+                            .equals(Metadata.SearchMetadata.SearchNodeType.CACHE))
+                .toList(),
+            unsatisfiedSnapshots);
+    nodesAndSnapshotsToQuery.putAll(remainingNodesToQuery);
+    LOG.info(
+        "Unsatisfied snapshots {}, remainingNodesToQuery {}, nodesAndSnapshotsToQuery{}, snapshotsMatchingQuery {}, searchMetadataNodesMatchingQuery {}",
+        unsatisfiedSnapshots,
+        remainingNodesToQuery,
+        nodesAndSnapshotsToQuery,
+        snapshotsMatchingQuery.keySet(),
+        searchMetadataNodesMatchingQuery.keySet());
 
     span.tag("queryServerCount", String.valueOf(nodesAndSnapshotsToQuery.size()));
 
