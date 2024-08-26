@@ -6,7 +6,6 @@ import static com.slack.astra.chunk.ReadWriteChunk.toSearchMetadata;
 import static com.slack.astra.logstore.search.AstraDistributedQueryService.getMatchingSearchMetadata;
 import static com.slack.astra.logstore.search.AstraDistributedQueryService.getMatchingSnapshots;
 import static com.slack.astra.logstore.search.AstraDistributedQueryService.getNodesAndSnapshotsToQuery;
-import static com.slack.astra.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 import static org.awaitility.Awaitility.await;
@@ -31,7 +30,6 @@ import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
-import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.proto.service.AstraServiceGrpc;
@@ -835,12 +833,10 @@ public class AstraDistributedQueryServiceTest {
             List.of(
                 new SnapshotMetadata(
                     "snapshot1",
-                    "/1",
                     endTime.minus(30, ChronoUnit.MINUTES).toEpochMilli(),
                     endTime.toEpochMilli(),
                     10,
                     "1",
-                    Metadata.IndexType.LOGS_LUCENE9,
                     0)));
     DatasetMetadataStore datasetMetadataStoreMock = mock(DatasetMetadataStore.class);
     when(datasetMetadataStoreMock.listSync())
@@ -969,7 +965,6 @@ public class AstraDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             1234,
             partition,
-            isLive ? LIVE_SNAPSHOT_PATH : "cacheSnapshotPath",
             0);
     SnapshotMetadata snapshotMetadata =
         toSnapshotMetadata(chunkInfo, isLive ? LIVE_SNAPSHOT_PREFIX : "");

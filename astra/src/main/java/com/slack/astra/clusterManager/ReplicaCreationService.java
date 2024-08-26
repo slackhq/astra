@@ -18,7 +18,6 @@ import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
-import com.slack.astra.proto.metadata.Metadata;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -177,7 +176,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
               .filter(
                   snapshotMetadata ->
                       snapshotMetadata.endTimeEpochMs > snapshotExpiration
-                          && !SnapshotMetadata.isLive(snapshotMetadata)
+                          && !snapshotMetadata.isLive()
                           && !existingReplicas.contains(snapshotMetadata.snapshotId))
               .map(
                   (snapshotMetadata) -> {
@@ -249,7 +248,6 @@ public class ReplicaCreationService extends AbstractScheduledService {
         replicaSet,
         Instant.now().toEpochMilli(),
         expireAfter.toEpochMilli(),
-        isRestored,
-        Metadata.IndexType.LOGS_LUCENE9);
+        isRestored);
   }
 }

@@ -1,6 +1,5 @@
 package com.slack.astra.clusterManager;
 
-import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
@@ -41,7 +40,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class ReplicaDeletionServiceTest {
-  public static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
   public static final String HOSTNAME = "hostname";
   private static final String REPLICA_SET = "rep1";
   private TestingServer testingServer;
@@ -161,8 +159,7 @@ public class ReplicaDeletionServiceTest {
             REPLICA_SET,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
-            false,
-            LOGS_LUCENE9);
+            false);
     replicaMetadataStore.createAsync(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -171,7 +168,6 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES,
             HOSTNAME,
             REPLICA_SET);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
@@ -224,8 +220,7 @@ public class ReplicaDeletionServiceTest {
               REPLICA_SET,
               Instant.now().minusSeconds(30).toEpochMilli(),
               Instant.now().minusSeconds(10).toEpochMilli(),
-              false,
-              LOGS_LUCENE9);
+              false);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.createAsync(replicaMetadata);
     }
@@ -236,7 +231,6 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaMetadataList.get(0).name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES,
             HOSTNAME,
             REPLICA_SET);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataAssigned);
@@ -247,7 +241,6 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
             replicaMetadataList.get(1).name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES,
             HOSTNAME,
             REPLICA_SET);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataEvict);
@@ -258,7 +251,6 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.EVICTING,
             replicaMetadataList.get(2).name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES,
             HOSTNAME,
             REPLICA_SET);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataEvicting);
@@ -312,8 +304,7 @@ public class ReplicaDeletionServiceTest {
             REPLICA_SET,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().plusSeconds(30).toEpochMilli(),
-            false,
-            LOGS_LUCENE9);
+            false);
     replicaMetadataStore.createAsync(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -322,7 +313,6 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES,
             HOSTNAME,
             REPLICA_SET);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
@@ -373,8 +363,7 @@ public class ReplicaDeletionServiceTest {
             REPLICA_SET,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
-            false,
-            LOGS_LUCENE9);
+            false);
     replicaMetadataStore.createAsync(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -383,7 +372,6 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES,
             HOSTNAME,
             REPLICA_SET);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
@@ -458,8 +446,7 @@ public class ReplicaDeletionServiceTest {
               REPLICA_SET,
               Instant.now().minusSeconds(30).toEpochMilli(),
               Instant.now().minusSeconds(10).toEpochMilli(),
-              false,
-              LOGS_LUCENE9);
+              false);
       replicaMetadataStore.createAsync(replicaMetadata);
     }
 
@@ -471,7 +458,6 @@ public class ReplicaDeletionServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES,
               HOSTNAME,
               REPLICA_SET);
       cacheSlotMetadataList.add(cacheSlotMetadata);
@@ -564,8 +550,7 @@ public class ReplicaDeletionServiceTest {
             REPLICA_SET,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
-            false,
-            LOGS_LUCENE9);
+            false);
     replicaMetadataStore.createAsync(replicaMetadataUnassigned);
 
     ReplicaMetadata replicaMetadataAssigned =
@@ -575,8 +560,7 @@ public class ReplicaDeletionServiceTest {
             REPLICA_SET,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
-            false,
-            LOGS_LUCENE9);
+            false);
     replicaMetadataStore.createAsync(replicaMetadataAssigned);
 
     CacheSlotMetadata cacheSlotMetadataUnassigned =
@@ -585,7 +569,6 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES,
             HOSTNAME,
             REPLICA_SET);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataUnassigned);
@@ -596,7 +579,6 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaMetadataAssigned.name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES,
             HOSTNAME,
             REPLICA_SET);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataAssigned);

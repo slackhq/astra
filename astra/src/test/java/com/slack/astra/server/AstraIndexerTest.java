@@ -2,8 +2,6 @@ package com.slack.astra.server;
 
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.astra.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
-import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.astra.testlib.AstraConfigUtil.makeIndexerConfig;
 import static com.slack.astra.testlib.AstraConfigUtil.makeKafkaConfig;
@@ -199,15 +197,7 @@ public class AstraIndexerTest {
     final long endTimeMs = 100;
     final long maxOffset = 50;
     SnapshotMetadata livePartition1 =
-        new SnapshotMetadata(
-            name + "live1",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "0",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live1", startTimeMs, endTimeMs, maxOffset, "0", 0);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsOnly(livePartition1);
@@ -246,27 +236,11 @@ public class AstraIndexerTest {
     final long endTimeMs = 100;
     final long maxOffset = 50;
     SnapshotMetadata livePartition0 =
-        new SnapshotMetadata(
-            name + "live0",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "0",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live0", startTimeMs, endTimeMs, maxOffset, "0", 0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
-        new SnapshotMetadata(
-            name + "live1",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "1",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live1", startTimeMs, endTimeMs, maxOffset, "1", 0);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsOnly(livePartition1, livePartition0);
@@ -300,27 +274,11 @@ public class AstraIndexerTest {
     final long endTimeMs = 100;
     final long maxOffset = 50;
     SnapshotMetadata livePartition0 =
-        new SnapshotMetadata(
-            name + "live0",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "0",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live0", startTimeMs, endTimeMs, maxOffset, "0", 0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
-        new SnapshotMetadata(
-            name + "live1",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "1",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live1", startTimeMs, endTimeMs, maxOffset, "1", 0);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsOnly(livePartition1, livePartition0);
@@ -355,36 +313,19 @@ public class AstraIndexerTest {
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
-    final String path = "/testPath_" + name;
     final long startTimeMs = 1;
     final long endTimeMs = 100;
     final long maxOffset = 50;
     SnapshotMetadata livePartition0 =
-        new SnapshotMetadata(
-            name + "live0",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "0",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live0", startTimeMs, endTimeMs, maxOffset, "0", 0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
-        new SnapshotMetadata(
-            name + "live1",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "1",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live1", startTimeMs, endTimeMs, maxOffset, "1", 0);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9, 0);
+        new SnapshotMetadata(name, startTimeMs, endTimeMs, maxOffset, "0", 100);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -422,36 +363,19 @@ public class AstraIndexerTest {
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
-    final String path = "/testPath_" + name;
     final long startTimeMs = 1;
     final long endTimeMs = 100;
     final long maxOffset = 30;
     SnapshotMetadata livePartition0 =
-        new SnapshotMetadata(
-            name + "live0",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "0",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live0", startTimeMs, endTimeMs, maxOffset, "0", 0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
-        new SnapshotMetadata(
-            name + "live1",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "1",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live1", startTimeMs, endTimeMs, maxOffset, "1", 0);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9, 0);
+        new SnapshotMetadata(name, startTimeMs, endTimeMs, maxOffset, "0", 100);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -497,36 +421,19 @@ public class AstraIndexerTest {
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
-    final String path = "/testPath_" + name;
     final long startTimeMs = 1;
     final long endTimeMs = 100;
     final long maxOffset = 30;
     SnapshotMetadata livePartition0 =
-        new SnapshotMetadata(
-            name + "live0",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "0",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live0", startTimeMs, endTimeMs, maxOffset, "0", 0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
-        new SnapshotMetadata(
-            name + "live1",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "1",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live1", startTimeMs, endTimeMs, maxOffset, "1", 0);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9, 0);
+        new SnapshotMetadata(name, startTimeMs, endTimeMs, maxOffset, "0", 100);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -576,36 +483,19 @@ public class AstraIndexerTest {
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
-    final String path = "/testPath_" + name;
     final long startTimeMs = 1;
     final long endTimeMs = 100;
     final long maxOffset = 30;
     SnapshotMetadata livePartition0 =
-        new SnapshotMetadata(
-            name + "live0",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "0",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live0", startTimeMs, endTimeMs, maxOffset, "0", 0);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
-        new SnapshotMetadata(
-            name + "live1",
-            LIVE_SNAPSHOT_PATH,
-            startTimeMs,
-            endTimeMs,
-            maxOffset,
-            "1",
-            LOGS_LUCENE9,
-            0);
+        new SnapshotMetadata(name + "live1", startTimeMs, endTimeMs, maxOffset, "1", 0);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9, 0);
+        new SnapshotMetadata(name, startTimeMs, endTimeMs, maxOffset, "0", 100);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))

@@ -4,11 +4,6 @@ package slack.proto.astra;
 
 option java_package = "com.slack.astra.proto.metadata";
 
-// Type of index used to store the data.
-enum IndexType {
-  LOGS_LUCENE9 = 0;
-};
-
 message CacheSlotMetadata {
   enum CacheSlotState {
     FREE = 0;
@@ -32,7 +27,7 @@ message CacheSlotMetadata {
   int64 updated_time_epoch_ms = 4;
 
   // Index types supported by cache slot.
-  repeated IndexType supported_index_types = 5;
+  // **removed Aug 2024** repeated IndexType supported_index_types = 5;
 
   // Unique string identifying the host
   string hostname = 6;
@@ -59,7 +54,7 @@ message ReplicaMetadata {
 
   bool isRestored = 6;
 
-  IndexType index_type = 7;
+  // **removed Aug 2024** IndexType index_type = 7;
 }
 
 message SnapshotMetadata {
@@ -83,7 +78,7 @@ message SnapshotMetadata {
   int64 max_offset = 6;
 
   // The type of index used to store this data.
-  IndexType index_type = 8;
+  // **removed Aug 2024** IndexType index_type = 8;
 
   // Size of the snapshot in bytes
   int64 sizeInBytes = 9;

@@ -3,12 +3,10 @@ package com.slack.astra.chunk;
 import static com.slack.astra.chunk.ReadOnlyChunkImpl.CHUNK_ASSIGNMENT_TIMER;
 import static com.slack.astra.chunk.ReadOnlyChunkImpl.CHUNK_EVICTION_TIMER;
 import static com.slack.astra.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
-import static com.slack.astra.logstore.BlobFsUtils.copyToS3;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
-import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
@@ -17,9 +15,8 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.LocalBlobFs;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.BlobStore;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -72,7 +69,7 @@ public class ReadOnlyChunkImplTest {
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
-  private S3CrtBlobFs s3CrtBlobFs;
+  private BlobStore blobStore;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -90,12 +87,11 @@ public class ReadOnlyChunkImplTest {
 
     S3AsyncClient s3AsyncClient =
         S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    blobStore = new BlobStore(s3AsyncClient, TEST_S3_BUCKET);
   }
 
   @AfterEach
   public void shutdown() throws IOException {
-    s3CrtBlobFs.close();
     testingServer.close();
     meterRegistry.close();
   }
@@ -132,7 +128,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            blobStore,
             searchContext,
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -266,7 +262,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -332,7 +328,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -399,7 +395,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -531,7 +527,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            blobStore,
             searchContext,
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -613,7 +609,6 @@ public class ReadOnlyChunkImplTest {
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaId,
             Instant.now().toEpochMilli(),
-            List.of(LOGS_LUCENE9),
             readOnlyChunk.searchContext.hostname,
             "rep1");
     cacheSlotMetadataStore.updateAsync(updatedCacheSlotMetadata);
@@ -626,12 +621,10 @@ public class ReadOnlyChunkImplTest {
     snapshotMetadataStore.createSync(
         new SnapshotMetadata(
             snapshotId,
-            "path",
             Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().toEpochMilli(),
             1,
             "partitionId",
-            LOGS_LUCENE9,
             sizeInBytesOnDisk));
   }
 
@@ -646,8 +639,7 @@ public class ReadOnlyChunkImplTest {
             "rep1",
             Instant.now().toEpochMilli(),
             Instant.now().plusSeconds(60).toEpochMilli(),
-            false,
-            LOGS_LUCENE9));
+            false));
   }
 
   private void initializeBlobStorageWithIndex(String snapshotId) throws Exception {
@@ -679,14 +671,10 @@ public class ReadOnlyChunkImplTest {
     IndexCommit indexCommit = logStore.getIndexCommit();
     filesToUpload.addAll(indexCommit.getFileNames());
 
-    LocalBlobFs localBlobFs = new LocalBlobFs();
-
-    logStore.close();
-    assertThat(localBlobFs.listFiles(dirPath.toUri(), false).length)
-        .isGreaterThanOrEqualTo(filesToUpload.size());
+    assertThat(dirPath.toFile().listFiles().length).isGreaterThanOrEqualTo(filesToUpload.size());
 
     // Copy files to S3.
-    copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3CrtBlobFs);
+    blobStore.upload(snapshotId, dirPath);
   }
 
   private void initializeCacheNodeAssignment(

@@ -2,7 +2,6 @@ package com.slack.astra.clusterManager;
 
 import static com.slack.astra.clusterManager.CacheNodeAssignmentService.assign;
 import static com.slack.astra.clusterManager.CacheNodeAssignmentService.sortSnapshotsByReplicaCreationTime;
-import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.spy;
@@ -103,8 +102,7 @@ public class CacheNodeAssignmentServiceTest {
       cacheNodeMetadataStore.createSync(cacheNodeMetadata);
 
       SnapshotMetadata snapshotMetadata =
-          new SnapshotMetadata(
-              "snapshot" + i, "snapshot" + i, 1L, 2L, 10L, "abcd", LOGS_LUCENE9, 5);
+          new SnapshotMetadata("snapshot" + i, 1L, 2L, 10L, "abcd", 5);
       snapshotMetadataStore.createSync(snapshotMetadata);
 
       ReplicaMetadata replicaMetadata =
@@ -114,8 +112,7 @@ public class CacheNodeAssignmentServiceTest {
               "rep1",
               1L,
               Instant.now().plus(15, ChronoUnit.MINUTES).toEpochMilli(),
-              false,
-              LOGS_LUCENE9);
+              false);
       replicaMetadataStore.createSync(replicaMetadata);
     }
     CacheNodeAssignmentService cacheNodeAssignmentService =
@@ -161,15 +158,7 @@ public class CacheNodeAssignmentServiceTest {
       cacheNodeAssignmentStore.createSync(newAssignment);
 
       SnapshotMetadata snapshotMetadata =
-          new SnapshotMetadata(
-              String.format(snapshotKey, i),
-              String.format(snapshotKey, i),
-              1L,
-              2L,
-              10L,
-              "abcd",
-              LOGS_LUCENE9,
-              5);
+          new SnapshotMetadata(String.format(snapshotKey, i), 1L, 2L, 10L, "abcd", 5);
       snapshotMetadataStore.createSync(snapshotMetadata);
 
       ReplicaMetadata replicaMetadata =
@@ -179,8 +168,7 @@ public class CacheNodeAssignmentServiceTest {
               replicaSet,
               1L,
               Instant.now().minusSeconds(120).toEpochMilli(),
-              false,
-              LOGS_LUCENE9);
+              false);
       replicaMetadataStore.createSync(replicaMetadata);
     }
 
@@ -225,15 +213,7 @@ public class CacheNodeAssignmentServiceTest {
       cacheNodeAssignmentStore.createSync(newAssignment);
 
       SnapshotMetadata snapshotMetadata =
-          new SnapshotMetadata(
-              String.format(snapshotKey, i),
-              String.format(snapshotKey, i),
-              1L,
-              2L,
-              10L,
-              "abcd",
-              LOGS_LUCENE9,
-              5);
+          new SnapshotMetadata(String.format(snapshotKey, i), 1L, 2L, 10L, "abcd", 5);
       snapshotMetadataStore.createSync(snapshotMetadata);
 
       ReplicaMetadata replicaMetadata =
@@ -243,8 +223,7 @@ public class CacheNodeAssignmentServiceTest {
               replicaSet,
               1L,
               Instant.now().minusSeconds(120).toEpochMilli(),
-              false,
-              LOGS_LUCENE9);
+              false);
       replicaMetadataStore.createSync(replicaMetadata);
     }
 
@@ -297,20 +276,13 @@ public class CacheNodeAssignmentServiceTest {
     cacheNodeAssignmentStore.createSync(existingAssignment);
 
     // Create snapshot1 and store it in the store
-    SnapshotMetadata snapshotMetadata =
-        new SnapshotMetadata(snapshotId, snapshotId, 1L, 2L, 10L, "abcd", LOGS_LUCENE9, 5);
+    SnapshotMetadata snapshotMetadata = new SnapshotMetadata(snapshotId, 1L, 2L, 10L, "abcd", 5);
     snapshotMetadataStore.createSync(snapshotMetadata);
 
     // Create a replica for snapshot1
     ReplicaMetadata replicaMetadata =
         new ReplicaMetadata(
-            "replica1",
-            snapshotId,
-            replicaSet,
-            1L,
-            Instant.now().toEpochMilli(),
-            false,
-            LOGS_LUCENE9);
+            "replica1", snapshotId, replicaSet, 1L, Instant.now().toEpochMilli(), false);
     replicaMetadataStore.createSync(replicaMetadata);
 
     CacheNodeAssignmentService cacheNodeAssignmentService =
@@ -505,8 +477,7 @@ public class CacheNodeAssignmentServiceTest {
       cacheNodeMetadataStore.createSync(cacheNodeMetadata);
 
       SnapshotMetadata snapshotMetadata =
-          new SnapshotMetadata(
-              "snapshot" + i, "snapshot" + i, 1L, 2L, 10L, "abcd", LOGS_LUCENE9, 1);
+          new SnapshotMetadata("snapshot" + i, 1L, 2L, 10L, "abcd", 1);
       snapshotMetadataStore.createSync(snapshotMetadata);
 
       ReplicaMetadata replicaMetadata =
@@ -516,8 +487,7 @@ public class CacheNodeAssignmentServiceTest {
               "rep1",
               1L,
               Instant.now().plus(15, ChronoUnit.MINUTES).toEpochMilli(),
-              false,
-              LOGS_LUCENE9);
+              false);
       replicaMetadataStore.createSync(replicaMetadata);
     }
     CacheNodeAssignmentService cacheNodeAssignmentService =
@@ -561,15 +531,7 @@ public class CacheNodeAssignmentServiceTest {
     Instant now = Instant.now();
     for (int i = 0; i < 6; i++) {
       SnapshotMetadata snapshotMetadata =
-          new SnapshotMetadata(
-              String.format(SNAPSHOT_ID_KEY, i),
-              String.format(SNAPSHOT_ID_KEY, i),
-              1L,
-              2L,
-              5L,
-              "abcd",
-              LOGS_LUCENE9,
-              10);
+          new SnapshotMetadata(String.format(SNAPSHOT_ID_KEY, i), 1L, 2L, 5L, "abcd", 10);
       snapshotMetadataStore.createSync(snapshotMetadata);
 
       ReplicaMetadata replicaMetadata =
@@ -579,8 +541,7 @@ public class CacheNodeAssignmentServiceTest {
               "rep1",
               now.plus(15 * i, ChronoUnit.MINUTES).toEpochMilli(),
               now.plus(15, ChronoUnit.MINUTES).toEpochMilli(),
-              false,
-              LOGS_LUCENE9);
+              false);
       replicaMetadataStore.createSync(replicaMetadata);
     }
 
@@ -624,8 +585,7 @@ public class CacheNodeAssignmentServiceTest {
 
     for (int i = 0; i < 4; i++) {
       String snapshotId = String.format(SNAPSHOT_ID_KEY, i);
-      SnapshotMetadata snapshotMetadata =
-          new SnapshotMetadata(snapshotId, snapshotId, 1L, 2L, 10L, "abcd", LOGS_LUCENE9, 1);
+      SnapshotMetadata snapshotMetadata = new SnapshotMetadata(snapshotId, 1L, 2L, 10L, "abcd", 1);
       snapshots.add(snapshotMetadata);
 
       ReplicaMetadata replicaMetadata =
@@ -635,8 +595,7 @@ public class CacheNodeAssignmentServiceTest {
               "rep1",
               10 + i,
               Instant.now().plus(15, ChronoUnit.MINUTES).toEpochMilli(),
-              false,
-              LOGS_LUCENE9);
+              false);
       replicas.put(snapshotId, replicaMetadata);
     }
     Collections.shuffle(snapshots);
@@ -667,15 +626,7 @@ public class CacheNodeAssignmentServiceTest {
     Instant now = Instant.now();
     for (int i = 0; i < 3; i++) {
       SnapshotMetadata snapshotMetadata =
-          new SnapshotMetadata(
-              String.format(SNAPSHOT_ID_KEY, i),
-              String.format(SNAPSHOT_ID_KEY, i),
-              1L,
-              2L,
-              5L,
-              "abcd",
-              LOGS_LUCENE9,
-              10);
+          new SnapshotMetadata(String.format(SNAPSHOT_ID_KEY, i), 1L, 2L, 5L, "abcd", 10);
       snapshotMetadataStore.createSync(snapshotMetadata);
 
       ReplicaMetadata replicaMetadata =
@@ -685,8 +636,7 @@ public class CacheNodeAssignmentServiceTest {
               "rep1",
               now.plus(15 * i, ChronoUnit.MINUTES).toEpochMilli(),
               now.plus(15, ChronoUnit.MINUTES).toEpochMilli(),
-              false,
-              LOGS_LUCENE9);
+              false);
       replicaMetadataStore.createSync(replicaMetadata);
     }
 
@@ -734,8 +684,7 @@ public class CacheNodeAssignmentServiceTest {
     List<SnapshotMetadata> snapshots = new ArrayList<>();
     for (int i = 0; i < sizes.size(); i++) {
       Integer size = sizes.get(i);
-      snapshots.add(
-          new SnapshotMetadata("snapshot" + i, "/" + i, 1, 2 * 1000, 3, "a", LOGS_LUCENE9, size));
+      snapshots.add(new SnapshotMetadata("snapshot" + i, 1, 2 * 1000, 3, "a", size));
     }
     return snapshots;
   }

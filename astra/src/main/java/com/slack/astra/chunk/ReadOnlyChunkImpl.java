@@ -4,7 +4,7 @@ import static com.slack.astra.chunkManager.CachingChunkManager.ASTRA_NG_DYNAMIC_
 import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.slack.astra.blobfs.BlobFs;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.logstore.search.LogIndexSearcher;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchQuery;
@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -64,7 +63,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private Metadata.CacheNodeAssignment.CacheNodeAssignmentState lastKnownAssignmentState;
 
   private final String dataDirectoryPrefix;
-  private final String s3Bucket;
   protected final SearchContext searchContext;
   protected final String slotId;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
@@ -73,7 +71,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SearchMetadataStore searchMetadataStore;
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private final MeterRegistry meterRegistry;
-  private final BlobFs blobFs;
+  private final BlobStore blobStore;
 
   public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
   public static final String CHUNK_EVICTION_TIMER = "chunk_eviction_timer";
@@ -91,7 +89,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
       MeterRegistry meterRegistry,
-      BlobFs blobFs,
+      BlobStore blobStore,
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
@@ -107,7 +105,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this(
         curatorFramework,
         meterRegistry,
-        blobFs,
+        blobStore,
         searchContext,
         s3Bucket,
         dataDirectoryPrefix,
@@ -125,7 +123,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
       MeterRegistry meterRegistry,
-      BlobFs blobFs,
+      BlobStore blobStore,
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
@@ -136,8 +134,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchMetadataStore searchMetadataStore)
       throws Exception {
     this.meterRegistry = meterRegistry;
-    this.blobFs = blobFs;
-    this.s3Bucket = s3Bucket;
+    this.blobStore = blobStore;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.searchContext = searchContext;
     this.slotId = UUID.randomUUID().toString();
@@ -154,7 +151,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              List.of(Metadata.IndexType.LOGS_LUCENE9),
               searchContext.hostname,
               replicaSet);
       cacheSlotMetadataStore.createSync(cacheSlotMetadata);
@@ -235,12 +231,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           }
         }
       }
-      // init SerialS3DownloaderImpl w/ bucket, snapshotId, blob, data directory
-      SerialS3ChunkDownloaderImpl chunkDownloader =
-          new SerialS3ChunkDownloaderImpl(
-              s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory);
-      if (chunkDownloader.download()) {
-        throw new IOException("No files found on blob storage, released slot for re-assignment");
+
+      blobStore.download(snapshotMetadata.snapshotId, dataDirectory);
+      try (Stream<Path> fileList = Files.list(dataDirectory)) {
+        if (fileList.findAny().isEmpty()) {
+          throw new IOException("No files found on blob storage, released slot for re-assignment");
+        }
       }
 
       Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
@@ -267,9 +263,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       long durationNanos = assignmentTimer.stop(chunkAssignmentTimerSuccess);
 
       LOG.info(
-          "Downloaded chunk with snapshot id '{}' at path '{}' in {} seconds, was {}",
+          "Downloaded chunk with snapshot id '{}' in {} seconds, was {}",
           snapshotMetadata.snapshotId,
-          snapshotMetadata.snapshotPath,
           TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS),
           FileUtils.byteCountToDisplaySize(FileUtils.sizeOfDirectory(dataDirectory.toFile())));
     } catch (Exception e) {
@@ -379,11 +374,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
-      SerialS3ChunkDownloaderImpl chunkDownloader =
-          new SerialS3ChunkDownloaderImpl(
-              s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory);
-      if (chunkDownloader.download()) {
-        throw new IOException("No files found on blob storage, released slot for re-assignment");
+      blobStore.download(snapshotMetadata.snapshotId, dataDirectory);
+      try (Stream<Path> fileList = Files.list(dataDirectory)) {
+        if (fileList.findAny().isEmpty()) {
+          throw new IOException("No files found on blob storage, released slot for re-assignment");
+        }
       }
 
       Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
@@ -410,9 +405,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       long durationNanos = assignmentTimer.stop(chunkAssignmentTimerSuccess);
 
       LOG.debug(
-          "Downloaded chunk with snapshot id '{}' at path '{}' in {} seconds, was {}",
+          "Downloaded chunk with snapshot id '{}' in {} seconds, was {}",
           snapshotMetadata.snapshotId,
-          snapshotMetadata.snapshotPath,
           TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS),
           FileUtils.byteCountToDisplaySize(FileUtils.sizeOfDirectory(dataDirectory.toFile())));
     } catch (Exception e) {

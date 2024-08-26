@@ -17,8 +17,8 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.BlobStore;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -59,6 +59,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
@@ -81,8 +82,6 @@ public class IndexingChunkImplTest {
     assertThat(beforeSearchNodes.size()).isEqualTo(1);
     assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
     assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-
-    assertThat(beforeSearchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
   }
 
   @Nested
@@ -641,11 +640,10 @@ public class IndexingChunkImplTest {
       String bucket = "invalid-bucket";
       S3AsyncClient s3AsyncClient =
           S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+      BlobStore blobStore = new BlobStore(s3AsyncClient, bucket);
 
       // Snapshot to S3 without creating the s3 bucket.
-      assertThat(chunk.snapshotToS3(bucket, "", s3CrtBlobFs)).isFalse();
-      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+      assertThat(chunk.snapshotToS3(blobStore)).isFalse();
 
       // Metadata checks
       List<SnapshotMetadata> afterSnapshots =
@@ -654,15 +652,11 @@ public class IndexingChunkImplTest {
       assertThat(afterSnapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
       assertThat(afterSnapshots.get(0).maxOffset).isEqualTo(0);
 
-      assertThat(afterSnapshots.get(0).snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-
       List<SearchMetadata> afterSearchNodes =
           AstraMetadataTestUtils.listSyncUncached(searchMetadataStore);
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(afterSearchNodes.get(0).snapshotName)
-          .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     }
 
     @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -706,13 +700,11 @@ public class IndexingChunkImplTest {
       String bucket = "test-bucket-with-prefix";
       S3AsyncClient s3AsyncClient =
           S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
       s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
+      BlobStore blobStore = new BlobStore(s3AsyncClient, bucket);
 
       // Snapshot to S3
-      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-      assertThat(chunk.snapshotToS3(bucket, "", s3CrtBlobFs)).isTrue();
-      assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
+      assertThat(chunk.snapshotToS3(blobStore)).isTrue();
 
       // depending on heap and CFS files this can be 5 or 19.
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isGreaterThan(5);
@@ -722,10 +714,13 @@ public class IndexingChunkImplTest {
 
       // Check schema file exists in s3
       ListObjectsV2Response objectsResponse =
-          s3AsyncClient.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true)).get();
+          s3AsyncClient
+              .listObjectsV2(
+                  ListObjectsV2Request.builder().bucket(bucket).prefix(chunk.id()).build())
+              .get();
       assertThat(
               objectsResponse.contents().stream()
-                  .filter(o -> o.key().equals(SCHEMA_FILE_NAME))
+                  .filter(o -> o.key().contains(SCHEMA_FILE_NAME))
                   .count())
           .isEqualTo(1);
 
@@ -738,21 +733,16 @@ public class IndexingChunkImplTest {
       assertThat(afterSnapshots.size()).isEqualTo(2);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       SnapshotMetadata liveSnapshot =
-          afterSnapshots.stream()
-              .filter(s -> s.snapshotPath.equals(SnapshotMetadata.LIVE_SNAPSHOT_PATH))
-              .findFirst()
-              .get();
+          afterSnapshots.stream().filter(SnapshotMetadata::isLive).findFirst().get();
       assertThat(liveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
       assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
-      assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+      assertThat(liveSnapshot.isLive()).isTrue();
 
       List<SearchMetadata> afterSearchNodes =
           AstraMetadataTestUtils.listSyncUncached(searchMetadataStore);
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(afterSearchNodes.get(0).snapshotName)
-          .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // Check total size of objects uploaded was correctly tracked
       assertThat(chunk.info().getSizeInBytesOnDisk())

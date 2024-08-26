@@ -6,7 +6,6 @@ import com.slack.astra.logstore.LogStore;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.astra.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,18 +65,16 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
     SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
     snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
 
-    // Update the live snapshot. Keep the same snapshotId and snapshotPath to
+    // Update the live snapshot. Keep the same snapshotId to
     // ensure it's a live snapshot.
     SnapshotMetadata updatedSnapshotMetadata =
         new SnapshotMetadata(
             liveSnapshotMetadata.snapshotId,
-            liveSnapshotMetadata.snapshotPath,
             chunkInfo.getDataStartTimeEpochMs(),
             chunkInfo.getDataEndTimeEpochMs(),
             chunkInfo.getMaxOffset(),
             chunkInfo.getKafkaPartitionId(),
-            Metadata.IndexType.LOGS_LUCENE9,
-            chunkInfo.getSizeInBytesOnDisk());
+            liveSnapshotMetadata.sizeInBytesOnDisk);
     snapshotMetadataStore.updateSync(updatedSnapshotMetadata);
     liveSnapshotMetadata = updatedSnapshotMetadata;
 

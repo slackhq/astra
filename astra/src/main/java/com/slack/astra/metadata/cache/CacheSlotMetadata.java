@@ -4,8 +4,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.astra.metadata.core.AstraPartitionedMetadata;
 import com.slack.astra.proto.metadata.Metadata;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -18,23 +16,18 @@ public class CacheSlotMetadata extends AstraPartitionedMetadata {
   public final Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState;
   public final String replicaId;
   public final long updatedTimeEpochMs;
-  public final List<Metadata.IndexType> supportedIndexTypes;
 
   public CacheSlotMetadata(
       String name,
       Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState,
       String replicaId,
       long updatedTimeEpochMs,
-      List<Metadata.IndexType> supportedIndexTypes,
       String hostname,
       String replicaSet) {
     super(name);
     checkArgument(hostname != null && !hostname.isEmpty(), "Hostname cannot be null or empty");
     checkArgument(cacheSlotState != null, "Cache slot state cannot be null");
     checkArgument(updatedTimeEpochMs > 0, "Updated time must be greater than 0");
-    checkArgument(
-        supportedIndexTypes != null && !supportedIndexTypes.isEmpty(),
-        "supported index types shouldn't be empty");
     if (cacheSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
       checkArgument(
           replicaId != null && replicaId.isEmpty(),
@@ -50,7 +43,6 @@ public class CacheSlotMetadata extends AstraPartitionedMetadata {
     this.cacheSlotState = cacheSlotState;
     this.replicaId = replicaId;
     this.updatedTimeEpochMs = updatedTimeEpochMs;
-    this.supportedIndexTypes = Collections.unmodifiableList(supportedIndexTypes);
   }
 
   public String getHostname() {
@@ -67,8 +59,7 @@ public class CacheSlotMetadata extends AstraPartitionedMetadata {
     if (!hostname.equals(that.hostname)) return false;
     if (!Objects.equals(replicaSet, that.replicaSet)) return false;
     if (cacheSlotState != that.cacheSlotState) return false;
-    if (!replicaId.equals(that.replicaId)) return false;
-    return supportedIndexTypes.equals(that.supportedIndexTypes);
+    return replicaId.equals(that.replicaId);
   }
 
   @Override
@@ -79,7 +70,6 @@ public class CacheSlotMetadata extends AstraPartitionedMetadata {
     result = 31 * result + cacheSlotState.hashCode();
     result = 31 * result + replicaId.hashCode();
     result = 31 * result + (int) (updatedTimeEpochMs ^ (updatedTimeEpochMs >>> 32));
-    result = 31 * result + supportedIndexTypes.hashCode();
     return result;
   }
 
@@ -99,8 +89,6 @@ public class CacheSlotMetadata extends AstraPartitionedMetadata {
         + '\''
         + ", updatedTimeEpochMs="
         + updatedTimeEpochMs
-        + ", supportedIndexTypes="
-        + supportedIndexTypes
         + ", name='"
         + name
         + '\''
