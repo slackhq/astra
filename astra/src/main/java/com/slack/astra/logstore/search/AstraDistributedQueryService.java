@@ -418,6 +418,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
               response.add(searchResult.get() == null ? SearchResult.error() : searchResult.get());
             } else {
               response.add(SearchResult.error());
+              LOG.error("Error fetching search result {}", searchResult);
             }
           } catch (Exception e) {
             LOG.error("Error fetching search result", e);
