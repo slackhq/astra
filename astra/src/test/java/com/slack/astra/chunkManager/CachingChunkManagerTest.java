@@ -2,8 +2,6 @@ package com.slack.astra.chunkManager;
 
 import static com.slack.astra.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
 import static com.slack.astra.chunkManager.CachingChunkManager.ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG;
-import static com.slack.astra.logstore.BlobFsUtils.copyFromS3;
-import static com.slack.astra.logstore.BlobFsUtils.copyToS3;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -16,9 +14,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.astra.blobfs.LocalBlobFs;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.BlobStore;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ReadOnlyChunkImpl;
 import com.slack.astra.chunk.SearchContext;
@@ -44,6 +41,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -63,7 +61,7 @@ public class CachingChunkManagerTest {
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
-  private S3CrtBlobFs s3CrtBlobFs;
+  private BlobStore blobStore;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -85,7 +83,7 @@ public class CachingChunkManagerTest {
 
     S3AsyncClient s3AsyncClient =
         S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    blobStore = new BlobStore(s3AsyncClient, TEST_S3_BUCKET);
   }
 
   @AfterEach
@@ -97,7 +95,6 @@ public class CachingChunkManagerTest {
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
     }
-    s3CrtBlobFs.close();
     testingServer.close();
     meterRegistry.close();
     disableDynamicChunksFlag();
@@ -146,7 +143,7 @@ public class CachingChunkManagerTest {
         new CachingChunkManager<>(
             meterRegistry,
             curatorFramework,
-            s3CrtBlobFs,
+            blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
@@ -162,9 +159,7 @@ public class CachingChunkManagerTest {
   private CacheNodeAssignment initAssignment(String snapshotId) throws Exception {
     cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    snapshotMetadataStore.createSync(
-        new SnapshotMetadata(
-            snapshotId, TEST_S3_BUCKET, 1, 1, 0, "abcd", Metadata.IndexType.LOGS_LUCENE9, 29));
+    snapshotMetadataStore.createSync(new SnapshotMetadata(snapshotId, 1, 1, 0, "abcd", 29));
     CacheNodeAssignment newAssignment =
         new CacheNodeAssignment(
             "abcd",
@@ -208,14 +203,11 @@ public class CachingChunkManagerTest {
     filesToUpload.addAll(indexCommit.getFileNames());
     System.out.println(filesToUpload.size());
 
-    LocalBlobFs localBlobFs = new LocalBlobFs();
-
     logStore.close();
-    assertThat(localBlobFs.listFiles(dirPath.toUri(), false).length)
-        .isGreaterThanOrEqualTo(filesToUpload.size());
+    assertThat(dirPath.toFile().listFiles().length).isGreaterThanOrEqualTo(filesToUpload.size());
 
     // Copy files to S3.
-    copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3CrtBlobFs);
+    blobStore.upload(snapshotId, dirPath);
   }
 
   @Test
@@ -262,9 +254,11 @@ public class CachingChunkManagerTest {
     await()
         .ignoreExceptions()
         .until(
-            () ->
-                copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, Path.of("/tmp/test1")).length
-                    > 0);
+            () -> {
+              Path path = Path.of("/tmp/test1");
+              blobStore.download(snapshotId, path);
+              return Objects.requireNonNull(path.toFile().listFiles()).length > 0;
+            });
     initAssignment(snapshotId);
 
     await()
@@ -300,9 +294,12 @@ public class CachingChunkManagerTest {
     await()
         .ignoreExceptions()
         .until(
-            () ->
-                copyFromS3(TEST_S3_BUCKET, snapshotId, s3CrtBlobFs, Path.of("/tmp/test2")).length
-                    > 0);
+            () -> {
+              Path path = Path.of("/tmp/test2");
+              blobStore.download(snapshotId, path);
+              return Objects.requireNonNull(path.toFile().listFiles()).length > 0;
+            });
+
     CacheNodeAssignment assignment = initAssignment(snapshotId);
 
     // assert chunks created

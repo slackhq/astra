@@ -1,7 +1,6 @@
 package com.slack.astra.clusterManager;
 
 import static com.slack.astra.clusterManager.ClusterHpaMetricService.CACHE_HPA_METRIC_NAME;
-import static com.slack.astra.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.spy;
@@ -120,9 +119,9 @@ class ClusterHpaMetricServiceTest {
     when(replicaMetadataStore.listSync())
         .thenReturn(
             List.of(
-                new ReplicaMetadata("foo", "foo", "rep1", 1L, 0L, false, LOGS_LUCENE9),
-                new ReplicaMetadata("bar", "bar", "rep2", 1L, 0L, false, LOGS_LUCENE9),
-                new ReplicaMetadata("baz", "baz", "rep1", 1L, 0L, false, LOGS_LUCENE9)));
+                new ReplicaMetadata("foo", "foo", "rep1", 1L, 0L, false),
+                new ReplicaMetadata("bar", "bar", "rep2", 1L, 0L, false),
+                new ReplicaMetadata("baz", "baz", "rep1", 1L, 0L, false)));
 
     when(cacheSlotMetadataStore.listSync())
         .thenReturn(
@@ -132,7 +131,6 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1"),
                 new CacheSlotMetadata(
@@ -140,7 +138,6 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1"),
                 new CacheSlotMetadata(
@@ -148,7 +145,6 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep2"),
                 new CacheSlotMetadata(
@@ -156,7 +152,6 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1")));
 
@@ -206,8 +201,8 @@ class ClusterHpaMetricServiceTest {
     when(replicaMetadataStore.listSync())
         .thenReturn(
             List.of(
-                new ReplicaMetadata("foo", "foo", "rep1", 1L, 0L, false, LOGS_LUCENE9),
-                new ReplicaMetadata("bar", "bar", "rep2", 1L, 0L, false, LOGS_LUCENE9)));
+                new ReplicaMetadata("foo", "foo", "rep1", 1L, 0L, false),
+                new ReplicaMetadata("bar", "bar", "rep2", 1L, 0L, false)));
 
     when(cacheSlotMetadataStore.listSync())
         .thenReturn(
@@ -217,7 +212,6 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1"),
                 new CacheSlotMetadata(
@@ -225,7 +219,6 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1"),
                 new CacheSlotMetadata(
@@ -233,7 +226,6 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep2"),
                 new CacheSlotMetadata(
@@ -241,7 +233,6 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep2")));
 
@@ -294,10 +285,10 @@ class ClusterHpaMetricServiceTest {
     when(replicaMetadataStore.listSync())
         .thenReturn(
             List.of(
-                new ReplicaMetadata("foo", "foo", "rep1", 1L, 0L, false, LOGS_LUCENE9),
-                new ReplicaMetadata("bar", "bar", "rep1", 1L, 0L, false, LOGS_LUCENE9),
-                new ReplicaMetadata("baz", "bar", "rep2", 1L, 0L, false, LOGS_LUCENE9),
-                new ReplicaMetadata("bal", "bar", "rep2", 1L, 0L, false, LOGS_LUCENE9)));
+                new ReplicaMetadata("foo", "foo", "rep1", 1L, 0L, false),
+                new ReplicaMetadata("bar", "bar", "rep1", 1L, 0L, false),
+                new ReplicaMetadata("baz", "bar", "rep2", 1L, 0L, false),
+                new ReplicaMetadata("bal", "bar", "rep2", 1L, 0L, false)));
 
     when(cacheSlotMetadataStore.listSync())
         .thenReturn(
@@ -307,7 +298,6 @@ class ClusterHpaMetricServiceTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     1,
-                    List.of(LOGS_LUCENE9),
                     "localhost",
                     "rep1")));
 
@@ -364,17 +354,15 @@ class ClusterHpaMetricServiceTest {
     when(snapshotMetadataStore.listSync())
         .thenReturn(
             List.of(
-                new SnapshotMetadata(
-                    "snapshot2", "snapshot2", 1L, 2L, 5L, "abcd", LOGS_LUCENE9, 10),
-                new SnapshotMetadata(
-                    "snapshot1", "snapshot1", 1L, 2L, 5L, "abcd", LOGS_LUCENE9, 5)));
+                new SnapshotMetadata("snapshot2", 1L, 2L, 5L, "abcd", 10),
+                new SnapshotMetadata("snapshot1", 1L, 2L, 5L, "abcd", 5)));
 
     // Register 1 replica associated with the snapshot
     when(replicaMetadataStore.listSync())
         .thenReturn(
             List.of(
-                new ReplicaMetadata("replica2", "snapshot2", "rep1", 1L, 2L, false, LOGS_LUCENE9),
-                new ReplicaMetadata("replica1", "snapshot1", "rep1", 1L, 2L, false, LOGS_LUCENE9)));
+                new ReplicaMetadata("replica2", "snapshot2", "rep1", 1L, 2L, false),
+                new ReplicaMetadata("replica1", "snapshot1", "rep1", 1L, 2L, false)));
 
     // Register 2 cache nodes with lots of capacity
     when(cacheNodeMetadataStore.listSync())
@@ -423,16 +411,11 @@ class ClusterHpaMetricServiceTest {
 
     // Register 1 snapshot
     when(snapshotMetadataStore.listSync())
-        .thenReturn(
-            List.of(
-                new SnapshotMetadata(
-                    "snapshot1", "snapshot1", 1L, 2L, 5L, "abcd", LOGS_LUCENE9, 5)));
+        .thenReturn(List.of(new SnapshotMetadata("snapshot1", 1L, 2L, 5L, "abcd", 5)));
 
     // Register 1 replica associated with the snapshot
     when(replicaMetadataStore.listSync())
-        .thenReturn(
-            List.of(
-                new ReplicaMetadata("replica1", "snapshot1", "rep1", 1L, 2L, false, LOGS_LUCENE9)));
+        .thenReturn(List.of(new ReplicaMetadata("replica1", "snapshot1", "rep1", 1L, 2L, false)));
 
     // Register 2 cache nodes with lots of capacity
     when(cacheNodeMetadataStore.listSync())
@@ -476,17 +459,14 @@ class ClusterHpaMetricServiceTest {
 
     // Register snapshot of size 15
     when(snapshotMetadataStore.listSync())
-        .thenReturn(
-            List.of(
-                new SnapshotMetadata(
-                    "snapshot1", "snapshot1", 1L, 2L, 5L, "abcd", LOGS_LUCENE9, 15)));
+        .thenReturn(List.of(new SnapshotMetadata("snapshot1", 1L, 2L, 5L, "abcd", 15)));
 
     // Register 2 replicas for rep1 and rep2
     when(replicaMetadataStore.listSync())
         .thenReturn(
             List.of(
-                new ReplicaMetadata("replica2", "snapshot1", "rep1", 1L, 2L, false, LOGS_LUCENE9),
-                new ReplicaMetadata("replica1", "snapshot1", "rep2", 1L, 2L, false, LOGS_LUCENE9)));
+                new ReplicaMetadata("replica2", "snapshot1", "rep1", 1L, 2L, false),
+                new ReplicaMetadata("replica1", "snapshot1", "rep2", 1L, 2L, false)));
 
     // Register 2 cache nodes (rep1, rep2), of size 10 each
     when(cacheNodeMetadataStore.listSync())

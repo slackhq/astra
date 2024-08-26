@@ -50,7 +50,6 @@ public class CacheSlotMetadataStore extends AstraPartitioningMetadataStore<Cache
             newState,
             replicaId,
             Instant.now().toEpochMilli(),
-            cacheSlotMetadata.supportedIndexTypes,
             cacheSlotMetadata.hostname,
             cacheSlotMetadata.replicaSet);
     // todo - consider refactoring this to return a completable future instead

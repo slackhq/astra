@@ -2,7 +2,7 @@ package com.slack.astra.chunkManager;
 
 import static com.slack.astra.clusterManager.CacheNodeAssignmentService.snapshotMetadataBySnapshotId;
 
-import com.slack.astra.blobfs.BlobFs;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.chunk.Chunk;
 import com.slack.astra.chunk.ReadOnlyChunkImpl;
 import com.slack.astra.chunk.SearchContext;
@@ -39,7 +39,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
   private final MeterRegistry meterRegistry;
   private final AsyncCuratorFramework curatorFramework;
-  private final BlobFs blobFs;
+  private final BlobStore blobStore;
   private final SearchContext searchContext;
   private final String s3Bucket;
   private final String dataDirectoryPrefix;
@@ -61,7 +61,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   public CachingChunkManager(
       MeterRegistry registry,
       AsyncCuratorFramework curatorFramework,
-      BlobFs blobFs,
+      BlobStore blobStore,
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
@@ -70,7 +70,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       long capacityBytes) {
     this.meterRegistry = registry;
     this.curatorFramework = curatorFramework;
-    this.blobFs = blobFs;
+    this.blobStore = blobStore;
     this.searchContext = searchContext;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
@@ -103,7 +103,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
             new ReadOnlyChunkImpl<>(
                 curatorFramework,
                 meterRegistry,
-                blobFs,
+                blobStore,
                 searchContext,
                 s3Bucket,
                 dataDirectoryPrefix,
@@ -153,12 +153,12 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.S3Config s3Config,
       AstraConfigs.CacheConfig cacheConfig,
-      BlobFs blobFs)
+      BlobStore blobStore)
       throws Exception {
     return new CachingChunkManager<>(
         meterRegistry,
         curatorFramework,
-        blobFs,
+        blobStore,
         SearchContext.fromConfig(cacheConfig.getServerConfig()),
         s3Config.getS3Bucket(),
         cacheConfig.getDataDirectory(),
@@ -211,7 +211,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                 new ReadOnlyChunkImpl<>(
                     curatorFramework,
                     meterRegistry,
-                    blobFs,
+                    blobStore,
                     searchContext,
                     s3Bucket,
                     dataDirectoryPrefix,

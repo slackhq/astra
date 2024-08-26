@@ -14,8 +14,8 @@ import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.BlobStore;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.chunkManager.IndexingChunkManager;
 import com.slack.astra.chunkManager.RollOverChunkTask;
@@ -69,7 +69,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private SimpleMeterRegistry metricsRegistry;
   private S3AsyncClient s3AsyncClient;
   private static final String ZK_PATH_PREFIX = "testZK";
-  private S3CrtBlobFs s3CrtBlobFs;
+  private BlobStore blobStore;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
 
@@ -90,7 +90,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     metricsRegistry = new SimpleMeterRegistry();
 
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    blobStore = new BlobStore(s3AsyncClient, S3_TEST_BUCKET);
 
     localZkServer = new TestingServer();
     localZkServer.start();
@@ -127,7 +127,6 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
 
   private void initChunkManager(
       ChunkRollOverStrategy chunkRollOverStrategy,
-      String s3TestBucket,
       ListeningExecutorService listeningExecutorService)
       throws IOException, TimeoutException {
     SearchContext searchContext = new SearchContext(TEST_HOST, TEST_PORT);
@@ -137,8 +136,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             tmpPath.toFile().getAbsolutePath(),
             chunkRollOverStrategy,
             metricsRegistry,
-            s3CrtBlobFs,
-            s3TestBucket,
+            blobStore,
             listeningExecutorService,
             curatorFramework,
             searchContext,
@@ -167,8 +165,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
         new DiskOrMessageCountBasedRolloverStrategy(
             metricsRegistry, MAX_BYTES_PER_CHUNK, 1_000_000_000);
 
-    initChunkManager(
-        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, MoreExecutors.newDirectExecutorService());
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -255,8 +252,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
         new DiskOrMessageCountBasedRolloverStrategy(
             metricsRegistry, Long.MAX_VALUE, Long.MAX_VALUE, 2);
 
-    initChunkManager(
-        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, MoreExecutors.newDirectExecutorService());
 
     // add 1 message so that new chunk is created
     // wait for 2+ seconds so that the chunk rollover code will get triggered
@@ -281,8 +277,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, Long.MAX_VALUE, 4);
 
-    initChunkManager(
-        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
+    initChunkManager(chunkRollOverStrategy, MoreExecutors.newDirectExecutorService());
 
     final Instant startTime = Instant.now();
 

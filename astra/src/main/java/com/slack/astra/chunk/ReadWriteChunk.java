@@ -1,12 +1,10 @@
 package com.slack.astra.chunk;
 
 import static com.slack.astra.chunk.ChunkInfo.toSnapshotMetadata;
-import static com.slack.astra.logstore.BlobFsUtils.copyToS3;
-import static com.slack.astra.logstore.BlobFsUtils.createURI;
 import static com.slack.astra.writer.SpanFormatter.isValidTimestamp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.slack.astra.blobfs.BlobFs;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.logstore.LogStore;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.search.LogIndexSearcher;
@@ -70,7 +68,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public static final String INDEX_FILES_UPLOAD = "index_files_upload";
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
   public static final String SNAPSHOT_TIMER = "snapshot.timer";
-  public static final String LIVE_SNAPSHOT_PREFIX = SnapshotMetadata.LIVE_SNAPSHOT_PATH + "_";
+  public static final String LIVE_SNAPSHOT_PREFIX = "LIVE_";
   public static final String SCHEMA_FILE_NAME = "schema.json";
 
   private final LogStore logStore;
@@ -78,7 +76,6 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   private final Logger logger;
   private LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
-  private final Counter fileUploadFailures;
   private final MeterRegistry meterRegistry;
   protected final ChunkInfo chunkInfo;
   protected final SearchMetadata liveSearchMetadata;
@@ -114,13 +111,11 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         new ChunkInfo(
             chunkDataPrefix + "_" + chunkCreationTime.getEpochSecond() + "_" + logStoreId,
             chunkCreationTime.toEpochMilli(),
-            kafkaPartitionId,
-            SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+            kafkaPartitionId);
 
     readOnly = false;
     this.meterRegistry = meterRegistry;
     fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
-    fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
     liveSnapshotMetadata = toSnapshotMetadata(chunkInfo, LIVE_SNAPSHOT_PREFIX);
     liveSearchMetadata = toSearchMetadata(liveSnapshotMetadata.snapshotId, searchContext);
     this.searchMetadataStore = searchMetadataStore;
@@ -225,7 +220,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
    *
    * @return true on success, false on failure.
    */
-  public boolean snapshotToS3(String bucket, String prefix, BlobFs blobFs) {
+  public boolean snapshotToS3(BlobStore blobStore) {
     logger.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
     IndexCommit indexCommit = null;
@@ -254,10 +249,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       }
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
-      final int success = copyToS3(dirPath, filesToUpload, bucket, prefix, blobFs);
+      blobStore.upload(chunkInfo.chunkId, dirPath);
+
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
-      this.fileUploadFailures.increment(filesToUpload.size() - success);
-      chunkInfo.setSnapshotPath(createURI(bucket, prefix, "").toString());
       chunkInfo.setSizeInBytesOnDisk(totalBytes);
       logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;

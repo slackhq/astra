@@ -13,7 +13,7 @@ import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.chunkManager.RollOverChunkTask;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;

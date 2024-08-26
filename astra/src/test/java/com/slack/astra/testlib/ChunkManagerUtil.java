@@ -5,8 +5,8 @@ import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.astra.blobfs.s3.S3CrtBlobFs;
-import com.slack.astra.blobfs.s3.S3TestUtils;
+import com.slack.astra.blobfs.BlobStore;
+import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.chunkManager.IndexingChunkManager;
 import com.slack.astra.chunkrollover.ChunkRollOverStrategy;
@@ -89,7 +89,7 @@ public class ChunkManagerUtil<T> {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
     s3AsyncClient = S3TestUtils.createS3CrtClient(s3MockExtension.getServiceEndpoint());
-    S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    BlobStore blobStore = new BlobStore(s3AsyncClient, s3Bucket);
 
     this.zkServer = zkServer;
     // noop if zk has already been started by the caller
@@ -107,8 +107,7 @@ public class ChunkManagerUtil<T> {
             tempFolder.getAbsolutePath(),
             chunkRollOverStrategy,
             meterRegistry,
-            s3CrtBlobFs,
-            s3Bucket,
+            blobStore,
             MoreExecutors.newDirectExecutorService(),
             curatorFramework,
             searchContext,
@@ -125,7 +124,7 @@ public class ChunkManagerUtil<T> {
   }
 
   public static List<SnapshotMetadata> fetchNonLiveSnapshot(List<SnapshotMetadata> snapshots) {
-    Predicate<SnapshotMetadata> nonLiveSnapshotPredicate = s -> !SnapshotMetadata.isLive(s);
+    Predicate<SnapshotMetadata> nonLiveSnapshotPredicate = s -> !s.isLive();
     return fetchSnapshotMatching(snapshots, nonLiveSnapshotPredicate);
   }
 
