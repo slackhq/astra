@@ -85,6 +85,11 @@ message SnapshotMetadata {
 }
 
 message SearchMetadata {
+  enum SearchNodeType {
+    INDEX = 0;
+    CACHE = 1;
+  }
+
   // Name of search metadata
   string name = 1;
 
@@ -93,6 +98,10 @@ message SearchMetadata {
 
   // url
   string url = 3;
+
+  SearchNodeType search_node_type = 4;
+
+  repeated string snapshot_names = 5;
 }
 
 message RecoveryNodeMetadata {

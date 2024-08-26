@@ -4,14 +4,18 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.slack.astra.metadata.core.MetadataSerializer;
 import com.slack.astra.proto.metadata.Metadata;
+import java.util.List;
 
 public class SearchMetadataSerializer implements MetadataSerializer<SearchMetadata> {
   private static SearchMetadata fromSearchMetadataProto(
       Metadata.SearchMetadata searchMetadataProto) {
+    List<String> snapshotNames = searchMetadataProto.getSnapshotNamesList().stream().toList();
     return new SearchMetadata(
         searchMetadataProto.getName(),
         searchMetadataProto.getSnapshotName(),
-        searchMetadataProto.getUrl());
+        searchMetadataProto.getUrl(),
+        searchMetadataProto.getSearchNodeType(),
+        snapshotNames);
   }
 
   private static Metadata.SearchMetadata toSearchMetadataProto(SearchMetadata metadata) {
@@ -19,6 +23,8 @@ public class SearchMetadataSerializer implements MetadataSerializer<SearchMetada
         .setName(metadata.name)
         .setSnapshotName(metadata.snapshotName)
         .setUrl(metadata.url)
+        .setSearchNodeType(metadata.searchNodeType)
+        .addAllSnapshotNames(metadata.snapshotNames)
         .build();
   }
 

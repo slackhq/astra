@@ -23,6 +23,7 @@ import com.slack.astra.clusterManager.SnapshotDeletionService;
 import com.slack.astra.elasticsearchApi.ElasticsearchApiService;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.schema.ReservedFields;
+import com.slack.astra.logstore.search.AstraCacheQueryService;
 import com.slack.astra.logstore.search.AstraDistributedQueryService;
 import com.slack.astra.logstore.search.AstraLocalQueryService;
 import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
@@ -44,6 +45,7 @@ import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.recovery.RecoveryService;
 import com.slack.astra.util.RuntimeHalterImpl;
 import com.slack.astra.zipkinApi.ZipkinService;
+import io.grpc.BindableService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
@@ -230,29 +232,42 @@ public class Astra {
     }
 
     if (roles.contains(AstraConfigs.NodeRole.CACHE)) {
-      CachingChunkManager<LogMessage> chunkManager =
-          CachingChunkManager.fromConfig(
-              meterRegistry,
-              curatorFramework,
-              astraConfig.getS3Config(),
-              astraConfig.getCacheConfig(),
-              blobStore);
-      services.add(chunkManager);
+      BindableService searcher;
+      // todo - temporary conditional switch for new cache logic
+      if (astraConfig.getCacheConfig().getCapacityBytes() == 0) {
+        SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
+        searcher =
+            new AstraCacheQueryService(
+                blobStore,
+                searchMetadataStore,
+                astraConfig.getCacheConfig().getServerConfig(),
+                Duration.ofMillis(astraConfig.getCacheConfig().getDefaultQueryTimeoutMs()));
+      } else {
+        CachingChunkManager<LogMessage> chunkManager =
+            CachingChunkManager.fromConfig(
+                meterRegistry,
+                curatorFramework,
+                astraConfig.getS3Config(),
+                astraConfig.getCacheConfig(),
+                blobStore);
+        services.add(chunkManager);
 
-      HpaMetricMetadataStore hpaMetricMetadataStore =
-          new HpaMetricMetadataStore(curatorFramework, true);
-      services.add(
-          new CloseableLifecycleManager(
-              AstraConfigs.NodeRole.CACHE, List.of(hpaMetricMetadataStore)));
-      HpaMetricPublisherService hpaMetricPublisherService =
-          new HpaMetricPublisherService(
-              hpaMetricMetadataStore, meterRegistry, Metadata.HpaMetricMetadata.NodeRole.CACHE);
-      services.add(hpaMetricPublisherService);
+        HpaMetricMetadataStore hpaMetricMetadataStore =
+            new HpaMetricMetadataStore(curatorFramework, true);
+        services.add(
+            new CloseableLifecycleManager(
+                AstraConfigs.NodeRole.CACHE, List.of(hpaMetricMetadataStore)));
+        HpaMetricPublisherService hpaMetricPublisherService =
+            new HpaMetricPublisherService(
+                hpaMetricMetadataStore, meterRegistry, Metadata.HpaMetricMetadata.NodeRole.CACHE);
+        services.add(hpaMetricPublisherService);
 
-      AstraLocalQueryService<LogMessage> searcher =
-          new AstraLocalQueryService<>(
-              chunkManager,
-              Duration.ofMillis(astraConfig.getCacheConfig().getDefaultQueryTimeoutMs()));
+        searcher =
+            new AstraLocalQueryService<>(
+                chunkManager,
+                Duration.ofMillis(astraConfig.getCacheConfig().getDefaultQueryTimeoutMs()));
+      }
+
       final int serverPort = astraConfig.getCacheConfig().getServerConfig().getServerPort();
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getCacheConfig().getServerConfig().getRequestTimeoutMs());

@@ -19,8 +19,8 @@ public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
         SEARCH_METADATA_STORE_ZK_PATH);
   }
 
-  @Override
-  public AsyncStage<Stat> updateAsync(SearchMetadata metadataNode) {
-    throw new UnsupportedOperationException("Updates are not permitted for search metadata");
-  }
+//  @Override
+//  public AsyncStage<Stat> updateAsync(SearchMetadata metadataNode) {
+//    throw new UnsupportedOperationException("Updates are not permitted for search metadata");
+//  }
 }

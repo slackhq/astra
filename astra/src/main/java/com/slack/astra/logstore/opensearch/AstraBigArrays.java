@@ -14,6 +14,8 @@ import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 public class AstraBigArrays {
   private static BigArrays bigArray = null;
 
+  private AstraBigArrays() {}
+
   public static BigArrays getInstance() {
     if (bigArray == null) {
       PageCacheRecycler pageCacheRecycler =

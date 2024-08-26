@@ -27,7 +27,7 @@ public class ScriptServiceProvider {
   }
 
   private static ScriptService createInstance() {
-    IndexSettings indexSettings = OpenSearchAdapter.buildIndexSettings();
+    IndexSettings indexSettings = AstraIndexSettings.getInstance();
     PluginsService pluginsService =
         new PluginsService(
             indexSettings.getSettings(), Path.of(""), null, null, List.of(PainlessPlugin.class));

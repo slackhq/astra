@@ -2,21 +2,25 @@ package com.slack.astra.blobfs;
 
 import static software.amazon.awssdk.services.s3.model.ListObjectsV2Request.builder;
 
+import com.slack.astra.chunk.ReadWriteChunk;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import software.amazon.awssdk.core.internal.async.ByteArrayAsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
 import software.amazon.awssdk.transfer.s3.model.DownloadDirectoryRequest;
+import software.amazon.awssdk.transfer.s3.model.DownloadRequest;
 import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
 
 /**
@@ -29,6 +33,8 @@ public class BlobStore {
   private final S3AsyncClient s3AsyncClient;
   private final S3TransferManager transferManager;
 
+  // todo - shared cache here?
+  //  what about chunks across multiple files?
   public BlobStore(S3AsyncClient s3AsyncClient, String bucketName) {
     this.bucketName = bucketName;
     this.s3AsyncClient = s3AsyncClient;
@@ -71,6 +77,15 @@ public class BlobStore {
     }
   }
 
+  // todo - DO NOT DO THIS?
+  public S3AsyncClient getS3AsyncClient() {
+    return s3AsyncClient;
+  }
+
+  public String getBucketName() {
+    return bucketName;
+  }
+
   /**
    * Downloads a directory from the object store by prefix
    *
@@ -94,6 +109,27 @@ public class BlobStore {
                   .build())
           .completionFuture()
           .get();
+    } catch (ExecutionException | InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public byte[] getSchema(String chunkId) {
+    try {
+      return transferManager
+          .download(
+              DownloadRequest.builder()
+                  .getObjectRequest(
+                      GetObjectRequest.builder()
+                          .bucket(bucketName)
+                          .key(String.format("%s/%s", chunkId, ReadWriteChunk.SCHEMA_FILE_NAME))
+                          .build())
+                  .responseTransformer(new ByteArrayAsyncResponseTransformer<>())
+                  .build())
+          .completionFuture()
+          .get()
+          .result()
+          .asByteArray();
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException(e);
     }

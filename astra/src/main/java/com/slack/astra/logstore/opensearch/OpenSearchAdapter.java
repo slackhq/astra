@@ -1,10 +1,8 @@
 package com.slack.astra.logstore.opensearch;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.singletonMap;
-import static org.opensearch.common.settings.IndexScopedSettings.BUILT_IN_INDEX_SETTINGS;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.logstore.search.aggregations.AggBuilderBase;
@@ -32,23 +30,17 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
-import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
-import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.compress.CompressedXContent;
-import org.opensearch.common.settings.IndexScopedSettings;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.common.bytes.BytesReference;
@@ -56,9 +48,6 @@ import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.index.analysis.AnalyzerScope;
-import org.opensearch.index.analysis.IndexAnalyzers;
-import org.opensearch.index.analysis.NamedAnalyzer;
 import org.opensearch.index.fielddata.IndexFieldDataCache;
 import org.opensearch.index.fielddata.IndexFieldDataService;
 import org.opensearch.index.mapper.MappedFieldType;
@@ -69,7 +58,6 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.similarity.SimilarityService;
-import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.script.Script;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
@@ -121,25 +109,18 @@ import org.slf4j.LoggerFactory;
 public class OpenSearchAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAdapter.class);
 
-  private final IndexSettings indexSettings;
-  private final SimilarityService similarityService;
+  private static final IndexSettings indexSettings = AstraIndexSettings.getInstance();
+  private static final SimilarityService similarityService = AstraSimilarityService.getInstance();
 
   private final MapperService mapperService;
 
   private final Map<String, LuceneFieldDef> chunkSchema;
-
-  // we can make this configurable when SchemaAwareLogDocumentBuilderImpl enforces a limit
-  // set this to a high number for now
-  private static final int TOTAL_FIELDS_LIMIT =
-      Integer.parseInt(System.getProperty("astra.mapping.totalFieldsLimit", "2500"));
 
   // This will enable OpenSearch query parsing by default, rather than going down the
   // QueryString parsing path we have been using
   private final boolean useOpenSearchQueryParsing;
 
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
-    this.indexSettings = buildIndexSettings();
-    this.similarityService = new SimilarityService(indexSettings, null, emptyMap());
     this.mapperService = buildMapperService(indexSettings, similarityService);
     this.chunkSchema = chunkSchema;
     this.useOpenSearchQueryParsing =
@@ -396,40 +377,6 @@ public class OpenSearchAdapter {
     return valuesSourceRegistryBuilder.build();
   }
 
-  /** Builds the minimal amount of IndexSettings required for using Aggregations */
-  protected static IndexSettings buildIndexSettings() {
-    Settings settings =
-        Settings.builder()
-            .put(IndexMetadata.INDEX_NUMBER_OF_SHARDS_SETTING.getKey(), 1)
-            .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
-            .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_11_0)
-            .put(
-                MapperService.INDEX_MAPPING_TOTAL_FIELDS_LIMIT_SETTING.getKey(), TOTAL_FIELDS_LIMIT)
-
-            // Astra time sorts the indexes while building it
-            // {LuceneIndexStoreImpl#buildIndexWriterConfig}
-            // When we were using the lucene query parser the sort info was leveraged by lucene
-            // automatically ( as the sort info persists in the segment info ) at query time.
-            // However the OpenSearch query parser has a custom implementation which relies on the
-            // index sort info to be present as a setting here.
-            .put("index.sort.field", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
-            .put("index.sort.order", "desc")
-            .put("index.query.default_field", LogMessage.SystemField.ALL.fieldName)
-            .put("index.query_string.lenient", false)
-            .build();
-
-    Settings nodeSetings =
-        Settings.builder().put("indices.query.query_string.analyze_wildcard", true).build();
-
-    IndexScopedSettings indexScopedSettings =
-        new IndexScopedSettings(settings, new HashSet<>(BUILT_IN_INDEX_SETTINGS));
-
-    return new IndexSettings(
-        IndexMetadata.builder("index").settings(settings).build(),
-        nodeSetings,
-        indexScopedSettings);
-  }
-
   /**
    * Builds a MapperService using the minimal amount of settings required for Aggregations. After
    * initializing the mapper service, individual fields will still need to be added using
@@ -437,17 +384,13 @@ public class OpenSearchAdapter {
    */
   private static MapperService buildMapperService(
       IndexSettings indexSettings, SimilarityService similarityService) {
+
     return new MapperService(
         indexSettings,
-        new IndexAnalyzers(
-            singletonMap(
-                "default",
-                new NamedAnalyzer("default", AnalyzerScope.INDEX, new StandardAnalyzer())),
-            emptyMap(),
-            emptyMap()),
+        AstraIndexAnalyzer.getInstance(),
         new NamedXContentRegistry(ClusterModule.getNamedXWriteables()),
         similarityService,
-        new IndicesModule(emptyList()).getMapperRegistry(),
+        AstraMapperRegistry.buildNewInstance(),
         () -> {
           throw new UnsupportedOperationException();
         },
@@ -490,6 +433,149 @@ public class OpenSearchAdapter {
         s -> false,
         () -> true,
         valuesSourceRegistry);
+  }
+
+  private void putAtPath(ObjectNode root, ObjectNode newNode, String path) {
+    String[] fieldparts = path.split("\\.");
+
+    ObjectNode currentRef = root;
+    for (int i = 0; i < fieldparts.length; i++) {
+      if (!currentRef.has(fieldparts[i])) {
+        // it doesn't have the current object
+        if (i == fieldparts.length - 1) {
+          // last thing, add ours
+          currentRef.set(fieldparts[i], newNode);
+          return;
+        } else {
+          // add a parent holder
+          ObjectNode fields = new ObjectNode(JsonNodeFactory.instance);
+          fields.set("fields", new ObjectNode(JsonNodeFactory.instance));
+          currentRef.set(fieldparts[i], fields);
+          currentRef = (ObjectNode) currentRef.get(fieldparts[i]).get("fields");
+        }
+
+      } else {
+        // it has the parent
+        if (i == fieldparts.length - 1) {
+          currentRef.setAll(newNode);
+          return;
+        } else {
+          // it has the parent, does it have a fields?
+          if (!currentRef.get(fieldparts[i]).has("fields")) {
+            ((ObjectNode) currentRef.get(fieldparts[i]))
+                .set("fields", new ObjectNode(JsonNodeFactory.instance));
+          }
+          currentRef = (ObjectNode) currentRef.get(fieldparts[i]).get("fields");
+        }
+      }
+    }
+  }
+
+  public void loadSchema() {
+    ObjectNode rootNode = new ObjectNode(JsonNodeFactory.instance);
+
+    for (Map.Entry<String, LuceneFieldDef> entry : new TreeMap<>(chunkSchema).entrySet()) {
+      String fieldName = entry.getValue().name;
+
+      if (mapperService.isMetadataField(fieldName)) {
+        LOG.trace("Skipping metadata field '{}'", fieldName);
+      } else {
+        ObjectNode child = new ObjectNode(JsonNodeFactory.instance);
+        child.put("type", getFieldMapping(entry.getValue().fieldType));
+        putAtPath(rootNode, child, entry.getKey());
+      }
+    }
+
+    try {
+      XContentBuilder builder =
+          XContentFactory.jsonBuilder().startObject().startObject("_doc").startObject("properties");
+      rootNode
+          .fields()
+          .forEachRemaining(
+              (entry) -> {
+                buildObject(builder, entry);
+              });
+
+      builder.endObject().endObject().endObject();
+
+      mapperService.merge(
+          MapperService.SINGLE_MAPPING_NAME,
+          new CompressedXContent(BytesReference.bytes(builder)),
+          MapperService.MergeReason.MAPPING_UPDATE);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void buildObject(XContentBuilder builder, Map.Entry<String, JsonNode> entry) {
+    try {
+
+      builder.startObject(entry.getKey());
+
+      // does it have a type field set?
+      if (entry.getValue().has("type")) {
+        builder.field("type", entry.getValue().get("type").asText());
+      } else {
+        // todo - "default" when no field exists
+        builder.field("type", "binary");
+      }
+
+      // does it have fields set?
+      if (entry.getValue().has("fields")) {
+        builder.startObject("fields");
+        entry
+            .getValue()
+            .get("fields")
+            .fields()
+            .forEachRemaining(
+                (fieldEntry) -> {
+                  // do this same step all-over
+                  buildObject(builder, fieldEntry);
+                });
+        builder.endObject();
+      }
+
+      builder.endObject();
+    } catch (Exception e) {
+      LOG.error("Error building object", e);
+    }
+  }
+
+  // todo - is this even needed anymore?
+  private String getFieldMapping(FieldType fieldType) {
+    if (fieldType == FieldType.TEXT) {
+      return "text";
+    } else if (fieldType == FieldType.STRING
+        || fieldType == FieldType.KEYWORD
+        || fieldType == FieldType.ID) {
+      return "keyword";
+    } else if (fieldType == FieldType.IP) {
+      return "ip";
+    } else if (fieldType == FieldType.DATE) {
+      return "date";
+    } else if (fieldType == FieldType.BOOLEAN) {
+      return "boolean";
+    } else if (fieldType == FieldType.DOUBLE) {
+      return "double";
+    } else if (fieldType == FieldType.FLOAT) {
+      return "float";
+    } else if (fieldType == FieldType.HALF_FLOAT) {
+      return "half_float";
+    } else if (fieldType == FieldType.INTEGER) {
+      return "integer";
+    } else if (fieldType == FieldType.LONG) {
+      return "long";
+    } else if (fieldType == FieldType.SCALED_LONG) {
+      return "scaled_long";
+    } else if (fieldType == FieldType.SHORT) {
+      return "short";
+    } else if (fieldType == FieldType.BYTE) {
+      return "byte";
+    } else if (fieldType == FieldType.BINARY) {
+      return "binary";
+    } else {
+      return null;
+    }
   }
 
   /**
