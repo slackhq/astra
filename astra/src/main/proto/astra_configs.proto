@@ -77,6 +77,7 @@ message S3Config {
 message TracingConfig {
   string zipkin_endpoint = 1;
   map<string, string> common_tags = 2;
+  float sampling_rate = 3;
 }
 
 // Configuration for the query service.

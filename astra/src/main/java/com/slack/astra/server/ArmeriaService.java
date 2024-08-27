@@ -5,6 +5,7 @@ import brave.context.log4j2.ThreadContextScopeDecorator;
 import brave.handler.MutableSpan;
 import brave.handler.SpanHandler;
 import brave.propagation.TraceContext;
+import brave.sampler.Sampler;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
@@ -56,9 +57,16 @@ public class ArmeriaService extends AbstractIdleService {
     private final ServerBuilder serverBuilder;
     private final List<SpanHandler> spanHandlers = new ArrayList<>();
 
-    public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
+    private final float traceSamplingRate;
+
+    public Builder(
+        int port,
+        String serviceName,
+        PrometheusMeterRegistry prometheusMeterRegistry,
+        float traceSamplingRate) {
       this.serviceName = serviceName;
       this.serverBuilder = Server.builder().http(port);
+      this.traceSamplingRate = traceSamplingRate;
 
       initializeCompression();
       initializeLogging();
@@ -156,6 +164,7 @@ public class ArmeriaService extends AbstractIdleService {
       Tracing.Builder tracingBuilder =
           Tracing.newBuilder()
               .localServiceName(serviceName)
+              .sampler(Sampler.create(traceSamplingRate))
               .currentTraceContext(
                   RequestContextCurrentTraceContext.builder()
                       .addScopeDecorator(ThreadContextScopeDecorator.get())
