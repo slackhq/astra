@@ -83,8 +83,6 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchWithIncludeFilters() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -125,14 +123,10 @@ public class LogIndexSearcherImplTest {
     assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
     assertThat(messages.get(0).getSource().get("message"))
         .isEqualTo("The identifier in this message is Message1");
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
   public void testSearchWithIncludeFiltersWithWildcardAfter() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -173,14 +167,10 @@ public class LogIndexSearcherImplTest {
     assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
     assertThat(messages.get(0).getSource().get("message"))
         .isEqualTo("The identifier in this message is Message1");
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
   public void testSearchWithIncludeFiltersWithWildcardBefore() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -221,14 +211,10 @@ public class LogIndexSearcherImplTest {
     assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
     assertThat(messages.get(0).getSource().get("message"))
         .isEqualTo("The identifier in this message is Message1");
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
   public void testSearchWithIncludeFilterAllTrue() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -264,14 +250,10 @@ public class LogIndexSearcherImplTest {
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
   public void testSearchWithIncludeFilterAllFalse() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -307,14 +289,10 @@ public class LogIndexSearcherImplTest {
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isEqualTo(0);
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
   public void testSearchWithExcludeFilters() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -353,14 +331,10 @@ public class LogIndexSearcherImplTest {
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
     assertThat(messages.get(0).getSource().containsKey("message")).isFalse();
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
   public void testSearchWithExcludeFiltersWithWildcardAfter() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -399,14 +373,10 @@ public class LogIndexSearcherImplTest {
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
     assertThat(messages.get(0).getSource().containsKey("message")).isFalse();
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
   public void testSearchWithExcludeFiltersWithWildcardBefore() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -445,14 +415,10 @@ public class LogIndexSearcherImplTest {
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
     assertThat(messages.get(0).getSource().containsKey("message")).isFalse();
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
   public void testSearchWithExcludeFilterAllTrue() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -488,14 +454,10 @@ public class LogIndexSearcherImplTest {
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isEqualTo(0);
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
   public void testSearchWithExcludeFilterAllFalse() throws IOException {
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "true");
-
     TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
         new TemporaryLogStoreAndSearcherExtension(true);
 
@@ -531,8 +493,6 @@ public class LogIndexSearcherImplTest {
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(0);
-
-    System.setProperty("astra.query.allowIncludeAndExcludeSource", "false");
   }
 
   @Test
