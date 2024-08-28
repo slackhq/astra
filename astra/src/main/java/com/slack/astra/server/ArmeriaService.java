@@ -57,16 +57,11 @@ public class ArmeriaService extends AbstractIdleService {
     private final ServerBuilder serverBuilder;
     private final List<SpanHandler> spanHandlers = new ArrayList<>();
 
-    private final float traceSamplingRate;
+    private float traceSamplingRate = 0.0f;
 
-    public Builder(
-        int port,
-        String serviceName,
-        PrometheusMeterRegistry prometheusMeterRegistry,
-        float traceSamplingRate) {
+    public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
       this.serviceName = serviceName;
       this.serverBuilder = Server.builder().http(port);
-      this.traceSamplingRate = traceSamplingRate;
 
       initializeCompression();
       initializeLogging();
@@ -116,6 +111,7 @@ public class ArmeriaService extends AbstractIdleService {
               }
             });
       }
+      this.traceSamplingRate = tracingConfig.getSamplingRate();
 
       if (!tracingConfig.getZipkinEndpoint().isBlank()) {
         LOG.info(String.format("Trace reporting enabled: %s", tracingConfig.getZipkinEndpoint()));

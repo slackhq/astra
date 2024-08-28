@@ -158,7 +158,6 @@ public class Astra {
     Set<Service> services = new HashSet<>();
 
     HashSet<AstraConfigs.NodeRole> roles = new HashSet<>(astraConfig.getNodeRolesList());
-    final float traceSamplingRate = astraConfig.getTracingConfig().getSamplingRate();
 
     if (roles.contains(AstraConfigs.NodeRole.INDEX)) {
       IndexingChunkManager<LogMessage> chunkManager =
@@ -187,7 +186,7 @@ public class Astra {
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getIndexerConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "astraIndex", meterRegistry, traceSamplingRate)
+          new ArmeriaService.Builder(serverPort, "astraIndex", meterRegistry)
               .withRequestTimeout(requestTimeout)
               .withTracing(astraConfig.getTracingConfig())
               .withGrpcService(searcher)
@@ -220,7 +219,7 @@ public class Astra {
       final int serverPort = astraConfig.getQueryConfig().getServerConfig().getServerPort();
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "astraQuery", meterRegistry, traceSamplingRate)
+          new ArmeriaService.Builder(serverPort, "astraQuery", meterRegistry)
               .withRequestTimeout(requestTimeout)
               .withTracing(astraConfig.getTracingConfig())
               .withAnnotatedService(new ElasticsearchApiService(astraDistributedQueryService))
@@ -258,7 +257,7 @@ public class Astra {
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getCacheConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "astraCache", meterRegistry, traceSamplingRate)
+          new ArmeriaService.Builder(serverPort, "astraCache", meterRegistry)
               .withRequestTimeout(requestTimeout)
               .withTracing(astraConfig.getTracingConfig())
               .withGrpcService(searcher)
@@ -288,7 +287,7 @@ public class Astra {
       services.add(replicaRestoreService);
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "astraManager", meterRegistry, traceSamplingRate)
+          new ArmeriaService.Builder(serverPort, "astraManager", meterRegistry)
               .withRequestTimeout(requestTimeout)
               .withTracing(astraConfig.getTracingConfig())
               .withGrpcService(
@@ -389,7 +388,7 @@ public class Astra {
           Duration.ofMillis(
               astraConfig.getRecoveryConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "astraRecovery", meterRegistry, traceSamplingRate)
+          new ArmeriaService.Builder(serverPort, "astraRecovery", meterRegistry)
               .withRequestTimeout(requestTimeout)
               .withTracing(astraConfig.getTracingConfig())
               .build();
@@ -411,8 +410,7 @@ public class Astra {
           Duration.ofMillis(
               astraConfig.getPreprocessorConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService.Builder armeriaServiceBuilder =
-          new ArmeriaService.Builder(
-                  serverPort, "astraPreprocessor", meterRegistry, traceSamplingRate)
+          new ArmeriaService.Builder(serverPort, "astraPreprocessor", meterRegistry)
               .withRequestTimeout(requestTimeout)
               .withTracing(astraConfig.getTracingConfig());
 
