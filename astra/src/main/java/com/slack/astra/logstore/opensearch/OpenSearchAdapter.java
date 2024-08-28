@@ -133,17 +133,11 @@ public class OpenSearchAdapter {
   private static final int TOTAL_FIELDS_LIMIT =
       Integer.parseInt(System.getProperty("astra.mapping.totalFieldsLimit", "2500"));
 
-  // This will enable OpenSearch query parsing by default, rather than going down the
-  // QueryString parsing path we have been using
-  private final boolean useOpenSearchQueryParsing;
-
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     this.indexSettings = buildIndexSettings();
     this.similarityService = new SimilarityService(indexSettings, null, emptyMap());
     this.mapperService = buildMapperService(indexSettings, similarityService);
     this.chunkSchema = chunkSchema;
-    this.useOpenSearchQueryParsing =
-        Boolean.parseBoolean(System.getProperty("astra.query.useOpenSearchParsing", "false"));
   }
 
   /**
@@ -157,10 +151,7 @@ public class OpenSearchAdapter {
    *     parsing ES docs</a>
    */
   public Query buildQuery(
-      String dataset,
       String queryStr,
-      Long startTimeMsEpoch,
-      Long endTimeMsEpoch,
       IndexSearcher indexSearcher,
       QueryBuilder queryBuilder)
       throws IOException {
@@ -173,63 +164,11 @@ public class OpenSearchAdapter {
             similarityService,
             mapperService);
 
-    if (queryBuilder != null && this.useOpenSearchQueryParsing) {
+    if (queryBuilder != null) {
       return queryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
     }
-
-    try {
-      BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
-
-      // only add a range filter if either start or end time is provided
-      if (startTimeMsEpoch != null || endTimeMsEpoch != null) {
-        RangeQueryBuilder rangeQueryBuilder =
-            new RangeQueryBuilder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-
-        // todo - consider supporting something other than GTE/LTE (ie GT/LT?)
-        if (startTimeMsEpoch != null) {
-          rangeQueryBuilder.gte(startTimeMsEpoch);
-        }
-
-        if (endTimeMsEpoch != null) {
-          rangeQueryBuilder.lte(endTimeMsEpoch);
-        }
-
-        boolQueryBuilder.filter(rangeQueryBuilder);
-      }
-
-      // todo - dataset?
-
-      // Only add the query string clause if this is not attempting to fetch all records
-      // Since we do analyze the wildcard this can cause unexpected behavior if only a wildcard is
-      // provided
-      if (queryStr != null
-          && !queryStr.isEmpty()
-          && !queryStr.equals("*:*")
-          && !queryStr.equals("*")) {
-        QueryStringQueryBuilder queryStringQueryBuilder = new QueryStringQueryBuilder(queryStr);
-
-        if (queryShardContext.getMapperService().fieldType(LogMessage.SystemField.ALL.fieldName)
-            != null) {
-          // setting lenient=false will not throw error when the query fails to parse against
-          // numeric fields
-          queryStringQueryBuilder.lenient(false);
-        } else {
-          // The _all field is the default field for all queries. If we explicitly don't want
-          // to search that field, or that field isn't mapped, then we need to set the default to be
-          // *
-          queryStringQueryBuilder.defaultField("*");
-          queryStringQueryBuilder.lenient(true);
-        }
-
-        queryStringQueryBuilder.analyzeWildcard(true);
-
-        boolQueryBuilder.filter(queryStringQueryBuilder);
-      }
-      return boolQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
-    } catch (Exception e) {
-      LOG.error("Query parse exception", e);
-      throw new IllegalArgumentException(e);
-    }
+    // TODO: Should this return null? Raise an error?
+    return null;
   }
 
   /**

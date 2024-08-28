@@ -86,29 +86,17 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
   public SearchResult<LogMessage> search(
       String dataset,
-      String queryStr,
-      Long startTimeMsEpoch,
-      Long endTimeMsEpoch,
       int howMany,
       AggBuilder aggBuilder,
       QueryBuilder queryBuilder,
       SourceFieldFilter sourceFieldFilter) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
-    ensureNonNullString(queryStr, "query should be a non-empty string");
-    if (startTimeMsEpoch != null) {
-      ensureTrue(startTimeMsEpoch >= 0, "start time should be non-negative value");
-    }
-    if (startTimeMsEpoch != null && endTimeMsEpoch != null) {
-      ensureTrue(startTimeMsEpoch < endTimeMsEpoch, "end time should be greater than start time");
-    }
     ensureTrue(howMany >= 0, "hits requested should not be negative.");
     ensureTrue(howMany > 0 || aggBuilder != null, "Hits or aggregation should be requested.");
 
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("LogIndexSearcherImpl.search");
     span.tag("dataset", dataset);
-    span.tag("startTimeMsEpoch", String.valueOf(startTimeMsEpoch));
-    span.tag("endTimeMsEpoch", String.valueOf(endTimeMsEpoch));
     span.tag("howMany", String.valueOf(howMany));
 
     Stopwatch elapsedTime = Stopwatch.createStarted();
@@ -122,7 +110,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         InternalAggregation internalAggregation = null;
         Query query =
             openSearchAdapter.buildQuery(
-                dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch, searcher, queryBuilder);
+                dataset, searcher, queryBuilder);
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
