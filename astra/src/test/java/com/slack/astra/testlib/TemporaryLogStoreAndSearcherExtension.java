@@ -55,10 +55,7 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
       QueryBuilder queryBuilder) {
     SearchResult<LogMessage> results =
         searcher.search(
-            dataset,
-            query,
-            0L,
-            MAX_TIME,
+            dataset, // TODO FOR KYLE: FIX
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),

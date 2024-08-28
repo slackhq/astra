@@ -107,7 +107,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       try {
         List<LogMessage> results;
         InternalAggregation internalAggregation = null;
-        Query query = openSearchAdapter.buildQuery(dataset, searcher, queryBuilder);
+        Query query = openSearchAdapter.buildQuery(searcher, queryBuilder);
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =

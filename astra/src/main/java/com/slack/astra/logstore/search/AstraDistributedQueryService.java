@@ -354,8 +354,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         getMatchingSnapshots(
             snapshotMetadataStore,
             datasetMetadataStore,
-            distribSearchReq.getStartTimeEpochMs(),
-            distribSearchReq.getEndTimeEpochMs(),
+1L,//            distribSearchReq.getStartTimeEpochMs(), TODO FOR KYLE
+1L,//            distribSearchReq.getEndTimeEpochMs(), TODO FOR KYLE
             distribSearchReq.getDataset());
 
     // for each matching snapshot, we find the search metadata nodes that we can potentially query
