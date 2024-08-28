@@ -1,7 +1,6 @@
 package com.slack.astra.logstore.search;
 
 import static com.slack.astra.util.ArgValidationUtils.ensureNonEmptyString;
-import static com.slack.astra.util.ArgValidationUtils.ensureNonNullString;
 import static com.slack.astra.util.ArgValidationUtils.ensureTrue;
 
 import brave.ScopedSpan;
@@ -108,9 +107,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       try {
         List<LogMessage> results;
         InternalAggregation internalAggregation = null;
-        Query query =
-            openSearchAdapter.buildQuery(
-                dataset, searcher, queryBuilder);
+        Query query = openSearchAdapter.buildQuery(dataset, searcher, queryBuilder);
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =

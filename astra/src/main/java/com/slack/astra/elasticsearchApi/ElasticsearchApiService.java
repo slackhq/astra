@@ -118,8 +118,6 @@ public class ElasticsearchApiService {
     AstraSearch.SearchResult searchResult = searcher.doSearch(searchRequest);
 
     span.tag("requestDataset", searchRequest.getDataset());
-    span.tag("requestQueryStartTimeEpochMs", String.valueOf(searchRequest.getStartTimeEpochMs()));
-    span.tag("requestQueryEndTimeEpochMs", String.valueOf(searchRequest.getEndTimeEpochMs()));
     span.tag("requestHowMany", String.valueOf(searchRequest.getHowMany()));
     span.tag("resultHitsCount", String.valueOf(searchResult.getHitsCount()));
     span.tag("resultTookMicros", String.valueOf(searchResult.getTookMicros()));

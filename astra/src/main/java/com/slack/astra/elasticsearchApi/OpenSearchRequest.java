@@ -59,10 +59,7 @@ public class OpenSearchRequest {
       searchRequests.add(
           AstraSearch.SearchRequest.newBuilder()
               .setDataset(getDataset(header))
-              .setQueryString(getQueryString(body))
               .setHowMany(getHowMany(body))
-              .setStartTimeEpochMs(getStartTimeEpochMs(body))
-              .setEndTimeEpochMs(getEndTimeEpochMs(body))
               .setAggregations(getAggregations(body))
               .setQuery(getQuery(body))
               .setSourceFieldFilter(getSourceFieldFilter(body))
@@ -152,30 +149,8 @@ public class OpenSearchRequest {
     return header.get("index").asText();
   }
 
-  private static String getQueryString(JsonNode body) {
-    // Grafana 7 and 8 have different default behaviors when query is not initialized
-    // - Grafana 7 the query field under query is not present
-    // - Grafana 8 the query field defaults to "*"
-    String queryString = "*:*";
-    if (body.get("query").findValue("query") != null) {
-      String requestedQueryString = body.get("query").findValue("query").asText();
-      if (!requestedQueryString.equals("*")) {
-        queryString = requestedQueryString;
-      }
-    }
-    return queryString;
-  }
-
   private static int getHowMany(JsonNode body) {
     return body.get("size").asInt();
-  }
-
-  private static long getStartTimeEpochMs(JsonNode body) {
-    return body.get("query").findValue("gte").asLong();
-  }
-
-  private static long getEndTimeEpochMs(JsonNode body) {
-    return body.get("query").findValue("lte").asLong();
   }
 
   private static AstraSearch.SearchRequest.SearchAggregation getAggregations(JsonNode body) {

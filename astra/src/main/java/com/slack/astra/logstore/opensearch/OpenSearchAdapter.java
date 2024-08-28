@@ -42,6 +42,9 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
+import org.apache.lucene.search.highlight.QueryTermExtractor;
+import org.apache.lucene.search.highlight.WeightedTerm;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -63,11 +66,9 @@ import org.opensearch.index.fielddata.IndexFieldDataCache;
 import org.opensearch.index.fielddata.IndexFieldDataService;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryStringQueryBuilder;
-import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
@@ -150,12 +151,8 @@ public class OpenSearchAdapter {
    *     href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html">Query
    *     parsing ES docs</a>
    */
-  public Query buildQuery(
-      String queryStr,
-      IndexSearcher indexSearcher,
-      QueryBuilder queryBuilder)
+  public Query buildQuery(IndexSearcher indexSearcher, QueryBuilder queryBuilder)
       throws IOException {
-    LOG.trace("Query raw input string: '{}'", queryStr);
     QueryShardContext queryShardContext =
         buildQueryShardContext(
             AstraBigArrays.getInstance(),
@@ -165,7 +162,15 @@ public class OpenSearchAdapter {
             mapperService);
 
     if (queryBuilder != null) {
-      return queryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
+      Query query = queryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
+
+      // TODO: FIXME
+      WeightedTerm[] terms = QueryTermExtractor.getTerms(query);
+      for (WeightedTerm term : terms) {
+        System.out.println(term.getTerm());
+      }
+      LOG.trace("Raw query: '{}'", query);
+      return query;
     }
     // TODO: Should this return null? Raise an error?
     return null;

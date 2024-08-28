@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.index.mapper.Uid;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
@@ -470,7 +471,7 @@ public class OpenSearchAdapterTest {
 
     Query rangeQuery =
         openSearchAdapterWithFeatureFlagEnabled.buildQuery(
-            "foo", null, null, null, indexSearcher, boolQueryBuilder);
+            indexSearcher, boolQueryBuilder);
     assertThat(rangeQuery).isNotNull();
     assertThat(rangeQuery.toString()).isEqualTo("#_timesinceepoch:[1 TO 100]");
   }
@@ -482,7 +483,7 @@ public class OpenSearchAdapterTest {
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
     Query idQuery =
         openSearchAdapter.buildQuery(
-            "foo", String.format("%s:%s", idField, idValue), null, null, indexSearcher, null);
+            indexSearcher, new QueryStringQueryBuilder(String.format("%s:%s", idField, idValue)));
     BytesRef queryStrBytes = new BytesRef(Uid.encodeId("1").bytes);
     // idQuery.toString="#_id:([fe 1f])"
     // queryStrBytes.toString="[fe 1f]"
@@ -493,7 +494,7 @@ public class OpenSearchAdapterTest {
   public void shouldExcludeDateFilterWhenNullTimestamps() throws Exception {
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
     Query nullBothTimestamps =
-        openSearchAdapter.buildQuery("foo", "", null, null, indexSearcher, null);
+        openSearchAdapter.buildQuery(indexSearcher, new QueryStringQueryBuilder(""));
     // null for both timestamps with no query string should be optimized into a matchall
     assertThat(nullBothTimestamps).isInstanceOf(MatchAllDocsQuery.class);
 

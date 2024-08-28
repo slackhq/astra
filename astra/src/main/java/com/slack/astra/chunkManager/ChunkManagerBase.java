@@ -66,17 +66,18 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
 
     List<Chunk<T>> chunksMatchingQuery;
-    if (query.chunkIds.isEmpty()) {
-      chunksMatchingQuery =
-          chunkMap.values().stream()
-              .filter(c -> c.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
-              .collect(Collectors.toList());
-    } else {
+    // TODO: CHECK ON THIS
+//    if (query.chunkIds.isEmpty()) {
+//      chunksMatchingQuery =
+//          chunkMap.values().stream()
+//              .filter(c -> c.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
+//              .collect(Collectors.toList());
+//    } else {
       chunksMatchingQuery =
           chunkMap.values().stream()
               .filter(c -> query.chunkIds.contains(c.id()))
               .collect(Collectors.toList());
-    }
+//    }
 
     // Shuffle the chunks to query. The chunkList is ordered, meaning if you had multiple concurrent
     // queries that need to search the same N chunks, they would all attempt to search the same
