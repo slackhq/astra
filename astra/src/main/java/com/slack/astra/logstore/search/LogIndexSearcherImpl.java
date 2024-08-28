@@ -55,8 +55,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   private final ReferenceManager.RefreshListener refreshListener;
 
-  private final boolean allowIncludeAndExcludeSource;
-
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
@@ -83,9 +81,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // initialize the adapter with whatever the default schema is
     openSearchAdapter.reloadSchema();
-    allowIncludeAndExcludeSource =
-        Boolean.parseBoolean(
-            System.getProperty("astra.query.allowIncludeAndExcludeSource", "false"));
   }
 
   @Override
@@ -180,15 +175,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       LogWireMessage wireMessage = JsonUtil.read(s, LogWireMessage.class);
       Map<String, Object> source = wireMessage.getSource();
 
-      if (allowIncludeAndExcludeSource
-          && sourceFieldFilter != null
+      if (sourceFieldFilter != null
           && sourceFieldFilter.getFilterType() == SourceFieldFilter.FilterType.INCLUDE) {
         source =
             wireMessage.getSource().keySet().stream()
                 .filter(sourceFieldFilter::appliesToField)
                 .collect(Collectors.toMap((key) -> key, (key) -> wireMessage.getSource().get(key)));
-      } else if (allowIncludeAndExcludeSource
-          && sourceFieldFilter != null
+      } else if (sourceFieldFilter != null
           && sourceFieldFilter.getFilterType() == SourceFieldFilter.FilterType.EXCLUDE) {
         source =
             wireMessage.getSource().keySet().stream()
