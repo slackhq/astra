@@ -42,6 +42,7 @@
 //import java.util.stream.IntStream;
 //import org.apache.commons.io.FileUtils;
 //import org.apache.lucene.index.IndexCommit;
+//import org.apache.lucene.util.QueryBuilder;
 //import org.junit.jupiter.api.BeforeAll;
 //import org.junit.jupiter.api.Nested;
 //import org.junit.jupiter.api.Test;
@@ -123,7 +124,7 @@
 //              100,
 //              new DateHistogramAggBuilder(
 //                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-//              null,
+//              new QueryBuilder(),
 //              null);
 //      assertThat(result1.hits.size()).isEqualTo(1);
 //

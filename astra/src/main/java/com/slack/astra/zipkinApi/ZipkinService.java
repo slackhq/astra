@@ -33,8 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-
-import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -209,10 +207,9 @@ public class ZipkinService {
     // we are adding a buffer to end time also because some machines clock may be ahead of current
     // system clock and those spans would be stored but can't be queried
 
-    // TODO FOR KYLE
-//    long endTime =
-//        endTimeEpochMs.orElseGet(
-//            () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
+    long endTime =
+        endTimeEpochMs.orElseGet(
+            () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
     int howMany = maxSpans.orElse(MAX_SPANS);
 
     brave.Span span = Tracing.currentTracer().currentSpan();
@@ -229,8 +226,8 @@ public class ZipkinService {
             searchRequestBuilder
                 .setDataset(MATCH_ALL_DATASET)
                 .setQuery(queryString)
-//                .setStartTimeEpochMs(startTime) TODO FOR KYLE
-//                .setEndTimeEpochMs(endTime)
+                .setStartTimeEpochMs(startTime)
+                .setEndTimeEpochMs(endTime)
                 .setHowMany(howMany)
                 .build());
     // we don't account for any failed nodes in the searchResult today

@@ -8,13 +8,15 @@ import "schema.proto";
 
 message SearchRequest {
   // Previously deleted field numbers
-  reserved 3, 4, 5;
+  reserved 3;
 
   // Data sets or chunk_ids to be searched
   string dataset = 1;
   repeated string chunk_ids = 2;
 
-  // Query size
+  // Query metadata
+  int64 start_time_epoch_ms = 4;
+  int64 end_time_epoch_ms = 5;
   int32 how_many = 6;
 
   // Only a single top-level aggregation is currently supported

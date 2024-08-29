@@ -42,7 +42,6 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.highlight.QueryTermExtractor;
 import org.apache.lucene.search.highlight.WeightedTerm;
 import org.opensearch.Version;
@@ -1060,5 +1059,13 @@ public class OpenSearchAdapter {
     }
 
     return histogramAggregationBuilder;
+  }
+
+  public MapperService getMapperService() {
+    return this.mapperService;
+  }
+
+  public IndexSettings getIndexSettings() {
+    return this.indexSettings;
   }
 }
