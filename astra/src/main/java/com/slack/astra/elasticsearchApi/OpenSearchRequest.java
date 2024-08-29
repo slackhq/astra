@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.logstore.opensearch.AstraBigArrays;
+import com.slack.astra.logstore.opensearch.ScriptServiceProvider;
 import com.slack.astra.logstore.search.SearchResultUtils;
 import com.slack.astra.logstore.search.aggregations.AutoDateHistogramAggBuilder;
 import com.slack.astra.logstore.search.aggregations.AvgAggBuilder;
@@ -25,12 +28,49 @@ import com.slack.astra.logstore.search.aggregations.SumAggBuilder;
 import com.slack.astra.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.astra.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.astra.proto.service.AstraSearch;
+
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.NotImplementedException;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
+import org.apache.lucene.search.TermRangeQuery;
+import org.apache.lucene.util.BytesRef;
+import org.opensearch.Version;
+import org.opensearch.cluster.ClusterModule;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.common.settings.IndexScopedSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.json.JsonXContentParser;
+import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.index.IndexSettings;
+import org.opensearch.index.analysis.AnalyzerScope;
+import org.opensearch.index.analysis.IndexAnalyzers;
+import org.opensearch.index.analysis.NamedAnalyzer;
+import org.opensearch.index.fielddata.IndexFieldDataCache;
+import org.opensearch.index.fielddata.IndexFieldDataService;
+import org.opensearch.index.mapper.MapperService;
+import org.opensearch.index.query.AbstractQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.index.similarity.SimilarityService;
+import org.opensearch.indices.IndicesModule;
+import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
+import org.opensearch.search.SearchModule;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.singletonMap;
+import static org.opensearch.common.settings.IndexScopedSettings.BUILT_IN_INDEX_SETTINGS;
 
 /**
  * Utility class for parsing an OpenSearch NDJSON search request into a list of appropriate
@@ -41,6 +81,39 @@ import org.apache.commons.lang3.NotImplementedException;
 public class OpenSearchRequest {
   private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+  // Used to get the date ranges from the query
+  private static class DateRangeQueryVisitor extends QueryVisitor {
+//    private Long dateRangeStart;
+//    private Long dateRangeEnd;
+
+    private void checkTimeRange(Query query) {
+      if (query instanceof TermRangeQuery) {
+        TermRangeQuery rangeQuery = (TermRangeQuery) query;
+//        BytesRef lowerTerm = rangeQuery.getLowerTerm();
+//        BytesRef upperTerm = rangeQuery.getUpperTerm();
+
+        if (rangeQuery.getField().equals("@timestamp") || rangeQuery.getField().equals("_timesinceepoch")) {
+//          String lowerDateString = lowerTerm.utf8ToString();
+//          String upperDateString = upperTerm.utf8ToString();
+
+//          this.dateRangeStart = Instant.parse(lowerDateString).toEpochMilli();
+//          this.dateRangeEnd = Instant.parse(upperDateString).toEpochMilli();
+        }
+      }
+    }
+
+    @Override
+    public void visitLeaf(Query query) {
+      checkTimeRange(query);
+    }
+
+    @Override
+    public QueryVisitor getSubVisitor(BooleanClause.Occur occur, Query parent) {
+      checkTimeRange(parent);
+      return this;
+    }
+  }
 
   public List<AstraSearch.SearchRequest> parseHttpPostBody(String postBody)
       throws JsonProcessingException {
@@ -137,6 +210,100 @@ public class OpenSearchRequest {
     }
     return AstraSearch.SearchRequest.SourceFieldFilter.newBuilder().build();
   }
+
+//  private static DateRangeQueryVisitor getDateRange(String queryBody) {
+//    SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
+//    try {
+//      ObjectMapper objectMapper = new ObjectMapper();
+//      NamedXContentRegistry namedXContentRegistry =
+//              new NamedXContentRegistry(searchModule.getNamedXContents());
+//      JsonXContentParser jsonXContentParser =
+//              new JsonXContentParser(
+//                      namedXContentRegistry,
+//                      DeprecationHandler.IGNORE_DEPRECATIONS,
+//                      objectMapper.createParser(queryBody));
+//      Settings settings =
+//              Settings.builder()
+//                      .put(IndexMetadata.INDEX_NUMBER_OF_SHARDS_SETTING.getKey(), 1)
+//                      .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
+//                      .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_11_0)
+//                      .put(
+//                              MapperService.INDEX_MAPPING_TOTAL_FIELDS_LIMIT_SETTING.getKey(), 5000)
+//
+//                      // Astra time sorts the indexes while building it
+//                      // {LuceneIndexStoreImpl#buildIndexWriterConfig}
+//                      // When we were using the lucene query parser the sort info was leveraged by lucene
+//                      // automatically ( as the sort info persists in the segment info ) at query time.
+//                      // However the OpenSearch query parser has a custom implementation which relies on the
+//                      // index sort info to be present as a setting here.
+//                      .put("index.sort.field", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+//                      .put("index.sort.order", "desc")
+//                      .put("index.query.default_field", LogMessage.SystemField.ALL.fieldName)
+//                      .put("index.query_string.lenient", false)
+//                      .build();
+//
+//      Settings nodeSetings =
+//              Settings.builder().put("indices.query.query_string.analyze_wildcard", true).build();
+//
+//      IndexScopedSettings indexScopedSettings =
+//              new IndexScopedSettings(settings, new HashSet<>(BUILT_IN_INDEX_SETTINGS));
+//      IndexSettings indexSettings = new IndexSettings(
+//              IndexMetadata.builder("index").settings(settings).build(),
+//              nodeSetings,
+//              indexScopedSettings);
+//      SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
+//
+//      MapperService mapperService =  new MapperService(
+//              indexSettings,
+//              new IndexAnalyzers(
+//                      singletonMap(
+//                              "default",
+//                              new NamedAnalyzer("default", AnalyzerScope.INDEX, new StandardAnalyzer())),
+//                      emptyMap(),
+//                      emptyMap()),
+//              new NamedXContentRegistry(ClusterModule.getNamedXWriteables()),
+//              similarityService,
+//              new IndicesModule(emptyList()).getMapperRegistry(),
+//              () -> {
+//                throw new UnsupportedOperationException();
+//              },
+//              () -> true,
+//              null);
+//
+//      QueryBuilder queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(jsonXContentParser);
+//      Query query = queryBuilder.toQuery(
+//            new QueryShardContext(
+//              0, indexSettings,
+//              AstraBigArrays.getInstance(),
+//              null,
+//              new IndexFieldDataService(
+//                      indexSettings,
+//                      new IndicesFieldDataCache(
+//                              indexSettings.getSettings(), new IndexFieldDataCache.Listener() {}),
+//                      new NoneCircuitBreakerService(),
+//                      mapperService)
+//                      ::getForField,
+//              mapperService,
+//                    similarityService,
+//                    ScriptServiceProvider.getInstance(),
+//                    null,
+//                    null,
+//                    null,
+//                    null,
+//                    () -> Instant.now().toEpochMilli(),
+//                    null,
+//                    s -> false,
+//                    () -> true,
+//                    null
+//            ));
+//
+//      DateRangeQueryVisitor dateRangeQueryVisitor = new DateRangeQueryVisitor();
+//      query.visit(dateRangeQueryVisitor);
+//      return dateRangeQueryVisitor;
+//    } catch (Exception e) {
+//      throw new IllegalArgumentException(e);
+//    }
+//  }
 
   private static String getQuery(JsonNode body) {
     if (!body.get("query").isNull() && !body.get("query").isEmpty()) {
