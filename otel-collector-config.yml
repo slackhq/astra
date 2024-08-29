@@ -3,12 +3,6 @@ receivers:
     protocols:
       grpc:
       http:
-  jaeger:
-    protocols:
-      grpc:
-      thrift_http:
-      thrift_compact:
-      thrift_binary:
   zipkin:
     endpoint: "0.0.0.0:9411"  # Default Zipkin endpoint
 
@@ -42,6 +36,6 @@ service:
   extensions: [health_check, pprof]
   pipelines:
     traces:
-      receivers: [otlp, jaeger, zipkin]
+      receivers: [otlp, zipkin]
       processors: [memory_limiter, batch]
       exporters: [opensearch]
