@@ -295,6 +295,7 @@ tracingConfig:
   commonTags:
     clusterName: astra-local
     env: localhost
+  samplingRate: 0.01
 ```
 
 ### zipkinEndpoint
@@ -306,7 +307,8 @@ a JSON array of span data.
 Optional common tags to annotate on all submitted Zipkin traces. Can be overwritten by spans at runtime, if keys 
 collide. 
 
-<tip>Recommended common tags: <code>clusterName</code>, <code>env</code></tip>
+### samplingRate
+Rate at which to sample astra's traces. A value of `1.0` will send all traces, `0.01` will send 1% of traces, etc.
 
 ## queryConfig
 
