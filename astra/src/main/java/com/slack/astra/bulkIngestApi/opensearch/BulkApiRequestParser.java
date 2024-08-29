@@ -111,6 +111,10 @@ public class BulkApiRequestParser {
           ByteString.copyFromUtf8(
               String.valueOf(sourceAndMetadata.get(LogMessage.ReservedField.TRACE_ID.fieldName))));
       sourceAndMetadata.remove(LogMessage.ReservedField.TRACE_ID.fieldName);
+    } else if (sourceAndMetadata.get("traceId") != null) {
+      spanBuilder.setTraceId(
+          ByteString.copyFromUtf8(String.valueOf(sourceAndMetadata.get("traceId"))));
+      sourceAndMetadata.remove("traceId");
     }
     if (sourceAndMetadata.get(LogMessage.ReservedField.NAME.fieldName) != null) {
       spanBuilder.setName(
