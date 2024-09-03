@@ -15,6 +15,7 @@ import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.brave.BraveService;
 import com.linecorp.armeria.server.docs.DocService;
+import com.linecorp.armeria.server.encoding.DecodingService;
 import com.linecorp.armeria.server.encoding.EncodingService;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
@@ -123,7 +124,7 @@ public class ArmeriaService extends AbstractIdleService {
     }
 
     public Builder withAnnotatedService(Object service) {
-      serverBuilder.annotatedService(service);
+      serverBuilder.annotatedService(service, DecodingService.newDecorator());
       return this;
     }
 
