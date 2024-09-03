@@ -25,8 +25,8 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
   public final String snapshotId;
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
-  public final long maxOffset;
   public final String partitionId;
+  public long maxOffset;
   public long sizeInBytesOnDisk;
 
   public SnapshotMetadata(
