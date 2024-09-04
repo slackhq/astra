@@ -404,6 +404,8 @@ public class LuceneIndexStoreImplTest {
                     >= activeFiles.size();
               });
 
+
+      // todo - testing here
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
