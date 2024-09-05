@@ -107,11 +107,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     // Create chunk metadata
     Instant chunkCreationTime = Instant.now();
     this.kafkaPartitionId = kafkaPartitionId;
-    chunkInfo =
-        new ChunkInfo(
-            chunkDataPrefix + "_" + chunkCreationTime.getEpochSecond() + "_" + logStoreId,
-            chunkCreationTime.toEpochMilli(),
-            kafkaPartitionId);
+    chunkInfo = new ChunkInfo(logStoreId, chunkCreationTime.toEpochMilli(), kafkaPartitionId);
 
     readOnly = false;
     this.meterRegistry = meterRegistry;
