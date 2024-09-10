@@ -14,6 +14,10 @@ import java.util.List;
 
 public class QueryBuilderUtil {
   public static QueryBuilder generateQueryBuilder(String queryString, long startTime, long endTime) throws IOException {
+    if (queryString == null || queryString.isEmpty() || queryString.equals("*") || queryString.equals("*.*")) {
+      return null;
+    }
+
     SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
     ObjectMapper objectMapper = new ObjectMapper();
     NamedXContentRegistry namedXContentRegistry =

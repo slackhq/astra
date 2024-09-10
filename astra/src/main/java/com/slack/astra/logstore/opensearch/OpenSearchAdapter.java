@@ -65,6 +65,7 @@ import org.opensearch.index.fielddata.IndexFieldDataCache;
 import org.opensearch.index.fielddata.IndexFieldDataService;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryStringQueryBuilder;
@@ -161,18 +162,15 @@ public class OpenSearchAdapter {
             mapperService);
 
     if (queryBuilder != null) {
-      Query query = queryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
-
-      // TODO: FIXME
-      WeightedTerm[] terms = QueryTermExtractor.getTerms(query);
-      for (WeightedTerm term : terms) {
-        System.out.println(term.getTerm());
+      try {
+        return queryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
+      } catch (Exception e) {
+        LOG.error("Query parse exception", e);
+        throw new IllegalArgumentException(e);
       }
-      LOG.trace("Raw query: '{}'", query);
-      return query;
     }
-    // TODO: Should this return null? Raise an error?
-    return null;
+    // TODO: Should this return null? Raise an error? Just return everything?
+    return new BoolQueryBuilder().rewrite(queryShardContext).toQuery(queryShardContext);
   }
 
   /**
