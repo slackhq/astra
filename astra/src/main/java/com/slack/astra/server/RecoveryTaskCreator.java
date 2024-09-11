@@ -359,8 +359,8 @@ public class RecoveryTaskCreator {
     } else {
       LOG.warn(
           "Failed to delete {} snapshots within {} secs.",
-          SNAPSHOT_OPERATION_TIMEOUT_SECS,
-          snapshotsToBeDeleted.size() - successfulDeletions);
+          snapshotsToBeDeleted.size() - successfulDeletions,
+          SNAPSHOT_OPERATION_TIMEOUT_SECS);
     }
     return successfulDeletions;
   }
