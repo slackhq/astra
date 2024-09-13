@@ -200,8 +200,10 @@ public class IndexingChunkManagerTest {
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
-  private static String buildQueryFromQueryString(String queryString, Long startTime, Long endTime) {
-    return "{\"bool\":{\"filter\":[{\"range\":{\"_timesinceepoch\":{\"gte\":%d,\"lte\":%d,\"format\":\"epoch_millis\"}}},{\"query_string\":{\"analyze_wildcard\":true,\"query\":\"%s\"}}]}}".formatted(startTime, endTime, queryString);
+  private static String buildQueryFromQueryString(
+      String queryString, Long startTime, Long endTime) {
+    return "{\"bool\":{\"filter\":[{\"range\":{\"_timesinceepoch\":{\"gte\":%d,\"lte\":%d,\"format\":\"epoch_millis\"}}},{\"query_string\":{\"analyze_wildcard\":true,\"query\":\"%s\"}}]}}"
+        .formatted(startTime, endTime, queryString);
   }
 
   @Test
@@ -586,7 +588,8 @@ public class IndexingChunkManagerTest {
       ChunkManager<LogMessage> chunkManager,
       String searchString,
       long startTimeEpochMs,
-      long endTimeEpochMs) throws IOException {
+      long endTimeEpochMs)
+      throws IOException {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,

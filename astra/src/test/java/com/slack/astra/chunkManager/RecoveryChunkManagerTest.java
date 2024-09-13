@@ -332,7 +332,8 @@ public class RecoveryChunkManagerTest {
   }
 
   private void testChunkManagerSearch(
-      ChunkManager<LogMessage> chunkManager, String searchString, int expectedHitCount) throws IOException {
+      ChunkManager<LogMessage> chunkManager, String searchString, int expectedHitCount)
+      throws IOException {
 
     SearchQuery searchQuery =
         new SearchQuery(

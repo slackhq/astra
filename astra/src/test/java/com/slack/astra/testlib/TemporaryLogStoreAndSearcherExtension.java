@@ -49,10 +49,7 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
   }
 
   public static List<LogMessage> findAllMessages(
-      LogIndexSearcherImpl searcher,
-      String dataset,
-      int howMany,
-      QueryBuilder queryBuilder) {
+      LogIndexSearcherImpl searcher, String dataset, int howMany, QueryBuilder queryBuilder) {
     SearchResult<LogMessage> results =
         searcher.search(
             dataset,

@@ -87,7 +87,8 @@ public class LogMessageWriterImplTest {
     metricsRegistry.close();
   }
 
-  private SearchResult<LogMessage> searchChunkManager(String indexName, String queryString) throws IOException {
+  private SearchResult<LogMessage> searchChunkManager(String indexName, String queryString)
+      throws IOException {
     return chunkManagerUtil.chunkManager.query(
         new SearchQuery(
             indexName,

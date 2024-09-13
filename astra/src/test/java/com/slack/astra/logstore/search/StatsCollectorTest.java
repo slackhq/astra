@@ -14,11 +14,10 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.util.QueryBuilderUtil;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Objects;
-
-import com.slack.astra.util.QueryBuilderUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -53,7 +52,8 @@ public class StatsCollectorTest {
             0,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-            QueryBuilderUtil.generateQueryBuilder("", time.toEpochMilli(), time.plusSeconds(4 * 60).toEpochMilli()),
+            QueryBuilderUtil.generateQueryBuilder(
+                "", time.toEpochMilli(), time.plusSeconds(4 * 60).toEpochMilli()),
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);

@@ -52,7 +52,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
-import org.apache.lucene.util.QueryBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -303,7 +302,8 @@ public class IndexingChunkImplTest {
     }
 
     private void searchChunk(
-        String searchString, long startTimeMs, long endTimeMs, int expectedResultCount) throws IOException {
+        String searchString, long startTimeMs, long endTimeMs, int expectedResultCount)
+        throws IOException {
       assertThat(
               chunk
                   .query(
@@ -315,7 +315,8 @@ public class IndexingChunkImplTest {
                           new DateHistogramAggBuilder(
                               "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                           Collections.emptyList(),
-                          QueryBuilderUtil.generateQueryBuilder(searchString, startTimeMs, endTimeMs),
+                          QueryBuilderUtil.generateQueryBuilder(
+                              searchString, startTimeMs, endTimeMs),
                           null))
                   .hits
                   .size())

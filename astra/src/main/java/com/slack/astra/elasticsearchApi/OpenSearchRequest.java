@@ -39,7 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.IndexOrDocValuesQuery;
@@ -100,7 +99,9 @@ public class OpenSearchRequest {
           this.dateRangeStart = Instant.parse(lowerDateString).toEpochMilli();
           this.dateRangeEnd = Instant.parse(upperDateString).toEpochMilli();
         }
-      } else if (query instanceof IndexSortSortedNumericDocValuesRangeQuery indexSortSortedNumericDocValuesRangeQuery) {
+      } else if (query
+          instanceof
+          IndexSortSortedNumericDocValuesRangeQuery indexSortSortedNumericDocValuesRangeQuery) {
         Query fallbackQuery = indexSortSortedNumericDocValuesRangeQuery.getFallbackQuery();
         checkTimeRange(fallbackQuery);
       } else if (query instanceof IndexOrDocValuesQuery indexOrDocValuesQuery) {
@@ -172,8 +173,10 @@ public class OpenSearchRequest {
               .setAggregations(getAggregations(body))
               .setQuery(getQuery(body))
               .setSourceFieldFilter(getSourceFieldFilter(body))
-              .setStartTimeEpochMs(dateRangeQueryVisitor.orElse(new DateRangeQueryVisitor()).dateRangeStart)
-              .setEndTimeEpochMs(dateRangeQueryVisitor.orElse(new DateRangeQueryVisitor()).dateRangeEnd)
+              .setStartTimeEpochMs(
+                  dateRangeQueryVisitor.orElse(new DateRangeQueryVisitor()).dateRangeStart)
+              .setEndTimeEpochMs(
+                  dateRangeQueryVisitor.orElse(new DateRangeQueryVisitor()).dateRangeEnd)
               .build());
     }
     return searchRequests;

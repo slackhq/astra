@@ -102,8 +102,10 @@ public class AstraLocalQueryServiceTest {
         .build();
   }
 
-  private static String buildQueryFromQueryString(String queryString, Long startTime, Long endTime) {
-    return "{\"bool\":{\"filter\":[{\"range\":{\"_timesinceepoch\":{\"gte\":%d,\"lte\":%d,\"format\":\"epoch_millis\"}}},{\"query_string\":{\"analyze_wildcard\":true,\"query\":\"%s\"}}]}}".formatted(startTime, endTime, queryString);
+  private static String buildQueryFromQueryString(
+      String queryString, Long startTime, Long endTime) {
+    return "{\"bool\":{\"filter\":[{\"range\":{\"_timesinceepoch\":{\"gte\":%d,\"lte\":%d,\"format\":\"epoch_millis\"}}},{\"query_string\":{\"analyze_wildcard\":true,\"query\":\"%s\"}}]}}"
+        .formatted(startTime, endTime, queryString);
   }
 
   @Test
@@ -134,7 +136,8 @@ public class AstraLocalQueryServiceTest {
         astraLocalQueryService.doSearch(
             searchRequestBuilder
                 .setDataset(MessageUtil.TEST_DATASET_NAME)
-                .setQuery(buildQueryFromQueryString("Message100", chunk1StartTimeMs, chunk1EndTimeMs))
+                .setQuery(
+                    buildQueryFromQueryString("Message100", chunk1StartTimeMs, chunk1EndTimeMs))
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
@@ -344,7 +347,9 @@ public class AstraLocalQueryServiceTest {
                 astraLocalQueryService.doSearch(
                     searchRequestBuilder
                         .setDataset(MessageUtil.TEST_DATASET_NAME)
-                        .setQuery(buildQueryFromQueryString("Message1", chunk1StartTimeMs, chunk1EndTimeMs))
+                        .setQuery(
+                            buildQueryFromQueryString(
+                                "Message1", chunk1StartTimeMs, chunk1EndTimeMs))
                         .setStartTimeEpochMs(chunk1StartTimeMs)
                         .setEndTimeEpochMs(chunk1EndTimeMs)
                         .setHowMany(0)
@@ -473,7 +478,9 @@ public class AstraLocalQueryServiceTest {
                 blockingStub.search(
                     AstraSearch.SearchRequest.newBuilder()
                         .setDataset(MessageUtil.TEST_DATASET_NAME)
-                        .setQuery(buildQueryFromQueryString("Message1", chunk1StartTimeMs, chunk1EndTimeMs))
+                        .setQuery(
+                            buildQueryFromQueryString(
+                                "Message1", chunk1StartTimeMs, chunk1EndTimeMs))
                         .setStartTimeEpochMs(chunk1StartTimeMs)
                         .setEndTimeEpochMs(chunk1EndTimeMs)
                         .setHowMany(0)

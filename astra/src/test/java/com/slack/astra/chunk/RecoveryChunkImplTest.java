@@ -291,7 +291,8 @@ public class RecoveryChunkImplTest {
     }
 
     private void searchChunk(
-        String searchString, long startTimeMs, long endTimeMs, int expectedResultCount) throws IOException {
+        String searchString, long startTimeMs, long endTimeMs, int expectedResultCount)
+        throws IOException {
       assertThat(
               chunk
                   .query(
@@ -303,7 +304,8 @@ public class RecoveryChunkImplTest {
                           new DateHistogramAggBuilder(
                               "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                           Collections.emptyList(),
-                          QueryBuilderUtil.generateQueryBuilder(searchString, startTimeMs, endTimeMs),
+                          QueryBuilderUtil.generateQueryBuilder(
+                              searchString, startTimeMs, endTimeMs),
                           null))
                   .hits
                   .size())

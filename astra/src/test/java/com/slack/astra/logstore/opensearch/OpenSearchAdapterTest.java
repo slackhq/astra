@@ -23,12 +23,11 @@ import com.slack.astra.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.util.QueryBuilderUtil;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import com.slack.astra.util.QueryBuilderUtil;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
@@ -472,8 +471,7 @@ public class OpenSearchAdapterTest {
     System.setProperty("astra.query.useOpenSearchParsing", "false");
 
     Query rangeQuery =
-        openSearchAdapterWithFeatureFlagEnabled.buildQuery(
-            indexSearcher, boolQueryBuilder);
+        openSearchAdapterWithFeatureFlagEnabled.buildQuery(indexSearcher, boolQueryBuilder);
     assertThat(rangeQuery).isNotNull();
     assertThat(rangeQuery.toString()).isEqualTo("#_timesinceepoch:[1 TO 100]");
   }
@@ -496,12 +494,14 @@ public class OpenSearchAdapterTest {
   public void shouldExcludeDateFilterWhenNullTimestamps() throws Exception {
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
     Query nullBothTimestamps =
-        openSearchAdapter.buildQuery(indexSearcher, QueryBuilderUtil.generateQueryBuilder("", null, null));
+        openSearchAdapter.buildQuery(
+            indexSearcher, QueryBuilderUtil.generateQueryBuilder("", null, null));
     // null for both timestamps with no query string should be optimized into a matchall
     assertThat(nullBothTimestamps).isInstanceOf(MatchAllDocsQuery.class);
 
     Query nullStartTimestamp =
-        openSearchAdapter.buildQuery(indexSearcher, QueryBuilderUtil.generateQueryBuilder("a", null, 100L));
+        openSearchAdapter.buildQuery(
+            indexSearcher, QueryBuilderUtil.generateQueryBuilder("a", null, 100L));
     assertThat(nullStartTimestamp).isInstanceOf(BooleanQuery.class);
 
     Optional<IndexSortSortedNumericDocValuesRangeQuery> filterNullStartQuery =
@@ -522,7 +522,8 @@ public class OpenSearchAdapterTest {
     assertThat(filterNullStartQuery.get().toString()).contains(String.valueOf(100L));
 
     Query nullEndTimestamp =
-        openSearchAdapter.buildQuery(indexSearcher, QueryBuilderUtil.generateQueryBuilder("", 100L, null));
+        openSearchAdapter.buildQuery(
+            indexSearcher, QueryBuilderUtil.generateQueryBuilder("", 100L, null));
     Optional<IndexSortSortedNumericDocValuesRangeQuery> filterNullEndQuery =
         ((BooleanQuery) nullEndTimestamp)
             .clauses().stream()

@@ -147,8 +147,10 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     astraLocalQueryService = new AstraLocalQueryService<>(chunkManager, Duration.ofSeconds(3));
   }
 
-  private static String buildQueryFromQueryString(String queryString, Long startTime, Long endTime) {
-    return "{\"bool\":{\"filter\":[{\"range\":{\"_timesinceepoch\":{\"gte\":%d,\"lte\":%d,\"format\":\"epoch_millis\"}}},{\"query_string\":{\"analyze_wildcard\":true,\"query\":\"%s\"}}]}}".formatted(startTime, endTime, queryString);
+  private static String buildQueryFromQueryString(
+      String queryString, Long startTime, Long endTime) {
+    return "{\"bool\":{\"filter\":[{\"range\":{\"_timesinceepoch\":{\"gte\":%d,\"lte\":%d,\"format\":\"epoch_millis\"}}},{\"query_string\":{\"analyze_wildcard\":true,\"query\":\"%s\"}}]}}"
+        .formatted(startTime, endTime, queryString);
   }
 
   @Test
