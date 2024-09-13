@@ -1,4 +1,3 @@
-// TODO FOR KYLE: FIX
 package com.slack.astra.chunkManager;
 
 import static com.slack.astra.chunk.ChunkInfo.MAX_FUTURE_TIME;
