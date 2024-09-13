@@ -1,4 +1,3 @@
-// TODO FOR KYLE: FIX
 package com.slack.astra.logstore.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
