@@ -1,4 +1,3 @@
-// TODO FOR KYLE: FIX
 package com.slack.astra.logstore.search;
 
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;

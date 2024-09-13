@@ -1248,8 +1248,6 @@ public class LogIndexSearcherImplTest {
     assertThat(bucketKeys.contains("String-5")).isTrue();
   }
 
-  // TODO FOR KYLE: RE-ENABLE. This ran out of heap space?
-  @Disabled
   @Test
   public void testPipelineAggregation() throws IOException {
     Instant time = Instant.ofEpochSecond(1593365471);
@@ -1712,25 +1710,6 @@ public class LogIndexSearcherImplTest {
                 .hits
                 .size())
         .isZero();
-  }
-
-  // TODO FOR KYLE: FIGURE OUT IF THIS TEST SHOULD EXIST OR NOT
-  @Disabled
-  @Test
-  public void testNullSearchString() {
-    Instant time = Instant.ofEpochSecond(1593365471);
-    loadTestData(time);
-
-    assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                strictLogStore.logSearcher.search(
-                    TEST_DATASET_NAME + "miss",
-                    1000,
-                    new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-                    null,
-                    null));
   }
 
   @Test
