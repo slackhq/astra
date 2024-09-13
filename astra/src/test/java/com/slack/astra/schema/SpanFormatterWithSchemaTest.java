@@ -80,7 +80,7 @@ public class SpanFormatterWithSchemaTest {
     SchemaAwareLogDocumentBuilderImpl dropFieldBuilder =
         build(
             SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD, true, meterRegistry);
-    this.logStore = new LuceneIndexStoreImpl(indexStoreCfg, dropFieldBuilder, meterRegistry);
+    this.logStore = new LuceneIndexStoreImpl(indexStoreCfg, dropFieldBuilder, meterRegistry, null);
   }
 
   @AfterEach
