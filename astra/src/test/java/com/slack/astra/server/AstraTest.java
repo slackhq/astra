@@ -1,4 +1,3 @@
-// TODO FOR KYLE: FIX?
 package com.slack.astra.server;
 
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;

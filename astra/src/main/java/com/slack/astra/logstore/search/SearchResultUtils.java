@@ -685,6 +685,8 @@ public class SearchResultUtils {
 
     return new SearchQuery(
         searchRequest.getDataset(),
+        searchRequest.getStartTimeEpochMs(),
+        searchRequest.getEndTimeEpochMs(),
         searchRequest.getHowMany(),
         fromSearchAggregations(searchRequest.getAggregations()),
         searchRequest.getChunkIdsList(),

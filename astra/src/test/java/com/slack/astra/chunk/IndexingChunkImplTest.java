@@ -163,6 +163,8 @@ public class IndexingChunkImplTest {
       chunk.query(
           new SearchQuery(
               MessageUtil.TEST_DATASET_NAME,
+              0L,
+              MAX_TIME,
               10,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
@@ -173,6 +175,8 @@ public class IndexingChunkImplTest {
       chunk.query(
           new SearchQuery(
               MessageUtil.TEST_DATASET_NAME,
+              0L,
+              MAX_TIME,
               10,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
@@ -184,6 +188,8 @@ public class IndexingChunkImplTest {
           chunk.query(
               new SearchQuery(
                   MessageUtil.TEST_DATASET_NAME,
+                  0L,
+                  MAX_TIME,
                   10,
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
@@ -303,6 +309,8 @@ public class IndexingChunkImplTest {
                   .query(
                       new SearchQuery(
                           MessageUtil.TEST_DATASET_NAME,
+                          startTimeMs,
+                          endTimeMs,
                           10,
                           new DateHistogramAggBuilder(
                               "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
@@ -333,6 +341,8 @@ public class IndexingChunkImplTest {
           chunk.query(
               new SearchQuery(
                   MessageUtil.TEST_DATASET_NAME,
+                  0L,
+                  MAX_TIME,
                   10,
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
@@ -402,6 +412,8 @@ public class IndexingChunkImplTest {
           chunk.query(
               new SearchQuery(
                   MessageUtil.TEST_DATASET_NAME,
+                  0L,
+                  MAX_TIME,
                   10,
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
@@ -417,6 +429,8 @@ public class IndexingChunkImplTest {
           chunk.query(
               new SearchQuery(
                   MessageUtil.TEST_DATASET_NAME,
+                  0L,
+                  MAX_TIME,
                   10,
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
@@ -597,6 +611,8 @@ public class IndexingChunkImplTest {
       SearchQuery searchQuery =
           new SearchQuery(
               MessageUtil.TEST_DATASET_NAME,
+              0L,
+              MAX_TIME,
               10,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
@@ -654,6 +670,8 @@ public class IndexingChunkImplTest {
       SearchQuery searchQuery =
           new SearchQuery(
               MessageUtil.TEST_DATASET_NAME,
+              0L,
+              MAX_TIME,
               10,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),

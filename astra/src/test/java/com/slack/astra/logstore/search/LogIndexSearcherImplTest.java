@@ -1258,6 +1258,8 @@ public class LogIndexSearcherImplTest {
     SearchQuery query =
         new SearchQuery(
             TEST_DATASET_NAME,
+            1593365471000L,
+            1593365471000L + 5000L,
             1000,
             new DateHistogramAggBuilder(
                 "histo",

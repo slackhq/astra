@@ -14,9 +14,13 @@ public class SearchQuery {
   public final AggBuilder aggBuilder;
   public final List<String> chunkIds;
   public final SourceFieldFilter sourceFieldFilter;
+  public final long startTimeEpochMs;
+  public final long endTimeEpochMs;
 
   public SearchQuery(
       String dataset,
+      long startTimeEpochMs,
+      long endTimeEpochMs,
       int howMany,
       AggBuilder aggBuilder,
       List<String> chunkIds,
@@ -28,6 +32,8 @@ public class SearchQuery {
     this.chunkIds = chunkIds;
     this.queryBuilder = queryBuilder;
     this.sourceFieldFilter = sourceFieldFilter;
+    this.startTimeEpochMs = startTimeEpochMs;
+    this.endTimeEpochMs = endTimeEpochMs;
   }
 
   @Override
