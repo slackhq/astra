@@ -1,4 +1,3 @@
-// TODO FOR KYLE: FIX
 package com.slack.astra.writer;
 
 import static com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser.convertRequestToDocument;
