@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -364,5 +365,43 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     DatasetPartitionMetadata newPartitionMetadata =
         new DatasetPartitionMetadata(partitionCutoverTime + 1, MAX_TIME, newPartitionIdsList);
     return builder.add(newPartitionMetadata).build();
+  }
+
+  @Override
+  public void resetPartitionData(
+      ManagerApi.ResetPartitionDataRequest request,
+      StreamObserver<ManagerApi.ResetPartitionDataResponse> responseObserver) {
+    List<SnapshotMetadata> snapshotMetadataList = snapshotMetadataStore.listSync();
+
+    int resetCount = 0;
+    for (SnapshotMetadata snapshotMetadata : snapshotMetadataList) {
+      if (Objects.equals(snapshotMetadata.partitionId, request.getPartitionId())) {
+        if (!request.getDryRun()) {
+          snapshotMetadata.maxOffset = 0;
+          snapshotMetadataStore.updateSync(snapshotMetadata);
+        }
+        resetCount++;
+      }
+    }
+
+    if (request.getDryRun()) {
+      responseObserver.onNext(
+          ManagerApi.ResetPartitionDataResponse.newBuilder()
+              .setStatus(
+                  String.format(
+                      "%s snapshots matching partitionId '%s' out of %s total snapshots, none were reset as this was a dry-run.",
+                      resetCount, request.getPartitionId(), snapshotMetadataList.size()))
+              .build());
+    } else {
+      responseObserver.onNext(
+          ManagerApi.ResetPartitionDataResponse.newBuilder()
+              .setStatus(
+                  String.format(
+                      "Reset %s snapshots matching partitionId '%s' out of %s total snapshots.",
+                      resetCount, request.getPartitionId(), snapshotMetadataList.size()))
+              .build());
+    }
+
+    responseObserver.onCompleted();
   }
 }

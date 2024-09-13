@@ -5,6 +5,7 @@ import brave.context.log4j2.ThreadContextScopeDecorator;
 import brave.handler.MutableSpan;
 import brave.handler.SpanHandler;
 import brave.propagation.TraceContext;
+import brave.sampler.Sampler;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
@@ -14,6 +15,7 @@ import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.brave.BraveService;
 import com.linecorp.armeria.server.docs.DocService;
+import com.linecorp.armeria.server.encoding.DecodingService;
 import com.linecorp.armeria.server.encoding.EncodingService;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
@@ -55,6 +57,8 @@ public class ArmeriaService extends AbstractIdleService {
     private final String serviceName;
     private final ServerBuilder serverBuilder;
     private final List<SpanHandler> spanHandlers = new ArrayList<>();
+
+    private float traceSamplingRate = 0.0f;
 
     public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
       this.serviceName = serviceName;
@@ -108,6 +112,7 @@ public class ArmeriaService extends AbstractIdleService {
               }
             });
       }
+      this.traceSamplingRate = tracingConfig.getSamplingRate();
 
       if (!tracingConfig.getZipkinEndpoint().isBlank()) {
         LOG.info(String.format("Trace reporting enabled: %s", tracingConfig.getZipkinEndpoint()));
@@ -119,7 +124,7 @@ public class ArmeriaService extends AbstractIdleService {
     }
 
     public Builder withAnnotatedService(Object service) {
-      serverBuilder.annotatedService(service);
+      serverBuilder.annotatedService(service, DecodingService.newDecorator());
       return this;
     }
 
@@ -156,6 +161,7 @@ public class ArmeriaService extends AbstractIdleService {
       Tracing.Builder tracingBuilder =
           Tracing.newBuilder()
               .localServiceName(serviceName)
+              .sampler(Sampler.create(traceSamplingRate))
               .currentTraceContext(
                   RequestContextCurrentTraceContext.builder()
                       .addScopeDecorator(ThreadContextScopeDecorator.get())

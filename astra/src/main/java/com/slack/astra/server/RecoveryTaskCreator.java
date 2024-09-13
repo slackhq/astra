@@ -244,8 +244,9 @@ public class RecoveryTaskCreator {
     if (currentEndOffsetForPartition < highestDurableOffsetForPartition) {
       final String message =
           String.format(
-              "The current head for the partition %d can't "
-                  + "be lower than the highest durable offset for that partition %d",
+              "The current head for the partition %d can't be lower than the highest durable offset for that "
+                  + "partition %d. To manually reset this partition's stored offset, see the ResetPartitionData "
+                  + "function in the manager.",
               currentEndOffsetForPartition, highestDurableOffsetForPartition);
       LOG.error(message);
       throw new IllegalStateException(message);

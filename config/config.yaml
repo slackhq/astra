@@ -42,6 +42,7 @@ tracingConfig:
   commonTags:
     clusterName: ${ASTRA_CLUSTER_NAME:-ASTRA_local}
     env: ${ASTRA_CLUSTER_ENV:-local}
+  sampling_rate: ${TRACING_SAMPLING_RATE:-1.0}
 
 queryConfig:
   serverConfig:

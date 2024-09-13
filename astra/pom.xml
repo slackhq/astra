@@ -27,9 +27,9 @@
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.7.0</curator.version>
-        <log4j.version>2.23.1</log4j.version>
-        <aws.sdk.version>2.27.14</aws.sdk.version>
-        <error.prone.version>2.30.0</error.prone.version>
+        <log4j.version>2.24.0</log4j.version>
+        <aws.sdk.version>2.27.21</aws.sdk.version>
+        <error.prone.version>2.31.0</error.prone.version>
         <junit.jupiter.version>5.11.0</junit.jupiter.version>
     </properties>
 
@@ -327,7 +327,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.30.9</version>
+            <version>0.30.11</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -415,7 +415,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.12.0</version>
+            <version>5.13.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -428,7 +428,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.15.0</version>
+            <version>1.15.1</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
@@ -730,7 +730,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>3.8.0</version>
+                    <version>3.10.0</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-resources-plugin</artifactId>
@@ -746,7 +746,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.4.0</version>
+                    <version>3.5.0</version>
                     <configuration>
                         <argLine>--enable-preview</argLine>
                         <trimStackTrace>false</trimStackTrace>

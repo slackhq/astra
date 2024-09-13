@@ -23,6 +23,9 @@ service ManagerApiService {
 
   rpc RestoreReplica(RestoreReplicaRequest) returns (RestoreReplicaResponse) {}
   rpc RestoreReplicaIds(RestoreReplicaIdsRequest) returns (RestoreReplicaIdsResponse) {}
+
+  // Resets the partition offset data to allow using a newer offset for a partition ID
+  rpc ResetPartitionData(ResetPartitionDataRequest) returns (ResetPartitionDataResponse) {}
 }
 
 // CreateDatasetMetadataRequest represents a new dataset with uninitialized thoughput and partition assignments
@@ -91,5 +94,14 @@ message RestoreReplicaIdsRequest {
 }
 
 message RestoreReplicaIdsResponse {
+  string status = 1;
+}
+
+message ResetPartitionDataRequest {
+  string partition_id = 1;
+  bool dry_run = 2;
+}
+
+message ResetPartitionDataResponse {
   string status = 1;
 }
