@@ -351,7 +351,7 @@ public class OpenSearchAdapter {
             // {LuceneIndexStoreImpl#buildIndexWriterConfig}
             // When we were using the lucene query parser the sort info was leveraged by lucene
             // automatically ( as the sort info persists in the segment info ) at query time.
-            // However the OpenSearch query parser has a custom implementation which relies on the
+            // However, the OpenSearch query parser has a custom implementation which relies on the
             // index sort info to be present as a setting here.
             .put("index.sort.field", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
             .put("index.sort.order", "desc")

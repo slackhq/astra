@@ -167,7 +167,7 @@ public class IndexingChunkImplTest {
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
-              QueryBuilderUtil.generateQueryBuilder("*:*", 0, MAX_TIME),
+              QueryBuilderUtil.generateQueryBuilder("*:*", 0L, MAX_TIME),
               null));
 
       chunk.query(
@@ -177,7 +177,7 @@ public class IndexingChunkImplTest {
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
-              QueryBuilderUtil.generateQueryBuilder("Message1", 0, MAX_TIME),
+              QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
               null));
 
       SearchResult<LogMessage> results =
@@ -188,7 +188,7 @@ public class IndexingChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
-                  QueryBuilderUtil.generateQueryBuilder("Message*", 0, MAX_TIME),
+                  QueryBuilderUtil.generateQueryBuilder("Message*", 0L, MAX_TIME),
                   null));
       assertThat(results.hits.size()).isEqualTo(10);
 
@@ -337,7 +337,7 @@ public class IndexingChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
-                  QueryBuilderUtil.generateQueryBuilder("Message1", 0, MAX_TIME),
+                  QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                   null));
       assertThat(results.hits.size()).isEqualTo(1);
 
@@ -406,7 +406,7 @@ public class IndexingChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
-                  QueryBuilderUtil.generateQueryBuilder("Message1", 0, MAX_TIME),
+                  QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                   null));
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
@@ -421,7 +421,7 @@ public class IndexingChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
-                  QueryBuilderUtil.generateQueryBuilder("Message1", 0, MAX_TIME),
+                  QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                   null));
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
     }
@@ -601,7 +601,7 @@ public class IndexingChunkImplTest {
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
-              QueryBuilderUtil.generateQueryBuilder("Message1", 0, MAX_TIME),
+              QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
               null);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
@@ -658,7 +658,7 @@ public class IndexingChunkImplTest {
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
-              QueryBuilderUtil.generateQueryBuilder("Message1", 0, MAX_TIME),
+              QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
               null);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
