@@ -8,7 +8,9 @@ import brave.Tracing;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableMap;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
@@ -47,7 +49,13 @@ import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
+import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.lucene.index.SequentialStoredFieldsLeafReader;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
@@ -81,10 +89,12 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class HashingStoredFieldVisitor extends StoredFieldVisitor {
       private ObjectMapper om = new ObjectMapper();
       private final StoredFieldVisitor delegate;
+      private List<String> maskedFields;
 
-      public HashingStoredFieldVisitor(final StoredFieldVisitor delegate) {
+      public HashingStoredFieldVisitor(final StoredFieldVisitor delegate, List<String> maskedFields) {
         super();
         this.delegate = delegate;
+        this.maskedFields = maskedFields;
       }
 
       @Override
@@ -95,21 +105,42 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       @Override
       public void binaryField(FieldInfo fieldInfo, byte[] value) throws IOException {
         // todo - probably need to figure out as well
-        delegate.binaryField(fieldInfo, value);
+//        if (fieldInfo.name.equals("_source")) {
+//          final BytesReference bytesRef = new BytesArray(value);
+//          final Tuple<XContentType, Map<String, Object>> bytesRefTuple = XContentHelper.convertToMap(
+//                  bytesRef,
+//                  false,
+//                  XContentType.JSON
+//          );
+//          Map<String, Object> filteredSource = bytesRefTuple.v2();
+//          // todo - do we have to traverse the map? can we just replace the whole thing?
+//          MapUtils.deepTraverseMap(filteredSource, HASH_CB);
+//          final XContentBuilder xBuilder = XContentBuilder.builder(bytesRefTuple.v1().xContent()).map(filteredSource);
+//          delegate.binaryField(fieldInfo, BytesReference.toBytes(BytesReference.bytes(xBuilder)));
+//        } else {
+//          delegate.binaryField(fieldInfo, value);
+//        }
       }
 
       @Override
       public void stringField(FieldInfo fieldInfo, String value) throws IOException {
+        // todo - timestamp filter - how do we get the time range here?
+        // todo - is timestamp within redaction window AND is field supposed to be redacted?
+        // snapshotmetadatastore.listsync().forEach( redactionItem -> {redactionItem.name})
         if (fieldInfo.name.equals("_source")) {
-          Map<String, Object> source = om.readValue(value, new TypeReference<HashMap<String,Object>>() {});
+          Map<String, Object> source =
+              om.readValue(value, new TypeReference<HashMap<String, Object>>() {});
 
           if (source.containsKey("source")) {
             Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
 
-            if (innerSource.containsKey("stringproperty")) {
-              innerSource.put("stringproperty", "REDACTED");
+            // todo - all the masking here?
+            maskedFields.forEach(field -> {
+            if (innerSource.containsKey(field)) {
+              innerSource.put(field, "REDACTED");
               source.put("source", innerSource);
             }
+            });
           }
 
           // todo - breakpoint here
@@ -144,14 +175,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class MaskedFieldReader extends StoredFieldsReader {
 
       private final StoredFieldsReader in;
+      List<String> maskedFields;
 
-      public MaskedFieldReader(StoredFieldsReader in) {
+      public MaskedFieldReader(StoredFieldsReader in, List<String> maskedFields) {
         this.in = in;
+        this.maskedFields = maskedFields;
       }
 
       @Override
       public StoredFieldsReader clone() {
-        return new MaskedFieldReader(in);
+        return new MaskedFieldReader(in, maskedFields);
       }
 
       @Override
@@ -168,19 +201,21 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       public void document(int docID, StoredFieldVisitor visitor) throws IOException {
         //        visitor = getDlsFlsVisitor(visitor);
         try {
-          visitor = new HashingStoredFieldVisitor(visitor);
+          visitor = new HashingStoredFieldVisitor(visitor, maskedFields);
           in.document(docID, visitor);
         } finally {
           //          finishVisitor(visitor);
         }
       }
-    }
 
+    }
 
     // Implements the masking leaf reader
     class MaskedLeafReader extends SequentialStoredFieldsLeafReader {
-      public MaskedLeafReader(LeafReader in) {
+      List<String> maskedFields;
+      public MaskedLeafReader(LeafReader in, List<String> maskedFields) {
         super(in);
+        this.maskedFields = maskedFields;
       }
 
       @Override
@@ -188,22 +223,22 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         return in.getSortedDocValues(field);
       }
 
-
       @Override
       public StoredFields storedFields() throws IOException {
         return in.storedFields();
       }
 
+      // todo is this correct? Why would a field visitor be on both a leaf reader and a field reader?
       @Override
       public void document(int docID, StoredFieldVisitor visitor) throws IOException {
         // todo
-        visitor = new HashingStoredFieldVisitor(visitor);
+        visitor = new HashingStoredFieldVisitor(visitor, maskedFields);
         in.document(docID, visitor);
       }
 
       @Override
       protected StoredFieldsReader doGetSequentialStoredFieldsReader(StoredFieldsReader reader) {
-        return new MaskedFieldReader(reader);
+        return new MaskedFieldReader(reader, maskedFields);
       }
 
       @Override
@@ -219,21 +254,28 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements a masking subreaderwrapper
     class MaskingSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
+      List<String> maskedFields;
+      public MaskingSubReaderWrapper(List<String> maskedFields) throws IOException {
+        this.maskedFields = maskedFields;
+      }
+
       @Override
       public LeafReader wrap(LeafReader reader) {
-        return new MaskedLeafReader(reader);
+        return new MaskedLeafReader(reader, this.maskedFields);
       }
     }
 
     // Implements a filterdirectoryreader for masking
     class FilterMaskingReader extends FilterDirectoryReader {
-      public FilterMaskingReader(DirectoryReader in) throws IOException {
-        super(in, new MaskingSubReaderWrapper());
+      List<String> maskedFields;
+      public FilterMaskingReader(DirectoryReader in, List<String> maskedFields) throws IOException {
+        super(in, new MaskingSubReaderWrapper(maskedFields));
+        this.maskedFields = maskedFields;
       }
 
       @Override
       protected DirectoryReader doWrapDirectoryReader(DirectoryReader in) throws IOException {
-        return new FilterMaskingReader(in);
+        return new FilterMaskingReader(in, maskedFields);
       }
 
       @Override
@@ -242,7 +284,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       }
     }
 
-    FilterMaskingReader reader = new FilterMaskingReader(directoryReader);
+    // todo thread to-be masked fields in here
+    List<String> maskedFields = List.of("stringproperty","service_name");
+    FilterMaskingReader reader = new FilterMaskingReader(directoryReader, maskedFields);
     return new SearcherManager(reader, null);
   }
 
