@@ -16,7 +16,8 @@
     "zipkinEndpoint": "http://localhost:9411/api/v2/spans",
     "commonTags": {
       "clusterName": "astra_local"
-    }
+    },
+    "samplingRate": 1.0
   },
   "indexerConfig": {
     "maxMessagesPerChunk": 1000,

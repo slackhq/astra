@@ -180,6 +180,7 @@ public class AstraConfigTest {
     final AstraConfigs.TracingConfig tracingConfig = config.getTracingConfig();
     assertThat(tracingConfig.getZipkinEndpoint()).isEqualTo("http://localhost:9411/api/v2/spans");
     assertThat(tracingConfig.getCommonTagsMap()).isEqualTo(Map.of("clusterName", "astra_local"));
+    assertThat(tracingConfig.getSamplingRate()).isEqualTo(1.0f);
 
     final AstraConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isEqualTo(1000);
@@ -633,6 +634,7 @@ public class AstraConfigTest {
     final AstraConfigs.TracingConfig tracingConfig = config.getTracingConfig();
     assertThat(tracingConfig.getZipkinEndpoint()).isEmpty();
     assertThat(tracingConfig.getCommonTagsMap()).isEmpty();
+    assertThat(tracingConfig.getSamplingRate()).isEqualTo(0.0f);
 
     final AstraConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isZero();
