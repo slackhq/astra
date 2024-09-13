@@ -20,15 +20,23 @@ import static com.slack.astra.util.AggregatorFactoriesUtil.createSumAggregatorFa
 import static com.slack.astra.util.AggregatorFactoriesUtil.createTermsAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.metadata.core.AstraMetadataTestUtils;
+import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -38,8 +46,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.search.aggregations.bucket.filter.InternalFilters;
@@ -53,6 +66,388 @@ import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalSum;
 
 public class LogIndexSearcherImplTest {
+
+  @Nested
+  public class RedactionTests {
+    private FieldRedactionMetadataStore fieldRedactionMetadataStore;
+    private TestingServer testingServer;
+
+    @BeforeEach
+    public void setup() throws Exception {
+      // setup ZK and redaction metadata store for field redaction testing
+      testingServer = new TestingServer();
+      AstraConfigs.ZookeeperConfig zkConfig =
+          AstraConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("test")
+              .setZkSessionTimeoutMs(Integer.MAX_VALUE)
+              .setZkConnectionTimeoutMs(Integer.MAX_VALUE)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
+
+      MeterRegistry meterRegistry = new SimpleMeterRegistry();
+      AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+
+      fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
+    }
+
+    @AfterEach
+    public void teardown() throws IOException {
+      testingServer.close();
+    }
+
+    @Test
+    public void testRedactionWithIncludeFilters() throws Exception {
+
+      String redactionName = "testRedaction";
+      String fieldName = "message";
+      long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
+
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata(redactionName, fieldName, start, end));
+
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+
+      // search
+      TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+
+      Instant time = Instant.now();
+      featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+      featureFlagEnabledStrictLogStore.logStore.addMessage(
+          SpanUtil.makeSpan(2, time.plusSeconds(100)));
+      featureFlagEnabledStrictLogStore.logStore.commit();
+      featureFlagEnabledStrictLogStore.logStore.refresh();
+
+      assertThat(
+              getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(2);
+      assertThat(
+              getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(0);
+      assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(1);
+
+      AstraSearch.SearchRequest.SourceFieldFilter sourceFieldFilter =
+          AstraSearch.SearchRequest.SourceFieldFilter.newBuilder()
+              .putIncludeFields("message", true)
+              .build();
+
+      List<LogMessage> messages =
+          featureFlagEnabledStrictLogStore.logSearcher.search(
+                  TEST_DATASET_NAME,
+                  1000,
+                  QueryBuilderUtil.generateQueryBuilder(
+                      "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+                  SourceFieldFilter.fromProto(sourceFieldFilter),
+                  createGenericDateHistogramAggregatorFactoriesBuilder())
+              .hits;
+      assertThat(messages).hasSize(1);
+      assertThat(messages.get(0).getSource()).hasSize(1);
+      assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+      assertThat(messages.get(0).getSource().get("message")).isEqualTo("REDACTED");
+    }
+
+    @Test
+    public void testRedactionOutOfTimerange() throws Exception {
+      String redactionName = "testRedaction";
+      String fieldName = "message";
+      long start = Instant.now().minus(2, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata(redactionName, fieldName, start, end));
+
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+
+      // search
+      TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+
+      Instant time = Instant.now();
+      featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+      featureFlagEnabledStrictLogStore.logStore.addMessage(
+          SpanUtil.makeSpan(2, time.plusSeconds(100)));
+      featureFlagEnabledStrictLogStore.logStore.commit();
+      featureFlagEnabledStrictLogStore.logStore.refresh();
+
+      assertThat(
+              getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(2);
+      assertThat(
+              getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(0);
+      assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(1);
+
+      AstraSearch.SearchRequest.SourceFieldFilter sourceFieldFilter =
+          AstraSearch.SearchRequest.SourceFieldFilter.newBuilder()
+              .putIncludeFields("message", true)
+              .build();
+
+      List<LogMessage> messages =
+          featureFlagEnabledStrictLogStore.logSearcher.search(
+                  TEST_DATASET_NAME,
+                  1000,
+                  QueryBuilderUtil.generateQueryBuilder(
+                      "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+                  SourceFieldFilter.fromProto(sourceFieldFilter),
+                  createGenericDateHistogramAggregatorFactoriesBuilder())
+              .hits;
+      assertThat(messages).hasSize(1);
+      assertThat(messages.get(0).getSource()).hasSize(1);
+      assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+      assertThat(messages.get(0).getSource().get("message"))
+          .isEqualTo("The identifier in this message is Message1");
+    }
+
+    @Test
+    public void testRedactionInAndOutOfTimerange() throws Exception {
+      String redactionName = "testRedaction";
+      String fieldName = "message";
+      long start = Instant.now().minus(2, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli();
+
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata(redactionName, fieldName, start, end));
+
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+
+      // search
+      TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+
+      Instant time = Instant.now();
+      featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+      featureFlagEnabledStrictLogStore.logStore.addMessage(
+          SpanUtil.makeSpan(2, time.minus(1, ChronoUnit.DAYS)));
+      featureFlagEnabledStrictLogStore.logStore.commit();
+      featureFlagEnabledStrictLogStore.logStore.refresh();
+
+      assertThat(
+              getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(2);
+      assertThat(
+              getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(0);
+      assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(1);
+
+      AstraSearch.SearchRequest.SourceFieldFilter sourceFieldFilter =
+          AstraSearch.SearchRequest.SourceFieldFilter.newBuilder()
+              .putIncludeFields("message", true)
+              .build();
+
+      List<LogMessage> messages =
+          featureFlagEnabledStrictLogStore.logSearcher.search(
+                  TEST_DATASET_NAME,
+                  1000,
+                  QueryBuilderUtil.generateQueryBuilder(
+                      "*",
+                      time.minus(2, ChronoUnit.DAYS).toEpochMilli(),
+                      time.plusSeconds(10).toEpochMilli()),
+                  SourceFieldFilter.fromProto(sourceFieldFilter),
+                  createGenericDateHistogramAggregatorFactoriesBuilder())
+              .hits;
+      assertThat(messages).hasSize(2);
+      assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+      assertThat(messages.get(0).getSource().get("message"))
+          .isEqualTo("The identifier in this message is Message1");
+      assertThat(messages.get(1).getSource().containsKey("message")).isTrue();
+      assertThat(messages.get(1).getSource().get("message")).isEqualTo("REDACTED");
+    }
+
+    @Test
+    public void testRedactionWithMultipleFieldsRedacted() throws Exception {
+
+      long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
+
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata("testRedaction1", "message", start, end));
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata("testRedaction2", "stringproperty", start, end));
+
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 2);
+
+      // search
+      TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+
+      Instant time = Instant.now();
+      featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+      featureFlagEnabledStrictLogStore.logStore.addMessage(
+          SpanUtil.makeSpan(2, time.plusSeconds(100)));
+      featureFlagEnabledStrictLogStore.logStore.commit();
+      featureFlagEnabledStrictLogStore.logStore.refresh();
+
+      assertThat(
+              getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(2);
+      assertThat(
+              getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(0);
+      assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(1);
+
+      AstraSearch.SearchRequest.SourceFieldFilter sourceFieldFilter =
+          AstraSearch.SearchRequest.SourceFieldFilter.newBuilder().setIncludeAll(true).build();
+
+      List<LogMessage> messages =
+          featureFlagEnabledStrictLogStore.logSearcher.search(
+                  TEST_DATASET_NAME,
+                  1000,
+                  QueryBuilderUtil.generateQueryBuilder(
+                      "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+                  SourceFieldFilter.fromProto(sourceFieldFilter),
+                  createGenericDateHistogramAggregatorFactoriesBuilder())
+              .hits;
+
+      assertThat(messages).hasSize(1);
+      assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+      assertThat(messages.get(0).getSource().get("message")).isEqualTo("REDACTED");
+      assertThat(messages.get(0).getSource().containsKey("stringproperty")).isTrue();
+      assertThat(messages.get(0).getSource().get("stringproperty")).isEqualTo("REDACTED");
+    }
+
+    @Test
+    public void testRedactionWithIncludeFiltersWithWildcard() throws Exception {
+
+      long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
+
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata("testRedaction1", "message", start, end));
+
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+
+      TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+
+      Instant time = Instant.now();
+      featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+      featureFlagEnabledStrictLogStore.logStore.addMessage(
+          SpanUtil.makeSpan(2, time.plusSeconds(100)));
+      featureFlagEnabledStrictLogStore.logStore.commit();
+      featureFlagEnabledStrictLogStore.logStore.refresh();
+
+      assertThat(
+              getCount(MESSAGES_RECEIVED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(2);
+      assertThat(
+              getCount(MESSAGES_FAILED_COUNTER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(0);
+      assertThat(getTimerCount(REFRESHES_TIMER, featureFlagEnabledStrictLogStore.metricsRegistry))
+          .isEqualTo(1);
+
+      AstraSearch.SearchRequest.SourceFieldFilter sourceFieldFilter =
+          AstraSearch.SearchRequest.SourceFieldFilter.newBuilder()
+              .addIncludeWildcards("messag.*")
+              .build();
+
+      List<LogMessage> messages =
+          featureFlagEnabledStrictLogStore.logSearcher.search(
+                  TEST_DATASET_NAME,
+                  1000,
+                  QueryBuilderUtil.generateQueryBuilder(
+                      "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+                  SourceFieldFilter.fromProto(sourceFieldFilter),
+                  createGenericDateHistogramAggregatorFactoriesBuilder())
+              .hits;
+      assertThat(messages).hasSize(1);
+      assertThat(messages.get(0).getSource()).hasSize(1);
+      assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
+      assertThat(messages.get(0).getSource().get("message")).isEqualTo("REDACTED");
+    }
+
+    @Test
+    public void testRedactionWithFilterAggregations() throws IOException {
+      Instant time = Instant.now();
+      long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
+
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata("testRedaction1", "message", start, end));
+
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+
+      TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
+          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+
+      featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time));
+      featureFlagEnabledStrictLogStore.logStore.addMessage(
+          SpanUtil.makeSpan(3, "apple baby", time.plusSeconds(2)));
+      featureFlagEnabledStrictLogStore.logStore.addMessage(
+          SpanUtil.makeSpan(4, "car", time.plusSeconds(3)));
+      featureFlagEnabledStrictLogStore.logStore.addMessage(
+          SpanUtil.makeSpan(5, "apple baby car", time.plusSeconds(4)));
+
+      featureFlagEnabledStrictLogStore.logStore.commit();
+      featureFlagEnabledStrictLogStore.logStore.refresh();
+
+      SearchResult<LogMessage> scriptNull =
+              featureFlagEnabledStrictLogStore.logSearcher.search(
+                      TEST_DATASET_NAME,
+                      1000,
+                      QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+                      null,
+                      createFiltersAggregatorFactoriesBuilder(
+                              "1",
+                              List.of(),
+                              Map.of(
+                                      "foo",
+                                      QueryBuilderUtil.generateQueryBuilder(
+                                              String.format(
+                                                      "%s:<=%s",
+                                                      LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                                                      time.plusSeconds(2).toEpochMilli()),
+                                              time.toEpochMilli(),
+                                              time.plusSeconds(2).toEpochMilli()),
+                                      "bar",
+                                      QueryBuilderUtil.generateQueryBuilder(
+                                              String.format(
+                                                      "%s:>%s",
+                                                      LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                                                      time.plusSeconds(2).toEpochMilli()),
+                                              time.plusSeconds(2).toEpochMilli(),
+                                              time.plusSeconds(10).toEpochMilli()))));
+
+      assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().size())
+          .isEqualTo(2);
+      assertThat(
+              ((InternalFilters) scriptNull.internalAggregation).getBuckets().get(0).getDocCount())
+          .isEqualTo(2);
+      assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(0).getKey())
+          .isIn(List.of("foo", "bar"));
+      assertThat(
+              ((InternalFilters) scriptNull.internalAggregation).getBuckets().get(1).getDocCount())
+          .isEqualTo(2);
+      assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(1).getKey())
+          .isIn(List.of("foo", "bar"));
+      assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(0).getKey())
+          .isNotEqualTo(
+              ((InternalFilters) scriptNull.internalAggregation).getBuckets().get(1).getKey());
+    }
+  }
 
   @RegisterExtension
   public TemporaryLogStoreAndSearcherExtension strictLogStore =

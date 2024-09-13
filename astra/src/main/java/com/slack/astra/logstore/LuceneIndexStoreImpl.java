@@ -1,6 +1,8 @@
 package com.slack.astra.logstore;
 
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.astra.logstore.search.fieldRedaction.RedactionFilterDirectoryReader;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.RuntimeHalterImpl;
@@ -21,6 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -81,7 +84,10 @@ public class LuceneIndexStoreImpl implements LogStore {
 
   // TODO: Set the policy via a lucene config file.
   public static LuceneIndexStoreImpl makeLogStore(
-      File dataDirectory, AstraConfigs.LuceneConfig luceneConfig, MeterRegistry metricsRegistry)
+      File dataDirectory,
+      AstraConfigs.LuceneConfig luceneConfig,
+      MeterRegistry metricsRegistry,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
     return makeLogStore(
         dataDirectory,
@@ -89,7 +95,8 @@ public class LuceneIndexStoreImpl implements LogStore {
         LuceneIndexStoreConfig.getRefreshDuration(luceneConfig.getRefreshDurationSecs()),
         luceneConfig.getEnableFullTextSearch(),
         SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
-        metricsRegistry);
+        metricsRegistry,
+        fieldRedactionMetadataStore);
   }
 
   public static LuceneIndexStoreImpl makeLogStore(
@@ -98,7 +105,8 @@ public class LuceneIndexStoreImpl implements LogStore {
       Duration refreshInterval,
       boolean enableFullTextSearch,
       SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy,
-      MeterRegistry metricsRegistry)
+      MeterRegistry metricsRegistry,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
     // TODO: Move all these config values into chunk?
     // TODO: Chunk should create log store?
@@ -110,11 +118,15 @@ public class LuceneIndexStoreImpl implements LogStore {
         indexStoreCfg,
         SchemaAwareLogDocumentBuilderImpl.build(
             fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
-        metricsRegistry);
+        metricsRegistry,
+        fieldRedactionMetadataStore);
   }
 
   public LuceneIndexStoreImpl(
-      LuceneIndexStoreConfig config, DocumentBuilder documentBuilder, MeterRegistry registry)
+      LuceneIndexStoreConfig config,
+      DocumentBuilder documentBuilder,
+      MeterRegistry registry,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
 
     this.documentBuilder = documentBuilder;
@@ -126,7 +138,17 @@ public class LuceneIndexStoreImpl implements LogStore {
         buildIndexWriterConfig(analyzer, this.snapshotDeletionPolicy, config, registry);
     indexDirectory = new MMapDirectory(config.indexFolder(id).toPath());
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
-    this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
+
+    // fieldRedactionMetadataStore should only be null for certain tests
+    if (fieldRedactionMetadataStore != null) {
+      RedactionFilterDirectoryReader reader =
+          new RedactionFilterDirectoryReader(
+              DirectoryReader.open(indexWriter.get()), fieldRedactionMetadataStore);
+      this.searcherManager = new SearcherManager(reader, null);
+    } else {
+      this.searcherManager = new SearcherManager(indexWriter.get(), null);
+      LOG.warn("fieldRedactionMetadataStore is NULL");
+    }
 
     scheduledCommit.scheduleWithFixedDelay(
         () -> {

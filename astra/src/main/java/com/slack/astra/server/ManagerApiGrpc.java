@@ -1,6 +1,7 @@
 package com.slack.astra.server;
 
 import static com.slack.astra.metadata.dataset.DatasetMetadataSerializer.toDatasetMetadataProto;
+import static com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataSerializer.toRedactedFieldMetadataProto;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -11,6 +12,9 @@ import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataSerializer;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataSerializer;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.manager_api.ManagerApi;
@@ -42,14 +46,17 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   private final SnapshotMetadataStore snapshotMetadataStore;
   public static final long MAX_TIME = Long.MAX_VALUE;
   private final ReplicaRestoreService replicaRestoreService;
+  private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
   public ManagerApiGrpc(
       DatasetMetadataStore datasetMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      ReplicaRestoreService replicaRestoreService) {
+      ReplicaRestoreService replicaRestoreService,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore) {
     this.datasetMetadataStore = datasetMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.replicaRestoreService = replicaRestoreService;
+    this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
   }
 
   /** Initializes a new dataset in the metadata store with no initial allocated capacity */
@@ -403,5 +410,81 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
 
     responseObserver.onCompleted();
+  }
+
+  /** Creates a new field redaction */
+  @Override
+  public void createFieldRedaction(
+      ManagerApi.CreateFieldRedactionRequest request,
+      StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
+    try {
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata(
+              request.getName(),
+              request.getFieldName(),
+              request.getStartTimeEpochMs(),
+              request.getEndTimeEpochMs()));
+      responseObserver.onNext(
+          toRedactedFieldMetadataProto(fieldRedactionMetadataStore.getSync(request.getName())));
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error creating new field redaction", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  /** Returns a single field redaction by name */
+  @Override
+  public void getFieldRedaction(
+      ManagerApi.GetFieldRedactionRequest request,
+      StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
+
+    try {
+      responseObserver.onNext(
+          toRedactedFieldMetadataProto(fieldRedactionMetadataStore.getSync(request.getName())));
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error getting field redaction", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  /** Deletes a single field redaction by name */
+  // todo - return true
+  @Override
+  public void deleteFieldRedaction(
+      ManagerApi.DeleteFieldRedactionRequest request,
+      StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
+
+    try {
+      FieldRedactionMetadata deletedFieldRedaction =
+          fieldRedactionMetadataStore.getSync(request.getName());
+      fieldRedactionMetadataStore.deleteSync(request.getName());
+      responseObserver.onNext(toRedactedFieldMetadataProto(deletedFieldRedaction));
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error deleting field redaction", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  /** Returns all existing field redactions from the metadata store */
+  @Override
+  public void listFieldRedactions(
+      ManagerApi.ListFieldRedactionsRequest request,
+      StreamObserver<ManagerApi.ListFieldRedactionsResponse> responseObserver) {
+    try {
+      responseObserver.onNext(
+          ManagerApi.ListFieldRedactionsResponse.newBuilder()
+              .addAllRedactedFields(
+                  fieldRedactionMetadataStore.listSync().stream()
+                      .map(FieldRedactionMetadataSerializer::toRedactedFieldMetadataProto)
+                      .collect(Collectors.toList()))
+              .build());
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error getting field redactions", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
   }
 }

@@ -9,6 +9,7 @@ import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchResult;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.service.murron.trace.Trace;
@@ -73,19 +74,35 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
   public LogIndexSearcherImpl logSearcher;
   public final File tempFolder;
 
+  // use this method if you do not want to include zookeeper setup or redaction in your tests
+  // sets the fieldRedactionMetadataStore to null which is not what actually happens in prod
   public TemporaryLogStoreAndSearcherExtension(boolean enableFullTextSearch) throws IOException {
     this(
         Duration.of(5, ChronoUnit.MINUTES),
         Duration.of(5, ChronoUnit.MINUTES),
         enableFullTextSearch,
-        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
+        null);
+  }
+
+  // include field redaction metadata for redaction testing
+  public TemporaryLogStoreAndSearcherExtension(
+      boolean enableFullTextSearch, FieldRedactionMetadataStore fieldRedactionMetadataStore)
+      throws IOException {
+    this(
+        Duration.of(5, ChronoUnit.MINUTES),
+        Duration.of(5, ChronoUnit.MINUTES),
+        enableFullTextSearch,
+        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
+        fieldRedactionMetadataStore);
   }
 
   public TemporaryLogStoreAndSearcherExtension(
       Duration commitInterval,
       Duration refreshInterval,
       boolean enableFullTextSearch,
-      SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy)
+      SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
     this.metricsRegistry = new SimpleMeterRegistry();
     this.tempFolder = Files.createTempDir(); // TODO: don't use beta func.
@@ -96,7 +113,8 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
             indexStoreCfg,
             SchemaAwareLogDocumentBuilderImpl.build(
                 fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
-            metricsRegistry);
+            metricsRegistry,
+            fieldRedactionMetadataStore);
 
     ConcurrentHashMap<String, LuceneFieldDef> schema = logStore.getSchema();
 

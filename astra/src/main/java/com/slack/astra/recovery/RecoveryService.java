@@ -13,6 +13,7 @@ import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.chunkManager.RecoveryChunkManager;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.astra.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.astra.metadata.recovery.RecoveryTaskMetadata;
@@ -84,6 +85,7 @@ public class RecoveryService extends AbstractIdleService {
   private final Timer recoveryTaskTimerSuccess;
   private final Timer recoveryTaskTimerFailure;
   private SearchMetadataStore searchMetadataStore;
+  private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
   private final AstraMetadataStoreChangeListener<RecoveryNodeMetadata> recoveryNodeListener =
       this::recoveryNodeListener;
@@ -147,6 +149,7 @@ public class RecoveryService extends AbstractIdleService {
     searchMetadataStore =
         new SearchMetadataStore(
             curatorFramework, AstraConfig.getMetadataStoreConfig().getZookeeperConfig(), false);
+    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
 
     recoveryNodeMetadataStore.createSync(
         new RecoveryNodeMetadata(
@@ -175,6 +178,7 @@ public class RecoveryService extends AbstractIdleService {
     recoveryTaskMetadataStore.close();
     snapshotMetadataStore.close();
     searchMetadataStore.close();
+    fieldRedactionMetadataStore.close();
 
     // Immediately shutdown recovery tasks. Any incomplete recovery tasks will be picked up by
     // another recovery node so we don't need to wait for processing to complete.
@@ -310,6 +314,7 @@ public class RecoveryService extends AbstractIdleService {
                 meterRegistry,
                 searchMetadataStore,
                 snapshotMetadataStore,
+                fieldRedactionMetadataStore,
                 AstraConfig.getIndexerConfig(),
                 blobStore);
 

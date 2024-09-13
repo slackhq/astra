@@ -22,6 +22,7 @@ import com.slack.astra.chunkrollover.DiskOrMessageCountBasedRolloverStrategy;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogStore;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
@@ -93,6 +94,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private SnapshotMetadataStore snapshotMetadataStore;
 
   private SearchMetadataStore searchMetadataStore;
+  private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
   /**
    * For capacity planning, we want to control how many roll overs are in progress at the same time.
@@ -261,7 +263,10 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       @SuppressWarnings("unchecked")
       LogStore logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
+              dataDirectory,
+              indexerConfig.getLuceneConfig(),
+              meterRegistry,
+              fieldRedactionMetadataStore);
 
       chunkRollOverStrategy.setActiveChunkDirectory(logStore.getDirectory());
 
@@ -389,6 +394,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
+    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
 
     stopIngestion = false;
   }
@@ -440,6 +446,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     searchMetadataStore.close();
     snapshotMetadataStore.close();
+    fieldRedactionMetadataStore.close();
     LOG.info("Closed indexing chunk manager.");
   }
 

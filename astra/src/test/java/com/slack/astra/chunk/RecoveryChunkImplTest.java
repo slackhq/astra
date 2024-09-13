@@ -103,7 +103,8 @@ public class RecoveryChunkImplTest {
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
-              registry);
+              registry,
+              null);
       chunk =
           new RecoveryChunkImpl<>(
               logStore,
@@ -464,7 +465,8 @@ public class RecoveryChunkImplTest {
               REFRESH_INTERVAL,
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR,
-              registry);
+              registry,
+              null);
       chunk =
           new RecoveryChunkImpl<>(
               logStore,
@@ -551,7 +553,8 @@ public class RecoveryChunkImplTest {
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
-              registry);
+              registry,
+              null);
       chunk =
           new RecoveryChunkImpl<>(
               logStore,
