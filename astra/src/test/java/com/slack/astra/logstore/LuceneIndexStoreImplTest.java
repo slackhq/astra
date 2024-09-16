@@ -396,7 +396,6 @@ public class LuceneIndexStoreImplTest {
                     >= activeFiles.size();
               });
 
-      // todo - testing here
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
@@ -411,108 +410,109 @@ public class LuceneIndexStoreImplTest {
     }
 
     @Test
-  public void testMaskFieldsS3Snapshot() throws Exception {
-    LuceneIndexStoreImpl logStore = strictLogStore.logStore;
-    addMessages(strictLogStore.logStore, 1, 100, true);
-    Collection<LogMessage> results =
-            findAllMessages(
-                    strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
-    assertThat(results.size()).isEqualTo(1);
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
-            .isEqualTo(100);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
-    assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
-    assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
+    public void testMaskFieldsS3Snapshot() throws Exception {
+      LuceneIndexStoreImpl logStore = strictLogStore.logStore;
+      addMessages(strictLogStore.logStore, 1, 100, true);
+      Collection<LogMessage> results =
+          findAllMessages(
+              strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
+      assertThat(results.size()).isEqualTo(1);
+      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
+          .isEqualTo(100);
+      assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
+      assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
-    Path dirPath = strictLogStore.logStore.getDirectory().getDirectory().toAbsolutePath();
-    IndexCommit indexCommit = strictLogStore.logStore.getIndexCommit();
-    Collection<String> activeFiles = indexCommit.getFileNames();
+      Path dirPath = strictLogStore.logStore.getDirectory().getDirectory().toAbsolutePath();
+      IndexCommit indexCommit = strictLogStore.logStore.getIndexCommit();
+      Collection<String> activeFiles = indexCommit.getFileNames();
 
-    strictLogStore.logStore.close();
-    strictLogStore.logSearcher.close();
-    strictLogStore.logStore = null;
-    strictLogStore.logSearcher = null;
+      strictLogStore.logStore.close();
+      strictLogStore.logSearcher.close();
+      strictLogStore.logStore = null;
+      strictLogStore.logSearcher = null;
 
-    assertThat(Objects.requireNonNull(dirPath.toFile().listFiles()).length)
-            .isGreaterThanOrEqualTo(activeFiles.size());
+      assertThat(Objects.requireNonNull(dirPath.toFile().listFiles()).length)
+          .isGreaterThanOrEqualTo(activeFiles.size());
 
-    // create an S3 client
-    S3AsyncClient s3AsyncClient =
-            S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    String bucket = "snapshot-test";
-    s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
-    BlobStore blobStore = new BlobStore(s3AsyncClient, bucket);
+      // create an S3 client
+      S3AsyncClient s3AsyncClient =
+          S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
+      String bucket = "snapshot-test";
+      s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
+      BlobStore blobStore = new BlobStore(s3AsyncClient, bucket);
 
-    String chunkId = UUID.randomUUID().toString();
-    blobStore.upload(chunkId, dirPath);
+      String chunkId = UUID.randomUUID().toString();
+      blobStore.upload(chunkId, dirPath);
 
-    for (String fileName : activeFiles) {
-      File fileToCopy = new File(dirPath.toString(), fileName);
-      HeadObjectResponse headObjectResponse =
-              s3AsyncClient
-                      .headObject(
-                              HeadObjectRequest.builder()
-                                      .bucket(bucket)
-                                      .key(String.format("%s/%s", chunkId, fileName))
-                                      .build())
-                      .get();
-      assertThat(headObjectResponse.contentLength()).isEqualTo(fileToCopy.length());
-    }
+      for (String fileName : activeFiles) {
+        File fileToCopy = new File(dirPath.toString(), fileName);
+        HeadObjectResponse headObjectResponse =
+            s3AsyncClient
+                .headObject(
+                    HeadObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(String.format("%s/%s", chunkId, fileName))
+                        .build())
+                .get();
+        assertThat(headObjectResponse.contentLength()).isEqualTo(fileToCopy.length());
+      }
 
-    // this try/retry/catch is to improve test reliability due to an AWS crt bug around mocked S3
-    // https://github.com/aws/aws-sdk-java-v2/issues/3658
-    await()
-            .ignoreExceptions()
-            .until(
-                    () -> {
-                      // clean the directory, in case a previous await try failed (would cause new copy to
-                      // then fail)
-                      FileUtils.cleanDirectory(tmpPath.toFile());
-                      // Download files from S3 to local FS.
-                      blobStore.download(chunkId, tmpPath.toAbsolutePath());
-                      // the delta is the presence of the write.lock file, which is released but still in
-                      // the directory
-                      return Objects.requireNonNull(tmpPath.toFile().listFiles()).length
-                              >= activeFiles.size();
-                    });
-    /*
-    {
-  "id": "Message1",
-  "timestamp": 1725661673.996,
-  "source": {
-    "longproperty": 1,
-    "floatproperty": 1.0,
-    "@timestamp": "2024-09-06T22:27:53.996483Z",
-    "_timesinceepoch": "2024-09-06T22:27:53.996Z",
-    "service_name": "testDataSet",
-    "stringproperty": "String-1",
-    "intproperty": 1,
-    "message": "The identifier in this message is Message1",
-    "doubleproperty": 1.0
-  },
-  "index": "testDataSet",
-  "type": "INFO"
-}
-     */
+      // this try/retry/catch is to improve test reliability due to an AWS crt bug around mocked S3
+      // https://github.com/aws/aws-sdk-java-v2/issues/3658
+      await()
+          .ignoreExceptions()
+          .until(
+              () -> {
+                // clean the directory, in case a previous await try failed (would cause new copy to
+                // then fail)
+                FileUtils.cleanDirectory(tmpPath.toFile());
+                // Download files from S3 to local FS.
+                blobStore.download(chunkId, tmpPath.toAbsolutePath());
+                // the delta is the presence of the write.lock file, which is released but still in
+                // the directory
+                return Objects.requireNonNull(tmpPath.toFile().listFiles()).length
+                    >= activeFiles.size();
+              });
+      /*
+          {
+        "id": "Message1",
+        "timestamp": 1725661673.996,
+        "source": {
+          "longproperty": 1,
+          "floatproperty": 1.0,
+          "@timestamp": "2024-09-06T22:27:53.996483Z",
+          "_timesinceepoch": "2024-09-06T22:27:53.996Z",
+          "service_name": "testDataSet",
+          "stringproperty": "String-1",
+          "intproperty": 1,
+          "message": "The identifier in this message is Message1",
+          "doubleproperty": 1.0
+        },
+        "index": "testDataSet",
+        "type": "INFO"
+      }
+           */
 
-    // todo - testing here
-    // Search files in local FS.
-    LogIndexSearcherImpl newSearcher =
-            new LogIndexSearcherImpl(
-                    LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
-                    logStore.getSchema());
-    Collection<LogMessage> newResults =
-            findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
-    assertThat(newResults.size()).isEqualTo(1);
-    List<LogMessage> resultList = newResults.stream().toList();
-    LogMessage log = resultList.getFirst();
+      // todo - testing here
+      // Search files in local FS.
+      LogIndexSearcherImpl newSearcher =
+          new LogIndexSearcherImpl(
+              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
+              logStore.getSchema());
+      Collection<LogMessage> newResults =
+          findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
+      assertThat(newResults.size()).isEqualTo(1);
+      List<LogMessage> resultList = newResults.stream().toList();
+      LogMessage log = resultList.getFirst();
 
-    assertThat(log.getSource().get("stringproperty")).isEqualTo("REDACTED");
+      assertThat(log.getSource().get("stringproperty")).isEqualTo("REDACTED");
       assertThat(log.getSource().get("service_name")).isEqualTo("REDACTED");
+      assertThat(log.getSource().get("binaryproperty")).isEqualTo("REDACTED");
 
-    // Clean up
-    newSearcher.close();
-  }
+      // Clean up
+      newSearcher.close();
+    }
   }
 
   @Nested

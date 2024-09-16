@@ -8,9 +8,7 @@ import brave.Tracing;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableMap;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
@@ -49,13 +47,7 @@ import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
-import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.lucene.index.SequentialStoredFieldsLeafReader;
-import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
@@ -89,9 +81,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class HashingStoredFieldVisitor extends StoredFieldVisitor {
       private ObjectMapper om = new ObjectMapper();
       private final StoredFieldVisitor delegate;
-      private List<String> maskedFields;
+      private final List<String> maskedFields;
 
-      public HashingStoredFieldVisitor(final StoredFieldVisitor delegate, List<String> maskedFields) {
+      public HashingStoredFieldVisitor(
+          final StoredFieldVisitor delegate, List<String> maskedFields) {
         super();
         this.delegate = delegate;
         this.maskedFields = maskedFields;
@@ -104,22 +97,26 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
       @Override
       public void binaryField(FieldInfo fieldInfo, byte[] value) throws IOException {
-        // todo - probably need to figure out as well
-//        if (fieldInfo.name.equals("_source")) {
-//          final BytesReference bytesRef = new BytesArray(value);
-//          final Tuple<XContentType, Map<String, Object>> bytesRefTuple = XContentHelper.convertToMap(
-//                  bytesRef,
-//                  false,
-//                  XContentType.JSON
-//          );
-//          Map<String, Object> filteredSource = bytesRefTuple.v2();
-//          // todo - do we have to traverse the map? can we just replace the whole thing?
-//          MapUtils.deepTraverseMap(filteredSource, HASH_CB);
-//          final XContentBuilder xBuilder = XContentBuilder.builder(bytesRefTuple.v1().xContent()).map(filteredSource);
-//          delegate.binaryField(fieldInfo, BytesReference.toBytes(BytesReference.bytes(xBuilder)));
-//        } else {
-//          delegate.binaryField(fieldInfo, value);
-//        }
+        if (fieldInfo.name.equals("_source")) {
+          Map<String, Object> source =
+              om.readValue(value, new TypeReference<HashMap<String, Object>>() {});
+
+          if (source.containsKey("source")) {
+            Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
+            String redactedStr = "REDACTED";
+
+            maskedFields.forEach(
+                field -> {
+                  if (innerSource.containsKey(field)) {
+                    innerSource.put(field, redactedStr.getBytes());
+                    source.put("source", innerSource);
+                  }
+                });
+          }
+          delegate.binaryField(fieldInfo, om.writeValueAsBytes(source));
+        } else {
+          delegate.binaryField(fieldInfo, value);
+        }
       }
 
       @Override
@@ -135,12 +132,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
 
             // todo - all the masking here?
-            maskedFields.forEach(field -> {
-            if (innerSource.containsKey(field)) {
-              innerSource.put(field, "REDACTED");
-              source.put("source", innerSource);
-            }
-            });
+            maskedFields.forEach(
+                field -> {
+                  if (innerSource.containsKey(field)) {
+                    innerSource.put(field, "REDACTED");
+                    source.put("source", innerSource);
+                  }
+                });
           }
 
           // todo - breakpoint here
@@ -175,7 +173,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class MaskedFieldReader extends StoredFieldsReader {
 
       private final StoredFieldsReader in;
-      List<String> maskedFields;
+      private final List<String> maskedFields;
 
       public MaskedFieldReader(StoredFieldsReader in, List<String> maskedFields) {
         this.in = in;
@@ -207,12 +205,12 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           //          finishVisitor(visitor);
         }
       }
-
     }
 
     // Implements the masking leaf reader
     class MaskedLeafReader extends SequentialStoredFieldsLeafReader {
-      List<String> maskedFields;
+      private final List<String> maskedFields;
+
       public MaskedLeafReader(LeafReader in, List<String> maskedFields) {
         super(in);
         this.maskedFields = maskedFields;
@@ -228,10 +226,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         return in.storedFields();
       }
 
-      // todo is this correct? Why would a field visitor be on both a leaf reader and a field reader?
+      // todo is this correct? Why would a field visitor be on both a leaf reader and a field
+      // reader?
       @Override
       public void document(int docID, StoredFieldVisitor visitor) throws IOException {
-        // todo
         visitor = new HashingStoredFieldVisitor(visitor, maskedFields);
         in.document(docID, visitor);
       }
@@ -254,7 +252,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements a masking subreaderwrapper
     class MaskingSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
-      List<String> maskedFields;
+      private final List<String> maskedFields;
+
       public MaskingSubReaderWrapper(List<String> maskedFields) throws IOException {
         this.maskedFields = maskedFields;
       }
@@ -267,7 +266,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements a filterdirectoryreader for masking
     class FilterMaskingReader extends FilterDirectoryReader {
-      List<String> maskedFields;
+      private final List<String> maskedFields;
+
       public FilterMaskingReader(DirectoryReader in, List<String> maskedFields) throws IOException {
         super(in, new MaskingSubReaderWrapper(maskedFields));
         this.maskedFields = maskedFields;
@@ -285,7 +285,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     }
 
     // todo thread to-be masked fields in here
-    List<String> maskedFields = List.of("stringproperty","service_name");
+    List<String> maskedFields = List.of("stringproperty", "service_name", "binaryproperty");
     FilterMaskingReader reader = new FilterMaskingReader(directoryReader, maskedFields);
     return new SearcherManager(reader, null);
   }

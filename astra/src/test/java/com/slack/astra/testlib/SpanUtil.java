@@ -7,12 +7,15 @@ import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_FLOAT_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_INT_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_LONG_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
+import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_BINARY_PROPERTY;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
+
+import java.nio.charset.Charset;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -191,6 +194,12 @@ public class SpanUtil {
                 Trace.KeyValue.newBuilder()
                     .setVStr(String.format("String-%s", i))
                     .setKey(TEST_SOURCE_STRING_PROPERTY)
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .build())
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVBinary(ByteString.copyFromUtf8(String.format("String-%s", i)))
+                    .setKey(TEST_SOURCE_BINARY_PROPERTY)
                     .setFieldType(Schema.SchemaFieldType.KEYWORD)
                     .build())
             .addTags(
