@@ -2,20 +2,18 @@ package com.slack.astra.testlib;
 
 import static com.slack.astra.testlib.MessageUtil.DEFAULT_MESSAGE_PREFIX;
 import static com.slack.astra.testlib.MessageUtil.TEST_DATASET_NAME;
+import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_BINARY_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_DOUBLE_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_FLOAT_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_INT_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_LONG_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
-import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_BINARY_PROPERTY;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
-
-import java.nio.charset.Charset;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

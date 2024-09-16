@@ -15,9 +15,12 @@ import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
+import com.slack.astra.proto.masked_field.MaskedFieldOuterClass;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -121,8 +124,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
       @Override
       public void stringField(FieldInfo fieldInfo, String value) throws IOException {
-        // todo - timestamp filter - how do we get the time range here?
-        // todo - is timestamp within redaction window AND is field supposed to be redacted?
+        // todo - is timestamp within redaction window?
         // snapshotmetadatastore.listsync().forEach( redactionItem -> {redactionItem.name})
         if (fieldInfo.name.equals("_source")) {
           Map<String, Object> source =
@@ -131,7 +133,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           if (source.containsKey("source")) {
             Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
 
-            // todo - all the masking here?
             maskedFields.forEach(
                 field -> {
                   if (innerSource.containsKey(field)) {
@@ -141,7 +142,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
                 });
           }
 
-          // todo - breakpoint here
           delegate.stringField(fieldInfo, om.writeValueAsString(source));
         } else {
           delegate.stringField(fieldInfo, value);
@@ -285,7 +285,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     }
 
     // todo thread to-be masked fields in here
-    List<String> maskedFields = List.of("stringproperty", "service_name", "binaryproperty");
+
+    long startTime = Instant.now().minus(2, ChronoUnit.DAYS).toEpochMilli();
+    long endTime = Instant.now().toEpochMilli();
+    MaskedField strField = new MaskedField("stringproperty", startTime, endTime);
+    List<MaskedField> maskedFields = List.of(strField);
     FilterMaskingReader reader = new FilterMaskingReader(directoryReader, maskedFields);
     return new SearcherManager(reader, null);
   }
