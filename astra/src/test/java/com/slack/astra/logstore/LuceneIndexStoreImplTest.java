@@ -507,7 +507,7 @@ public class LuceneIndexStoreImplTest {
       LogMessage log = resultList.getFirst();
 
       assertThat(log.getSource().get("stringproperty")).isEqualTo("REDACTED");
-      assertThat(log.getSource().get("service_name")).isEqualTo("REDACTED");
+      assertThat(log.getSource().get("service_name")).isEqualTo("testDataSet");
       assertThat(log.getSource().get("binaryproperty")).isEqualTo("REDACTED");
 
       // Clean up

@@ -15,7 +15,6 @@ import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
-import com.slack.astra.proto.masked_field.MaskedFieldOuterClass;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -84,10 +83,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class HashingStoredFieldVisitor extends StoredFieldVisitor {
       private ObjectMapper om = new ObjectMapper();
       private final StoredFieldVisitor delegate;
-      private final List<String> maskedFields;
+      private final List<MaskedField> maskedFields;
 
       public HashingStoredFieldVisitor(
-          final StoredFieldVisitor delegate, List<String> maskedFields) {
+          final StoredFieldVisitor delegate, List<MaskedField> maskedFields) {
         super();
         this.delegate = delegate;
         this.maskedFields = maskedFields;
@@ -100,19 +99,23 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
       @Override
       public void binaryField(FieldInfo fieldInfo, byte[] value) throws IOException {
+        final byte[] salt = "REDACTED".getBytes();
+
         if (fieldInfo.name.equals("_source")) {
           Map<String, Object> source =
               om.readValue(value, new TypeReference<HashMap<String, Object>>() {});
 
           if (source.containsKey("source")) {
             Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
-            String redactedStr = "REDACTED";
+            Instant timestamp = Instant.parse((String) innerSource.get("_timesinceepoch"));
 
             maskedFields.forEach(
                 field -> {
-                  if (innerSource.containsKey(field)) {
-                    innerSource.put(field, redactedStr.getBytes());
-                    source.put("source", innerSource);
+                  if (field.inMaskedTimerange(timestamp)) {
+                    if (innerSource.containsKey(field.getFieldName())) {
+                      innerSource.put(field.getFieldName(), salt);
+                      source.put("source", innerSource);
+                    }
                   }
                 });
           }
@@ -132,12 +135,15 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
           if (source.containsKey("source")) {
             Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
+            Instant timestamp = Instant.parse((String) innerSource.get("_timesinceepoch"));
 
             maskedFields.forEach(
                 field -> {
-                  if (innerSource.containsKey(field)) {
-                    innerSource.put(field, "REDACTED");
-                    source.put("source", innerSource);
+                  if (field.inMaskedTimerange(timestamp)) {
+                    if (innerSource.containsKey(field.getFieldName())) {
+                      innerSource.put(field.getFieldName(), "REDACTED");
+                      source.put("source", innerSource);
+                    }
                   }
                 });
           }
@@ -173,9 +179,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class MaskedFieldReader extends StoredFieldsReader {
 
       private final StoredFieldsReader in;
-      private final List<String> maskedFields;
+      private final List<MaskedField> maskedFields;
 
-      public MaskedFieldReader(StoredFieldsReader in, List<String> maskedFields) {
+      public MaskedFieldReader(StoredFieldsReader in, List<MaskedField> maskedFields) {
         this.in = in;
         this.maskedFields = maskedFields;
       }
@@ -209,9 +215,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements the masking leaf reader
     class MaskedLeafReader extends SequentialStoredFieldsLeafReader {
-      private final List<String> maskedFields;
+      private final List<MaskedField> maskedFields;
 
-      public MaskedLeafReader(LeafReader in, List<String> maskedFields) {
+      public MaskedLeafReader(LeafReader in, List<MaskedField> maskedFields) {
         super(in);
         this.maskedFields = maskedFields;
       }
@@ -252,9 +258,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements a masking subreaderwrapper
     class MaskingSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
-      private final List<String> maskedFields;
+      private final List<MaskedField> maskedFields;
 
-      public MaskingSubReaderWrapper(List<String> maskedFields) throws IOException {
+      public MaskingSubReaderWrapper(List<MaskedField> maskedFields) throws IOException {
         this.maskedFields = maskedFields;
       }
 
@@ -266,9 +272,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements a filterdirectoryreader for masking
     class FilterMaskingReader extends FilterDirectoryReader {
-      private final List<String> maskedFields;
+      private final List<MaskedField> maskedFields;
 
-      public FilterMaskingReader(DirectoryReader in, List<String> maskedFields) throws IOException {
+      public FilterMaskingReader(DirectoryReader in, List<MaskedField> maskedFields)
+          throws IOException {
         super(in, new MaskingSubReaderWrapper(maskedFields));
         this.maskedFields = maskedFields;
       }
@@ -286,10 +293,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // todo thread to-be masked fields in here
 
-    long startTime = Instant.now().minus(2, ChronoUnit.DAYS).toEpochMilli();
-    long endTime = Instant.now().toEpochMilli();
+    Instant startTime = Instant.now().minus(2, ChronoUnit.DAYS);
+    Instant endTime = Instant.now().plus(2, ChronoUnit.DAYS);
+    Instant endTime2 = Instant.now().minus(1, ChronoUnit.DAYS);
     MaskedField strField = new MaskedField("stringproperty", startTime, endTime);
-    List<MaskedField> maskedFields = List.of(strField);
+    MaskedField strField2 = new MaskedField("service_name", startTime, endTime2);
+    MaskedField byteField = new MaskedField("binaryproperty", startTime, endTime);
+
+    List<MaskedField> maskedFields = List.of(strField, strField2, byteField);
     FilterMaskingReader reader = new FilterMaskingReader(directoryReader, maskedFields);
     return new SearcherManager(reader, null);
   }

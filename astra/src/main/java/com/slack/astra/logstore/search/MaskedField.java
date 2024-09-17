@@ -1,29 +1,31 @@
 package com.slack.astra.logstore.search;
 
+import java.time.Instant;
+
 public class MaskedField {
-    public final String field;
-    public final long startTimeEpochMs;
-    public final long endTimeEpochMs;
+  private final String fieldName;
+  private final Instant startTimeEpochMs;
+  private final Instant endTimeEpochMs;
 
-    public MaskedField(String field, long startTimeEpochMs, long endTimeEpochMs) {
-        this.field = field;
-        this.startTimeEpochMs = startTimeEpochMs;
-        this.endTimeEpochMs = endTimeEpochMs;
-    }
+  public MaskedField(String field, Instant startTimeEpochMs, Instant endTimeEpochMs) {
+    this.fieldName = field;
+    this.startTimeEpochMs = startTimeEpochMs;
+    this.endTimeEpochMs = endTimeEpochMs;
+  }
 
-    public String getField() {
-        return field;
-    }
+  public String getFieldName() {
+    return fieldName;
+  }
 
-    public long getStartTimeEpochMs() {
-        return startTimeEpochMs;
-    }
+  public Instant getStartTimeEpochMs() {
+    return startTimeEpochMs;
+  }
 
-    public long getEndTimeEpochMs() {
-        return endTimeEpochMs;
-    }
+  public Instant getEndTimeEpochMs() {
+    return endTimeEpochMs;
+  }
 
-    public boolean inMaskedTimerange(long logTimestamp) {
-       return logTimestamp >= startTimeEpochMs && logTimestamp <= endTimeEpochMs;
-    }
+  public boolean inMaskedTimerange(Instant logTimestamp) {
+    return logTimestamp.isAfter(startTimeEpochMs) && logTimestamp.isBefore(endTimeEpochMs);
+  }
 }
