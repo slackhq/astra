@@ -4,28 +4,28 @@ import java.time.Instant;
 
 public class MaskedField {
   private final String fieldName;
-  private final Instant startTime;
-  private final Instant endTime;
+  private final long startTimeEpochMs;
+  private final long endTimeEpochMs;
 
-  public MaskedField(String field, Instant startTimeEpochMs, Instant endTimeEpochMs) {
+  public MaskedField(String field, long startTimeEpochMs, long endTimeEpochMs) {
     this.fieldName = field;
-    this.startTime = startTimeEpochMs;
-    this.endTime = endTimeEpochMs;
+    this.startTimeEpochMs = startTimeEpochMs;
+    this.endTimeEpochMs = endTimeEpochMs;
   }
 
   public String getFieldName() {
     return fieldName;
   }
 
-  public Instant getStartTime() {
-    return startTime;
+  public long getStartTimeEpochMs() {
+    return startTimeEpochMs;
   }
 
-  public Instant getEndTime() {
-    return endTime;
+  public long getEndTimeEpochMs() {
+    return endTimeEpochMs;
   }
 
-  public boolean inMaskedTimerange(Instant logTimestamp) {
-    return logTimestamp.isAfter(startTime) && logTimestamp.isBefore(endTime);
+  public boolean inMaskedTimerange(long logTimestamp) {
+    return startTimeEpochMs <= logTimestamp && endTimeEpochMs >= logTimestamp;
   }
 }

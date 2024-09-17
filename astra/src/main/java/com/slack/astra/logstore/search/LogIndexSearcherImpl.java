@@ -107,7 +107,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
           if (source.containsKey("source")) {
             Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
-            Instant timestamp = Instant.parse((String) innerSource.get("_timesinceepoch"));
+            long timestamp = Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
             maskedFields.forEach(
                 field -> {
@@ -135,7 +135,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
           if (source.containsKey("source")) {
             Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
-            Instant timestamp = Instant.parse((String) innerSource.get("_timesinceepoch"));
+            long timestamp = Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
             maskedFields.forEach(
                 field -> {
@@ -293,9 +293,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // todo thread to-be masked fields in here
 
-    Instant startTime = Instant.now().minus(2, ChronoUnit.DAYS);
-    Instant endTime = Instant.now().plus(2, ChronoUnit.DAYS);
-    Instant endTime2 = Instant.now().minus(1, ChronoUnit.DAYS);
+    long startTime = Instant.now().minus(2, ChronoUnit.DAYS).toEpochMilli();
+    long endTime = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
+    long endTime2 = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
     MaskedField strField = new MaskedField("stringproperty", startTime, endTime);
     MaskedField strField2 = new MaskedField("service_name", startTime, endTime2);
     MaskedField byteField = new MaskedField("binaryproperty", startTime, endTime);
