@@ -61,7 +61,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private CacheNodeMetadataStore cacheNodeMetadataStore;
 
-  private ExecutorService executorService =
+  private final ExecutorService executorService =
       Executors.newCachedThreadPool(
           new ThreadFactoryBuilder().setNameFormat("caching-chunk-manager-%d").build());
 

@@ -7,6 +7,8 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.slack.astra.blobfs.BlobStore;
+import com.slack.astra.blobfs.S3RemoteDirectory;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
@@ -35,6 +37,7 @@ import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
@@ -62,6 +65,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       Boolean.parseBoolean(
           System.getProperty("astra.query.useOpenSearchAggregationParsing", "false"));
   ;
+
+  @VisibleForTesting
+  public static SearcherManager searcherManagerFromChunkId(String chunkId, BlobStore blobStore)
+      throws IOException {
+    Directory directory = new S3RemoteDirectory(chunkId, blobStore);
+    return new SearcherManager(directory, null);
+  }
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
