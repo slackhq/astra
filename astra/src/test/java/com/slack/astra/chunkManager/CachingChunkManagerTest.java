@@ -201,7 +201,6 @@ public class CachingChunkManagerTest {
     filesToUpload.add(schemaFile.getName());
     IndexCommit indexCommit = logStore.getIndexCommit();
     filesToUpload.addAll(indexCommit.getFileNames());
-    System.out.println(filesToUpload.size());
 
     logStore.close();
     assertThat(dirPath.toFile().listFiles().length).isGreaterThanOrEqualTo(filesToUpload.size());

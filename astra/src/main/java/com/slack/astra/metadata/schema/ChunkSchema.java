@@ -23,6 +23,10 @@ public class ChunkSchema extends AstraMetadata {
     Files.writeString(file.toPath(), serDe.toJsonStr(chunkSchema));
   }
 
+  public static ChunkSchema deserializeBytes(byte[] bytes) throws IOException {
+    return serDe.fromJsonStr(new String(bytes));
+  }
+
   public static ChunkSchema deserializeFile(Path path) throws IOException {
     return serDe.fromJsonStr(Files.readString(path));
   }

@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.slack.astra.logstore.opensearch.AstraBigArrays;
+import com.slack.astra.logstore.opensearch.AstraIndexSettings;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.SearchResultUtils;
 import com.slack.astra.logstore.search.aggregations.AutoDateHistogramAggBuilder;
@@ -265,7 +266,7 @@ public class OpenSearchRequest {
       QueryShardContext queryShardContext =
           new QueryShardContext(
               0,
-              openSearchAdapter.getIndexSettings(),
+              AstraIndexSettings.getInstance(),
               AstraBigArrays.getInstance(),
               null,
               null,
