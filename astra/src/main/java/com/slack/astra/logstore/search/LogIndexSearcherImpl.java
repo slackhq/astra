@@ -107,7 +107,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
           if (source.containsKey("source")) {
             Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
-            long timestamp = Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
+            long timestamp =
+                Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
             maskedFields.forEach(
                 field -> {
@@ -135,7 +136,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
           if (source.containsKey("source")) {
             Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
-            long timestamp = Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
+            long timestamp =
+                Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
             maskedFields.forEach(
                 field -> {

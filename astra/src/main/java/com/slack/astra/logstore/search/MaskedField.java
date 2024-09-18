@@ -1,6 +1,5 @@
 package com.slack.astra.logstore.search;
 
-import java.time.Instant;
 
 public class MaskedField {
   private final String fieldName;
