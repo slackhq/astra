@@ -79,7 +79,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     this.searcherManager.addListener(refreshListener);
 
     // initialize the adapter with whatever the default schema is
-    openSearchAdapter.reloadSchema();
+    openSearchAdapter.loadSchema();
   }
 
   @Override
