@@ -40,7 +40,6 @@ public class SearchResultUtilsTest {
   public void shouldParseBasicMustNotQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
-            .setQueryString("")
             .setQuery(
                 """
             {
@@ -54,7 +53,6 @@ public class SearchResultUtilsTest {
             }""")
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
-    assertThat(output.queryStr).isEmpty();
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
 
     BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
@@ -70,7 +68,6 @@ public class SearchResultUtilsTest {
   public void shouldParseMustNotTermsQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
-            .setQueryString("")
             .setQuery(
                 """
             {
@@ -89,7 +86,6 @@ public class SearchResultUtilsTest {
             }""")
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
-    assertThat(output.queryStr).isEmpty();
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
 
     BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
@@ -104,7 +100,6 @@ public class SearchResultUtilsTest {
   public void shouldParseBasicFilterQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
-            .setQueryString("")
             .setQuery(
                 """
             {
@@ -118,7 +113,6 @@ public class SearchResultUtilsTest {
             }""")
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
-    assertThat(output.queryStr).isEmpty();
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
 
     BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
@@ -134,7 +128,6 @@ public class SearchResultUtilsTest {
   public void shouldParseFilterTermsQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
-            .setQueryString("")
             .setQuery(
                 """
             {
@@ -153,7 +146,6 @@ public class SearchResultUtilsTest {
             }""")
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
-    assertThat(output.queryStr).isEmpty();
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
 
     BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
@@ -168,7 +160,6 @@ public class SearchResultUtilsTest {
   public void shouldParseBasicMustQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
-            .setQueryString("")
             .setQuery(
                 """
             {
@@ -182,7 +173,6 @@ public class SearchResultUtilsTest {
             }""")
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
-    assertThat(output.queryStr).isEmpty();
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
 
     BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
@@ -198,7 +188,6 @@ public class SearchResultUtilsTest {
   public void shouldParseMustTermsQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
-            .setQueryString("")
             .setQuery(
                 """
             {
@@ -217,7 +206,6 @@ public class SearchResultUtilsTest {
             }""")
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
-    assertThat(output.queryStr).isEmpty();
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
 
     BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
@@ -232,7 +220,6 @@ public class SearchResultUtilsTest {
   public void shouldParseBasicShouldQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
-            .setQueryString("")
             .setQuery(
                 """
             {
@@ -246,7 +233,6 @@ public class SearchResultUtilsTest {
             }""")
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
-    assertThat(output.queryStr).isEmpty();
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
 
     BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
@@ -262,7 +248,6 @@ public class SearchResultUtilsTest {
   public void shouldParseShouldTermsQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
-            .setQueryString("")
             .setQuery(
                 """
             {
@@ -281,7 +266,6 @@ public class SearchResultUtilsTest {
             }""")
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
-    assertThat(output.queryStr).isEmpty();
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
 
     BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
@@ -296,7 +280,6 @@ public class SearchResultUtilsTest {
   public void shouldParseNonBoolQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
-            .setQueryString("")
             .setQuery(
                 """
             {
@@ -327,7 +310,6 @@ public class SearchResultUtilsTest {
             }""")
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
-    assertThat(output.queryStr).isEmpty();
     assertThat(output.queryBuilder).isInstanceOf(IntervalQueryBuilder.class);
 
     IntervalQueryBuilder intervalQueryBuilder = (IntervalQueryBuilder) output.queryBuilder;

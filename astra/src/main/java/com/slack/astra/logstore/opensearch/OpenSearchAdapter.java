@@ -67,7 +67,6 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryStringQueryBuilder;
-import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
@@ -133,17 +132,11 @@ public class OpenSearchAdapter {
   private static final int TOTAL_FIELDS_LIMIT =
       Integer.parseInt(System.getProperty("astra.mapping.totalFieldsLimit", "2500"));
 
-  // This will enable OpenSearch query parsing by default, rather than going down the
-  // QueryString parsing path we have been using
-  private final boolean useOpenSearchQueryParsing;
-
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     this.indexSettings = buildIndexSettings();
     this.similarityService = new SimilarityService(indexSettings, null, emptyMap());
     this.mapperService = buildMapperService(indexSettings, similarityService);
     this.chunkSchema = chunkSchema;
-    this.useOpenSearchQueryParsing =
-        Boolean.parseBoolean(System.getProperty("astra.query.useOpenSearchParsing", "false"));
   }
 
   /**
@@ -156,15 +149,8 @@ public class OpenSearchAdapter {
    *     href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html">Query
    *     parsing ES docs</a>
    */
-  public Query buildQuery(
-      String dataset,
-      String queryStr,
-      Long startTimeMsEpoch,
-      Long endTimeMsEpoch,
-      IndexSearcher indexSearcher,
-      QueryBuilder queryBuilder)
+  public Query buildQuery(IndexSearcher indexSearcher, QueryBuilder queryBuilder)
       throws IOException {
-    LOG.trace("Query raw input string: '{}'", queryStr);
     QueryShardContext queryShardContext =
         buildQueryShardContext(
             AstraBigArrays.getInstance(),
@@ -173,63 +159,16 @@ public class OpenSearchAdapter {
             similarityService,
             mapperService);
 
-    if (queryBuilder != null && this.useOpenSearchQueryParsing) {
-      return queryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
-    }
-
-    try {
-      BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
-
-      // only add a range filter if either start or end time is provided
-      if (startTimeMsEpoch != null || endTimeMsEpoch != null) {
-        RangeQueryBuilder rangeQueryBuilder =
-            new RangeQueryBuilder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-
-        // todo - consider supporting something other than GTE/LTE (ie GT/LT?)
-        if (startTimeMsEpoch != null) {
-          rangeQueryBuilder.gte(startTimeMsEpoch);
-        }
-
-        if (endTimeMsEpoch != null) {
-          rangeQueryBuilder.lte(endTimeMsEpoch);
-        }
-
-        boolQueryBuilder.filter(rangeQueryBuilder);
+    if (queryBuilder != null) {
+      try {
+        return queryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
+      } catch (Exception e) {
+        LOG.error("Query parse exception", e);
+        throw new IllegalArgumentException(e);
       }
-
-      // todo - dataset?
-
-      // Only add the query string clause if this is not attempting to fetch all records
-      // Since we do analyze the wildcard this can cause unexpected behavior if only a wildcard is
-      // provided
-      if (queryStr != null
-          && !queryStr.isEmpty()
-          && !queryStr.equals("*:*")
-          && !queryStr.equals("*")) {
-        QueryStringQueryBuilder queryStringQueryBuilder = new QueryStringQueryBuilder(queryStr);
-
-        if (queryShardContext.getMapperService().fieldType(LogMessage.SystemField.ALL.fieldName)
-            != null) {
-          // setting lenient=false will not throw error when the query fails to parse against
-          // numeric fields
-          queryStringQueryBuilder.lenient(false);
-        } else {
-          // The _all field is the default field for all queries. If we explicitly don't want
-          // to search that field, or that field isn't mapped, then we need to set the default to be
-          // *
-          queryStringQueryBuilder.defaultField("*");
-          queryStringQueryBuilder.lenient(true);
-        }
-
-        queryStringQueryBuilder.analyzeWildcard(true);
-
-        boolQueryBuilder.filter(queryStringQueryBuilder);
-      }
-      return boolQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
-    } catch (Exception e) {
-      LOG.error("Query parse exception", e);
-      throw new IllegalArgumentException(e);
     }
+    // TODO: Should this return null? Raise an error? Just return everything?
+    return new BoolQueryBuilder().rewrite(queryShardContext).toQuery(queryShardContext);
   }
 
   /**
@@ -410,7 +349,7 @@ public class OpenSearchAdapter {
             // {LuceneIndexStoreImpl#buildIndexWriterConfig}
             // When we were using the lucene query parser the sort info was leveraged by lucene
             // automatically ( as the sort info persists in the segment info ) at query time.
-            // However the OpenSearch query parser has a custom implementation which relies on the
+            // However, the OpenSearch query parser has a custom implementation which relies on the
             // index sort info to be present as a setting here.
             .put("index.sort.field", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
             .put("index.sort.order", "desc")
@@ -1116,5 +1055,13 @@ public class OpenSearchAdapter {
     }
 
     return histogramAggregationBuilder;
+  }
+
+  public MapperService getMapperService() {
+    return this.mapperService;
+  }
+
+  public IndexSettings getIndexSettings() {
+    return this.indexSettings;
   }
 }

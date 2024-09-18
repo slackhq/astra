@@ -43,7 +43,6 @@ public class OpenSearchRequestTest {
 
     assertThat(request.getDataset()).isEqualTo("_all");
     assertThat(request.getHowMany()).isEqualTo(500);
-    assertThat(request.getQueryString()).isEqualTo("*:*");
     assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
 
@@ -76,7 +75,6 @@ public class OpenSearchRequestTest {
 
     assertThat(request.getDataset()).isEqualTo("_all");
     assertThat(request.getHowMany()).isEqualTo(500);
-    assertThat(request.getQueryString()).isEqualTo("*:*");
     assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
 
@@ -111,7 +109,6 @@ public class OpenSearchRequestTest {
 
     assertThat(request.getDataset()).isEqualTo("_all");
     assertThat(request.getHowMany()).isEqualTo(500);
-    assertThat(request.getQueryString()).isEqualTo("*:*");
     assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
 
@@ -153,7 +150,6 @@ public class OpenSearchRequestTest {
 
     assertThat(request.getDataset()).isEqualTo("_all");
     assertThat(request.getHowMany()).isEqualTo(500);
-    assertThat(request.getQueryString()).isEqualTo("*:*");
     assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
 
@@ -175,7 +171,6 @@ public class OpenSearchRequestTest {
 
     assertThat(request.getDataset()).isEqualTo("_all");
     assertThat(request.getHowMany()).isEqualTo(1);
-    assertThat(request.getQueryString()).isEqualTo("*:*");
     assertThat(request.getStartTimeEpochMs()).isEqualTo(1676498801027L);
     assertThat(request.getEndTimeEpochMs()).isEqualTo(1676500240688L);
 

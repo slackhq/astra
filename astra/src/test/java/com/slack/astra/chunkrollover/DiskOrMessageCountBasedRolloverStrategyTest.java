@@ -147,6 +147,12 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     astraLocalQueryService = new AstraLocalQueryService<>(chunkManager, Duration.ofSeconds(3));
   }
 
+  private static String buildQueryFromQueryString(
+      String queryString, Long startTime, Long endTime) {
+    return "{\"bool\":{\"filter\":[{\"range\":{\"_timesinceepoch\":{\"gte\":%d,\"lte\":%d,\"format\":\"epoch_millis\"}}},{\"query_string\":{\"analyze_wildcard\":true,\"query\":\"%s\"}}]}}"
+        .formatted(startTime, endTime, queryString);
+  }
+
   @Test
   public void testInitViaConfig() {
     AstraConfigs.IndexerConfig indexerCfg = AstraConfigUtil.makeIndexerConfig();
@@ -203,7 +209,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
         astraLocalQueryService.doSearch(
             searchRequestBuilder
                 .setDataset(MessageUtil.TEST_DATASET_NAME)
-                .setQueryString("Message1")
+                .setQuery(buildQueryFromQueryString("Message1", chunk1StartTimeMs, chunk1EndTimeMs))
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
@@ -306,7 +312,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
         astraLocalQueryService.doSearch(
             searchRequestBuilder
                 .setDataset(MessageUtil.TEST_DATASET_NAME)
-                .setQueryString("Message1")
+                .setQuery(buildQueryFromQueryString("Message1", chunk1StartTimeMs, chunk1EndTimeMs))
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)

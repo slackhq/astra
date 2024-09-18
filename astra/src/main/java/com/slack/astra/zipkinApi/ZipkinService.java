@@ -206,6 +206,7 @@ public class ZipkinService {
             () -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
     // we are adding a buffer to end time also because some machines clock may be ahead of current
     // system clock and those spans would be stored but can't be queried
+
     long endTime =
         endTimeEpochMs.orElseGet(
             () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
@@ -224,7 +225,7 @@ public class ZipkinService {
         searcher.doSearch(
             searchRequestBuilder
                 .setDataset(MATCH_ALL_DATASET)
-                .setQueryString(queryString)
+                .setQuery(queryString)
                 .setStartTimeEpochMs(startTime)
                 .setEndTimeEpochMs(endTime)
                 .setHowMany(howMany)

@@ -42,6 +42,7 @@ import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -189,14 +190,13 @@ public class RecoveryChunkManagerTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "Message1",
             0,
             MAX_TIME,
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
             null);
     SearchResult<LogMessage> results = chunkManager.getActiveChunk().query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
@@ -233,14 +233,13 @@ public class RecoveryChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_DATASET_NAME,
-                        "Message101",
                         0,
                         MAX_TIME,
                         10,
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
-                        null,
+                        QueryBuilderUtil.generateQueryBuilder("Message101", 0L, MAX_TIME),
                         null))
                 .hits
                 .size())
@@ -265,14 +264,13 @@ public class RecoveryChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_DATASET_NAME,
-                        "Message102",
                         0,
                         MAX_TIME,
                         10,
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
-                        null,
+                        QueryBuilderUtil.generateQueryBuilder("Message102", 0L, MAX_TIME),
                         null))
                 .hits
                 .size())
@@ -334,19 +332,19 @@ public class RecoveryChunkManagerTest {
   }
 
   private void testChunkManagerSearch(
-      ChunkManager<LogMessage> chunkManager, String searchString, int expectedHitCount) {
+      ChunkManager<LogMessage> chunkManager, String searchString, int expectedHitCount)
+      throws IOException {
 
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            searchString,
             0,
             TemporaryLogStoreAndSearcherExtension.MAX_TIME,
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder(searchString, 0L, MAX_TIME),
             null);
     SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 

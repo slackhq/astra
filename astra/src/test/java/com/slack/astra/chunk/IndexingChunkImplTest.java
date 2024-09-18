@@ -34,6 +34,7 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
+import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -149,7 +150,7 @@ public class IndexingChunkImplTest {
     }
 
     @Test
-    public void testAddAndSearchChunk() {
+    public void testAddAndSearchChunk() throws IOException {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
@@ -161,41 +162,38 @@ public class IndexingChunkImplTest {
       chunk.query(
           new SearchQuery(
               MessageUtil.TEST_DATASET_NAME,
-              "*:*",
-              0,
+              0L,
               MAX_TIME,
               10,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
-              null,
+              QueryBuilderUtil.generateQueryBuilder("*:*", 0L, MAX_TIME),
               null));
 
       chunk.query(
           new SearchQuery(
               MessageUtil.TEST_DATASET_NAME,
-              "Message1",
-              0,
+              0L,
               MAX_TIME,
               10,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
-              null,
+              QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
               null));
 
       SearchResult<LogMessage> results =
           chunk.query(
               new SearchQuery(
                   MessageUtil.TEST_DATASET_NAME,
-                  "Message*",
-                  0,
+                  0L,
                   MAX_TIME,
                   10,
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
-                  null,
+                  QueryBuilderUtil.generateQueryBuilder("Message*", 0L, MAX_TIME),
                   null));
       assertThat(results.hits.size()).isEqualTo(10);
 
@@ -206,7 +204,7 @@ public class IndexingChunkImplTest {
     }
 
     @Test
-    public void testAddAndSearchChunkInTimeRange() {
+    public void testAddAndSearchChunkInTimeRange() throws IOException {
       final Instant startTime = Instant.now();
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
       final long messageStartTimeMs =
@@ -304,20 +302,21 @@ public class IndexingChunkImplTest {
     }
 
     private void searchChunk(
-        String searchString, long startTimeMs, long endTimeMs, int expectedResultCount) {
+        String searchString, long startTimeMs, long endTimeMs, int expectedResultCount)
+        throws IOException {
       assertThat(
               chunk
                   .query(
                       new SearchQuery(
                           MessageUtil.TEST_DATASET_NAME,
-                          searchString,
                           startTimeMs,
                           endTimeMs,
                           10,
                           new DateHistogramAggBuilder(
                               "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                           Collections.emptyList(),
-                          null,
+                          QueryBuilderUtil.generateQueryBuilder(
+                              searchString, startTimeMs, endTimeMs),
                           null))
                   .hits
                   .size())
@@ -326,7 +325,7 @@ public class IndexingChunkImplTest {
     }
 
     @Test
-    public void testSearchInReadOnlyChunk() {
+    public void testSearchInReadOnlyChunk() throws IOException {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
@@ -343,14 +342,13 @@ public class IndexingChunkImplTest {
           chunk.query(
               new SearchQuery(
                   MessageUtil.TEST_DATASET_NAME,
-                  "Message1",
-                  0,
+                  0L,
                   MAX_TIME,
                   10,
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
-                  null,
+                  QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                   null));
       assertThat(results.hits.size()).isEqualTo(1);
 
@@ -402,7 +400,7 @@ public class IndexingChunkImplTest {
     }
 
     @Test
-    public void testCommitBeforeSnapshot() {
+    public void testCommitBeforeSnapshot() throws IOException {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
@@ -415,14 +413,13 @@ public class IndexingChunkImplTest {
           chunk.query(
               new SearchQuery(
                   MessageUtil.TEST_DATASET_NAME,
-                  "Message1",
-                  0,
+                  0L,
                   MAX_TIME,
                   10,
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
-                  null,
+                  QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                   null));
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
@@ -433,14 +430,13 @@ public class IndexingChunkImplTest {
           chunk.query(
               new SearchQuery(
                   MessageUtil.TEST_DATASET_NAME,
-                  "Message1",
-                  0,
+                  0L,
                   MAX_TIME,
                   10,
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
-                  null,
+                  QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                   null));
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
     }
@@ -601,7 +597,7 @@ public class IndexingChunkImplTest {
 
     @Test
     public void testSnapshotToNonExistentS3BucketFails()
-        throws ExecutionException, InterruptedException, TimeoutException {
+        throws ExecutionException, InterruptedException, TimeoutException, IOException {
       testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
@@ -616,14 +612,13 @@ public class IndexingChunkImplTest {
       SearchQuery searchQuery =
           new SearchQuery(
               MessageUtil.TEST_DATASET_NAME,
-              "Message1",
-              0,
+              0L,
               MAX_TIME,
               10,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
-              null,
+              QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
               null);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
@@ -676,14 +671,13 @@ public class IndexingChunkImplTest {
       SearchQuery searchQuery =
           new SearchQuery(
               MessageUtil.TEST_DATASET_NAME,
-              "Message1",
-              0,
+              0L,
               MAX_TIME,
               10,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
-              null,
+              QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
               null);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);

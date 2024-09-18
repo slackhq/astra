@@ -14,6 +14,7 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.util.QueryBuilderUtil;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Objects;
@@ -35,7 +36,7 @@ public class StatsCollectorTest {
   }
 
   @Test
-  public void testStatsCollectorWithPerMinuteMessages() {
+  public void testStatsCollectorWithPerMinuteMessages() throws IOException {
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
     strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time.plusSeconds(60)));
@@ -48,13 +49,11 @@ public class StatsCollectorTest {
     SearchResult<LogMessage> allIndexItems =
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
-            "",
-            time.toEpochMilli(),
-            time.plusSeconds(4 * 60).toEpochMilli(),
             0,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-            null,
+            QueryBuilderUtil.generateQueryBuilder(
+                "", time.toEpochMilli(), time.plusSeconds(4 * 60).toEpochMilli()),
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);

@@ -685,7 +685,6 @@ public class SearchResultUtils {
 
     return new SearchQuery(
         searchRequest.getDataset(),
-        searchRequest.getQueryString(),
         searchRequest.getStartTimeEpochMs(),
         searchRequest.getEndTimeEpochMs(),
         searchRequest.getHowMany(),

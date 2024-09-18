@@ -37,8 +37,10 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.ChunkManagerUtil;
 import com.slack.astra.testlib.TestKafkaServer;
+import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.astra.writer.kafka.AstraKafkaConsumer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -586,8 +588,8 @@ public class AstraIndexerTest {
     produceMessagesToKafka(broker, startTime);
   }
 
-  private void consumeMessagesAndSearchMessagesTest(
-      int messagesReceived, double rolloversCompleted) {
+  private void consumeMessagesAndSearchMessagesTest(int messagesReceived, double rolloversCompleted)
+      throws IOException {
     // commit the active chunk if it exists, else it was rolled over.
     final ReadWriteChunk<LogMessage> activeChunk = chunkManagerUtil.chunkManager.getActiveChunk();
     if (activeChunk != null) {
@@ -620,14 +622,14 @@ public class AstraIndexerTest {
         chunkManagerUtil.chunkManager.query(
             new SearchQuery(
                 "test",
-                "Message100",
                 chunk1StartTimeMs,
                 chunk1StartTimeMs + (100 * 1000),
                 10,
                 new DateHistogramAggBuilder(
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
-                null,
+                QueryBuilderUtil.generateQueryBuilder(
+                    "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000)),
                 null),
             Duration.ofMillis(3000));
 

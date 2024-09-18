@@ -25,6 +25,7 @@ import com.slack.astra.metadata.schema.SchemaUtil;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.ChunkManagerUtil;
+import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -86,18 +87,18 @@ public class LogMessageWriterImplTest {
     metricsRegistry.close();
   }
 
-  private SearchResult<LogMessage> searchChunkManager(String indexName, String queryString) {
+  private SearchResult<LogMessage> searchChunkManager(String indexName, String queryString)
+      throws IOException {
     return chunkManagerUtil.chunkManager.query(
         new SearchQuery(
             indexName,
-            queryString,
-            0,
+            0L,
             MAX_TIME,
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder(queryString, 0L, MAX_TIME),
             null),
         Duration.ofMillis(3000));
   }
@@ -174,14 +175,13 @@ public class LogMessageWriterImplTest {
                 .query(
                     new SearchQuery(
                         serviceName,
-                        "",
-                        0,
+                        0L,
                         MAX_TIME,
                         100,
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
-                        null,
+                        QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
                         null),
                     Duration.ofMillis(3000))
                 .hits

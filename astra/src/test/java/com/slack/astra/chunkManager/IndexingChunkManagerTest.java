@@ -62,6 +62,7 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
+import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -197,6 +198,12 @@ public class IndexingChunkManagerTest {
             indexerConfig);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+  }
+
+  private static String buildQueryFromQueryString(
+      String queryString, Long startTime, Long endTime) {
+    return "{\"bool\":{\"filter\":[{\"range\":{\"_timesinceepoch\":{\"gte\":%d,\"lte\":%d,\"format\":\"epoch_millis\"}}},{\"query_string\":{\"analyze_wildcard\":true,\"query\":\"%s\"}}]}}"
+        .formatted(startTime, endTime, queryString);
   }
 
   @Test
@@ -399,14 +406,13 @@ public class IndexingChunkManagerTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "Message1",
             0,
             MAX_TIME,
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
             null);
     SearchResult<LogMessage> results = chunkManager.query(searchQuery, Duration.ofMillis(3000));
     assertThat(results.hits.size()).isEqualTo(1);
@@ -460,14 +466,13 @@ public class IndexingChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_DATASET_NAME,
-                        "Message101",
                         0,
                         MAX_TIME,
                         10,
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
-                        null,
+                        QueryBuilderUtil.generateQueryBuilder("Message101", 0L, MAX_TIME),
                         null),
                     Duration.ofMillis(3000))
                 .hits
@@ -492,14 +497,13 @@ public class IndexingChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_DATASET_NAME,
-                        "Message102",
                         0,
                         MAX_TIME,
                         10,
                         new DateHistogramAggBuilder(
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
-                        null,
+                        QueryBuilderUtil.generateQueryBuilder("Message102", 0L, MAX_TIME),
                         null),
                     Duration.ofMillis(3000))
                 .hits
@@ -533,7 +537,7 @@ public class IndexingChunkManagerTest {
         astraLocalQueryService.doSearch(
             searchRequestBuilder
                 .setDataset(MessageUtil.TEST_DATASET_NAME)
-                .setQueryString(searchString)
+                .setQuery(buildQueryFromQueryString(searchString, 0L, Long.MAX_VALUE))
                 .setStartTimeEpochMs(0)
                 .setEndTimeEpochMs(Long.MAX_VALUE)
                 .setHowMany(10)
@@ -584,18 +588,18 @@ public class IndexingChunkManagerTest {
       ChunkManager<LogMessage> chunkManager,
       String searchString,
       long startTimeEpochMs,
-      long endTimeEpochMs) {
+      long endTimeEpochMs)
+      throws IOException {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            searchString,
             startTimeEpochMs,
             endTimeEpochMs,
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder(searchString, startTimeEpochMs, endTimeEpochMs),
             null);
     return chunkManager.query(searchQuery, Duration.ofMillis(3000)).hits.size();
   }

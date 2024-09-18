@@ -1,5 +1,7 @@
 package com.slack.astra.elasticsearchApi;
 
+import static org.apache.lucene.document.LongPoint.decodeDimension;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -7,6 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.slack.astra.logstore.opensearch.AstraBigArrays;
+import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.SearchResultUtils;
 import com.slack.astra.logstore.search.aggregations.AutoDateHistogramAggBuilder;
 import com.slack.astra.logstore.search.aggregations.AvgAggBuilder;
@@ -24,13 +28,37 @@ import com.slack.astra.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.astra.logstore.search.aggregations.SumAggBuilder;
 import com.slack.astra.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.astra.logstore.search.aggregations.UniqueCountAggBuilder;
+import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.service.AstraSearch;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.commons.lang3.NotImplementedException;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.IndexOrDocValuesQuery;
+import org.apache.lucene.search.IndexSortSortedNumericDocValuesRangeQuery;
+import org.apache.lucene.search.PointRangeQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
+import org.apache.lucene.search.TermRangeQuery;
+import org.apache.lucene.util.ArrayUtil;
+import org.apache.lucene.util.BytesRef;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.json.JsonXContentParser;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.index.query.AbstractQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.search.SearchModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility class for parsing an OpenSearch NDJSON search request into a list of appropriate
@@ -41,6 +69,86 @@ import org.apache.commons.lang3.NotImplementedException;
 public class OpenSearchRequest {
   private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+  private static final OpenSearchAdapter openSearchAdapter =
+      new OpenSearchAdapter(
+          Map.of(
+              "_timesinceepoch", new LuceneFieldDef("_timesinceepoch", "date", true, true, true),
+              "@timestamp", new LuceneFieldDef("@timestamp", "date", true, true, true)));
+  private static final Logger log = LoggerFactory.getLogger(OpenSearchRequest.class);
+
+  // Used to get the date ranges from the query
+  private static class DateRangeQueryVisitor extends QueryVisitor {
+    private Long dateRangeStart;
+    private Long dateRangeEnd;
+
+    private String toString(byte[] value) {
+      return Long.toString(decodeDimension(value, 0));
+    }
+
+    private void checkTimeRange(Query query) {
+      if (query instanceof TermRangeQuery rangeQuery) {
+        BytesRef lowerTerm = rangeQuery.getLowerTerm();
+        BytesRef upperTerm = rangeQuery.getUpperTerm();
+
+        if (rangeQuery.getField().equals("@timestamp")
+            || rangeQuery.getField().equals("_timesinceepoch")) {
+          String lowerDateString = lowerTerm.utf8ToString();
+          String upperDateString = upperTerm.utf8ToString();
+
+          this.dateRangeStart = Instant.parse(lowerDateString).toEpochMilli();
+          this.dateRangeEnd = Instant.parse(upperDateString).toEpochMilli();
+        }
+      } else if (query
+          instanceof
+          IndexSortSortedNumericDocValuesRangeQuery indexSortSortedNumericDocValuesRangeQuery) {
+        Query fallbackQuery = indexSortSortedNumericDocValuesRangeQuery.getFallbackQuery();
+        checkTimeRange(fallbackQuery);
+      } else if (query instanceof IndexOrDocValuesQuery indexOrDocValuesQuery) {
+        Query indexQuery = indexOrDocValuesQuery.getIndexQuery();
+        checkTimeRange(indexQuery);
+      } else if (query instanceof PointRangeQuery pointRangeQuery) {
+
+        if (pointRangeQuery.getField().equals("@timestamp")
+            || pointRangeQuery.getField().equals("_timesinceepoch")) {
+          String lowerDateString =
+              new String(pointRangeQuery.getLowerPoint(), StandardCharsets.UTF_8);
+          String upperDateString =
+              new String(pointRangeQuery.getUpperPoint(), StandardCharsets.UTF_8);
+
+          for (int i = 0; i < pointRangeQuery.getNumDims(); i++) {
+            int startOffset = pointRangeQuery.getBytesPerDim() * i;
+            lowerDateString =
+                toString(
+                    ArrayUtil.copyOfSubArray(
+                        pointRangeQuery.getLowerPoint(),
+                        startOffset,
+                        startOffset + pointRangeQuery.getBytesPerDim()));
+            upperDateString =
+                toString(
+                    ArrayUtil.copyOfSubArray(
+                        pointRangeQuery.getUpperPoint(),
+                        startOffset,
+                        startOffset + pointRangeQuery.getBytesPerDim()));
+          }
+
+          this.dateRangeStart = Long.valueOf(lowerDateString);
+          this.dateRangeEnd = Long.valueOf(upperDateString);
+        }
+      }
+    }
+
+    @Override
+    public void visitLeaf(Query query) {
+      checkTimeRange(query);
+    }
+
+    @Override
+    public QueryVisitor getSubVisitor(BooleanClause.Occur occur, Query parent) {
+      checkTimeRange(parent);
+      return this;
+    }
+  }
 
   public List<AstraSearch.SearchRequest> parseHttpPostBody(String postBody)
       throws JsonProcessingException {
@@ -55,17 +163,20 @@ public class OpenSearchRequest {
     for (List<String> pair : Lists.partition(Arrays.asList(postBody.split("\n")), 2)) {
       JsonNode header = OM.readTree(pair.get(0));
       JsonNode body = OM.readTree(pair.get(1));
+      String query = getQuery(body);
+      Optional<DateRangeQueryVisitor> dateRangeQueryVisitor = Optional.of(getDateRange(query));
 
       searchRequests.add(
           AstraSearch.SearchRequest.newBuilder()
               .setDataset(getDataset(header))
-              .setQueryString(getQueryString(body))
               .setHowMany(getHowMany(body))
-              .setStartTimeEpochMs(getStartTimeEpochMs(body))
-              .setEndTimeEpochMs(getEndTimeEpochMs(body))
               .setAggregations(getAggregations(body))
               .setQuery(getQuery(body))
               .setSourceFieldFilter(getSourceFieldFilter(body))
+              .setStartTimeEpochMs(
+                  dateRangeQueryVisitor.orElse(new DateRangeQueryVisitor()).dateRangeStart)
+              .setEndTimeEpochMs(
+                  dateRangeQueryVisitor.orElse(new DateRangeQueryVisitor()).dateRangeEnd)
               .build());
     }
     return searchRequests;
@@ -141,6 +252,45 @@ public class OpenSearchRequest {
     return AstraSearch.SearchRequest.SourceFieldFilter.newBuilder().build();
   }
 
+  private static DateRangeQueryVisitor getDateRange(String queryBody) {
+    try {
+      openSearchAdapter.reloadSchema();
+      JsonXContentParser jsonXContentParser =
+          new JsonXContentParser(
+              new NamedXContentRegistry(
+                  new SearchModule(Settings.EMPTY, List.of()).getNamedXContents()),
+              DeprecationHandler.IGNORE_DEPRECATIONS,
+              OM.createParser(queryBody));
+      QueryBuilder queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(jsonXContentParser);
+      QueryShardContext queryShardContext =
+          new QueryShardContext(
+              0,
+              openSearchAdapter.getIndexSettings(),
+              AstraBigArrays.getInstance(),
+              null,
+              null,
+              openSearchAdapter.getMapperService(),
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              () -> Instant.now().toEpochMilli(),
+              null,
+              s -> false,
+              () -> true,
+              null);
+      Query query = queryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
+      DateRangeQueryVisitor dateRangeQueryVisitor = new DateRangeQueryVisitor();
+      query.visit(dateRangeQueryVisitor);
+      return dateRangeQueryVisitor;
+    } catch (IOException e) {
+      log.error("Unable to parse date/time range from query body: {}. Error: {}", queryBody, e);
+      return null;
+    }
+  }
+
   private static String getQuery(JsonNode body) {
     if (!body.get("query").isNull() && !body.get("query").isEmpty()) {
       return body.get("query").toString();
@@ -152,30 +302,8 @@ public class OpenSearchRequest {
     return header.get("index").asText();
   }
 
-  private static String getQueryString(JsonNode body) {
-    // Grafana 7 and 8 have different default behaviors when query is not initialized
-    // - Grafana 7 the query field under query is not present
-    // - Grafana 8 the query field defaults to "*"
-    String queryString = "*:*";
-    if (body.get("query").findValue("query") != null) {
-      String requestedQueryString = body.get("query").findValue("query").asText();
-      if (!requestedQueryString.equals("*")) {
-        queryString = requestedQueryString;
-      }
-    }
-    return queryString;
-  }
-
   private static int getHowMany(JsonNode body) {
     return body.get("size").asInt();
-  }
-
-  private static long getStartTimeEpochMs(JsonNode body) {
-    return body.get("query").findValue("gte").asLong();
-  }
-
-  private static long getEndTimeEpochMs(JsonNode body) {
-    return body.get("query").findValue("lte").asLong();
   }
 
   private static AstraSearch.SearchRequest.SearchAggregation getAggregations(JsonNode body) {

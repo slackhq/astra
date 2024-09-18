@@ -39,6 +39,7 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.MessageUtil;
+import com.slack.astra.util.QueryBuilderUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -156,14 +157,16 @@ public class ReadOnlyChunkImplTest {
         readOnlyChunk.query(
             new SearchQuery(
                 MessageUtil.TEST_DATASET_NAME,
-                "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
                 new DateHistogramAggBuilder(
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
-                null,
+                QueryBuilderUtil.generateQueryBuilder(
+                    "*:*",
+                    Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+                    Instant.now().toEpochMilli()),
                 null));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
@@ -209,14 +212,16 @@ public class ReadOnlyChunkImplTest {
         readOnlyChunk.query(
             new SearchQuery(
                 MessageUtil.TEST_DATASET_NAME,
-                "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
                 new DateHistogramAggBuilder(
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
-                null,
+                QueryBuilderUtil.generateQueryBuilder(
+                    "*:*",
+                    Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+                    Instant.now().toEpochMilli()),
                 null));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
@@ -424,14 +429,16 @@ public class ReadOnlyChunkImplTest {
     SearchQuery query =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "*:*",
             Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().toEpochMilli(),
             500,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder(
+                "*:*",
+                Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+                Instant.now().toEpochMilli()),
             null);
     SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
@@ -465,27 +472,6 @@ public class ReadOnlyChunkImplTest {
     }
 
     curatorFramework.unwrap().close();
-  }
-
-  @Test
-  public void shouldUseOptimizedQueryStartEndTime() {
-    // Query is before the chunk data, so do not return a start time
-    assertThat(ReadOnlyChunkImpl.determineStartTime(10, 12)).isNull();
-
-    // Query matches chunk start time, do not return a start time
-    assertThat(ReadOnlyChunkImpl.determineStartTime(10, 10)).isNull();
-
-    // Query only matches part of the chunk, return the query start time
-    assertThat(ReadOnlyChunkImpl.determineStartTime(10, 9)).isEqualTo(10);
-
-    // Query only matches part of the chunk, return the query end time
-    assertThat(ReadOnlyChunkImpl.determineEndTime(10, 12)).isEqualTo(10);
-
-    // Query matches chunk end time, do not return an end time
-    assertThat(ReadOnlyChunkImpl.determineEndTime(10, 10)).isNull();
-
-    // Query is after the chunk data, so do not return an end time
-    assertThat(ReadOnlyChunkImpl.determineEndTime(12, 10)).isNull();
   }
 
   @Test
@@ -568,14 +554,16 @@ public class ReadOnlyChunkImplTest {
         readOnlyChunk.query(
             new SearchQuery(
                 MessageUtil.TEST_DATASET_NAME,
-                "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
                 new DateHistogramAggBuilder(
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
-                null,
+                QueryBuilderUtil.generateQueryBuilder(
+                    "*:*",
+                    Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+                    Instant.now().toEpochMilli()),
                 null));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 

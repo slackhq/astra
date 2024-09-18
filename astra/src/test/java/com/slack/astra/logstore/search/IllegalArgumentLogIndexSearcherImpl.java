@@ -8,9 +8,6 @@ public class IllegalArgumentLogIndexSearcherImpl implements LogIndexSearcher<Log
   @Override
   public SearchResult<LogMessage> search(
       String dataset,
-      String query,
-      Long minTime,
-      Long maxTime,
       int howMany,
       AggBuilder aggBuilder,
       QueryBuilder queryBuilder,

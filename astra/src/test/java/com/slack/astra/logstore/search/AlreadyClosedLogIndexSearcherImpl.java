@@ -9,9 +9,6 @@ public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMe
   @Override
   public SearchResult<LogMessage> search(
       String dataset,
-      String query,
-      Long minTime,
-      Long maxTime,
       int howMany,
       AggBuilder aggBuilder,
       QueryBuilder queryBuilder,

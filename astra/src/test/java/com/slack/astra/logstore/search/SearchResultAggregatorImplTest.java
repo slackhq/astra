@@ -13,6 +13,7 @@ import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
+import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -75,14 +76,13 @@ public class SearchResultAggregatorImplTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "Message1",
             histogramStartMs,
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -147,14 +147,13 @@ public class SearchResultAggregatorImplTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "Message1",
             histogramStartMs,
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -241,14 +240,13 @@ public class SearchResultAggregatorImplTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "Message1",
             histogramStartMs,
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null);
     List<SearchResult<LogMessage>> searchResults =
         List.of(searchResult1, searchResult4, searchResult3, searchResult2);
@@ -297,14 +295,13 @@ public class SearchResultAggregatorImplTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "Message1",
             searchStartMs,
             searchEndMs,
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("Message1", searchStartMs, searchEndMs),
             null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -362,14 +359,13 @@ public class SearchResultAggregatorImplTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "Message1",
             histogramStartMs,
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -423,14 +419,13 @@ public class SearchResultAggregatorImplTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "Message1",
             startTimeMs,
             endTimeMs,
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("Message1", startTimeMs, endTimeMs),
             null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -490,14 +485,13 @@ public class SearchResultAggregatorImplTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
-            "Message1",
             histogramStartMs,
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m"),
             Collections.emptyList(),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -557,9 +551,6 @@ public class SearchResultAggregatorImplTest {
     SearchResult<LogMessage> messageSearchResult =
         logSearcher.search(
             "testDataSet",
-            "*:*",
-            histogramStartMs,
-            histogramEndMs,
             0,
             new DateHistogramAggBuilder(
                 "1",
@@ -571,7 +562,7 @@ public class SearchResultAggregatorImplTest {
                 "",
                 Map.of("min", histogramStartMs, "max", histogramEndMs),
                 List.of()),
-            null,
+            QueryBuilderUtil.generateQueryBuilder("*:*", histogramStartMs, histogramEndMs),
             null);
 
     try {

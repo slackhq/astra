@@ -7,12 +7,14 @@ option java_package = "com.slack.astra.proto.service";
 import "schema.proto";
 
 message SearchRequest {
+  // Previously deleted field numbers
+  reserved 3;
+
   // Data sets or chunk_ids to be searched
   string dataset = 1;
   repeated string chunk_ids = 2;
 
-  // Actual query params
-  string query_string = 3;
+  // Query metadata
   int64 start_time_epoch_ms = 4;
   int64 end_time_epoch_ms = 5;
   int32 how_many = 6;

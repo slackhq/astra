@@ -15,10 +15,14 @@ public class AstraSearchUtils {
             .build(AstraServiceGrpc.AstraServiceBlockingStub.class)
             .withCompression("gzip");
 
+    String query =
+        "{\"bool\":{\"filter\":[{\"range\":{\"_timesinceepoch\":{\"gte\":%d,\"lte\":%d,\"format\":\"epoch_millis\"}}},{\"query_string\":{\"analyze_wildcard\":true,\"query\":\"%s\"}}]}}"
+            .formatted(startTime, endTime, queryString);
+
     return astraService.search(
         AstraSearch.SearchRequest.newBuilder()
             .setDataset(MessageUtil.TEST_DATASET_NAME)
-            .setQueryString(queryString)
+            .setQuery(query)
             .setStartTimeEpochMs(startTime)
             .setEndTimeEpochMs(endTime)
             .setHowMany(100)

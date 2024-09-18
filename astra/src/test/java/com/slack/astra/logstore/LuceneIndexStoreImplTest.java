@@ -26,6 +26,7 @@ import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
 import java.io.File;
 import java.io.IOException;
@@ -80,7 +81,7 @@ public class LuceneIndexStoreImplTest {
     }
 
     @Test
-    public void testSearchAndQueryDocsWithNestedJson() {
+    public void testSearchAndQueryDocsWithNestedJson() throws IOException {
       Trace.Span span =
           Trace.Span.newBuilder()
               .setId(ByteString.copyFromUtf8("1"))
@@ -116,39 +117,30 @@ public class LuceneIndexStoreImplTest {
       SearchResult<LogMessage> result1 =
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
-              "nested.key1:value1",
-              0L,
-              MAX_TIME,
               100,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-              null,
+              QueryBuilderUtil.generateQueryBuilder("nested.key1:value1", 0L, MAX_TIME),
               null);
       assertThat(result1.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result2 =
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
-              "duplicateproperty:duplicate1",
-              0L,
-              MAX_TIME,
               100,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-              null,
+              QueryBuilderUtil.generateQueryBuilder("duplicateproperty:duplicate1", 0L, MAX_TIME),
               null);
       assertThat(result2.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result3 =
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
-              "nested.duplicateproperty:2",
-              0L,
-              MAX_TIME,
               100,
               new DateHistogramAggBuilder(
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-              null,
+              QueryBuilderUtil.generateQueryBuilder("nested.duplicateproperty:2", 0L, MAX_TIME),
               null);
       assertThat(result3.hits.size()).isEqualTo(1);
     }
