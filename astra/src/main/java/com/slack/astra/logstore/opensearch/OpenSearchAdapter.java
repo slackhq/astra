@@ -73,6 +73,7 @@ import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.script.Script;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
+import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
@@ -137,6 +138,40 @@ public class OpenSearchAdapter {
     this.similarityService = new SimilarityService(indexSettings, null, emptyMap());
     this.mapperService = buildMapperService(indexSettings, similarityService);
     this.chunkSchema = chunkSchema;
+  }
+
+  public Aggregator buildAggregatorFromFactory(
+      IndexSearcher indexSearcher,
+      AggregatorFactories.Builder aggregatorFactoriesBuilder,
+      Query query)
+      throws IOException {
+    QueryShardContext queryShardContext =
+        buildQueryShardContext(
+            AstraBigArrays.getInstance(),
+            indexSettings,
+            indexSearcher,
+            similarityService,
+            mapperService);
+
+    if (aggregatorFactoriesBuilder != null) {
+      try {
+        AggregatorFactories aggregatorFactories =
+            aggregatorFactoriesBuilder.build(queryShardContext, null);
+        SearchContext searchContext =
+            new AstraSearchContext(
+                AstraBigArrays.getInstance(), queryShardContext, indexSearcher, query);
+        Aggregator[] aggregators =
+            aggregatorFactories.createSubAggregators(
+                searchContext, null, CardinalityUpperBound.ONE);
+        // TODO FOR KYLE: Is this right?
+        return aggregators[0];
+      } catch (Exception e) {
+        LOG.error("Aggregator parse exception", e);
+        throw new IllegalArgumentException(e);
+      }
+    }
+    // TODO: Should this return null? Raise an error?
+    return null;
   }
 
   /**
@@ -261,6 +296,54 @@ public class OpenSearchAdapter {
           b.endObject();
           b.endObject();
         });
+  }
+
+  public CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
+      AggregatorFactories.Builder aggregatorFactoriesBuilder,
+      IndexSearcher indexSearcher,
+      Query query)
+      throws IOException {
+    return new CollectorManager<>() {
+      @Override
+      public Aggregator newCollector() throws IOException {
+        // preCollection must be invoked prior to using aggregations
+        Aggregator aggregator =
+            buildAggregatorFromFactory(indexSearcher, aggregatorFactoriesBuilder, query);
+        aggregator.preCollection();
+        return aggregator;
+      }
+
+      /**
+       * The collector manager required a collection of collectors for reducing, though for our
+       * normal case this will likely only be a single collector
+       */
+      @Override
+      public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
+        List<InternalAggregation> internalAggregationList = new ArrayList<>();
+        for (Aggregator collector : collectors) {
+          // postCollection must be invoked prior to building the internal aggregations
+          collector.postCollection();
+          internalAggregationList.add(collector.buildTopLevel());
+        }
+
+        if (internalAggregationList.size() == 0) {
+          return null;
+        } else {
+          // Using the first element on the list as the basis for the reduce method is per
+          // OpenSearch recommendations: "For best efficiency, when implementing, try
+          // reusing an existing instance (typically the first in the given list) to save
+          // on redundant object construction."
+          return internalAggregationList
+              .get(0)
+              .reduce(
+                  internalAggregationList,
+                  InternalAggregation.ReduceContext.forPartialReduction(
+                      AstraBigArrays.getInstance(),
+                      null,
+                      () -> PipelineAggregator.PipelineTree.EMPTY));
+        }
+      }
+    };
   }
 
   /** Builds a CollectorManager for use in the Lucene aggregation step */

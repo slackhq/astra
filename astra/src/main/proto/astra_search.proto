@@ -22,11 +22,14 @@ message SearchRequest {
   // Only a single top-level aggregation is currently supported
   SearchAggregation aggregations = 7;
 
-  // The fully query object, to be used in the leaf nodes and parsed by OpenSearch
+  // The fully query JSON object, to be used in the leaf nodes and parsed by OpenSearch
   string query = 8;
 
   // An explicit list of fields to include/exclude return per document
   SourceFieldFilter source_field_filter = 9;
+
+  // The full agg JSON object, to be used in the leaf and query nodes and parsed by OpenSearch
+  string aggregation_json = 10;
 
   message SourceFieldFilter {
     // Whether or not to include/exclude _all_ fields

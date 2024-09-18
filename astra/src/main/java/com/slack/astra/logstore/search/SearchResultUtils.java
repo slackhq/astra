@@ -42,6 +42,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchModule;
+import org.opensearch.search.aggregations.AggregatorFactories;
 
 public class SearchResultUtils {
   public static Map<String, Object> fromValueStruct(AstraSearch.Struct struct) {
@@ -683,6 +684,26 @@ public class SearchResultUtils {
       }
     }
 
+    AggregatorFactories.Builder aggregatorFactoriesBuilder = null;
+    if (!searchRequest.getAggregationJson().isEmpty()) {
+      SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
+      try {
+        ObjectMapper objectMapper = new ObjectMapper();
+        NamedXContentRegistry namedXContentRegistry =
+            new NamedXContentRegistry(searchModule.getNamedXContents());
+        JsonXContentParser jsonXContentParser =
+            new JsonXContentParser(
+                namedXContentRegistry,
+                DeprecationHandler.IGNORE_DEPRECATIONS,
+                objectMapper.createParser(searchRequest.getAggregationJson()));
+
+        jsonXContentParser.nextToken();
+        aggregatorFactoriesBuilder = AggregatorFactories.parseAggregators(jsonXContentParser);
+      } catch (IOException e) {
+        throw new IllegalArgumentException(e);
+      }
+    }
+
     return new SearchQuery(
         searchRequest.getDataset(),
         searchRequest.getStartTimeEpochMs(),
@@ -691,7 +712,8 @@ public class SearchResultUtils {
         fromSearchAggregations(searchRequest.getAggregations()),
         searchRequest.getChunkIdsList(),
         queryBuilder,
-        SourceFieldFilter.fromProto(searchRequest.getSourceFieldFilter()));
+        SourceFieldFilter.fromProto(searchRequest.getSourceFieldFilter()),
+        aggregatorFactoriesBuilder);
   }
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(

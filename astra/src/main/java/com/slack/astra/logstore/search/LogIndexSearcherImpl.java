@@ -37,6 +37,7 @@ import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +54,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final OpenSearchAdapter openSearchAdapter;
 
   private final ReferenceManager.RefreshListener refreshListener;
+
+  // This feature flag enables using OpenSearch to parse our aggregations, rather than using the
+  // home-rolled
+  // aggregation parsing we're currently using
+  private final Boolean useOpenSearchAggregationParsing;
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
@@ -80,6 +86,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // initialize the adapter with whatever the default schema is
     openSearchAdapter.reloadSchema();
+
+    this.useOpenSearchAggregationParsing =
+        Boolean.parseBoolean(
+            System.getProperty("astra.query.useOpenSearchAggregationParsing", "false"));
   }
 
   @Override
@@ -88,7 +98,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       int howMany,
       AggBuilder aggBuilder,
       QueryBuilder queryBuilder,
-      SourceFieldFilter sourceFieldFilter) {
+      SourceFieldFilter sourceFieldFilter,
+      AggregatorFactories.Builder aggregatorFactoriesBuilder) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureTrue(howMany >= 0, "hits requested should not be negative.");
@@ -113,7 +124,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
               buildTopFieldCollector(howMany, aggBuilder != null ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
-          if (aggBuilder != null) {
+
+          if (aggregatorFactoriesBuilder != null && useOpenSearchAggregationParsing) {
+            collectorManager =
+                new MultiCollectorManager(
+                    topFieldCollector,
+                    openSearchAdapter.getCollectorManager(
+                        aggregatorFactoriesBuilder, searcher, query));
+          } else if (aggBuilder != null) {
             collectorManager =
                 new MultiCollectorManager(
                     topFieldCollector,

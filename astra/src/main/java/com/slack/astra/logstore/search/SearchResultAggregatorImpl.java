@@ -7,9 +7,11 @@ import com.slack.astra.logstore.opensearch.AstraBigArrays;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.opensearch.ScriptServiceProvider;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 
@@ -22,8 +24,16 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
 
   private final SearchQuery searchQuery;
 
+  // This feature flag enables using OpenSearch to parse our aggregations, rather than using the
+  // home-rolled
+  // aggregation parsing we're currently using
+  private final Boolean useOpenSearchAggregationParsing;
+
   public SearchResultAggregatorImpl(SearchQuery searchQuery) {
     this.searchQuery = searchQuery;
+    this.useOpenSearchAggregationParsing =
+        Boolean.parseBoolean(
+            System.getProperty("astra.query.useOpenSearchAggregationParsing", "false"));
   }
 
   @Override
@@ -55,8 +65,16 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       // The last aggregation should be indicated using the final aggregation boolean. This performs
       // some final pass "destructive" actions, such as applying min doc count or extended bounds.
       if (finalAggregation) {
-        pipelineTree =
-            OpenSearchAdapter.getAggregationBuilder(searchQuery.aggBuilder).buildPipelineTree();
+        if (searchQuery.aggregatorFactoriesBuilder != null
+            && this.useOpenSearchAggregationParsing) {
+          Collection<AggregationBuilder> aggregationBuilders =
+              searchQuery.aggregatorFactoriesBuilder.getAggregatorFactories();
+          pipelineTree = aggregationBuilders.stream().toList().getFirst().buildPipelineTree();
+        } else {
+          pipelineTree =
+              OpenSearchAdapter.getAggregationBuilder(searchQuery.aggBuilder).buildPipelineTree();
+        }
+
         reduceContext =
             InternalAggregation.ReduceContext.forFinalReduction(
                 AstraBigArrays.getInstance(),
