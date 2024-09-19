@@ -137,6 +137,24 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testAggsJson() throws Exception {
+    String rawRequest = getRawQueryString("datehistogram");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+
+    assertThat(request.getAggregationJson()).isNotNull();
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(request.getAggregationJson()).isEqualTo(parsedRequest.get("aggs").toString());
+  }
+
+  @Test
   public void testNoAggs() throws Exception {
     String rawRequest = getRawQueryString("noaggs");
 
