@@ -250,18 +250,6 @@ public class OpenSearchRequest {
     return body.get("size").asInt();
   }
 
-  private static String getAggregationJson(JsonNode body) {
-    if (body.get("aggs") == null) {
-      return ""; // TODO FOR KYLE: WE NEED TO REPLICATE THIS IN THE LEAF NODES:
-      // AstraSearch.SearchRequest.SearchAggregation.newBuilder().build();
-    }
-    if (Iterators.size(body.get("aggs").fieldNames()) != 1) {
-      throw new NotImplementedException(
-          "Only exactly one top level aggregators is currently supported");
-    }
-    return body.get("aggs").toString();
-  }
-
   private static AstraSearch.SearchRequest.SearchAggregation getAggregations(JsonNode body) {
     if (body.get("aggs") == null) {
       return AstraSearch.SearchRequest.SearchAggregation.newBuilder().build();
