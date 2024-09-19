@@ -61,8 +61,6 @@ public class OpenSearchRequest {
   private static final OpenSearchAdapter openSearchAdapter =
       new OpenSearchAdapter(
           Map.of(
-              "*", new LuceneFieldDef("*", "integer", true, true, true),
-              "_all", new LuceneFieldDef("_all", "text", true, true, true),
               "_timesinceepoch", new LuceneFieldDef("_timesinceepoch", "date", true, true, true),
               "@timestamp", new LuceneFieldDef("@timestamp", "date", true, true, true)));
   private static final Logger log = LoggerFactory.getLogger(OpenSearchRequest.class);
