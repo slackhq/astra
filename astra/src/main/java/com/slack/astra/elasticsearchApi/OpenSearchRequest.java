@@ -133,7 +133,6 @@ public class OpenSearchRequest {
               .setAggregations(getAggregations(body))
               .setQuery(getQuery(body))
               .setSourceFieldFilter(getSourceFieldFilter(body))
-              .setAggregationJson(getAggregationJson(body))
               .setStartTimeEpochMs(startTimeEpochMs)
               .setEndTimeEpochMs(endTimeEpochMs)
               .build());
