@@ -404,4 +404,8 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
     responseObserver.onCompleted();
   }
+
+  //  public void addRedaction(
+  //          ManagerApi
+  //  )
 }

@@ -1,12 +1,11 @@
 package com.slack.astra.logstore.search;
 
-
-public class MaskedField {
+public class RedactedField {
   private final String fieldName;
   private final long startTimeEpochMs;
   private final long endTimeEpochMs;
 
-  public MaskedField(String field, long startTimeEpochMs, long endTimeEpochMs) {
+  public RedactedField(String field, long startTimeEpochMs, long endTimeEpochMs) {
     this.fieldName = field;
     this.startTimeEpochMs = startTimeEpochMs;
     this.endTimeEpochMs = endTimeEpochMs;

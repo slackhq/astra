@@ -83,10 +83,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class HashingStoredFieldVisitor extends StoredFieldVisitor {
       private ObjectMapper om = new ObjectMapper();
       private final StoredFieldVisitor delegate;
-      private final List<MaskedField> maskedFields;
+      private final List<RedactedField> maskedFields;
 
       public HashingStoredFieldVisitor(
-          final StoredFieldVisitor delegate, List<MaskedField> maskedFields) {
+          final StoredFieldVisitor delegate, List<RedactedField> maskedFields) {
         super();
         this.delegate = delegate;
         this.maskedFields = maskedFields;
@@ -181,9 +181,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class MaskedFieldReader extends StoredFieldsReader {
 
       private final StoredFieldsReader in;
-      private final List<MaskedField> maskedFields;
+      private final List<RedactedField> maskedFields;
 
-      public MaskedFieldReader(StoredFieldsReader in, List<MaskedField> maskedFields) {
+      public MaskedFieldReader(StoredFieldsReader in, List<RedactedField> maskedFields) {
         this.in = in;
         this.maskedFields = maskedFields;
       }
@@ -217,9 +217,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements the masking leaf reader
     class MaskedLeafReader extends SequentialStoredFieldsLeafReader {
-      private final List<MaskedField> maskedFields;
+      private final List<RedactedField> maskedFields;
 
-      public MaskedLeafReader(LeafReader in, List<MaskedField> maskedFields) {
+      public MaskedLeafReader(LeafReader in, List<RedactedField> maskedFields) {
         super(in);
         this.maskedFields = maskedFields;
       }
@@ -260,9 +260,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements a masking subreaderwrapper
     class MaskingSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
-      private final List<MaskedField> maskedFields;
+      private final List<RedactedField> maskedFields;
 
-      public MaskingSubReaderWrapper(List<MaskedField> maskedFields) throws IOException {
+      public MaskingSubReaderWrapper(List<RedactedField> maskedFields) throws IOException {
         this.maskedFields = maskedFields;
       }
 
@@ -274,9 +274,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements a filterdirectoryreader for masking
     class FilterMaskingReader extends FilterDirectoryReader {
-      private final List<MaskedField> maskedFields;
+      private final List<RedactedField> maskedFields;
 
-      public FilterMaskingReader(DirectoryReader in, List<MaskedField> maskedFields)
+      public FilterMaskingReader(DirectoryReader in, List<RedactedField> maskedFields)
           throws IOException {
         super(in, new MaskingSubReaderWrapper(maskedFields));
         this.maskedFields = maskedFields;
@@ -298,12 +298,12 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     long startTime = Instant.now().minus(2, ChronoUnit.DAYS).toEpochMilli();
     long endTime = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
     long endTime2 = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
-    MaskedField strField = new MaskedField("stringproperty", startTime, endTime);
-    MaskedField strField2 = new MaskedField("service_name", startTime, endTime2);
-    MaskedField byteField = new MaskedField("binaryproperty", startTime, endTime);
+    RedactedField strField = new RedactedField("stringproperty", startTime, endTime);
+    RedactedField strField2 = new RedactedField("service_name", startTime, endTime2);
+    RedactedField byteField = new RedactedField("binaryproperty", startTime, endTime);
 
-    List<MaskedField> maskedFields = List.of(strField, strField2, byteField);
-    FilterMaskingReader reader = new FilterMaskingReader(directoryReader, maskedFields);
+    List<RedactedField> redactedFields = List.of(strField, strField2, byteField);
+    FilterMaskingReader reader = new FilterMaskingReader(directoryReader, redactedFields);
     return new SearcherManager(reader, null);
   }
 
