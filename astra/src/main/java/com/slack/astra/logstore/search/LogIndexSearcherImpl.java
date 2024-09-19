@@ -14,6 +14,7 @@ import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
+import com.slack.astra.metadata.redactedfield.RedactedFieldMetadata;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
@@ -83,10 +84,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class HashingStoredFieldVisitor extends StoredFieldVisitor {
       private ObjectMapper om = new ObjectMapper();
       private final StoredFieldVisitor delegate;
-      private final List<RedactedField> maskedFields;
+      private final List<RedactedFieldMetadata> maskedFields;
 
       public HashingStoredFieldVisitor(
-          final StoredFieldVisitor delegate, List<RedactedField> maskedFields) {
+          final StoredFieldVisitor delegate, List<RedactedFieldMetadata> maskedFields) {
         super();
         this.delegate = delegate;
         this.maskedFields = maskedFields;
@@ -181,9 +182,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class MaskedFieldReader extends StoredFieldsReader {
 
       private final StoredFieldsReader in;
-      private final List<RedactedField> maskedFields;
+      private final List<RedactedFieldMetadata> maskedFields;
 
-      public MaskedFieldReader(StoredFieldsReader in, List<RedactedField> maskedFields) {
+      public MaskedFieldReader(StoredFieldsReader in, List<RedactedFieldMetadata> maskedFields) {
         this.in = in;
         this.maskedFields = maskedFields;
       }
@@ -217,9 +218,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements the masking leaf reader
     class MaskedLeafReader extends SequentialStoredFieldsLeafReader {
-      private final List<RedactedField> maskedFields;
+      private final List<RedactedFieldMetadata> maskedFields;
 
-      public MaskedLeafReader(LeafReader in, List<RedactedField> maskedFields) {
+      public MaskedLeafReader(LeafReader in, List<RedactedFieldMetadata> maskedFields) {
         super(in);
         this.maskedFields = maskedFields;
       }
@@ -260,9 +261,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements a masking subreaderwrapper
     class MaskingSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
-      private final List<RedactedField> maskedFields;
+      private final List<RedactedFieldMetadata> maskedFields;
 
-      public MaskingSubReaderWrapper(List<RedactedField> maskedFields) throws IOException {
+      public MaskingSubReaderWrapper(List<RedactedFieldMetadata> maskedFields) throws IOException {
         this.maskedFields = maskedFields;
       }
 
@@ -274,9 +275,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // Implements a filterdirectoryreader for masking
     class FilterMaskingReader extends FilterDirectoryReader {
-      private final List<RedactedField> maskedFields;
+      private final List<RedactedFieldMetadata> maskedFields;
 
-      public FilterMaskingReader(DirectoryReader in, List<RedactedField> maskedFields)
+      public FilterMaskingReader(DirectoryReader in, List<RedactedFieldMetadata> maskedFields)
           throws IOException {
         super(in, new MaskingSubReaderWrapper(maskedFields));
         this.maskedFields = maskedFields;
@@ -298,11 +299,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     long startTime = Instant.now().minus(2, ChronoUnit.DAYS).toEpochMilli();
     long endTime = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
     long endTime2 = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
-    RedactedField strField = new RedactedField("stringproperty", startTime, endTime);
-    RedactedField strField2 = new RedactedField("service_name", startTime, endTime2);
-    RedactedField byteField = new RedactedField("binaryproperty", startTime, endTime);
+    RedactedFieldMetadata strField = new RedactedFieldMetadata("stringproperty", startTime, endTime);
+    RedactedFieldMetadata strField2 = new RedactedFieldMetadata("service_name", startTime, endTime2);
+    RedactedFieldMetadata byteField = new RedactedFieldMetadata("binaryproperty", startTime, endTime);
 
-    List<RedactedField> redactedFields = List.of(strField, strField2, byteField);
+    List<RedactedFieldMetadata> redactedFields = List.of(strField, strField2, byteField);
     FilterMaskingReader reader = new FilterMaskingReader(directoryReader, redactedFields);
     return new SearcherManager(reader, null);
   }

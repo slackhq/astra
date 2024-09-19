@@ -11,6 +11,7 @@ import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataSerializer;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.astra.metadata.redactedfield.RedactedFieldMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.manager_api.ManagerApi;
@@ -42,6 +43,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   private final SnapshotMetadataStore snapshotMetadataStore;
   public static final long MAX_TIME = Long.MAX_VALUE;
   private final ReplicaRestoreService replicaRestoreService;
+  private final RedactedFieldMetadata replicaRestoreService;
 
   public ManagerApiGrpc(
       DatasetMetadataStore datasetMetadataStore,
@@ -73,6 +75,16 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       LOG.error("Error creating new dataset", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
+  }
+
+  @Override
+  public void createNewFieldRedaction(
+          ManagerApi.CreateNewFieldRedactionRequest request,
+          StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
+    try {
+
+    }
+
   }
 
   /** Updates an existing dataset with new metadata */
@@ -405,7 +417,4 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     responseObserver.onCompleted();
   }
 
-  //  public void addRedaction(
-  //          ManagerApi
-  //  )
 }
