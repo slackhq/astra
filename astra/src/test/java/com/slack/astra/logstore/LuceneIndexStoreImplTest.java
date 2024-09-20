@@ -15,6 +15,7 @@ import static org.awaitility.Awaitility.await;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
+import com.google.type.Date;
 import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage.ReservedField;
@@ -47,6 +48,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
+import org.opensearch.search.aggregations.AggregatorFactories;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
@@ -146,6 +150,63 @@ public class LuceneIndexStoreImplTest {
               null,
               null);
       assertThat(result3.hits.size()).isEqualTo(1);
+    }
+
+    @Test
+    public void testSearchWithOpenSearchAggregationBuilder() throws IOException {
+      System.setProperty("astra.query.useOpenSearchAggregationParsing", "true");
+      Trace.Span span =
+          Trace.Span.newBuilder()
+              .setId(ByteString.copyFromUtf8("1"))
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("Test message")
+                      .setKey("message")
+                      .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                      .build())
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("duplicate1")
+                      .setKey("duplicateproperty")
+                      .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                      .build())
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("value1")
+                      .setKey("nested.key1")
+                      .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                      .build())
+              .addTags(
+                  Trace.KeyValue.newBuilder()
+                      .setVStr("2")
+                      .setKey("nested.duplicateproperty")
+                      .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                      .build())
+              .build();
+      logStore.logStore.addMessage(span);
+      logStore.logStore.commit();
+      logStore.logStore.refresh();
+
+      AggregatorFactories.Builder aggregatorFactoriesBuilder = new AggregatorFactories.Builder();
+      aggregatorFactoriesBuilder.addAggregator(
+          new DateHistogramAggregationBuilder("1")
+              .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+              .fixedInterval(DateHistogramInterval.SECOND)
+      );
+
+      SearchResult<LogMessage> result1 =
+          logStore.logSearcher.search(
+              MessageUtil.TEST_DATASET_NAME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+              QueryBuilderUtil.generateQueryBuilder("nested.key1:value1", 0L, MAX_TIME),
+              null,
+              aggregatorFactoriesBuilder);
+      assertThat(result1.hits.size()).isEqualTo(1);
+      assertThat(result1.internalAggregation.getName()).isEqualTo("1");
+      assertThat(result1.internalAggregation.getType()).isEqualTo("date_histogram");
+      System.setProperty("astra.query.useOpenSearchAggregationParsing", "false");
     }
 
     @Test

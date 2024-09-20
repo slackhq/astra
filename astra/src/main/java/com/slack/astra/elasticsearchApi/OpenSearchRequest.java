@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.SearchResultUtils;
 import com.slack.astra.logstore.search.aggregations.AutoDateHistogramAggBuilder;
@@ -30,6 +31,7 @@ import com.slack.astra.proto.service.AstraSearch;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,10 +62,7 @@ public class OpenSearchRequest {
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   private static final OpenSearchAdapter openSearchAdapter =
-      new OpenSearchAdapter(
-          Map.of(
-              "_timesinceepoch", new LuceneFieldDef("_timesinceepoch", "date", true, true, true),
-              "@timestamp", new LuceneFieldDef("@timestamp", "date", true, true, true)));
+      new OpenSearchAdapter(Collections.EMPTY_MAP);
   private static final Logger log = LoggerFactory.getLogger(OpenSearchRequest.class);
 
   private static class DateRangeQueryBuilderVistor implements QueryBuilderVisitor {
@@ -74,7 +73,7 @@ public class OpenSearchRequest {
     public void accept(QueryBuilder qb) {
       if (qb instanceof RangeQueryBuilder rangeQueryBuilder) {
         if (!rangeQueryBuilder.fieldName().equals("@timestamp")
-            && !rangeQueryBuilder.fieldName().equals("_timesinceepoch")) {
+            && !rangeQueryBuilder.fieldName().equals(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)) {
           return;
         }
 
