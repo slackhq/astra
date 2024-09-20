@@ -126,10 +126,7 @@ public class OpenSearchAdapter {
       Query query)
       throws IOException {
     QueryShardContext queryShardContext =
-        buildQueryShardContext(
-            AstraBigArrays.getInstance(),
-            indexSearcher,
-            mapperService);
+        buildQueryShardContext(AstraBigArrays.getInstance(), indexSearcher, mapperService);
 
     if (aggregatorFactoriesBuilder != null) {
       try {
@@ -141,7 +138,6 @@ public class OpenSearchAdapter {
         Aggregator[] aggregators =
             aggregatorFactories.createSubAggregators(
                 searchContext, null, CardinalityUpperBound.ONE);
-        // TODO FOR KYLE: Is this right?
         return aggregators[0];
       } catch (Exception e) {
         LOG.error("Aggregator parse exception", e);

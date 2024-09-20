@@ -15,7 +15,6 @@ import static org.awaitility.Awaitility.await;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
-import com.google.type.Date;
 import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage.ReservedField;
@@ -191,8 +190,7 @@ public class LuceneIndexStoreImplTest {
       aggregatorFactoriesBuilder.addAggregator(
           new DateHistogramAggregationBuilder("1")
               .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
-              .fixedInterval(DateHistogramInterval.SECOND)
-      );
+              .fixedInterval(DateHistogramInterval.SECOND));
 
       SearchResult<LogMessage> result1 =
           logStore.logSearcher.search(

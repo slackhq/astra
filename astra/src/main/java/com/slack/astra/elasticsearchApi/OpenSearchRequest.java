@@ -1,5 +1,7 @@
 package com.slack.astra.elasticsearchApi;
 
+import static com.slack.astra.server.ManagerApiGrpc.MAX_TIME;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -26,7 +28,6 @@ import com.slack.astra.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.astra.logstore.search.aggregations.SumAggBuilder;
 import com.slack.astra.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.astra.logstore.search.aggregations.UniqueCountAggBuilder;
-import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.service.AstraSearch;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -48,8 +49,6 @@ import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.SearchModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.slack.astra.server.ManagerApiGrpc.MAX_TIME;
 
 /**
  * Utility class for parsing an OpenSearch NDJSON search request into a list of appropriate
@@ -73,7 +72,9 @@ public class OpenSearchRequest {
     public void accept(QueryBuilder qb) {
       if (qb instanceof RangeQueryBuilder rangeQueryBuilder) {
         if (!rangeQueryBuilder.fieldName().equals("@timestamp")
-            && !rangeQueryBuilder.fieldName().equals(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)) {
+            && !rangeQueryBuilder
+                .fieldName()
+                .equals(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)) {
           return;
         }
 
@@ -251,8 +252,7 @@ public class OpenSearchRequest {
 
   private static String getAggregationJson(JsonNode body) {
     if (body.get("aggs") == null) {
-      return ""; // TODO FOR KYLE: WE NEED TO REPLICATE THIS IN THE LEAF NODES:
-                 // AstraSearch.SearchRequest.SearchAggregation.newBuilder().build();
+      return "";
     }
     if (Iterators.size(body.get("aggs").fieldNames()) != 1) {
       throw new NotImplementedException(

@@ -35,9 +35,7 @@ import org.opensearch.index.query.IntervalQueryBuilder;
 import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
-import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 
 public class SearchResultUtilsTest {
 
@@ -68,12 +66,14 @@ public class SearchResultUtilsTest {
     assertThat(output.aggregatorFactoriesBuilder).isNotNull();
     assertThat(output.aggregatorFactoriesBuilder.getAggregatorFactories()).hasSize(1);
 
-    Collection<AggregationBuilder> aggregatorFactories = output.aggregatorFactoriesBuilder.getAggregatorFactories();
+    Collection<AggregationBuilder> aggregatorFactories =
+        output.aggregatorFactoriesBuilder.getAggregatorFactories();
     AggregationBuilder firstAggregationBuilder = aggregatorFactories.iterator().next();
     assertThat(firstAggregationBuilder.getName()).isEqualTo("2");
     assertThat(firstAggregationBuilder).isInstanceOf(DateHistogramAggregationBuilder.class);
 
-    DateHistogramAggregationBuilder dateHistogramAggregationBuilder = (DateHistogramAggregationBuilder) firstAggregationBuilder;
+    DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
+        (DateHistogramAggregationBuilder) firstAggregationBuilder;
     assertThat(dateHistogramAggregationBuilder.field()).isEqualTo("_timesinceepoch");
     assertThat(dateHistogramAggregationBuilder.minDocCount()).isEqualTo(90000L);
     assertThat(dateHistogramAggregationBuilder.extendedBounds().getMin()).isEqualTo(1676498801027L);

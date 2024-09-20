@@ -134,10 +134,14 @@ public class OpenSearchAdapterTest {
 
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
         openSearchAdapterWithFeatureFlagEnabled.getCollectorManager(
-            aggregatorFactoriesBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
+            aggregatorFactoriesBuilder,
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager2 =
         openSearchAdapter.getCollectorManager(
-            aggregatorFactoriesBuilder2, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
+            aggregatorFactoriesBuilder2,
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
 
     Aggregator collector1 = collectorManager1.newCollector();
     Aggregator collector2 = collectorManager2.newCollector();
@@ -507,8 +511,7 @@ public class OpenSearchAdapterTest {
         new BoolQueryBuilder().filter(new RangeQueryBuilder("_timesinceepoch").gte(1).lte(100));
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
 
-    Query rangeQuery =
-        openSearchAdapter.buildQuery(indexSearcher, boolQueryBuilder);
+    Query rangeQuery = openSearchAdapter.buildQuery(indexSearcher, boolQueryBuilder);
     assertThat(rangeQuery).isNotNull();
     assertThat(rangeQuery.toString()).isEqualTo("#_timesinceepoch:[1 TO 100]");
   }
