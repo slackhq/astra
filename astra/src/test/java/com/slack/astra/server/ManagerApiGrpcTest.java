@@ -17,6 +17,7 @@ import com.slack.astra.metadata.core.InternalMetadataStoreException;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.astra.metadata.redactedfield.RedactedFieldMetadata;
 import com.slack.astra.metadata.redactedfield.RedactedFieldMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
@@ -157,6 +158,36 @@ public class ManagerApiGrpcTest {
     assertThat(datasetMetadata.getOwner()).isEqualTo(datasetOwner);
     assertThat(datasetMetadata.getThroughputBytes()).isEqualTo(0);
     assertThat(datasetMetadata.getPartitionConfigs().size()).isEqualTo(0);
+  }
+
+  @Test
+  public void shouldCreateAndGetNewFieldRedaction() {
+    String redactionName = "testRedaction";
+    String fieldName = "testfieldName";
+    long startTime = 10L;
+    long endTime = 15L;
+
+    managerApiStub.createFieldRedaction(
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName)
+            .setFieldName(fieldName)
+            .setStartTimeEpochMs(startTime)
+            .setEndTimeEpochMs(endTime)
+            .build());
+
+    Metadata.RedactedFieldMetadata getRedactedFieldResponse =
+        managerApiStub.getFieldRedaction(
+            ManagerApi.GetFieldRedactionRequest.newBuilder().setName(redactionName).build());
+    assertThat(getRedactedFieldResponse.getName()).isEqualTo(redactionName);
+    assertThat(getRedactedFieldResponse.getFieldName()).isEqualTo(fieldName);
+    assertThat(getRedactedFieldResponse.getStartTimeEpochMs()).isEqualTo(startTime);
+    assertThat(getRedactedFieldResponse.getEndTimeEpochMs()).isEqualTo(endTime);
+
+    RedactedFieldMetadata redactedFieldMetadata = redactedFieldMetadataStore.getSync(redactionName);
+    assertThat(redactedFieldMetadata.getName()).isEqualTo(redactionName);
+    assertThat(redactedFieldMetadata.getFieldName()).isEqualTo(fieldName);
+    assertThat(redactedFieldMetadata.getStartTimeEpochMs()).isEqualTo(startTime);
+    assertThat(redactedFieldMetadata.getEndTimeEpochMs()).isEqualTo(endTime);
   }
 
   @Test
