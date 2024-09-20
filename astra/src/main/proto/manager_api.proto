@@ -27,13 +27,16 @@ service ManagerApiService {
   // Resets the partition offset data to allow using a newer offset for a partition ID
   rpc ResetPartitionData(ResetPartitionDataRequest) returns (ResetPartitionDataResponse) {}
 
-  // Add new field redaction with a time range window
-  rpc CreateNewFieldRedaction(CreateNewFieldRedactionRequest) returns (RedactedFieldMetadata) {}
+  // CreateFieldRedaction initializes a new field redaction with a name and time range window
+  rpc CreateFieldRedaction(CreateFieldRedactionRequest) returns (RedactedFieldMetadata) {}
 
-  // Delete existing field redaction
+  // GetFieldRedaction returns a single field redaction by name
+  rpc GetFieldRedaction(GetFieldRedactionRequest) returns (RedactedFieldMetadata) {}
+
+  // DeleteFieldRedaction deletes an existing field redaction by name
   rpc DeleteFieldRedaction(DeleteFieldRedactionRequest) returns (RedactedFieldMetadata) {}
 
-  // List all existing field redactions
+  // ListFieldRedactions lists all existing field redactions
   rpc ListFieldRedactions(ListFieldRedactionsRequest) returns (ListFieldRedactionsResponse) {}
 }
 
@@ -116,14 +119,26 @@ message ResetPartitionDataResponse {
 }
 
 // CreateNewFieldRedactionRequest represents a request to create a new field redaction
-message CreateNewFieldRedactionRequest {
+message CreateFieldRedactionRequest {
+  // name of the redaction rule
   string name = 1;
-  int64 start_time_epoch_ms = 2;
-  int64 end_time_epoch_ms = 3;
+  // name of the field to be redacted
+  string field_name = 2;
+  // start time of the redaction window
+  int64 start_time_epoch_ms = 3;
+  // end time of the redaction window
+  int64 end_time_epoch_ms = 4;
+}
+
+// GetNewFieldRedactionRequest represents a request to fetch an existing field redaction
+message GetFieldRedactionRequest {
+  // name of the redaction rule
+  string name = 1;
 }
 
 // DeleteNewFieldRedactionRequest represents a request to delete an existing field redaction
 message DeleteFieldRedactionRequest {
+  // name of the redaction rule
   string name = 1;
 }
 

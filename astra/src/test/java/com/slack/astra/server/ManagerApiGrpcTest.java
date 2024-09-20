@@ -17,6 +17,7 @@ import com.slack.astra.metadata.core.InternalMetadataStoreException;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.astra.metadata.redactedfield.RedactedFieldMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
@@ -59,6 +60,7 @@ public class ManagerApiGrpcTest {
   private SnapshotMetadataStore snapshotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
   private ReplicaRestoreService replicaRestoreService;
+  private RedactedFieldMetadataStore redactedFieldMetadataStore;
   private ManagerApiServiceGrpc.ManagerApiServiceBlockingStub managerApiStub;
 
   @BeforeEach
@@ -80,6 +82,7 @@ public class ManagerApiGrpcTest {
     datasetMetadataStore = spy(new DatasetMetadataStore(curatorFramework, true));
     snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
+    redactedFieldMetadataStore = spy(new RedactedFieldMetadataStore(curatorFramework, true));
 
     AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
@@ -102,7 +105,10 @@ public class ManagerApiGrpcTest {
             .directExecutor()
             .addService(
                 new ManagerApiGrpc(
-                    datasetMetadataStore, snapshotMetadataStore, replicaRestoreService))
+                    datasetMetadataStore,
+                    snapshotMetadataStore,
+                    replicaRestoreService,
+                    redactedFieldMetadataStore))
             .build()
             .start());
     ManagedChannel channel =
@@ -120,6 +126,7 @@ public class ManagerApiGrpcTest {
     replicaMetadataStore.close();
     snapshotMetadataStore.close();
     datasetMetadataStore.close();
+    redactedFieldMetadataStore.close();
     curatorFramework.unwrap().close();
 
     testingServer.close();

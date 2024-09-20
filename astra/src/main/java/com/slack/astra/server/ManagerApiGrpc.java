@@ -1,6 +1,7 @@
 package com.slack.astra.server;
 
 import static com.slack.astra.metadata.dataset.DatasetMetadataSerializer.toDatasetMetadataProto;
+import static com.slack.astra.metadata.redactedfield.RedactedFieldMetadataSerializer.toRedactedFieldMetadataProto;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -12,6 +13,7 @@ import com.slack.astra.metadata.dataset.DatasetMetadataSerializer;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.astra.metadata.redactedfield.RedactedFieldMetadata;
+import com.slack.astra.metadata.redactedfield.RedactedFieldMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.manager_api.ManagerApi;
@@ -43,15 +45,17 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   private final SnapshotMetadataStore snapshotMetadataStore;
   public static final long MAX_TIME = Long.MAX_VALUE;
   private final ReplicaRestoreService replicaRestoreService;
-  private final RedactedFieldMetadata replicaRestoreService;
+  private final RedactedFieldMetadataStore redactedFieldMetadataStore;
 
   public ManagerApiGrpc(
       DatasetMetadataStore datasetMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      ReplicaRestoreService replicaRestoreService) {
+      ReplicaRestoreService replicaRestoreService,
+      RedactedFieldMetadataStore redactedFieldMetadataStore) {
     this.datasetMetadataStore = datasetMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.replicaRestoreService = replicaRestoreService;
+    this.redactedFieldMetadataStore = redactedFieldMetadataStore;
   }
 
   /** Initializes a new dataset in the metadata store with no initial allocated capacity */
@@ -77,14 +81,24 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
+  /** Creates a new field redaction */
   @Override
-  public void createNewFieldRedaction(
-          ManagerApi.CreateNewFieldRedactionRequest request,
-          StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
+  public void createFieldRedaction(
+      ManagerApi.CreateFieldRedactionRequest request,
+      StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
     try {
-
+      redactedFieldMetadataStore.createSync(
+          new RedactedFieldMetadata(
+              request.getName(),
+              request.getFieldName(),
+              request.getStartTimeEpochMs(),
+              request.getEndTimeEpochMs()));
+      responseObserver.onNext(
+          toRedactedFieldMetadataProto(redactedFieldMetadataStore.getSync(request.getName())));
+    } catch (Exception e) {
+      LOG.error("Error creating new field redaction", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
-
   }
 
   /** Updates an existing dataset with new metadata */
@@ -416,5 +430,4 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
     responseObserver.onCompleted();
   }
-
 }

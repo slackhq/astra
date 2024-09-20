@@ -299,9 +299,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     long startTime = Instant.now().minus(2, ChronoUnit.DAYS).toEpochMilli();
     long endTime = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
     long endTime2 = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
-    RedactedFieldMetadata strField = new RedactedFieldMetadata("stringproperty", startTime, endTime);
-    RedactedFieldMetadata strField2 = new RedactedFieldMetadata("service_name", startTime, endTime2);
-    RedactedFieldMetadata byteField = new RedactedFieldMetadata("binaryproperty", startTime, endTime);
+    RedactedFieldMetadata strField =
+        new RedactedFieldMetadata("string field redaction", "stringproperty", startTime, endTime);
+    RedactedFieldMetadata strField2 =
+        new RedactedFieldMetadata(
+            "another string field redaction", "service_name", startTime, endTime2);
+    RedactedFieldMetadata byteField =
+        new RedactedFieldMetadata("binary field redaction", "binaryproperty", startTime, endTime);
 
     List<RedactedFieldMetadata> redactedFields = List.of(strField, strField2, byteField);
     FilterMaskingReader reader = new FilterMaskingReader(directoryReader, redactedFields);

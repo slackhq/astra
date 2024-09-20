@@ -34,6 +34,7 @@ import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.hpa.HpaMetricMetadataStore;
 import com.slack.astra.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.astra.metadata.recovery.RecoveryTaskMetadataStore;
+import com.slack.astra.metadata.redactedfield.RedactedFieldMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.schema.SchemaUtil;
 import com.slack.astra.metadata.search.SearchMetadataStore;
@@ -279,6 +280,8 @@ public class Astra {
       DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
       HpaMetricMetadataStore hpaMetricMetadataStore =
           new HpaMetricMetadataStore(curatorFramework, true);
+      RedactedFieldMetadataStore redactedFieldMetadataStore =
+          new RedactedFieldMetadataStore(curatorFramework, true);
 
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs());
@@ -292,7 +295,10 @@ public class Astra {
               .withTracing(astraConfig.getTracingConfig())
               .withGrpcService(
                   new ManagerApiGrpc(
-                      datasetMetadataStore, snapshotMetadataStore, replicaRestoreService))
+                      datasetMetadataStore,
+                      snapshotMetadataStore,
+                      replicaRestoreService,
+                      redactedFieldMetadataStore))
               .build();
       services.add(armeriaService);
 
