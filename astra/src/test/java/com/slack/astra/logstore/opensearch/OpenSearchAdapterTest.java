@@ -43,10 +43,12 @@ import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
+import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
+import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.aggregations.metrics.InternalExtendedStats;
@@ -104,6 +106,49 @@ public class OpenSearchAdapterTest {
                     unknownAgg,
                     logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
                     null));
+  }
+
+  @Test
+  public void testOpenSearchCollectorManagerCorrectlyReducesListOfCollectors() throws IOException {
+    // We need to recreate the OpenSearchAdapter object here to get the feature flag set to true.
+    // Once this feature flag is removed, we can once again use the class-level object
+    System.setProperty("astra.query.useOpenSearchAggregationParsing", "true");
+    OpenSearchAdapter openSearchAdapterWithFeatureFlagEnabled =
+        new OpenSearchAdapter(fieldDefBuilder.build());
+    openSearchAdapterWithFeatureFlagEnabled.reloadSchema();
+    System.setProperty("astra.query.useOpenSearchAggregationParsing", "false");
+
+    AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo");
+    avgAggregationBuilder.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    avgAggregationBuilder.missing("2");
+
+    AvgAggregationBuilder avgAggregationBuilder2 = new AvgAggregationBuilder("bar");
+    avgAggregationBuilder2.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    avgAggregationBuilder2.missing("2");
+
+    AggregatorFactories.Builder aggregatorFactoriesBuilder = new AggregatorFactories.Builder();
+    aggregatorFactoriesBuilder.addAggregator(avgAggregationBuilder);
+
+    AggregatorFactories.Builder aggregatorFactoriesBuilder2 = new AggregatorFactories.Builder();
+    aggregatorFactoriesBuilder2.addAggregator(avgAggregationBuilder2);
+
+    CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
+        openSearchAdapterWithFeatureFlagEnabled.getCollectorManager(
+            aggregatorFactoriesBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
+    CollectorManager<Aggregator, InternalAggregation> collectorManager2 =
+        openSearchAdapter.getCollectorManager(
+            aggregatorFactoriesBuilder2, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
+
+    Aggregator collector1 = collectorManager1.newCollector();
+    Aggregator collector2 = collectorManager2.newCollector();
+
+    InternalAvg reduced = (InternalAvg) collectorManager1.reduce(List.of(collector1, collector2));
+
+    assertThat(reduced.getName()).isEqualTo("foo");
+    assertThat(reduced.getType()).isEqualTo("avg");
+    assertThat(reduced.getValue()).isEqualTo(Double.valueOf("NaN"));
+
+    // todo - we don't have access to the package local methods for extra asserts - use reflection?
   }
 
   @Test
@@ -462,16 +507,8 @@ public class OpenSearchAdapterTest {
         new BoolQueryBuilder().filter(new RangeQueryBuilder("_timesinceepoch").gte(1).lte(100));
     IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
 
-    // We need to recreate the OpenSearchAdapter object here to get the feature flag set to true.
-    // Once this feature flag is removed, we can once again use the class-level object
-    System.setProperty("astra.query.useOpenSearchParsing", "true");
-    OpenSearchAdapter openSearchAdapterWithFeatureFlagEnabled =
-        new OpenSearchAdapter(fieldDefBuilder.build());
-    openSearchAdapterWithFeatureFlagEnabled.reloadSchema();
-    System.setProperty("astra.query.useOpenSearchParsing", "false");
-
     Query rangeQuery =
-        openSearchAdapterWithFeatureFlagEnabled.buildQuery(indexSearcher, boolQueryBuilder);
+        openSearchAdapter.buildQuery(indexSearcher, boolQueryBuilder);
     assertThat(rangeQuery).isNotNull();
     assertThat(rangeQuery.toString()).isEqualTo("#_timesinceepoch:[1 TO 100]");
   }
