@@ -85,11 +85,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     this.searcherManager.addListener(refreshListener);
 
     // initialize the adapter with whatever the default schema is
-    openSearchAdapter.reloadSchema();
 
     this.useOpenSearchAggregationParsing =
         Boolean.parseBoolean(
             System.getProperty("astra.query.useOpenSearchAggregationParsing", "false"));
+    openSearchAdapter.loadSchema();
   }
 
   @Override
