@@ -30,6 +30,67 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testGetAggregationJson() throws Exception {
+    String rawRequest = getRawQueryString("datehistogram");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+
+    JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
+    assertThat(request.getAggregationJson()).isEqualTo(parsedRequest.get("aggs").toString());
+  }
+
+  @Test
+  public void testGetDateRangeFromAtTimestamp() throws Exception {
+    String rawRequest = getRawQueryString("bool_query_with_@timestamp_range");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
+  }
+
+  @Test
+  public void testGetDateRangeFromStringValue() throws Exception {
+    String rawRequest = getRawQueryString("bool_query_with_string_time_range");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1726766654000L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1726768454000L);
+  }
+
+  @Test
+  public void testGetDateRangeFromGtLt() throws Exception {
+    String rawRequest = getRawQueryString("bool_query_with_gt_lt_time_range");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1726766654000L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1726768454000L);
+  }
+
+  @Test
   public void testSourceIncludesBooleanFilter() throws Exception {
     String rawRequest = getRawQueryString("boolean_source_includes_filter");
 

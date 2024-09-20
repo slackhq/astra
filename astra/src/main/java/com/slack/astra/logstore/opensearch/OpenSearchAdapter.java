@@ -128,9 +128,7 @@ public class OpenSearchAdapter {
     QueryShardContext queryShardContext =
         buildQueryShardContext(
             AstraBigArrays.getInstance(),
-            indexSettings,
             indexSearcher,
-            similarityService,
             mapperService);
 
     if (aggregatorFactoriesBuilder != null) {

@@ -47,6 +47,8 @@ import org.opensearch.search.SearchModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.slack.astra.server.ManagerApiGrpc.MAX_TIME;
+
 /**
  * Utility class for parsing an OpenSearch NDJSON search request into a list of appropriate
  * AstraSearch.SearchRequests, that can be provided to the GRPC Search API. This class is
@@ -70,8 +72,7 @@ public class OpenSearchRequest {
 
     @Override
     public void accept(QueryBuilder qb) {
-      if (qb instanceof RangeQueryBuilder) {
-        RangeQueryBuilder rangeQueryBuilder = (RangeQueryBuilder) qb;
+      if (qb instanceof RangeQueryBuilder rangeQueryBuilder) {
         if (!rangeQueryBuilder.fieldName().equals("@timestamp")
             && !rangeQueryBuilder.fieldName().equals("_timesinceepoch")) {
           return;
@@ -119,9 +120,11 @@ public class OpenSearchRequest {
       JsonNode body = OM.readTree(pair.get(1));
       String query = getQuery(body);
       DateRangeQueryBuilderVistor dateRangeQueryBuilderVistor = getDateRange(query);
-      Long startTimeEpochMs = null;
-      Long endTimeEpochMs = null;
-      if (dateRangeQueryBuilderVistor != null) {
+      long startTimeEpochMs = 0L;
+      long endTimeEpochMs = MAX_TIME;
+      if (dateRangeQueryBuilderVistor != null
+          && dateRangeQueryBuilderVistor.dateRangeStart != null
+          && dateRangeQueryBuilderVistor.dateRangeEnd != null) {
         startTimeEpochMs = dateRangeQueryBuilderVistor.dateRangeStart;
         endTimeEpochMs = dateRangeQueryBuilderVistor.dateRangeEnd;
       }
