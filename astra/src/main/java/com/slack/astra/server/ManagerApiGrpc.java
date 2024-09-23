@@ -95,8 +95,25 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
               request.getEndTimeEpochMs()));
       responseObserver.onNext(
           toRedactedFieldMetadataProto(redactedFieldMetadataStore.getSync(request.getName())));
+      responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error creating new field redaction", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  /** Returns a single field redaction metadata by name */
+  @Override
+  public void getFieldRedaction(
+          ManagerApi.GetFieldRedactionRequest request,
+          StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
+
+    try {
+      responseObserver.onNext(
+              toRedactedFieldMetadataProto(redactedFieldMetadataStore.getSync(request.getName())));
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error getting field redaction", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }

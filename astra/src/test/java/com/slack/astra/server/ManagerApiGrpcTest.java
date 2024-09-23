@@ -164,15 +164,16 @@ public class ManagerApiGrpcTest {
   public void shouldCreateAndGetNewFieldRedaction() {
     String redactionName = "testRedaction";
     String fieldName = "testfieldName";
-    long startTime = 10L;
-    long endTime = 15L;
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
 
     managerApiStub.createFieldRedaction(
         ManagerApi.CreateFieldRedactionRequest.newBuilder()
             .setName(redactionName)
             .setFieldName(fieldName)
-            .setStartTimeEpochMs(startTime)
-            .setEndTimeEpochMs(endTime)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
             .build());
 
     Metadata.RedactedFieldMetadata getRedactedFieldResponse =
@@ -180,14 +181,14 @@ public class ManagerApiGrpcTest {
             ManagerApi.GetFieldRedactionRequest.newBuilder().setName(redactionName).build());
     assertThat(getRedactedFieldResponse.getName()).isEqualTo(redactionName);
     assertThat(getRedactedFieldResponse.getFieldName()).isEqualTo(fieldName);
-    assertThat(getRedactedFieldResponse.getStartTimeEpochMs()).isEqualTo(startTime);
-    assertThat(getRedactedFieldResponse.getEndTimeEpochMs()).isEqualTo(endTime);
+    assertThat(getRedactedFieldResponse.getStartTimeEpochMs()).isEqualTo(start);
+    assertThat(getRedactedFieldResponse.getEndTimeEpochMs()).isEqualTo(end);
 
     RedactedFieldMetadata redactedFieldMetadata = redactedFieldMetadataStore.getSync(redactionName);
     assertThat(redactedFieldMetadata.getName()).isEqualTo(redactionName);
     assertThat(redactedFieldMetadata.getFieldName()).isEqualTo(fieldName);
-    assertThat(redactedFieldMetadata.getStartTimeEpochMs()).isEqualTo(startTime);
-    assertThat(redactedFieldMetadata.getEndTimeEpochMs()).isEqualTo(endTime);
+    assertThat(redactedFieldMetadata.getStartTimeEpochMs()).isEqualTo(start);
+    assertThat(redactedFieldMetadata.getEndTimeEpochMs()).isEqualTo(end);
   }
 
   @Test
