@@ -13,6 +13,7 @@ import com.slack.astra.metadata.dataset.DatasetMetadataSerializer;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.astra.metadata.redactedfield.RedactedFieldMetadata;
+import com.slack.astra.metadata.redactedfield.RedactedFieldMetadataSerializer;
 import com.slack.astra.metadata.redactedfield.RedactedFieldMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
@@ -114,6 +115,27 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error getting field redaction", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  /** Returns all existing field redactions from the metadata store */
+  // todo - only return active ones
+  @Override
+  public void listFieldRedactions(
+          ManagerApi.ListFieldRedactionsRequest request,
+          StreamObserver<ManagerApi.ListFieldRedactionsResponse> responseObserver) {
+    try {
+      responseObserver.onNext(
+              ManagerApi.ListFieldRedactionsResponse.newBuilder()
+                      .addAllRedactedFields(
+                              redactedFieldMetadataStore.listSync().stream()
+                                      .map(RedactedFieldMetadataSerializer::toRedactedFieldMetadataProto)
+                                      .collect(Collectors.toList()))
+                      .build());
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error getting field redactions", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }

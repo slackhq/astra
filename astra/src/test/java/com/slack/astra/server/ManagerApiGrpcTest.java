@@ -192,6 +192,66 @@ public class ManagerApiGrpcTest {
   }
 
   @Test
+  public void shouldListExistingFieldRedactions() {
+    String redactionName1 = "testFieldRedaction1";
+    String field1 = "testField1";
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    managerApiStub.createFieldRedaction(
+            ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                    .setName(redactionName1)
+                    .setFieldName(field1)
+                    .setStartTimeEpochMs(start)
+                    .setEndTimeEpochMs(end)
+                    .build());
+
+    String redactionName2 = "testFieldRedaction2";
+    String field2 = "testField2";
+
+    managerApiStub.createFieldRedaction(
+            ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                    .setName(redactionName2)
+                    .setFieldName(field2)
+                    .setStartTimeEpochMs(start)
+                    .setEndTimeEpochMs(end)
+                    .build());
+
+    ManagerApi.ListFieldRedactionsResponse listFieldRedactionsResponse =
+            managerApiStub.listFieldRedactions(
+                    ManagerApi.ListFieldRedactionsRequest.newBuilder().build());
+
+    assertThat(
+            listFieldRedactionsResponse
+                    .getRedactedFieldsList()
+                    .containsAll(
+                            List.of(
+                                    Metadata.RedactedFieldMetadata.newBuilder()
+                                            .setName(redactionName1)
+                                            .setFieldName(field1)
+                                            .setStartTimeEpochMs(start)
+                                            .setEndTimeEpochMs(end)
+                                            .build(),
+                                    Metadata.RedactedFieldMetadata.newBuilder()
+                                            .setName(redactionName2)
+                                            .setFieldName(field2)
+                                            .setStartTimeEpochMs(start)
+                                            .setEndTimeEpochMs(end)
+                                            .build())));
+
+    assertThat(AstraMetadataTestUtils.listSyncUncached(redactedFieldMetadataStore).size()).isEqualTo(2);
+    assertThat(
+            AstraMetadataTestUtils.listSyncUncached(redactedFieldMetadataStore)
+                    .containsAll(
+                            List.of(
+                                    new RedactedFieldMetadata(
+                                            redactionName1, field1, start, end),
+                                    new RedactedFieldMetadata(
+                                            redactionName2, field2, start, end))));
+  }
+
+  @Test
   public void shouldErrorCreatingDuplicateDatasetName() {
     String datasetName = "testDataset";
     String datasetOwner1 = "testOwner1";
