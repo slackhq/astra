@@ -82,64 +82,6 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
-  /** Creates a new field redaction */
-  @Override
-  public void createFieldRedaction(
-      ManagerApi.CreateFieldRedactionRequest request,
-      StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
-    try {
-      redactedFieldMetadataStore.createSync(
-          new RedactedFieldMetadata(
-              request.getName(),
-              request.getFieldName(),
-              request.getStartTimeEpochMs(),
-              request.getEndTimeEpochMs()));
-      responseObserver.onNext(
-          toRedactedFieldMetadataProto(redactedFieldMetadataStore.getSync(request.getName())));
-      responseObserver.onCompleted();
-    } catch (Exception e) {
-      LOG.error("Error creating new field redaction", e);
-      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
-    }
-  }
-
-  /** Returns a single field redaction metadata by name */
-  @Override
-  public void getFieldRedaction(
-          ManagerApi.GetFieldRedactionRequest request,
-          StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
-
-    try {
-      responseObserver.onNext(
-              toRedactedFieldMetadataProto(redactedFieldMetadataStore.getSync(request.getName())));
-      responseObserver.onCompleted();
-    } catch (Exception e) {
-      LOG.error("Error getting field redaction", e);
-      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
-    }
-  }
-
-  /** Returns all existing field redactions from the metadata store */
-  // todo - only return active ones
-  @Override
-  public void listFieldRedactions(
-          ManagerApi.ListFieldRedactionsRequest request,
-          StreamObserver<ManagerApi.ListFieldRedactionsResponse> responseObserver) {
-    try {
-      responseObserver.onNext(
-              ManagerApi.ListFieldRedactionsResponse.newBuilder()
-                      .addAllRedactedFields(
-                              redactedFieldMetadataStore.listSync().stream()
-                                      .map(RedactedFieldMetadataSerializer::toRedactedFieldMetadataProto)
-                                      .collect(Collectors.toList()))
-                      .build());
-      responseObserver.onCompleted();
-    } catch (Exception e) {
-      LOG.error("Error getting field redactions", e);
-      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
-    }
-  }
-
   /** Updates an existing dataset with new metadata */
   @Override
   public void updateDatasetMetadata(
@@ -468,5 +410,63 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
 
     responseObserver.onCompleted();
+  }
+
+  /** Creates a new field redaction */
+  @Override
+  public void createFieldRedaction(
+          ManagerApi.CreateFieldRedactionRequest request,
+          StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
+    try {
+      redactedFieldMetadataStore.createSync(
+              new RedactedFieldMetadata(
+                      request.getName(),
+                      request.getFieldName(),
+                      request.getStartTimeEpochMs(),
+                      request.getEndTimeEpochMs()));
+      responseObserver.onNext(
+              toRedactedFieldMetadataProto(redactedFieldMetadataStore.getSync(request.getName())));
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error creating new field redaction", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  /** Returns a single field redaction metadata by name */
+  @Override
+  public void getFieldRedaction(
+          ManagerApi.GetFieldRedactionRequest request,
+          StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
+
+    try {
+      responseObserver.onNext(
+              toRedactedFieldMetadataProto(redactedFieldMetadataStore.getSync(request.getName())));
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error getting field redaction", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  /** Returns all existing field redactions from the metadata store */
+  // todo - only return active ones
+  @Override
+  public void listFieldRedactions(
+          ManagerApi.ListFieldRedactionsRequest request,
+          StreamObserver<ManagerApi.ListFieldRedactionsResponse> responseObserver) {
+    try {
+      responseObserver.onNext(
+              ManagerApi.ListFieldRedactionsResponse.newBuilder()
+                      .addAllRedactedFields(
+                              redactedFieldMetadataStore.listSync().stream()
+                                      .map(RedactedFieldMetadataSerializer::toRedactedFieldMetadataProto)
+                                      .collect(Collectors.toList()))
+                      .build());
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error getting field redactions", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
   }
 }
