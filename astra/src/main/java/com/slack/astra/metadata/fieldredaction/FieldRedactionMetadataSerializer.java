@@ -1,15 +1,15 @@
-package com.slack.astra.metadata.redactedfield;
+package com.slack.astra.metadata.fieldredaction;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.slack.astra.metadata.core.MetadataSerializer;
 import com.slack.astra.proto.metadata.Metadata;
 
-public class RedactedFieldMetadataSerializer implements MetadataSerializer<RedactedFieldMetadata> {
+public class FieldRedactionMetadataSerializer implements MetadataSerializer<FieldRedactionMetadata> {
 
-  private static RedactedFieldMetadata fromRedactedFieldMetadataProto(
+  private static FieldRedactionMetadata fromRedactedFieldMetadataProto(
       Metadata.RedactedFieldMetadata redactedFieldMetadataProto) {
-    return new RedactedFieldMetadata(
+    return new FieldRedactionMetadata(
         redactedFieldMetadataProto.getName(),
         redactedFieldMetadataProto.getFieldName(),
         redactedFieldMetadataProto.getStartTimeEpochMs(),
@@ -17,7 +17,7 @@ public class RedactedFieldMetadataSerializer implements MetadataSerializer<Redac
   }
 
   public static Metadata.RedactedFieldMetadata toRedactedFieldMetadataProto(
-      RedactedFieldMetadata metadata) {
+      FieldRedactionMetadata metadata) {
     return Metadata.RedactedFieldMetadata.newBuilder()
         .setName(metadata.name)
         .setFieldName(metadata.fieldName)
@@ -27,14 +27,14 @@ public class RedactedFieldMetadataSerializer implements MetadataSerializer<Redac
   }
 
   @Override
-  public String toJsonStr(RedactedFieldMetadata metadata) throws InvalidProtocolBufferException {
+  public String toJsonStr(FieldRedactionMetadata metadata) throws InvalidProtocolBufferException {
     if (metadata == null) throw new IllegalArgumentException("metadata object can't be null");
 
     return printer.print(toRedactedFieldMetadataProto(metadata));
   }
 
   @Override
-  public RedactedFieldMetadata fromJsonStr(String data) throws InvalidProtocolBufferException {
+  public FieldRedactionMetadata fromJsonStr(String data) throws InvalidProtocolBufferException {
     Metadata.RedactedFieldMetadata.Builder redactedFieldMetadataBuilder =
         Metadata.RedactedFieldMetadata.newBuilder();
     JsonFormat.parser().ignoringUnknownFields().merge(data, redactedFieldMetadataBuilder);

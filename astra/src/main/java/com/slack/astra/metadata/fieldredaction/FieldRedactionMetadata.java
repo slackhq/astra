@@ -1,17 +1,17 @@
-package com.slack.astra.metadata.redactedfield;
+package com.slack.astra.metadata.fieldredaction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.astra.metadata.core.AstraMetadata;
 
-/** Metadata for a redacted field with a timerange for redaction */
-public class RedactedFieldMetadata extends AstraMetadata {
+/** Metadata for a field redaction with a timerange for redaction */
+public class FieldRedactionMetadata extends AstraMetadata {
 
   public final String fieldName;
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
 
-  public RedactedFieldMetadata(
+  public FieldRedactionMetadata(
       String name, String fieldName, long startTimeEpochMs, long endTimeEpochMs) {
     super(name);
     checkArgument(fieldName != null, "fieldName name cannot be empty");

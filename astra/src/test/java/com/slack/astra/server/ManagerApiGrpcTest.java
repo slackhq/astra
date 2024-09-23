@@ -17,8 +17,8 @@ import com.slack.astra.metadata.core.InternalMetadataStoreException;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
-import com.slack.astra.metadata.redactedfield.RedactedFieldMetadata;
-import com.slack.astra.metadata.redactedfield.RedactedFieldMetadataStore;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
@@ -61,7 +61,7 @@ public class ManagerApiGrpcTest {
   private SnapshotMetadataStore snapshotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
   private ReplicaRestoreService replicaRestoreService;
-  private RedactedFieldMetadataStore redactedFieldMetadataStore;
+  private FieldRedactionMetadataStore fieldRedactionMetadataStore;
   private ManagerApiServiceGrpc.ManagerApiServiceBlockingStub managerApiStub;
 
   @BeforeEach
@@ -83,7 +83,7 @@ public class ManagerApiGrpcTest {
     datasetMetadataStore = spy(new DatasetMetadataStore(curatorFramework, true));
     snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
-    redactedFieldMetadataStore = spy(new RedactedFieldMetadataStore(curatorFramework, true));
+    fieldRedactionMetadataStore = spy(new FieldRedactionMetadataStore(curatorFramework, true));
 
     AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
@@ -109,7 +109,7 @@ public class ManagerApiGrpcTest {
                     datasetMetadataStore,
                     snapshotMetadataStore,
                     replicaRestoreService,
-                    redactedFieldMetadataStore))
+                        fieldRedactionMetadataStore))
             .build()
             .start());
     ManagedChannel channel =
@@ -127,7 +127,7 @@ public class ManagerApiGrpcTest {
     replicaMetadataStore.close();
     snapshotMetadataStore.close();
     datasetMetadataStore.close();
-    redactedFieldMetadataStore.close();
+    fieldRedactionMetadataStore.close();
     curatorFramework.unwrap().close();
 
     testingServer.close();
@@ -808,11 +808,11 @@ public class ManagerApiGrpcTest {
     assertThat(getRedactedFieldResponse.getStartTimeEpochMs()).isEqualTo(start);
     assertThat(getRedactedFieldResponse.getEndTimeEpochMs()).isEqualTo(end);
 
-    RedactedFieldMetadata redactedFieldMetadata = redactedFieldMetadataStore.getSync(redactionName);
-    assertThat(redactedFieldMetadata.getName()).isEqualTo(redactionName);
-    assertThat(redactedFieldMetadata.getFieldName()).isEqualTo(fieldName);
-    assertThat(redactedFieldMetadata.getStartTimeEpochMs()).isEqualTo(start);
-    assertThat(redactedFieldMetadata.getEndTimeEpochMs()).isEqualTo(end);
+    FieldRedactionMetadata fieldRedactionMetadata = fieldRedactionMetadataStore.getSync(redactionName);
+    assertThat(fieldRedactionMetadata.getName()).isEqualTo(redactionName);
+    assertThat(fieldRedactionMetadata.getFieldName()).isEqualTo(fieldName);
+    assertThat(fieldRedactionMetadata.getStartTimeEpochMs()).isEqualTo(start);
+    assertThat(fieldRedactionMetadata.getEndTimeEpochMs()).isEqualTo(end);
   }
 
   @Test
@@ -864,14 +864,14 @@ public class ManagerApiGrpcTest {
                                             .setEndTimeEpochMs(end)
                                             .build())));
 
-    assertThat(AstraMetadataTestUtils.listSyncUncached(redactedFieldMetadataStore).size()).isEqualTo(2);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size()).isEqualTo(2);
     assertThat(
-            AstraMetadataTestUtils.listSyncUncached(redactedFieldMetadataStore)
+            AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore)
                     .containsAll(
                             List.of(
-                                    new RedactedFieldMetadata(
+                                    new FieldRedactionMetadata(
                                             redactionName1, field1, start, end),
-                                    new RedactedFieldMetadata(
+                                    new FieldRedactionMetadata(
                                             redactionName2, field2, start, end))));
   }
 
@@ -899,6 +899,6 @@ public class ManagerApiGrpcTest {
     assertThat(deleteRedactedFieldResponse.getStartTimeEpochMs()).isEqualTo(start);
     assertThat(deleteRedactedFieldResponse.getEndTimeEpochMs()).isEqualTo(end);
 
-    assertThat(redactedFieldMetadataStore.hasSync(redactionName)).isFalse();
+    assertThat(fieldRedactionMetadataStore.hasSync(redactionName)).isFalse();
   }
 }
