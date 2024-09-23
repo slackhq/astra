@@ -14,7 +14,7 @@ public class FieldRedactionMetadata extends AstraMetadata {
   public FieldRedactionMetadata(
       String name, String fieldName, long startTimeEpochMs, long endTimeEpochMs) {
     super(name);
-    checkArgument(fieldName != null, "fieldName name cannot be empty");
+    checkArgument(fieldName != null && !fieldName.isEmpty(), "field name cannot be null");
     checkArgument(startTimeEpochMs > 0, "startTimeEpochMs must be greater than 0");
     checkArgument(
         endTimeEpochMs > startTimeEpochMs,
