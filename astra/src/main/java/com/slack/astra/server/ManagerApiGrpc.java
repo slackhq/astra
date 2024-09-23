@@ -433,7 +433,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
-  /** Returns a single field redaction metadata by name */
+  /** Returns a single field redaction by name */
   @Override
   public void getFieldRedaction(
           ManagerApi.GetFieldRedactionRequest request,
@@ -445,6 +445,25 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error getting field redaction", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  /** Deletes a single field redaction by name */
+  // todo - can we return null from the delete function?
+  @Override
+  public void deleteFieldRedaction(
+          ManagerApi.DeleteFieldRedactionRequest request,
+          StreamObserver<Metadata.RedactedFieldMetadata> responseObserver) {
+
+    try {
+      RedactedFieldMetadata deletedFieldRedaction = redactedFieldMetadataStore.getSync(request.getName());
+      redactedFieldMetadataStore.deleteSync(request.getName());
+      responseObserver.onNext(
+              toRedactedFieldMetadataProto(deletedFieldRedaction));
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error deleting field redaction", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
