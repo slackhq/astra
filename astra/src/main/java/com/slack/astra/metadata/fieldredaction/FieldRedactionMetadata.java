@@ -36,7 +36,7 @@ public class FieldRedactionMetadata extends AstraMetadata {
     return endTimeEpochMs;
   }
 
-  public boolean inMaskedTimerange(long logTimestamp) {
+  public boolean inRedactionTimerange(long logTimestamp) {
     return startTimeEpochMs <= logTimestamp && endTimeEpochMs >= logTimestamp;
   }
 
@@ -46,7 +46,7 @@ public class FieldRedactionMetadata extends AstraMetadata {
         + "name='"
         + name
         + '\''
-        + "fieldName='"
+        + ", fieldName='"
         + fieldName
         + '\''
         + ", startTimeEpochMs="

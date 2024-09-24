@@ -15,12 +15,12 @@ import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -70,7 +70,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final ReferenceManager.RefreshListener refreshListener;
 
   @VisibleForTesting
-  public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
+  public static SearcherManager searcherManagerFromPath(Path path, FieldRedactionMetadataStore fieldRedactionMetadataStore) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
 
     DirectoryReader directoryReader = DirectoryReader.open(directory);
@@ -84,13 +84,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class HashingStoredFieldVisitor extends StoredFieldVisitor {
       private ObjectMapper om = new ObjectMapper();
       private final StoredFieldVisitor delegate;
-      private final List<FieldRedactionMetadata> maskedFields;
+      private final List<FieldRedactionMetadata> fieldRedactions;
 
       public HashingStoredFieldVisitor(
-          final StoredFieldVisitor delegate, List<FieldRedactionMetadata> maskedFields) {
+          final StoredFieldVisitor delegate, List<FieldRedactionMetadata> fieldRedactions) {
         super();
         this.delegate = delegate;
-        this.maskedFields = maskedFields;
+        this.fieldRedactions = fieldRedactions;
       }
 
       @Override
@@ -100,7 +100,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
       @Override
       public void binaryField(FieldInfo fieldInfo, byte[] value) throws IOException {
-        final byte[] salt = "REDACTED".getBytes();
+        final byte[] redactedBytes = "REDACTED".getBytes();
 
         if (fieldInfo.name.equals("_source")) {
           Map<String, Object> source =
@@ -111,11 +111,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             long timestamp =
                 Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
-            maskedFields.forEach(
+            fieldRedactions.forEach(
                 field -> {
-                  if (field.inMaskedTimerange(timestamp)) {
+                  if (field.inRedactionTimerange(timestamp)) {
                     if (innerSource.containsKey(field.getFieldName())) {
-                      innerSource.put(field.getFieldName(), salt);
+                      innerSource.put(field.getFieldName(), redactedBytes);
                       source.put("source", innerSource);
                     }
                   }
@@ -129,8 +129,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
       @Override
       public void stringField(FieldInfo fieldInfo, String value) throws IOException {
-        // todo - is timestamp within redaction window?
-        // snapshotmetadatastore.listsync().forEach( redactionItem -> {redactionItem.name})
         if (fieldInfo.name.equals("_source")) {
           Map<String, Object> source =
               om.readValue(value, new TypeReference<HashMap<String, Object>>() {});
@@ -140,9 +138,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             long timestamp =
                 Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
-            maskedFields.forEach(
+            fieldRedactions.forEach(
                 field -> {
-                  if (field.inMaskedTimerange(timestamp)) {
+                  if (field.inRedactionTimerange(timestamp)) {
                     if (innerSource.containsKey(field.getFieldName())) {
                       innerSource.put(field.getFieldName(), "REDACTED");
                       source.put("source", innerSource);
@@ -178,20 +176,20 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       }
     }
 
-    // implements the masked field reader
-    class MaskedFieldReader extends StoredFieldsReader {
+    // implements the redacted field reader
+    class RedactedFieldReader extends StoredFieldsReader {
 
       private final StoredFieldsReader in;
-      private final List<FieldRedactionMetadata> maskedFields;
+      private final List<FieldRedactionMetadata> fieldRedactions;
 
-      public MaskedFieldReader(StoredFieldsReader in, List<FieldRedactionMetadata> maskedFields) {
+      public RedactedFieldReader(StoredFieldsReader in, List<FieldRedactionMetadata> fieldRedactions) {
         this.in = in;
-        this.maskedFields = maskedFields;
+        this.fieldRedactions = fieldRedactions;
       }
 
       @Override
       public StoredFieldsReader clone() {
-        return new MaskedFieldReader(in, maskedFields);
+        return new RedactedFieldReader(in, fieldRedactions);
       }
 
       @Override
@@ -208,7 +206,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       public void document(int docID, StoredFieldVisitor visitor) throws IOException {
         //        visitor = getDlsFlsVisitor(visitor);
         try {
-          visitor = new HashingStoredFieldVisitor(visitor, maskedFields);
+          visitor = new HashingStoredFieldVisitor(visitor, fieldRedactions);
           in.document(docID, visitor);
         } finally {
           //          finishVisitor(visitor);
@@ -216,13 +214,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       }
     }
 
-    // Implements the masking leaf reader
-    class MaskedLeafReader extends SequentialStoredFieldsLeafReader {
-      private final List<FieldRedactionMetadata> maskedFields;
+    // Implements the redaction leaf reader
+    class RedactionLeafReader extends SequentialStoredFieldsLeafReader {
+      private final List<FieldRedactionMetadata> fieldRedactions;
 
-      public MaskedLeafReader(LeafReader in, List<FieldRedactionMetadata> maskedFields) {
+      public RedactionLeafReader(LeafReader in, List<FieldRedactionMetadata> fieldRedactions) {
         super(in);
-        this.maskedFields = maskedFields;
+        this.fieldRedactions = fieldRedactions;
       }
 
       @Override
@@ -239,13 +237,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       // reader?
       @Override
       public void document(int docID, StoredFieldVisitor visitor) throws IOException {
-        visitor = new HashingStoredFieldVisitor(visitor, maskedFields);
+        visitor = new HashingStoredFieldVisitor(visitor, fieldRedactions);
         in.document(docID, visitor);
       }
 
       @Override
       protected StoredFieldsReader doGetSequentialStoredFieldsReader(StoredFieldsReader reader) {
-        return new MaskedFieldReader(reader, maskedFields);
+        return new RedactedFieldReader(reader, fieldRedactions);
       }
 
       @Override
@@ -259,33 +257,33 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       }
     }
 
-    // Implements a masking subreaderwrapper
-    class MaskingSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
-      private final List<FieldRedactionMetadata> maskedFields;
+    // Implements a field redaction subreaderwrapper
+    class RedactionSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
+      private final List<FieldRedactionMetadata> redactedFields;
 
-      public MaskingSubReaderWrapper(List<FieldRedactionMetadata> maskedFields) throws IOException {
-        this.maskedFields = maskedFields;
+      public RedactionSubReaderWrapper(List<FieldRedactionMetadata> redactedFields) throws IOException {
+        this.redactedFields = redactedFields;
       }
 
       @Override
       public LeafReader wrap(LeafReader reader) {
-        return new MaskedLeafReader(reader, this.maskedFields);
+        return new RedactionLeafReader(reader, this.redactedFields);
       }
     }
 
-    // Implements a filterdirectoryreader for masking
-    class FilterMaskingReader extends FilterDirectoryReader {
-      private final List<FieldRedactionMetadata> maskedFields;
+    // Implements a filterdirectoryreader for field redaction
+    class FilterRedactionReader extends FilterDirectoryReader {
+      private final List<FieldRedactionMetadata> fieldRedactions;
 
-      public FilterMaskingReader(DirectoryReader in, List<FieldRedactionMetadata> maskedFields)
+      public FilterRedactionReader(DirectoryReader in, List<FieldRedactionMetadata> fieldRedactions)
           throws IOException {
-        super(in, new MaskingSubReaderWrapper(maskedFields));
-        this.maskedFields = maskedFields;
+        super(in, new RedactionSubReaderWrapper(fieldRedactions));
+        this.fieldRedactions = fieldRedactions;
       }
 
       @Override
       protected DirectoryReader doWrapDirectoryReader(DirectoryReader in) throws IOException {
-        return new FilterMaskingReader(in, maskedFields);
+        return new FilterRedactionReader(in, fieldRedactions);
       }
 
       @Override
@@ -294,21 +292,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       }
     }
 
-    // todo thread to-be masked fields in here
+    // todo thread to-be redaction fields in here
 
-    long startTime = Instant.now().minus(2, ChronoUnit.DAYS).toEpochMilli();
-    long endTime = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
-    long endTime2 = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
-    FieldRedactionMetadata strField =
-        new FieldRedactionMetadata("string field redaction", "stringproperty", startTime, endTime);
-    FieldRedactionMetadata strField2 =
-        new FieldRedactionMetadata(
-            "another string field redaction", "service_name", startTime, endTime2);
-    FieldRedactionMetadata byteField =
-        new FieldRedactionMetadata("binary field redaction", "binaryproperty", startTime, endTime);
-
-    List<FieldRedactionMetadata> redactedFields = List.of(strField, strField2, byteField);
-    FilterMaskingReader reader = new FilterMaskingReader(directoryReader, redactedFields);
+    FilterRedactionReader reader = new FilterRedactionReader(directoryReader, fieldRedactionMetadataStore.listSync());
     return new SearcherManager(reader, null);
   }
 

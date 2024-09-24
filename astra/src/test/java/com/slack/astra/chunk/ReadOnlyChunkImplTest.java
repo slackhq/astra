@@ -137,7 +137,8 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+                null);
 
     // wait for chunk to register
     await()
@@ -275,7 +276,8 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            null);
 
     // wait for chunk to register
     await()
@@ -341,7 +343,8 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            null);
 
     // wait for chunk to register
     await()
@@ -408,7 +411,8 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            null);
 
     // wait for chunk to register
     await()
@@ -524,7 +528,8 @@ public class ReadOnlyChunkImplTest {
             searchMetadataStore,
             cacheNodeAssignmentStore,
             cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
-            snapshotMetadataStore.findSync(snapshotId));
+            snapshotMetadataStore.findSync(snapshotId),
+            null);
 
     // wait for chunk to register
     // ignoreExceptions is workaround for https://github.com/aws/aws-sdk-java-v2/issues/3658

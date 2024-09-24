@@ -13,6 +13,7 @@ import com.slack.astra.metadata.cache.CacheNodeMetadata;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
@@ -52,6 +53,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
   private CacheSlotMetadataStore cacheSlotMetadataStore;
+  private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
   // for flag "astra.ng.dynamicChunkSizes"
   private final String cacheNodeId;
@@ -90,6 +92,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
     cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework, cacheNodeId);
     cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
+    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
 
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
@@ -111,7 +114,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                 cacheSlotMetadataStore,
                 replicaMetadataStore,
                 snapshotMetadataStore,
-                searchMetadataStore);
+                searchMetadataStore,
+                    fieldRedactionMetadataStore);
 
         chunkMap.put(newChunk.getSlotId(), newChunk);
       }
@@ -222,7 +226,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                     searchMetadataStore,
                     cacheNodeAssignmentStore,
                     assignment,
-                    snapshotsBySnapshotId.get(assignment.snapshotId));
+                    snapshotsBySnapshotId.get(assignment.snapshotId),
+                       fieldRedactionMetadataStore );
             Thread.ofVirtual().start(newChunk::downloadChunkData);
             chunkMap.put(assignment.assignmentId, newChunk);
           }

@@ -450,7 +450,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   }
 
   /** Deletes a single field redaction by name */
-  // todo - can we return null from the delete function?
+  // todo - return true
   @Override
   public void deleteFieldRedaction(
           ManagerApi.DeleteFieldRedactionRequest request,
@@ -469,7 +469,6 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   }
 
   /** Returns all existing field redactions from the metadata store */
-  // todo - only return active ones
   @Override
   public void listFieldRedactions(
           ManagerApi.ListFieldRedactionsRequest request,

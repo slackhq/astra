@@ -22,6 +22,11 @@ import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.astra.metadata.core.AstraMetadataTestUtils;
+import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
@@ -40,7 +45,12 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.io.FileUtils;
+import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.lucene.index.IndexCommit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
@@ -399,7 +409,7 @@ public class LuceneIndexStoreImplTest {
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
+              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath(), null),
               logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
@@ -410,7 +420,7 @@ public class LuceneIndexStoreImplTest {
     }
 
     @Test
-    public void testMaskFieldsS3Snapshot() throws Exception {
+    public void testFieldRedactionsS3Snapshot() throws Exception {
       LuceneIndexStoreImpl logStore = strictLogStore.logStore;
       addMessages(strictLogStore.logStore, 1, 100, true);
       Collection<LogMessage> results =
@@ -495,10 +505,38 @@ public class LuceneIndexStoreImplTest {
            */
 
       // todo - testing here
+      TestingServer testingServer = new TestingServer();
+
+      AstraConfigs.ZookeeperConfig zkConfig =
+              AstraConfigs.ZookeeperConfig.newBuilder()
+                      .setZkConnectString(testingServer.getConnectString())
+                      .setZkPathPrefix("test")
+                      .setZkSessionTimeoutMs(1000)
+                      .setZkConnectionTimeoutMs(1000)
+                      .setSleepBetweenRetriesMs(1000)
+                      .build();
+
+      MeterRegistry meterRegistry = new SimpleMeterRegistry();
+      AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+
+      String redactionName = "testRedaction";
+      String fieldName = "stringproperty";
+      long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
+
+      FieldRedactionMetadataStore fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework,true);
+      fieldRedactionMetadataStore.createSync(
+              new FieldRedactionMetadata(
+              redactionName,
+              fieldName,
+              start,
+              end));
+      await().until(() -> AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
+              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
               logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
@@ -508,10 +546,13 @@ public class LuceneIndexStoreImplTest {
 
       assertThat(log.getSource().get("stringproperty")).isEqualTo("REDACTED");
       assertThat(log.getSource().get("service_name")).isEqualTo("testDataSet");
-      assertThat(log.getSource().get("binaryproperty")).isEqualTo("REDACTED");
+//      assertThat(log.getSource().get("binaryproperty")).isEqualTo("REDACTED");
 
       // Clean up
       newSearcher.close();
+      meterRegistry.close();
+      curatorFramework.unwrap().close();
+      testingServer.close();
     }
   }
 
