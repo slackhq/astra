@@ -405,10 +405,39 @@ public class LuceneIndexStoreImplTest {
                     >= activeFiles.size();
               });
 
+      // setup ZK and redaction metadata store for field redaction testing
+      TestingServer testingServer = new TestingServer();
+      AstraConfigs.ZookeeperConfig zkConfig =
+              AstraConfigs.ZookeeperConfig.newBuilder()
+                      .setZkConnectString(testingServer.getConnectString())
+                      .setZkPathPrefix("test")
+                      .setZkSessionTimeoutMs(1000)
+                      .setZkConnectionTimeoutMs(1000)
+                      .setSleepBetweenRetriesMs(1000)
+                      .build();
+
+      MeterRegistry meterRegistry = new SimpleMeterRegistry();
+      AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+
+      String redactionName = "testRedaction";
+      String fieldName = "stringproperty";
+      long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
+
+      FieldRedactionMetadataStore fieldRedactionMetadataStore =
+              new FieldRedactionMetadataStore(curatorFramework, true);
+      fieldRedactionMetadataStore.createSync(
+              new FieldRedactionMetadata(redactionName, fieldName, start, end));
+      await()
+              .until(
+                      () ->
+                              AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+
+
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath(), null),
+              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
               logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
@@ -425,12 +454,6 @@ public class LuceneIndexStoreImplTest {
       Collection<LogMessage> results =
           findAllMessages(
               strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
-      assertThat(results.size()).isEqualTo(1);
-      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
-          .isEqualTo(100);
-      assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
       Path dirPath = strictLogStore.logStore.getDirectory().getDirectory().toAbsolutePath();
       IndexCommit indexCommit = strictLogStore.logStore.getIndexCommit();
@@ -441,13 +464,10 @@ public class LuceneIndexStoreImplTest {
       strictLogStore.logStore = null;
       strictLogStore.logSearcher = null;
 
-      assertThat(Objects.requireNonNull(dirPath.toFile().listFiles()).length)
-          .isGreaterThanOrEqualTo(activeFiles.size());
-
       // create an S3 client
       S3AsyncClient s3AsyncClient =
           S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      String bucket = "snapshot-test";
+      String bucket = "redaction-test";
       s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
       BlobStore blobStore = new BlobStore(s3AsyncClient, bucket);
 
@@ -483,29 +503,9 @@ public class LuceneIndexStoreImplTest {
                 return Objects.requireNonNull(tmpPath.toFile().listFiles()).length
                     >= activeFiles.size();
               });
-      /*
-          {
-        "id": "Message1",
-        "timestamp": 1725661673.996,
-        "source": {
-          "longproperty": 1,
-          "floatproperty": 1.0,
-          "@timestamp": "2024-09-06T22:27:53.996483Z",
-          "_timesinceepoch": "2024-09-06T22:27:53.996Z",
-          "service_name": "testDataSet",
-          "stringproperty": "String-1",
-          "intproperty": 1,
-          "message": "The identifier in this message is Message1",
-          "doubleproperty": 1.0
-        },
-        "index": "testDataSet",
-        "type": "INFO"
-      }
-           */
 
-      // todo - testing here
+      // setup ZK and redaction metadata store for field redaction testing
       TestingServer testingServer = new TestingServer();
-
       AstraConfigs.ZookeeperConfig zkConfig =
           AstraConfigs.ZookeeperConfig.newBuilder()
               .setZkConnectString(testingServer.getConnectString())

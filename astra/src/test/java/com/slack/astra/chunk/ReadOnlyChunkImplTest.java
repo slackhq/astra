@@ -29,6 +29,7 @@ import com.slack.astra.metadata.cache.CacheSlotMetadata;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.schema.ChunkSchema;
@@ -44,6 +45,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -114,6 +116,7 @@ public class ReadOnlyChunkImplTest {
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    FieldRedactionMetadataStore fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -138,7 +141,7 @@ public class ReadOnlyChunkImplTest {
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore,
-            null);
+            fieldRedactionMetadataStore);
 
     // wait for chunk to register
     await()
@@ -256,6 +259,7 @@ public class ReadOnlyChunkImplTest {
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    FieldRedactionMetadataStore fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -277,7 +281,7 @@ public class ReadOnlyChunkImplTest {
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore,
-            null);
+            fieldRedactionMetadataStore);
 
     // wait for chunk to register
     await()
@@ -323,6 +327,7 @@ public class ReadOnlyChunkImplTest {
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    FieldRedactionMetadataStore fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -344,7 +349,7 @@ public class ReadOnlyChunkImplTest {
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore,
-            null);
+            fieldRedactionMetadataStore);
 
     // wait for chunk to register
     await()
@@ -390,6 +395,7 @@ public class ReadOnlyChunkImplTest {
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    FieldRedactionMetadataStore fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -412,7 +418,7 @@ public class ReadOnlyChunkImplTest {
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore,
-            null);
+            fieldRedactionMetadataStore);
 
     // wait for chunk to register
     await()
@@ -497,6 +503,7 @@ public class ReadOnlyChunkImplTest {
     CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
     CacheNodeAssignmentStore cacheNodeAssignmentStore =
         new CacheNodeAssignmentStore(curatorFramework);
+    FieldRedactionMetadataStore fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
 
     String replicaId = "foo";
     String snapshotId = "boo";
@@ -529,7 +536,7 @@ public class ReadOnlyChunkImplTest {
             cacheNodeAssignmentStore,
             cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
             snapshotMetadataStore.findSync(snapshotId),
-            null);
+            fieldRedactionMetadataStore);
 
     // wait for chunk to register
     // ignoreExceptions is workaround for https://github.com/aws/aws-sdk-java-v2/issues/3658
