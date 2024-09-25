@@ -70,7 +70,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final ReferenceManager.RefreshListener refreshListener;
 
   @VisibleForTesting
-  public static SearcherManager searcherManagerFromPath(Path path, FieldRedactionMetadataStore fieldRedactionMetadataStore) throws IOException {
+  public static SearcherManager searcherManagerFromPath(
+      Path path, FieldRedactionMetadataStore fieldRedactionMetadataStore) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
 
     DirectoryReader directoryReader = DirectoryReader.open(directory);
@@ -182,7 +183,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       private final StoredFieldsReader in;
       private final List<FieldRedactionMetadata> fieldRedactions;
 
-      public RedactedFieldReader(StoredFieldsReader in, List<FieldRedactionMetadata> fieldRedactions) {
+      public RedactedFieldReader(
+          StoredFieldsReader in, List<FieldRedactionMetadata> fieldRedactions) {
         this.in = in;
         this.fieldRedactions = fieldRedactions;
       }
@@ -261,7 +263,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     class RedactionSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
       private final List<FieldRedactionMetadata> redactedFields;
 
-      public RedactionSubReaderWrapper(List<FieldRedactionMetadata> redactedFields) throws IOException {
+      public RedactionSubReaderWrapper(List<FieldRedactionMetadata> redactedFields)
+          throws IOException {
         this.redactedFields = redactedFields;
       }
 
@@ -294,7 +297,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     // todo thread to-be redaction fields in here
 
-    FilterRedactionReader reader = new FilterRedactionReader(directoryReader, fieldRedactionMetadataStore.listSync());
+    FilterRedactionReader reader =
+        new FilterRedactionReader(directoryReader, fieldRedactionMetadataStore.listSync());
     return new SearcherManager(reader, null);
   }
 

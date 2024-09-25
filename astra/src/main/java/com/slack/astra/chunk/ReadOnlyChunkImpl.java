@@ -117,7 +117,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         replicaMetadataStore,
         snapshotMetadataStore,
         searchMetadataStore,
-            fieldRedactionMetadataStore);
+        fieldRedactionMetadataStore);
     this.assignment = assignment;
     this.lastKnownAssignmentState = assignment.state;
     this.snapshotMetadata = snapshotMetadata;
@@ -136,7 +136,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
-  FieldRedactionMetadataStore fieldRedactionMetadataStore)
+      FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws Exception {
     this.meterRegistry = meterRegistry;
     this.blobStore = blobStore;
@@ -255,7 +255,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
-                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory, fieldRedactionMetadataStore),
+                  LogIndexSearcherImpl.searcherManagerFromPath(
+                      dataDirectory, fieldRedactionMetadataStore),
                   chunkSchema.fieldDefMap);
 
       // set chunk state
@@ -397,7 +398,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
-                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory, fieldRedactionMetadataStore),
+                  LogIndexSearcherImpl.searcherManagerFromPath(
+                      dataDirectory, fieldRedactionMetadataStore),
                   chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available

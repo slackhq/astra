@@ -138,7 +138,7 @@ public class ReadOnlyChunkImplTest {
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore,
-                null);
+            null);
 
     // wait for chunk to register
     await()

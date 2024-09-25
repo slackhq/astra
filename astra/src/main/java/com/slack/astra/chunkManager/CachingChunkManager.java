@@ -115,7 +115,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                 replicaMetadataStore,
                 snapshotMetadataStore,
                 searchMetadataStore,
-                    fieldRedactionMetadataStore);
+                fieldRedactionMetadataStore);
 
         chunkMap.put(newChunk.getSlotId(), newChunk);
       }
@@ -227,7 +227,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                     cacheNodeAssignmentStore,
                     assignment,
                     snapshotsBySnapshotId.get(assignment.snapshotId),
-                       fieldRedactionMetadataStore );
+                    fieldRedactionMetadataStore);
             Thread.ofVirtual().start(newChunk::downloadChunkData);
             chunkMap.put(assignment.assignmentId, newChunk);
           }

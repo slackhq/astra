@@ -33,6 +33,8 @@ import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -45,9 +47,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.io.FileUtils;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -508,13 +507,13 @@ public class LuceneIndexStoreImplTest {
       TestingServer testingServer = new TestingServer();
 
       AstraConfigs.ZookeeperConfig zkConfig =
-              AstraConfigs.ZookeeperConfig.newBuilder()
-                      .setZkConnectString(testingServer.getConnectString())
-                      .setZkPathPrefix("test")
-                      .setZkSessionTimeoutMs(1000)
-                      .setZkConnectionTimeoutMs(1000)
-                      .setSleepBetweenRetriesMs(1000)
-                      .build();
+          AstraConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("test")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
 
       MeterRegistry meterRegistry = new SimpleMeterRegistry();
       AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
@@ -524,19 +523,20 @@ public class LuceneIndexStoreImplTest {
       long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
       long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
 
-      FieldRedactionMetadataStore fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework,true);
+      FieldRedactionMetadataStore fieldRedactionMetadataStore =
+          new FieldRedactionMetadataStore(curatorFramework, true);
       fieldRedactionMetadataStore.createSync(
-              new FieldRedactionMetadata(
-              redactionName,
-              fieldName,
-              start,
-              end));
-      await().until(() -> AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+          new FieldRedactionMetadata(redactionName, fieldName, start, end));
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
+              LogIndexSearcherImpl.searcherManagerFromPath(
+                  tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
               logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
@@ -546,7 +546,7 @@ public class LuceneIndexStoreImplTest {
 
       assertThat(log.getSource().get("stringproperty")).isEqualTo("REDACTED");
       assertThat(log.getSource().get("service_name")).isEqualTo("testDataSet");
-//      assertThat(log.getSource().get("binaryproperty")).isEqualTo("REDACTED");
+      //      assertThat(log.getSource().get("binaryproperty")).isEqualTo("REDACTED");
 
       // Clean up
       newSearcher.close();

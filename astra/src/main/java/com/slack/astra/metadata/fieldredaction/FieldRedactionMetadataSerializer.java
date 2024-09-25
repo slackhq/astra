@@ -5,7 +5,8 @@ import com.google.protobuf.util.JsonFormat;
 import com.slack.astra.metadata.core.MetadataSerializer;
 import com.slack.astra.proto.metadata.Metadata;
 
-public class FieldRedactionMetadataSerializer implements MetadataSerializer<FieldRedactionMetadata> {
+public class FieldRedactionMetadataSerializer
+    implements MetadataSerializer<FieldRedactionMetadata> {
 
   private static FieldRedactionMetadata fromRedactedFieldMetadataProto(
       Metadata.RedactedFieldMetadata redactedFieldMetadataProto) {

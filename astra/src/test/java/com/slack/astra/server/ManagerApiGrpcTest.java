@@ -109,7 +109,7 @@ public class ManagerApiGrpcTest {
                     datasetMetadataStore,
                     snapshotMetadataStore,
                     replicaRestoreService,
-                        fieldRedactionMetadataStore))
+                    fieldRedactionMetadataStore))
             .build()
             .start());
     ManagedChannel channel =
@@ -793,22 +793,23 @@ public class ManagerApiGrpcTest {
     long end = startTime + 10;
 
     managerApiStub.createFieldRedaction(
-            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                    .setName(redactionName)
-                    .setFieldName(fieldName)
-                    .setStartTimeEpochMs(start)
-                    .setEndTimeEpochMs(end)
-                    .build());
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName)
+            .setFieldName(fieldName)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
 
     Metadata.RedactedFieldMetadata getRedactedFieldResponse =
-            managerApiStub.getFieldRedaction(
-                    ManagerApi.GetFieldRedactionRequest.newBuilder().setName(redactionName).build());
+        managerApiStub.getFieldRedaction(
+            ManagerApi.GetFieldRedactionRequest.newBuilder().setName(redactionName).build());
     assertThat(getRedactedFieldResponse.getName()).isEqualTo(redactionName);
     assertThat(getRedactedFieldResponse.getFieldName()).isEqualTo(fieldName);
     assertThat(getRedactedFieldResponse.getStartTimeEpochMs()).isEqualTo(start);
     assertThat(getRedactedFieldResponse.getEndTimeEpochMs()).isEqualTo(end);
 
-    FieldRedactionMetadata fieldRedactionMetadata = fieldRedactionMetadataStore.getSync(redactionName);
+    FieldRedactionMetadata fieldRedactionMetadata =
+        fieldRedactionMetadataStore.getSync(redactionName);
     assertThat(fieldRedactionMetadata.getName()).isEqualTo(redactionName);
     assertThat(fieldRedactionMetadata.getFieldName()).isEqualTo(fieldName);
     assertThat(fieldRedactionMetadata.getStartTimeEpochMs()).isEqualTo(start);
@@ -824,55 +825,54 @@ public class ManagerApiGrpcTest {
     long end = startTime + 10;
 
     managerApiStub.createFieldRedaction(
-            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                    .setName(redactionName1)
-                    .setFieldName(field1)
-                    .setStartTimeEpochMs(start)
-                    .setEndTimeEpochMs(end)
-                    .build());
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName1)
+            .setFieldName(field1)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
 
     String redactionName2 = "testFieldRedaction2";
     String field2 = "testField2";
 
     managerApiStub.createFieldRedaction(
-            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                    .setName(redactionName2)
-                    .setFieldName(field2)
-                    .setStartTimeEpochMs(start)
-                    .setEndTimeEpochMs(end)
-                    .build());
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName2)
+            .setFieldName(field2)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
 
     ManagerApi.ListFieldRedactionsResponse listFieldRedactionsResponse =
-            managerApiStub.listFieldRedactions(
-                    ManagerApi.ListFieldRedactionsRequest.newBuilder().build());
+        managerApiStub.listFieldRedactions(
+            ManagerApi.ListFieldRedactionsRequest.newBuilder().build());
 
     assertThat(
-            listFieldRedactionsResponse
-                    .getRedactedFieldsList()
-                    .containsAll(
-                            List.of(
-                                    Metadata.RedactedFieldMetadata.newBuilder()
-                                            .setName(redactionName1)
-                                            .setFieldName(field1)
-                                            .setStartTimeEpochMs(start)
-                                            .setEndTimeEpochMs(end)
-                                            .build(),
-                                    Metadata.RedactedFieldMetadata.newBuilder()
-                                            .setName(redactionName2)
-                                            .setFieldName(field2)
-                                            .setStartTimeEpochMs(start)
-                                            .setEndTimeEpochMs(end)
-                                            .build())));
+        listFieldRedactionsResponse
+            .getRedactedFieldsList()
+            .containsAll(
+                List.of(
+                    Metadata.RedactedFieldMetadata.newBuilder()
+                        .setName(redactionName1)
+                        .setFieldName(field1)
+                        .setStartTimeEpochMs(start)
+                        .setEndTimeEpochMs(end)
+                        .build(),
+                    Metadata.RedactedFieldMetadata.newBuilder()
+                        .setName(redactionName2)
+                        .setFieldName(field2)
+                        .setStartTimeEpochMs(start)
+                        .setEndTimeEpochMs(end)
+                        .build())));
 
-    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size()).isEqualTo(2);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size())
+        .isEqualTo(2);
     assertThat(
-            AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore)
-                    .containsAll(
-                            List.of(
-                                    new FieldRedactionMetadata(
-                                            redactionName1, field1, start, end),
-                                    new FieldRedactionMetadata(
-                                            redactionName2, field2, start, end))));
+        AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore)
+            .containsAll(
+                List.of(
+                    new FieldRedactionMetadata(redactionName1, field1, start, end),
+                    new FieldRedactionMetadata(redactionName2, field2, start, end))));
   }
 
   @Test
@@ -884,16 +884,16 @@ public class ManagerApiGrpcTest {
     long end = startTime + 10;
 
     managerApiStub.createFieldRedaction(
-            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                    .setName(redactionName)
-                    .setFieldName(fieldName)
-                    .setStartTimeEpochMs(start)
-                    .setEndTimeEpochMs(end)
-                    .build());
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName)
+            .setFieldName(fieldName)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
 
     Metadata.RedactedFieldMetadata deleteRedactedFieldResponse =
-            managerApiStub.deleteFieldRedaction(
-                    ManagerApi.DeleteFieldRedactionRequest.newBuilder().setName(redactionName).build());
+        managerApiStub.deleteFieldRedaction(
+            ManagerApi.DeleteFieldRedactionRequest.newBuilder().setName(redactionName).build());
     assertThat(deleteRedactedFieldResponse.getName()).isEqualTo(redactionName);
     assertThat(deleteRedactedFieldResponse.getFieldName()).isEqualTo(fieldName);
     assertThat(deleteRedactedFieldResponse.getStartTimeEpochMs()).isEqualTo(start);
@@ -912,27 +912,28 @@ public class ManagerApiGrpcTest {
     long end = startTime + 10;
 
     managerApiStub.createFieldRedaction(
-            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                    .setName(redactionName)
-                    .setFieldName(fieldName1)
-                    .setStartTimeEpochMs(start)
-                    .setEndTimeEpochMs(end)
-                    .build());
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName)
+            .setFieldName(fieldName1)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
 
     StatusRuntimeException throwable =
-            (StatusRuntimeException)
-                    catchThrowable(
-                            () ->
-                                    managerApiStub.createFieldRedaction(
-                                            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                                                    .setName(redactionName)
-                                                    .setFieldName(fieldName2)
-                                                    .setStartTimeEpochMs(start)
-                                                    .setEndTimeEpochMs(end)
-                                                    .build()));
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName(redactionName)
+                            .setFieldName(fieldName2)
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    FieldRedactionMetadata fieldRedactionMetadata = fieldRedactionMetadataStore.getSync(redactionName);
+    FieldRedactionMetadata fieldRedactionMetadata =
+        fieldRedactionMetadataStore.getSync(redactionName);
     assertThat(fieldRedactionMetadata.getName()).isEqualTo(redactionName);
     assertThat(fieldRedactionMetadata.getFieldName()).isEqualTo(fieldName1);
     assertThat(fieldRedactionMetadata.getStartTimeEpochMs()).isEqualTo(start);
@@ -947,46 +948,47 @@ public class ManagerApiGrpcTest {
     long end = startTime + 10;
 
     StatusRuntimeException throwable1 =
-            (StatusRuntimeException)
-                    catchThrowable(
-                            () ->
-                                    managerApiStub.createFieldRedaction(
-                                            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                                                    .setName("")
-                                                    .setFieldName(fieldName)
-                                                    .setStartTimeEpochMs(start)
-                                                    .setEndTimeEpochMs(end)
-                                                    .build()));
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName("")
+                            .setFieldName(fieldName)
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable1.getStatus().getDescription()).isEqualTo("name can't be null or empty.");
 
     StatusRuntimeException throwable2 =
-            (StatusRuntimeException)
-                    catchThrowable(
-                            () ->
-                                    managerApiStub.createFieldRedaction(
-                                            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                                                    .setName("/")
-                                                    .setFieldName(fieldName)
-                                                    .setStartTimeEpochMs(start)
-                                                    .setEndTimeEpochMs(end)
-                                                    .build()));
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName("/")
+                            .setFieldName(fieldName)
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
     assertThat(throwable2.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
     StatusRuntimeException throwable3 =
-            (StatusRuntimeException)
-                    catchThrowable(
-                            () ->
-                                    managerApiStub.createFieldRedaction(
-                                            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                                                    .setName(".")
-                                                    .setFieldName(fieldName)
-                                                    .setStartTimeEpochMs(start)
-                                                    .setEndTimeEpochMs(end)
-                                                    .build()));
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName(".")
+                            .setFieldName(fieldName)
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
     assertThat(throwable3.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size()).isEqualTo(0);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size())
+        .isEqualTo(0);
   }
 
   @Test
@@ -997,19 +999,20 @@ public class ManagerApiGrpcTest {
     long end = startTime + 10;
 
     StatusRuntimeException throwable =
-            (StatusRuntimeException)
-                    catchThrowable(
-                            () ->
-                                    managerApiStub.createFieldRedaction(
-                                            ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                                                    .setName(redactionName)
-                                                    .setFieldName("")
-                                                    .setStartTimeEpochMs(start)
-                                                    .setEndTimeEpochMs(end)
-                                                    .build()));
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName(redactionName)
+                            .setFieldName("")
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable.getStatus().getDescription()).isEqualTo("field name cannot be null");
 
-    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size()).isEqualTo(0);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size())
+        .isEqualTo(0);
   }
 }
