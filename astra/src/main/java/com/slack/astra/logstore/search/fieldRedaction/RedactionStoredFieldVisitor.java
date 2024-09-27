@@ -2,29 +2,31 @@ package com.slack.astra.logstore.search.fieldRedaction;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.index.FieldInfo;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 // Implements the hashing/redaction for stored fields
 class RedactionStoredFieldVisitor extends StoredFieldVisitor {
     private ObjectMapper om = new ObjectMapper();
     private final StoredFieldVisitor delegate;
-    private final List<FieldRedactionMetadata> fieldRedactions;
+    private final Map<String, FieldRedactionMetadata> fieldRedactionsMap;
+
     // todo - listsync at field level because you want the latest metadata
     // can initiate a watcher on it and update a map
 
     public RedactionStoredFieldVisitor(
-            final StoredFieldVisitor delegate, List<FieldRedactionMetadata> fieldRedactions) {
+            final StoredFieldVisitor delegate, Map<String, FieldRedactionMetadata> fieldRedactionsMap) {
         super();
         this.delegate = delegate;
-        this.fieldRedactions = fieldRedactions;
+        this.fieldRedactionsMap = fieldRedactionsMap;
     }
 
     @Override
@@ -45,7 +47,7 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
                 long timestamp =
                         Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
-                fieldRedactions.forEach(
+                fieldRedactionsMap.forEach(
                         field -> {
                             if (field.inRedactionTimerange(timestamp)) {
                                 if (innerSource.containsKey(field.getFieldName())) {
@@ -72,7 +74,7 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
                 long timestamp =
                         Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
-                fieldRedactions.forEach(
+                fieldRedactionsMap.forEach(
                         field -> {
                             if (field.inRedactionTimerange(timestamp)) {
                                 if (innerSource.containsKey(field.getFieldName())) {
@@ -108,5 +110,6 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
     public void doubleField(FieldInfo fieldInfo, double value) throws IOException {
         delegate.doubleField(fieldInfo, value);
     }
+
 }
 

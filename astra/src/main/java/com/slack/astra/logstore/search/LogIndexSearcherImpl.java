@@ -5,8 +5,6 @@ import static com.slack.astra.util.ArgValidationUtils.ensureTrue;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.slack.astra.logstore.LogMessage;
@@ -14,30 +12,20 @@ import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
-import com.slack.astra.logstore.search.fieldRedaction.FilterRedactionReader;
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.logstore.search.fieldRedaction.RedactionFilterDirectoryReader;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FilterDirectoryReader;
-import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.SortedDocValues;
-import org.apache.lucene.index.StoredFieldVisitor;
-import org.apache.lucene.index.StoredFields;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MultiCollectorManager;
@@ -51,7 +39,6 @@ import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
-import org.opensearch.common.lucene.index.SequentialStoredFieldsLeafReader;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
@@ -76,9 +63,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     MMapDirectory directory = new MMapDirectory(path);
     DirectoryReader directoryReader = DirectoryReader.open(directory);
 
-  // todo thread to-be redaction fields in here
-    FilterRedactionReader reader =
-        new FilterRedactionReader(directoryReader, fieldRedactionMetadataStore.listSync());
+    RedactionFilterDirectoryReader reader =
+        new RedactionFilterDirectoryReader(directoryReader, fieldRedactionMetadataStore);
     return new SearcherManager(reader, null);
   }
 
