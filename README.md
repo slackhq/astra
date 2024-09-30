@@ -61,6 +61,9 @@ Licensed under [MIT](LICENSE). Copyright (c) 2024 Slack.
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/HenryCaiHaiying"><img src="https://avatars.githubusercontent.com/u/7378943?v=4?s=100" width="100px;" alt="Henry Haiying Cai"/><br /><sub><b>Henry Haiying Cai</b></sub></a><br /><a href="#code-HenryCaiHaiying" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/gjacoby126"><img src="https://avatars.githubusercontent.com/u/5717906?v=4?s=100" width="100px;" alt="Geoffrey Jacoby"/><br /><sub><b>Geoffrey Jacoby</b></sub></a><br /><a href="#bug-gjacoby126" title="Bug reports">🐛</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/baroquebobcat"><img src="https://avatars.githubusercontent.com/u/7378?v=4?s=100" width="100px;" alt="Nora Howard"/><br /><sub><b>Nora Howard</b></sub></a><br /><a href="#code-baroquebobcat" title="Code">💻</a> <a href="#bug-baroquebobcat" title="Bug reports">🐛</a></td>
+    </tr>
   </tbody>
 </table>
 
