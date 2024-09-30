@@ -66,7 +66,9 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/10778883?v=4",
       "profile": "https://github.com/ermontross",
       "contributions": [
-        "plugin"
+        "plugin",
+        "code",
+        "bug"
       ]
     },
     {
@@ -157,6 +159,16 @@
       "profile": "https://github.com/zarna1parekh",
       "contributions": [
         "code"
+      ]
+    },
+    {
+      "login": "baroquebobcat",
+      "name": "Nora Howard",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7378?v=4",
+      "profile": "https://github.com/baroquebobcat",
+      "contributions": [
+        "code",
+        "bug"
       ]
     }
   ]

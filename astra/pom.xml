@@ -23,14 +23,14 @@
         <armeria.version>1.27.3</armeria.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.18.0</jackson.version>
-        <jackson.databind.version>2.17.0</jackson.databind.version>
+        <jackson.databind.version>2.18.0</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.7.0</curator.version>
-        <log4j.version>2.24.0</log4j.version>
-        <aws.sdk.version>2.28.6</aws.sdk.version>
+        <log4j.version>2.24.1</log4j.version>
+        <aws.sdk.version>2.28.11</aws.sdk.version>
         <error.prone.version>2.32.0</error.prone.version>
-        <junit.jupiter.version>5.11.0</junit.jupiter.version>
+        <junit.jupiter.version>5.11.1</junit.jupiter.version>
     </properties>
 
     <repositories>
@@ -258,7 +258,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.3.0-jre</version>
+            <version>33.3.1-jre</version>
         </dependency>
 
         <dependency>
@@ -327,7 +327,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.31.1</version>
+            <version>0.31.3</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -428,7 +428,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.15.1</version>
+            <version>1.15.3</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
