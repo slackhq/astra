@@ -149,6 +149,16 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "baroquebobcat",
+      "name": "Nora Howard",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7378?v=4",
+      "profile": "https://github.com/baroquebobcat",
+      "contributions": [
+        "code",
+        "bug"
+      ]
     }
   ]
 }
