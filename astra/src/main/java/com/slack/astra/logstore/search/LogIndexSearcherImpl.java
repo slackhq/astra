@@ -58,8 +58,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   // This feature flag enables using OpenSearch to parse our aggregations, rather than using the
   // home-rolled
   // aggregation parsing we're currently using
-  private static final Boolean useOpenSearchAggregationParsing = Boolean.parseBoolean(
-            System.getProperty("astra.query.useOpenSearchAggregationParsing", "false")); ;
+  private static final Boolean useOpenSearchAggregationParsing =
+      Boolean.parseBoolean(
+          System.getProperty("astra.query.useOpenSearchAggregationParsing", "false"));
+  ;
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {

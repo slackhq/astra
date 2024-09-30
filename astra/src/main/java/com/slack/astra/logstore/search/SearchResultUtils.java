@@ -3,7 +3,6 @@ package com.slack.astra.logstore.search;
 import brave.ScopedSpan;
 import brave.Tracing;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.slack.astra.logstore.LogMessage;

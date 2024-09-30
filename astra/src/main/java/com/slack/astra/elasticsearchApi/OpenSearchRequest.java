@@ -94,7 +94,7 @@ public class OpenSearchRequest {
           if (to instanceof Long) {
             dateRangeEnd = (Long) to;
           } else if (to instanceof Integer) {
-            dateRangeEnd= ((Integer) to).longValue();
+            dateRangeEnd = ((Integer) to).longValue();
           } else if (to instanceof String) {
             dateRangeEnd = Long.valueOf(to.toString());
           }
