@@ -80,21 +80,40 @@ public class OpenSearchRequest {
 
         Object from = rangeQueryBuilder.from();
         Object to = rangeQueryBuilder.to();
+        String format = rangeQueryBuilder.format();
 
-        if (from instanceof Long) {
-          dateRangeStart = (Long) from;
-        } else if (from instanceof Integer) {
-          dateRangeStart = ((Integer) from).longValue();
-        } else if (from instanceof String) {
-          dateRangeStart = Instant.parse((String) from).toEpochMilli();
-        }
+        if (format.equals("epoch_millis")) {
+          if (from instanceof Long) {
+            dateRangeStart = (Long) from;
+          } else if (from instanceof Integer) {
+            dateRangeStart = ((Integer) from).longValue();
+          } else if (from instanceof String) {
+            dateRangeStart = Long.valueOf(from.toString());
+          }
 
-        if (to instanceof Long) {
-          dateRangeEnd = (Long) to;
-        } else if (to instanceof Integer) {
-          dateRangeEnd = ((Integer) to).longValue();
-        } else if (to instanceof String) {
-          dateRangeEnd = Instant.parse((String) to).toEpochMilli();
+          if (to instanceof Long) {
+            dateRangeEnd = (Long) to;
+          } else if (to instanceof Integer) {
+            dateRangeEnd= ((Integer) to).longValue();
+          } else if (to instanceof String) {
+            dateRangeEnd = Long.valueOf(to.toString());
+          }
+        } else {
+          if (from instanceof Long) {
+            dateRangeStart = (Long) from;
+          } else if (from instanceof Integer) {
+            dateRangeStart = ((Integer) from).longValue();
+          } else if (from instanceof String) {
+            dateRangeStart = Instant.parse((String) from).toEpochMilli();
+          }
+
+          if (to instanceof Long) {
+            dateRangeEnd = (Long) to;
+          } else if (to instanceof Integer) {
+            dateRangeEnd = ((Integer) to).longValue();
+          } else if (to instanceof String) {
+            dateRangeEnd = Instant.parse((String) to).toEpochMilli();
+          }
         }
       }
     }
