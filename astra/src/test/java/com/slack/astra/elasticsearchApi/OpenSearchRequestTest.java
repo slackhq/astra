@@ -76,6 +76,21 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testGetDateRangeFromEpochMillisStringValue() throws Exception {
+    String rawRequest = getRawQueryString("bool_query_with_epoch_millis_date_range_as_string");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
+  }
+
+  @Test
   public void testGetDateRangeFromGtLt() throws Exception {
     String rawRequest = getRawQueryString("bool_query_with_gt_lt_time_range");
 

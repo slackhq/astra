@@ -82,7 +82,7 @@ public class OpenSearchRequest {
         Object to = rangeQueryBuilder.to();
         String format = rangeQueryBuilder.format();
 
-        if (format.equals("epoch_millis")) {
+        if (format != null && format.equals("epoch_millis")) {
           if (from instanceof Long) {
             dateRangeStart = (Long) from;
           } else if (from instanceof Integer) {
