@@ -3,6 +3,7 @@ package com.slack.astra.logstore.search;
 import brave.ScopedSpan;
 import brave.Tracing;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.slack.astra.logstore.LogMessage;
@@ -45,6 +46,8 @@ import org.opensearch.search.SearchModule;
 import org.opensearch.search.aggregations.AggregatorFactories;
 
 public class SearchResultUtils {
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
   public static Map<String, Object> fromValueStruct(AstraSearch.Struct struct) {
     Map<String, Object> returnMap = new HashMap<>();
     struct.getFieldsMap().forEach((key, value) -> returnMap.put(key, fromValueProto(value)));
@@ -670,7 +673,6 @@ public class SearchResultUtils {
     if (!searchRequest.getQuery().isEmpty()) {
       SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
       try {
-        ObjectMapper objectMapper = new ObjectMapper();
         NamedXContentRegistry namedXContentRegistry =
             new NamedXContentRegistry(searchModule.getNamedXContents());
         JsonXContentParser jsonXContentParser =
@@ -688,7 +690,6 @@ public class SearchResultUtils {
     if (!searchRequest.getAggregationJson().isEmpty()) {
       SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
       try {
-        ObjectMapper objectMapper = new ObjectMapper();
         NamedXContentRegistry namedXContentRegistry =
             new NamedXContentRegistry(searchModule.getNamedXContents());
         JsonXContentParser jsonXContentParser =

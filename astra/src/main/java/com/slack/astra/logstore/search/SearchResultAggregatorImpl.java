@@ -27,13 +27,12 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
   // This feature flag enables using OpenSearch to parse our aggregations, rather than using the
   // home-rolled
   // aggregation parsing we're currently using
-  private final Boolean useOpenSearchAggregationParsing;
+  private static final Boolean useOpenSearchAggregationParsing = Boolean.parseBoolean(
+            System.getProperty("astra.query.useOpenSearchAggregationParsing", "false")); ;
 
   public SearchResultAggregatorImpl(SearchQuery searchQuery) {
     this.searchQuery = searchQuery;
-    this.useOpenSearchAggregationParsing =
-        Boolean.parseBoolean(
-            System.getProperty("astra.query.useOpenSearchAggregationParsing", "false"));
+
   }
 
   @Override
@@ -69,7 +68,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
             && this.useOpenSearchAggregationParsing) {
           Collection<AggregationBuilder> aggregationBuilders =
               searchQuery.aggregatorFactoriesBuilder.getAggregatorFactories();
-          pipelineTree = aggregationBuilders.stream().toList().getFirst().buildPipelineTree();
+          pipelineTree = aggregationBuilders.iterator().next().buildPipelineTree();
         } else {
           pipelineTree =
               OpenSearchAdapter.getAggregationBuilder(searchQuery.aggBuilder).buildPipelineTree();
