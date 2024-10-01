@@ -669,11 +669,11 @@ public class SearchResultUtils {
 
   public static SearchQuery fromSearchRequest(AstraSearch.SearchRequest searchRequest) {
     QueryBuilder queryBuilder = null;
+    SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
+    NamedXContentRegistry namedXContentRegistry =
+        new NamedXContentRegistry(searchModule.getNamedXContents());
     if (!searchRequest.getQuery().isEmpty()) {
-      SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
       try {
-        NamedXContentRegistry namedXContentRegistry =
-            new NamedXContentRegistry(searchModule.getNamedXContents());
         JsonXContentParser jsonXContentParser =
             new JsonXContentParser(
                 namedXContentRegistry,
@@ -687,10 +687,7 @@ public class SearchResultUtils {
 
     AggregatorFactories.Builder aggregatorFactoriesBuilder = null;
     if (!searchRequest.getAggregationJson().isEmpty()) {
-      SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
       try {
-        NamedXContentRegistry namedXContentRegistry =
-            new NamedXContentRegistry(searchModule.getNamedXContents());
         JsonXContentParser jsonXContentParser =
             new JsonXContentParser(
                 namedXContentRegistry,
