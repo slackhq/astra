@@ -46,6 +46,9 @@ import org.opensearch.search.aggregations.AggregatorFactories;
 
 public class SearchResultUtils {
   private static final ObjectMapper objectMapper = new ObjectMapper();
+  private static final SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
+  private static final NamedXContentRegistry namedXContentRegistry =
+      new NamedXContentRegistry(searchModule.getNamedXContents());
 
   public static Map<String, Object> fromValueStruct(AstraSearch.Struct struct) {
     Map<String, Object> returnMap = new HashMap<>();
@@ -669,9 +672,7 @@ public class SearchResultUtils {
 
   public static SearchQuery fromSearchRequest(AstraSearch.SearchRequest searchRequest) {
     QueryBuilder queryBuilder = null;
-    SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
-    NamedXContentRegistry namedXContentRegistry =
-        new NamedXContentRegistry(searchModule.getNamedXContents());
+
     if (!searchRequest.getQuery().isEmpty()) {
       try {
         JsonXContentParser jsonXContentParser =
