@@ -5,11 +5,9 @@ import static com.slack.astra.util.SizeConstant.MB;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -91,7 +89,7 @@ public class S3IndexInput extends IndexInput {
     if (cachedData.containsKey(pageKey)) {
       return cachedData.get(pageKey);
     } else {
-      Metrics.counter(PAGE_COUNTER, List.of(Tag.of("chunkId", chunkId))).increment();
+      Metrics.counter(PAGE_COUNTER).increment();
       cachedData.clear();
 
       long readFrom = pageKey * PAGE_SIZE;

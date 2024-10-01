@@ -2,7 +2,6 @@ package com.slack.astra.blobfs;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.lucene.store.Directory;
@@ -23,7 +22,7 @@ public class S3RemoteDirectory extends Directory {
   private final BlobStore blobStore;
   private final String chunkId;
 
-  private List<String> files = null;
+  private String[] files = null;
 
   public S3RemoteDirectory(String chunkId, BlobStore blobStore) {
     this.chunkId = chunkId;
@@ -40,11 +39,11 @@ public class S3RemoteDirectory extends Directory {
                     String[] parts = fullPath.split("/");
                     return parts[parts.length - 1];
                   })
-              .toList();
+              .toArray(String[]::new);
       LOG.debug(
           "listed files for chunkId - {}, listResults - {}", chunkId, String.join(",", files));
     }
-    return files.toArray(String[]::new);
+    return files;
   }
 
   @Override
