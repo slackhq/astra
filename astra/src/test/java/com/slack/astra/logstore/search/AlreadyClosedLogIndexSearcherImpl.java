@@ -4,6 +4,7 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.search.aggregations.AggregatorFactories;
 
 public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
@@ -12,7 +13,8 @@ public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMe
       int howMany,
       AggBuilder aggBuilder,
       QueryBuilder queryBuilder,
-      SourceFieldFilter sourceFieldFilter) {
+      SourceFieldFilter sourceFieldFilter,
+      AggregatorFactories.Builder aggregatorFactoriesBuilder) {
     throw new AlreadyClosedException("Failed to acquire an index searcher");
   }
 

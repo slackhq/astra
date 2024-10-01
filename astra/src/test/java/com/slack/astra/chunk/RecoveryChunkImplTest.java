@@ -153,6 +153,7 @@ public class RecoveryChunkImplTest {
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
               QueryBuilderUtil.generateQueryBuilder("*:*", 0L, MAX_TIME),
+              null,
               null));
 
       chunk.query(
@@ -165,6 +166,7 @@ public class RecoveryChunkImplTest {
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
               QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+              null,
               null));
 
       SearchResult<LogMessage> results =
@@ -178,6 +180,7 @@ public class RecoveryChunkImplTest {
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
                   QueryBuilderUtil.generateQueryBuilder("Message*", 0L, MAX_TIME),
+                  null,
                   null));
       assertThat(results.hits.size()).isEqualTo(10);
 
@@ -306,6 +309,7 @@ public class RecoveryChunkImplTest {
                           Collections.emptyList(),
                           QueryBuilderUtil.generateQueryBuilder(
                               searchString, startTimeMs, endTimeMs),
+                          null,
                           null))
                   .hits
                   .size())
@@ -338,6 +342,7 @@ public class RecoveryChunkImplTest {
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
                   QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+                  null,
                   null));
       assertThat(results.hits.size()).isEqualTo(1);
 
@@ -409,6 +414,7 @@ public class RecoveryChunkImplTest {
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
                   QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+                  null,
                   null));
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
@@ -426,6 +432,7 @@ public class RecoveryChunkImplTest {
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
                   QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+                  null,
                   null));
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
     }
@@ -602,6 +609,7 @@ public class RecoveryChunkImplTest {
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
               QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+              null,
               null);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
@@ -653,6 +661,7 @@ public class RecoveryChunkImplTest {
                   "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
               QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+              null,
               null);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);

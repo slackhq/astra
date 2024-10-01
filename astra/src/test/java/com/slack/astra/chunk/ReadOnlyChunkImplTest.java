@@ -167,6 +167,7 @@ public class ReadOnlyChunkImplTest {
                     "*:*",
                     Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                     Instant.now().toEpochMilli()),
+                null,
                 null));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
@@ -222,6 +223,7 @@ public class ReadOnlyChunkImplTest {
                     "*:*",
                     Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                     Instant.now().toEpochMilli()),
+                null,
                 null));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
@@ -439,6 +441,7 @@ public class ReadOnlyChunkImplTest {
                 "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli()),
+            null,
             null);
     SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
@@ -564,6 +567,7 @@ public class ReadOnlyChunkImplTest {
                     "*:*",
                     Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                     Instant.now().toEpochMilli()),
+                null,
                 null));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 

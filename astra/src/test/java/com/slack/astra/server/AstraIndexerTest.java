@@ -630,6 +630,7 @@ public class AstraIndexerTest {
                 Collections.emptyList(),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000)),
+                null,
                 null),
             Duration.ofMillis(3000));
 

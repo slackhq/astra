@@ -54,6 +54,7 @@ public class StatsCollectorTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "", time.toEpochMilli(), time.plusSeconds(4 * 60).toEpochMilli()),
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);

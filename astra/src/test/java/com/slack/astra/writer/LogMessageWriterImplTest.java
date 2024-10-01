@@ -99,6 +99,7 @@ public class LogMessageWriterImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder(queryString, 0L, MAX_TIME),
+            null,
             null),
         Duration.ofMillis(3000));
   }
@@ -182,6 +183,7 @@ public class LogMessageWriterImplTest {
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+                        null,
                         null),
                     Duration.ofMillis(3000))
                 .hits

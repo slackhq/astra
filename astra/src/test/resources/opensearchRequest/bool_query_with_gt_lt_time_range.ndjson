@@ -1,0 +1,2 @@
+{"search_type":"query_then_fetch","ignore_unavailable":true,"index":"_all"}
+{"size":500,"query":{"bool":{"filter":[{"range":{"_timesinceepoch":{"gt":"2024-09-19T17:24:14.000000Z","lt":"2024-09-19T17:54:14.000000Z"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}},"sort":{"_timesinceepoch":{"order":"desc","unmapped_type":"boolean"}},"script_fields":{}}

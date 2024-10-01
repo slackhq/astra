@@ -413,6 +413,7 @@ public class IndexingChunkManagerTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+            null,
             null);
     SearchResult<LogMessage> results = chunkManager.query(searchQuery, Duration.ofMillis(3000));
     assertThat(results.hits.size()).isEqualTo(1);
@@ -473,6 +474,7 @@ public class IndexingChunkManagerTest {
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message101", 0L, MAX_TIME),
+                        null,
                         null),
                     Duration.ofMillis(3000))
                 .hits
@@ -504,6 +506,7 @@ public class IndexingChunkManagerTest {
                             "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message102", 0L, MAX_TIME),
+                        null,
                         null),
                     Duration.ofMillis(3000))
                 .hits
@@ -600,6 +603,7 @@ public class IndexingChunkManagerTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder(searchString, startTimeEpochMs, endTimeEpochMs),
+            null,
             null);
     return chunkManager.query(searchQuery, Duration.ofMillis(3000)).hits.size();
   }

@@ -42,8 +42,14 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchModule;
+import org.opensearch.search.aggregations.AggregatorFactories;
 
 public class SearchResultUtils {
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+  private static final SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
+  private static final NamedXContentRegistry namedXContentRegistry =
+      new NamedXContentRegistry(searchModule.getNamedXContents());
+
   public static Map<String, Object> fromValueStruct(AstraSearch.Struct struct) {
     Map<String, Object> returnMap = new HashMap<>();
     struct.getFieldsMap().forEach((key, value) -> returnMap.put(key, fromValueProto(value)));
@@ -666,12 +672,9 @@ public class SearchResultUtils {
 
   public static SearchQuery fromSearchRequest(AstraSearch.SearchRequest searchRequest) {
     QueryBuilder queryBuilder = null;
+
     if (!searchRequest.getQuery().isEmpty()) {
-      SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
       try {
-        ObjectMapper objectMapper = new ObjectMapper();
-        NamedXContentRegistry namedXContentRegistry =
-            new NamedXContentRegistry(searchModule.getNamedXContents());
         JsonXContentParser jsonXContentParser =
             new JsonXContentParser(
                 namedXContentRegistry,
@@ -679,6 +682,22 @@ public class SearchResultUtils {
                 objectMapper.createParser(searchRequest.getQuery()));
         queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(jsonXContentParser);
       } catch (Exception e) {
+        throw new IllegalArgumentException(e);
+      }
+    }
+
+    AggregatorFactories.Builder aggregatorFactoriesBuilder = null;
+    if (!searchRequest.getAggregationJson().isEmpty()) {
+      try {
+        JsonXContentParser jsonXContentParser =
+            new JsonXContentParser(
+                namedXContentRegistry,
+                DeprecationHandler.IGNORE_DEPRECATIONS,
+                objectMapper.createParser(searchRequest.getAggregationJson()));
+
+        jsonXContentParser.nextToken();
+        aggregatorFactoriesBuilder = AggregatorFactories.parseAggregators(jsonXContentParser);
+      } catch (IOException e) {
         throw new IllegalArgumentException(e);
       }
     }
@@ -691,7 +710,8 @@ public class SearchResultUtils {
         fromSearchAggregations(searchRequest.getAggregations()),
         searchRequest.getChunkIdsList(),
         queryBuilder,
-        SourceFieldFilter.fromProto(searchRequest.getSourceFieldFilter()));
+        SourceFieldFilter.fromProto(searchRequest.getSourceFieldFilter()),
+        aggregatorFactoriesBuilder);
   }
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(

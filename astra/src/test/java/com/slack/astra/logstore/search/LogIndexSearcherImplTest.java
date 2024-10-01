@@ -115,7 +115,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource()).hasSize(1);
@@ -157,7 +158,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource()).hasSize(1);
@@ -199,7 +201,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource()).hasSize(1);
@@ -239,7 +242,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
@@ -276,7 +280,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isEqualTo(0);
@@ -315,7 +320,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
@@ -355,7 +361,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
@@ -395,7 +402,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
@@ -433,7 +441,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isEqualTo(0);
@@ -470,7 +479,8 @@ public class LogIndexSearcherImplTest {
                     "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
-                SourceFieldFilter.fromProto(sourceFieldFilter))
+                SourceFieldFilter.fromProto(sourceFieldFilter),
+                null)
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(0);
@@ -499,6 +509,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder(
                         "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+                    null,
                     null)
                 .hits
                 .size())
@@ -517,6 +528,7 @@ public class LogIndexSearcherImplTest {
                         "Message1",
                         time.minusSeconds(1).toEpochMilli(),
                         time.plusSeconds(90).toEpochMilli()),
+                    null,
                     null)
                 .hits
                 .size())
@@ -535,6 +547,7 @@ public class LogIndexSearcherImplTest {
                         "_id:Message1 OR Message2",
                         time.toEpochMilli(),
                         time.plusSeconds(100).toEpochMilli()),
+                    null,
                     null)
                 .hits
                 .size())
@@ -553,6 +566,7 @@ public class LogIndexSearcherImplTest {
                         "_id:Message1 OR Message2",
                         time.minusSeconds(1).toEpochMilli(),
                         time.plusSeconds(100).toEpochMilli()),
+                    null,
                     null)
                 .hits
                 .size())
@@ -584,6 +598,7 @@ public class LogIndexSearcherImplTest {
                         "test1",
                         time.minusSeconds(1).toEpochMilli(),
                         time.plusSeconds(10).toEpochMilli()),
+                    null,
                     null)
                 .hits
                 .size())
@@ -599,6 +614,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder(
                         "test1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+                    null,
                     null)
                 .hits
                 .size())
@@ -614,6 +630,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder(
                         "test1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+                    null,
                     null)
                 .hits
                 .size())
@@ -629,6 +646,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder(
                         "test", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+                    null,
                     null)
                 .hits
                 .size())
@@ -647,6 +665,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "Message1", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(babies.hits.size()).isEqualTo(1);
 
@@ -679,6 +698,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "customField:value", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
@@ -690,6 +710,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "value", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(noTermStrQuery.hits.size()).isEqualTo(1);
 
@@ -701,6 +722,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "Message1", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(noTermNumericQuery.hits.size()).isEqualTo(1);
   }
@@ -727,6 +749,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "customField:value", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(termQuery.hits.size()).isEqualTo(1);
   }
@@ -759,6 +782,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "_exists_:customField", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(exists.hits.size()).isEqualTo(1);
 
@@ -770,6 +794,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "customField:value", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
@@ -781,6 +806,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "_exists_:foo", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(notExists.hits.size()).isEqualTo(0);
   }
@@ -821,6 +847,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "val:[1 TO 3]", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(rangeBoundInclusive.hits.size()).isEqualTo(3);
 
@@ -832,6 +859,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "val:{1 TO 3}", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(rangeBoundExclusive.hits.size()).isEqualTo(1);
   }
@@ -889,6 +917,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "boolval:true", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(boolquery.hits.size()).isEqualTo(1);
 
@@ -900,6 +929,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "intval:1", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(intquery.hits.size()).isEqualTo(1);
 
@@ -911,6 +941,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "longval:2", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(longquery.hits.size()).isEqualTo(1);
 
@@ -922,6 +953,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "floatval:3", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(floatquery.hits.size()).isEqualTo(1);
 
@@ -933,6 +965,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "doubleval:4", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(doublequery.hits.size()).isEqualTo(1);
   }
@@ -950,6 +983,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "apple", time.toEpochMilli(), time.plusSeconds(100).toEpochMilli()),
+            null,
             null);
     assertThat(apples.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("Message5", "Message3"));
@@ -981,6 +1015,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "baby", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+            null,
             null);
     assertThat(baby.hits.size()).isEqualTo(1);
     assertThat(baby.hits.get(0).getId()).isEqualTo("Message2");
@@ -1003,6 +1038,7 @@ public class LogIndexSearcherImplTest {
         new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
         QueryBuilderUtil.generateQueryBuilder(
             "car", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+        null,
         null);
 
     // Commit but no refresh. Item is still not available for search.
@@ -1019,6 +1055,7 @@ public class LogIndexSearcherImplTest {
         new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
         QueryBuilderUtil.generateQueryBuilder(
             "car", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+        null,
         null);
 
     // Car can be searched after refresh.
@@ -1035,6 +1072,7 @@ public class LogIndexSearcherImplTest {
         new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
         QueryBuilderUtil.generateQueryBuilder(
             "car", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+        null,
         null);
 
     // Add another message to search, refresh but don't commit.
@@ -1055,6 +1093,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "baby", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
+            null,
             null);
     assertThat(babies.hits.size()).isEqualTo(2);
     assertThat(babies.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
@@ -1079,6 +1118,7 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -1105,6 +1145,7 @@ public class LogIndexSearcherImplTest {
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, null),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
     assertThat(((InternalAvg) scriptNull.internalAggregation).value()).isEqualTo(3.25);
 
@@ -1114,6 +1155,7 @@ public class LogIndexSearcherImplTest {
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, ""),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
     assertThat(((InternalAvg) scriptEmpty.internalAggregation).value()).isEqualTo(3.25);
 
@@ -1123,6 +1165,7 @@ public class LogIndexSearcherImplTest {
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, "return 9;"),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
     assertThat(((InternalAvg) scripted.internalAggregation).value()).isEqualTo(9);
   }
@@ -1155,6 +1198,7 @@ public class LogIndexSearcherImplTest {
                                 time.plusSeconds(2).toEpochMilli()),
                             true))),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
 
     assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().size()).isEqualTo(2);
@@ -1182,6 +1226,7 @@ public class LogIndexSearcherImplTest {
             1000,
             new MinAggBuilder("test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -1203,6 +1248,7 @@ public class LogIndexSearcherImplTest {
             1000,
             new MaxAggBuilder("test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -1226,6 +1272,7 @@ public class LogIndexSearcherImplTest {
             1000,
             new SumAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -1248,6 +1295,7 @@ public class LogIndexSearcherImplTest {
             1000,
             new ExtendedStatsAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null, null),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -1278,6 +1326,7 @@ public class LogIndexSearcherImplTest {
             new TermsAggBuilder(
                 "1", List.of(), TEST_SOURCE_STRING_PROPERTY, "foo", 10, 0, Map.of("_count", "asc")),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -1324,6 +1373,7 @@ public class LogIndexSearcherImplTest {
                     new MovingAvgAggBuilder("movAvgCount", "_count", "simple", 2, 1))),
             List.of(),
             QueryBuilderUtil.generateQueryBuilder("", 1593365471000L, 1593365471000L + 5000L),
+            null,
             null);
 
     SearchResult<LogMessage> allIndexItems =
@@ -1332,7 +1382,8 @@ public class LogIndexSearcherImplTest {
             query.howMany,
             query.aggBuilder,
             query.queryBuilder,
-            query.sourceFieldFilter);
+            query.sourceFieldFilter,
+            query.aggregatorFactoriesBuilder);
 
     SearchResultAggregatorImpl<LogMessage> aggregator = new SearchResultAggregatorImpl<>(query);
     SearchResult<LogMessage> allIndexItemsFinal =
@@ -1379,6 +1430,7 @@ public class LogIndexSearcherImplTest {
             new TermsAggBuilder(
                 "1", List.of(), "thisFieldDoesNotExist", "foo", 10, 0, Map.of("_count", "asc")),
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
@@ -1412,6 +1464,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("_all:apple", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1426,6 +1479,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1445,6 +1499,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("_all:baby", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1458,6 +1513,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("_all:1234", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1472,6 +1528,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("baby", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1485,6 +1542,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("1234", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1503,6 +1561,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("_all:baby", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1516,6 +1575,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("_all:1234", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1530,6 +1590,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("baby", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1543,6 +1604,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("1234", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1558,6 +1620,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1572,6 +1635,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("app*", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1587,6 +1651,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("baby car", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1602,6 +1667,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("apple 1234", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1616,6 +1682,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("123", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1652,6 +1719,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("_all:baby", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1666,6 +1734,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("_all:1234", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1680,6 +1749,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("baby", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1695,6 +1765,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1709,6 +1780,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("app*", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1724,6 +1796,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("baby car", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1739,6 +1812,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("apple 1234", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1753,6 +1827,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("123", 0L, MAX_TIME),
+                    null,
                     null)
                 .hits
                 .size())
@@ -1772,6 +1847,7 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder("apple", 0L, MAX_TIME),
+            null,
             null);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
@@ -1799,6 +1875,7 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder("elephant", 0L, MAX_TIME),
+            null,
             null);
     assertThat(elephants.hits.size()).isEqualTo(0);
 
@@ -1820,6 +1897,7 @@ public class LogIndexSearcherImplTest {
                 "_id:Message3 OR _id:Message4",
                 time.toEpochMilli(),
                 time.plusSeconds(10).toEpochMilli()),
+            null,
             null);
     assertThat(results.hits.size()).isEqualTo(2);
     assertThat(results.internalAggregation).isNull();
@@ -1839,6 +1917,7 @@ public class LogIndexSearcherImplTest {
                 "_id:Message3 OR _id:Message4",
                 time.toEpochMilli(),
                 time.plusSeconds(10).toEpochMilli()),
+            null,
             null);
     assertThat(babies.hits.size()).isEqualTo(0);
 
@@ -1871,6 +1950,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("test", 0L, MAX_TIME),
+                    null,
                     null));
   }
 
@@ -1887,6 +1967,7 @@ public class LogIndexSearcherImplTest {
                     new DateHistogramAggBuilder(
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder("test", 0L, MAX_TIME),
+                    null,
                     null));
   }
 
@@ -1903,6 +1984,7 @@ public class LogIndexSearcherImplTest {
                     null,
                     QueryBuilderUtil.generateQueryBuilder(
                         "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
+                    null,
                     null));
   }
 
@@ -1920,6 +2002,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder(
                         "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
+                    null,
                     null));
   }
 
@@ -1937,6 +2020,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "-1s"),
                     QueryBuilderUtil.generateQueryBuilder(
                         "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
+                    null,
                     null));
   }
 
@@ -1954,6 +2038,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                     QueryBuilderUtil.generateQueryBuilder(
                         "/", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
+                    null,
                     null));
   }
 
@@ -1979,6 +2064,7 @@ public class LogIndexSearcherImplTest {
                           "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                       QueryBuilderUtil.generateQueryBuilder(
                           "_id:Message3 OR _id:Message4", 0L, MAX_TIME),
+                      null,
                       null);
               if (babies.hits.size() != 2) {
                 searchFailures.addAndGet(1);
@@ -2015,6 +2101,7 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "_id:Message1", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
+            null,
             null);
     assertThat(index.hits.size()).isEqualTo(1);
   }

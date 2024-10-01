@@ -26,6 +26,7 @@ import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.proto.service.AstraSearch;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -33,8 +34,53 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.IntervalQueryBuilder;
 import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 
 public class SearchResultUtilsTest {
+
+  @Test
+  public void shouldParseAggIntoAggregationFactoriesBuilder() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setAggregationJson(
+                """
+              {
+                "2": {
+                  "date_histogram": {
+                    "interval": "10s",
+                    "field": "_timesinceepoch",
+                    "min_doc_count": "90000",
+                    "extended_bounds": {
+                      "min": 1676498801027,
+                      "max": 1676500240688
+                    },
+                    "format": "epoch_millis",
+                    "offset": "5s"
+                  },
+                  "aggs":{}
+                }
+              }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.aggregatorFactoriesBuilder).isNotNull();
+    assertThat(output.aggregatorFactoriesBuilder.getAggregatorFactories()).hasSize(1);
+
+    Collection<AggregationBuilder> aggregatorFactories =
+        output.aggregatorFactoriesBuilder.getAggregatorFactories();
+    AggregationBuilder firstAggregationBuilder = aggregatorFactories.iterator().next();
+    assertThat(firstAggregationBuilder.getName()).isEqualTo("2");
+    assertThat(firstAggregationBuilder).isInstanceOf(DateHistogramAggregationBuilder.class);
+
+    DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
+        (DateHistogramAggregationBuilder) firstAggregationBuilder;
+    assertThat(dateHistogramAggregationBuilder.field()).isEqualTo("_timesinceepoch");
+    assertThat(dateHistogramAggregationBuilder.minDocCount()).isEqualTo(90000L);
+    assertThat(dateHistogramAggregationBuilder.extendedBounds().getMin()).isEqualTo(1676498801027L);
+    assertThat(dateHistogramAggregationBuilder.extendedBounds().getMax()).isEqualTo(1676500240688L);
+    assertThat(dateHistogramAggregationBuilder.format()).isEqualTo("epoch_millis");
+    assertThat(dateHistogramAggregationBuilder.offset()).isEqualTo(5000L);
+  }
 
   @Test
   public void shouldParseBasicMustNotQueryIntoQueryBuilder() {

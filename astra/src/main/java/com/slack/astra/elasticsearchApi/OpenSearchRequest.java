@@ -1,5 +1,7 @@
 package com.slack.astra.elasticsearchApi;
 
+import static com.slack.astra.server.ManagerApiGrpc.MAX_TIME;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -7,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.SearchResultUtils;
 import com.slack.astra.logstore.search.aggregations.AutoDateHistogramAggBuilder;
@@ -25,11 +28,11 @@ import com.slack.astra.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.astra.logstore.search.aggregations.SumAggBuilder;
 import com.slack.astra.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.astra.logstore.search.aggregations.UniqueCountAggBuilder;
-import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.service.AstraSearch;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,10 +61,7 @@ public class OpenSearchRequest {
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   private static final OpenSearchAdapter openSearchAdapter =
-      new OpenSearchAdapter(
-          Map.of(
-              "_timesinceepoch", new LuceneFieldDef("_timesinceepoch", "date", true, true, true),
-              "@timestamp", new LuceneFieldDef("@timestamp", "date", true, true, true)));
+      new OpenSearchAdapter(Collections.EMPTY_MAP);
   private static final Logger log = LoggerFactory.getLogger(OpenSearchRequest.class);
 
   private static class DateRangeQueryBuilderVistor implements QueryBuilderVisitor {
@@ -70,30 +70,50 @@ public class OpenSearchRequest {
 
     @Override
     public void accept(QueryBuilder qb) {
-      if (qb instanceof RangeQueryBuilder) {
-        RangeQueryBuilder rangeQueryBuilder = (RangeQueryBuilder) qb;
+      if (qb instanceof RangeQueryBuilder rangeQueryBuilder) {
         if (!rangeQueryBuilder.fieldName().equals("@timestamp")
-            && !rangeQueryBuilder.fieldName().equals("_timesinceepoch")) {
+            && !rangeQueryBuilder
+                .fieldName()
+                .equals(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)) {
           return;
         }
 
         Object from = rangeQueryBuilder.from();
         Object to = rangeQueryBuilder.to();
+        String format = rangeQueryBuilder.format();
 
-        if (from instanceof Long) {
-          dateRangeStart = (Long) from;
-        } else if (from instanceof Integer) {
-          dateRangeStart = ((Integer) from).longValue();
-        } else if (from instanceof String) {
-          dateRangeStart = Instant.parse((String) from).toEpochMilli();
-        }
+        if (format != null && format.equals("epoch_millis")) {
+          if (from instanceof Long) {
+            dateRangeStart = (Long) from;
+          } else if (from instanceof Integer) {
+            dateRangeStart = ((Integer) from).longValue();
+          } else if (from instanceof String) {
+            dateRangeStart = Long.valueOf(from.toString());
+          }
 
-        if (to instanceof Long) {
-          dateRangeEnd = (Long) to;
-        } else if (to instanceof Integer) {
-          dateRangeEnd = ((Integer) to).longValue();
-        } else if (to instanceof String) {
-          dateRangeEnd = Instant.parse((String) to).toEpochMilli();
+          if (to instanceof Long) {
+            dateRangeEnd = (Long) to;
+          } else if (to instanceof Integer) {
+            dateRangeEnd = ((Integer) to).longValue();
+          } else if (to instanceof String) {
+            dateRangeEnd = Long.valueOf(to.toString());
+          }
+        } else {
+          if (from instanceof Long) {
+            dateRangeStart = (Long) from;
+          } else if (from instanceof Integer) {
+            dateRangeStart = ((Integer) from).longValue();
+          } else if (from instanceof String) {
+            dateRangeStart = Instant.parse((String) from).toEpochMilli();
+          }
+
+          if (to instanceof Long) {
+            dateRangeEnd = (Long) to;
+          } else if (to instanceof Integer) {
+            dateRangeEnd = ((Integer) to).longValue();
+          } else if (to instanceof String) {
+            dateRangeEnd = Instant.parse((String) to).toEpochMilli();
+          }
         }
       }
     }
@@ -119,9 +139,11 @@ public class OpenSearchRequest {
       JsonNode body = OM.readTree(pair.get(1));
       String query = getQuery(body);
       DateRangeQueryBuilderVistor dateRangeQueryBuilderVistor = getDateRange(query);
-      Long startTimeEpochMs = null;
-      Long endTimeEpochMs = null;
-      if (dateRangeQueryBuilderVistor != null) {
+      long startTimeEpochMs = 0L;
+      long endTimeEpochMs = MAX_TIME;
+      if (dateRangeQueryBuilderVistor != null
+          && dateRangeQueryBuilderVistor.dateRangeStart != null
+          && dateRangeQueryBuilderVistor.dateRangeEnd != null) {
         startTimeEpochMs = dateRangeQueryBuilderVistor.dateRangeStart;
         endTimeEpochMs = dateRangeQueryBuilderVistor.dateRangeEnd;
       }
@@ -133,6 +155,7 @@ public class OpenSearchRequest {
               .setAggregations(getAggregations(body))
               .setQuery(getQuery(body))
               .setSourceFieldFilter(getSourceFieldFilter(body))
+              .setAggregationJson(getAggregationJson(body))
               .setStartTimeEpochMs(startTimeEpochMs)
               .setEndTimeEpochMs(endTimeEpochMs)
               .build());
@@ -244,6 +267,17 @@ public class OpenSearchRequest {
 
   private static int getHowMany(JsonNode body) {
     return body.get("size").asInt();
+  }
+
+  private static String getAggregationJson(JsonNode body) {
+    if (body.get("aggs") == null) {
+      return "";
+    }
+    if (Iterators.size(body.get("aggs").fieldNames()) != 1) {
+      throw new NotImplementedException(
+          "Only exactly one top level aggregators is currently supported");
+    }
+    return body.get("aggs").toString();
   }
 
   private static AstraSearch.SearchRequest.SearchAggregation getAggregations(JsonNode body) {
