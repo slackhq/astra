@@ -50,8 +50,9 @@ import org.slf4j.LoggerFactory;
  * BlobFs.
  */
 public class ReadOnlyChunkImpl<T> implements Chunk<T> {
-
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
+  public static final String ASTRA_S3_STREAMING_FLAG = "astra.s3Streaming.enabled";
+
   private ChunkInfo chunkInfo;
   private LogIndexSearcher<T> logSearcher;
   private SearchMetadata searchMetadata;
@@ -85,6 +86,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this::cacheNodeListener;
 
   private final ReentrantLock chunkAssignmentLock = new ReentrantLock();
+
+  private static final boolean USE_S3_STREAMING =
+      Boolean.parseBoolean(System.getProperty(ASTRA_S3_STREAMING_FLAG, "false"));
 
   public ReadOnlyChunkImpl(
       AsyncCuratorFramework curatorFramework,
@@ -219,38 +223,50 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     chunkAssignmentLock.lock();
     try {
       CacheNodeAssignment assignment = getCacheNodeAssignment();
-      // get data directory
-      dataDirectory =
-          Path.of(String.format("%s/astra-chunk-%s", dataDirectoryPrefix, assignment.assignmentId));
+      this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
 
-      if (Files.isDirectory(dataDirectory)) {
-        try (Stream<Path> files = Files.list(dataDirectory)) {
-          if (files.findFirst().isPresent()) {
-            LOG.warn("Existing files found in slot directory, clearing directory");
-            cleanDirectory();
+      if (USE_S3_STREAMING) {
+        this.chunkSchema = ChunkSchema.deserializeBytes(blobStore.getSchema(chunkInfo.chunkId));
+        this.logSearcher =
+            (LogIndexSearcher<T>)
+                new LogIndexSearcherImpl(
+                    LogIndexSearcherImpl.searcherManagerFromChunkId(chunkInfo.chunkId, blobStore),
+                    chunkSchema.fieldDefMap);
+      } else {
+        // get data directory
+        dataDirectory =
+            Path.of(
+                String.format("%s/astra-chunk-%s", dataDirectoryPrefix, assignment.assignmentId));
+
+        if (Files.isDirectory(dataDirectory)) {
+          try (Stream<Path> files = Files.list(dataDirectory)) {
+            if (files.findFirst().isPresent()) {
+              LOG.warn("Existing files found in slot directory, clearing directory");
+              cleanDirectory();
+            }
           }
         }
-      }
 
-      blobStore.download(snapshotMetadata.snapshotId, dataDirectory);
-      try (Stream<Path> fileList = Files.list(dataDirectory)) {
-        if (fileList.findAny().isEmpty()) {
-          throw new IOException("No files found on blob storage, released slot for re-assignment");
+        blobStore.download(snapshotMetadata.snapshotId, dataDirectory);
+        try (Stream<Path> fileList = Files.list(dataDirectory)) {
+          if (fileList.findAny().isEmpty()) {
+            throw new IOException(
+                "No files found on blob storage, released slot for re-assignment");
+          }
         }
-      }
 
-      Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
-      if (!Files.exists(schemaPath)) {
-        throw new RuntimeException("We expect a schema.json file to exist within the index");
-      }
-      this.chunkSchema = ChunkSchema.deserializeFile(schemaPath);
+        Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
+        if (!Files.exists(schemaPath)) {
+          throw new RuntimeException("We expect a schema.json file to exist within the index");
+        }
+        this.chunkSchema = ChunkSchema.deserializeFile(schemaPath);
 
-      this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
-      this.logSearcher =
-          (LogIndexSearcher<T>)
-              new LogIndexSearcherImpl(
-                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
-                  chunkSchema.fieldDefMap);
+        this.logSearcher =
+            (LogIndexSearcher<T>)
+                new LogIndexSearcherImpl(
+                    LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
+                    chunkSchema.fieldDefMap);
+      }
 
       // set chunk state
       cacheNodeAssignmentStore.updateAssignmentState(
@@ -262,11 +278,18 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           registerSearchMetadata(searchMetadataStore, searchContext, snapshotMetadata.name);
       long durationNanos = assignmentTimer.stop(chunkAssignmentTimerSuccess);
 
-      LOG.info(
-          "Downloaded chunk with snapshot id '{}' in {} seconds, was {}",
-          snapshotMetadata.snapshotId,
-          TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS),
-          FileUtils.byteCountToDisplaySize(FileUtils.sizeOfDirectory(dataDirectory.toFile())));
+      if (USE_S3_STREAMING) {
+        LOG.info(
+            "Downloaded chunk with snapshot id '{}' in {} seconds, astra.cache.s3streaming is enabled",
+            snapshotMetadata.snapshotId,
+            TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS));
+      } else {
+        LOG.info(
+            "Downloaded chunk with snapshot id '{}' in {} seconds, was {}",
+            snapshotMetadata.snapshotId,
+            TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS),
+            FileUtils.byteCountToDisplaySize(FileUtils.sizeOfDirectory(dataDirectory.toFile())));
+      }
     } catch (Exception e) {
       // if any error occurs during the chunk assignment, try to release the slot for re-assignment,
       // disregarding any errors

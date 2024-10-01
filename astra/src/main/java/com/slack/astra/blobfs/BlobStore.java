@@ -29,8 +29,8 @@ import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
  * stored to a consistent location of "{prefix}/{filename}".
  */
 public class BlobStore {
-  private final String bucketName;
-  private final S3AsyncClient s3AsyncClient;
+  protected final String bucketName;
+  protected final S3AsyncClient s3AsyncClient;
   private final S3TransferManager transferManager;
 
   public BlobStore(S3AsyncClient s3AsyncClient, String bucketName) {
