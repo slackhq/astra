@@ -4,9 +4,9 @@ import static software.amazon.awssdk.services.s3.model.ListObjectsV2Request.buil
 
 import com.slack.astra.chunk.ReadWriteChunk;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
@@ -166,7 +166,7 @@ public class BlobStore {
     ListObjectsV2Publisher asyncPaginatedListResponse =
         s3AsyncClient.listObjectsV2Paginator(listRequest);
 
-    List<String> filesList = new ArrayList<>();
+    List<String> filesList = new CopyOnWriteArrayList<>();
     try {
       asyncPaginatedListResponse
           .subscribe(
