@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.internal.async.ByteArrayAsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.Delete;
@@ -18,6 +20,7 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryDownload;
 import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
 import software.amazon.awssdk.transfer.s3.model.DownloadDirectoryRequest;
 import software.amazon.awssdk.transfer.s3.model.DownloadRequest;
@@ -29,6 +32,8 @@ import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
  * stored to a consistent location of "{prefix}/{filename}".
  */
 public class BlobStore {
+  private static final Logger LOG = LoggerFactory.getLogger(BlobStore.class);
+
   protected final String bucketName;
   protected final S3AsyncClient s3AsyncClient;
   private final S3TransferManager transferManager;
@@ -64,6 +69,14 @@ public class BlobStore {
               .completionFuture()
               .get();
       if (!upload.failedTransfers().isEmpty()) {
+        // Log each failed transfer with its exception
+        upload
+            .failedTransfers()
+            .forEach(
+                failedFileUpload ->
+                    LOG.error(
+                        "Error attempting to upload file to S3", failedFileUpload.exception()));
+
         throw new IllegalStateException(
             String.format(
                 "Some files failed to upload - attempted to upload %s files, failed %s.",
@@ -87,15 +100,31 @@ public class BlobStore {
     assert !destinationDirectory.toFile().exists() || destinationDirectory.toFile().isDirectory();
 
     try {
-      transferManager
-          .downloadDirectory(
-              DownloadDirectoryRequest.builder()
-                  .bucket(bucketName)
-                  .destination(destinationDirectory)
-                  .listObjectsV2RequestTransformer(l -> l.prefix(prefix))
-                  .build())
-          .completionFuture()
-          .get();
+      CompletedDirectoryDownload download =
+          transferManager
+              .downloadDirectory(
+                  DownloadDirectoryRequest.builder()
+                      .bucket(bucketName)
+                      .destination(destinationDirectory)
+                      .listObjectsV2RequestTransformer(l -> l.prefix(prefix))
+                      .build())
+              .completionFuture()
+              .get();
+
+      if (!download.failedTransfers().isEmpty()) {
+        // Log each failed transfer with its exception
+        download
+            .failedTransfers()
+            .forEach(
+                failedFileUpload ->
+                    LOG.error(
+                        "Error attempting to download file from S3", failedFileUpload.exception()));
+
+        throw new IllegalStateException(
+            String.format(
+                "Some files failed to download - failed to download %s files.",
+                download.failedTransfers().size()));
+      }
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException(e);
     }
