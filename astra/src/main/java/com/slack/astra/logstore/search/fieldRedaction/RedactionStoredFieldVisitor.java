@@ -18,14 +18,29 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
     private ObjectMapper om = new ObjectMapper();
     private final StoredFieldVisitor delegate;
     private final Map<String, FieldRedactionMetadata> fieldRedactionsMap;
-
-    // todo - listsync at field level because you want the latest metadata
-    // can initiate a watcher on it and update a map
+    private final String redactedStr = "REDACTED";
 
     public RedactionStoredFieldVisitor(
-            final StoredFieldVisitor delegate, Map<String, FieldRedactionMetadata> fieldRedactionsMap) {
+            final StoredFieldVisitor delegate, FieldRedactionMetadataStore fieldRedactionMetadataStore) {
         super();
         this.delegate = delegate;
+
+        Map<String, FieldRedactionMetadata> fieldRedactionsMap = new HashMap<>();
+        fieldRedactionMetadataStore.listSync().forEach(redaction -> {
+            fieldRedactionsMap.put(redaction.getName(), redaction);
+        });
+
+        // TODO - do we need the listener at all if we listsync at the field level anyway?
+        AstraMetadataStoreChangeListener<FieldRedactionMetadata> listener = new AstraMetadataStoreChangeListener() {
+            @Override
+            public void onMetadataStoreChanged(Object model) {
+                fieldRedactionMetadataStore.listSync().forEach(redaction -> {
+                    fieldRedactionsMap.put(redaction.getName(), redaction);
+                });
+
+            }
+        };
+        fieldRedactionMetadataStore.addListener(listener);
         this.fieldRedactionsMap = fieldRedactionsMap;
     }
 
@@ -36,26 +51,26 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
 
     @Override
     public void binaryField(FieldInfo fieldInfo, byte[] value) throws IOException {
-        final byte[] redactedBytes = "REDACTED".getBytes();
+        final byte[] redactedBytes = redactedStr.getBytes();
 
         if (fieldInfo.name.equals("_source")) {
             Map<String, Object> source =
-                    om.readValue(value, new TypeReference<HashMap<String, Object>>() {});
+                    om.readValue(value, new TypeReference<HashMap<String, Object>>() {
+                    });
 
             if (source.containsKey("source")) {
                 Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
                 long timestamp =
                         Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
-                fieldRedactionsMap.forEach(
-                        field -> {
-                            if (field.inRedactionTimerange(timestamp)) {
-                                if (innerSource.containsKey(field.getFieldName())) {
-                                    innerSource.put(field.getFieldName(), redactedBytes);
-                                    source.put("source", innerSource);
-                                }
-                            }
-                        });
+                for (FieldRedactionMetadata fieldRedactionMetadata : fieldRedactionsMap.values()) {
+                    if (fieldRedactionMetadata.inRedactionTimerange(timestamp)) {
+                        if (innerSource.containsKey(fieldRedactionMetadata.getFieldName())) {
+                            innerSource.put(fieldRedactionMetadata.getFieldName(), redactedBytes);
+                            source.put("source", innerSource);
+                        }
+                    }
+                }
             }
             delegate.binaryField(fieldInfo, om.writeValueAsBytes(source));
         } else {
@@ -74,17 +89,15 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
                 long timestamp =
                         Instant.parse((String) innerSource.get("_timesinceepoch")).toEpochMilli();
 
-                fieldRedactionsMap.forEach(
-                        field -> {
-                            if (field.inRedactionTimerange(timestamp)) {
-                                if (innerSource.containsKey(field.getFieldName())) {
-                                    innerSource.put(field.getFieldName(), "REDACTED");
-                                    source.put("source", innerSource);
-                                }
-                            }
-                        });
+                for (FieldRedactionMetadata fieldRedactionMetadata : fieldRedactionsMap.values()) {
+                    if (fieldRedactionMetadata.inRedactionTimerange(timestamp)) {
+                        if (innerSource.containsKey(fieldRedactionMetadata.getFieldName())) {
+                            innerSource.put(fieldRedactionMetadata.getFieldName(), redactedStr);
+                            source.put("source", innerSource);
+                        }
+                    }
+                }
             }
-
             delegate.stringField(fieldInfo, om.writeValueAsString(source));
         } else {
             delegate.stringField(fieldInfo, value);

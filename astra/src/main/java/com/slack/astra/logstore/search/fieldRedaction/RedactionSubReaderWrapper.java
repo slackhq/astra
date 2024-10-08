@@ -1,22 +1,21 @@
 package com.slack.astra.logstore.search.fieldRedaction;
 
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import org.apache.lucene.index.FilterDirectoryReader;
 import org.apache.lucene.index.LeafReader;
 import java.io.IOException;
-import java.util.Map;
 
 // Implements a field redaction subreaderwrapper
 class RedactionSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
-    private final Map<String, FieldRedactionMetadata> redactedFields;
+    private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
-    public RedactionSubReaderWrapper(Map<String, FieldRedactionMetadata> redactedFieldsMap)
+    public RedactionSubReaderWrapper(FieldRedactionMetadataStore fieldRedactionMetadataStore)
             throws IOException {
-        this.redactedFields = redactedFieldsMap;
+        this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
     }
 
     @Override
     public LeafReader wrap(LeafReader reader) {
-        return new RedactionLeafReader(reader, this.redactedFields);
+        return new RedactionLeafReader(reader, this.fieldRedactionMetadataStore);
     }
 }
