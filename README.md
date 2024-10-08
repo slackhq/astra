@@ -64,6 +64,7 @@ Licensed under [MIT](LICENSE). Copyright (c) 2024 Slack.
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/zarna1parekh"><img src="https://avatars.githubusercontent.com/u/9705210?v=4?s=100" width="100px;" alt="Zarna Parekh"/><br /><sub><b>Zarna Parekh</b></sub></a><br /><a href="#code-zarna1parekh" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/baroquebobcat"><img src="https://avatars.githubusercontent.com/u/7378?v=4?s=100" width="100px;" alt="Nora Howard"/><br /><sub><b>Nora Howard</b></sub></a><br /><a href="#code-baroquebobcat" title="Code">💻</a> <a href="#bug-baroquebobcat" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/georgeluong"><img src="https://avatars.githubusercontent.com/u/4889254?v=4?s=100" width="100px;" alt="georgeluong"/><br /><sub><b>georgeluong</b></sub></a><br /><a href="#business-georgeluong" title="Business development">💼</a></td>
     </tr>
   </tbody>
 </table>
