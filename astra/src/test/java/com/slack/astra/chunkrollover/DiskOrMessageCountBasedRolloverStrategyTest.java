@@ -6,6 +6,7 @@ import static com.slack.astra.testlib.ChunkManagerUtil.TEST_HOST;
 import static com.slack.astra.testlib.ChunkManagerUtil.TEST_PORT;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getValue;
+import static com.slack.astra.util.AggregatorJSONUtil.createGenericDateHistogramJSONBlob;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
@@ -21,7 +22,6 @@ import com.slack.astra.chunkManager.IndexingChunkManager;
 import com.slack.astra.chunkManager.RollOverChunkTask;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.AstraLocalQueryService;
-import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.service.AstraSearch;
@@ -213,23 +213,9 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setAggregations(
-                    AstraSearch.SearchRequest.SearchAggregation.newBuilder()
-                        .setType(DateHistogramAggBuilder.TYPE)
-                        .setName("1")
-                        .setValueSource(
-                            AstraSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
-                                .newBuilder()
-                                .setField(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
-                                .setDateHistogram(
-                                    AstraSearch.SearchRequest.SearchAggregation
-                                        .ValueSourceAggregation.DateHistogramAggregation
-                                        .newBuilder()
-                                        .setMinDocCount(1)
-                                        .setInterval("1s")
-                                        .build())
-                                .build())
-                        .build())
+                .setAggregationJson(
+                    createGenericDateHistogramJSONBlob(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s", 1))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -316,23 +302,9 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setAggregations(
-                    AstraSearch.SearchRequest.SearchAggregation.newBuilder()
-                        .setType(DateHistogramAggBuilder.TYPE)
-                        .setName("1")
-                        .setValueSource(
-                            AstraSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
-                                .newBuilder()
-                                .setField(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
-                                .setDateHistogram(
-                                    AstraSearch.SearchRequest.SearchAggregation
-                                        .ValueSourceAggregation.DateHistogramAggregation
-                                        .newBuilder()
-                                        .setInterval("1s")
-                                        .setMinDocCount(1)
-                                        .build())
-                                .build())
-                        .build())
+                .setAggregationJson(
+                    createGenericDateHistogramJSONBlob(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s", 1))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);

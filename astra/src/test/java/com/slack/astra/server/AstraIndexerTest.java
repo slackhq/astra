@@ -9,6 +9,7 @@ import static com.slack.astra.testlib.ChunkManagerUtil.TEST_HOST;
 import static com.slack.astra.testlib.ChunkManagerUtil.TEST_PORT;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.TestKafkaServer.produceMessagesToKafka;
+import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
@@ -26,7 +27,6 @@ import com.slack.astra.chunkManager.RollOverChunkTask;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
-import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.recovery.RecoveryTaskMetadata;
@@ -625,13 +625,11 @@ public class AstraIndexerTest {
                 chunk1StartTimeMs,
                 chunk1StartTimeMs + (100 * 1000),
                 10,
-                new DateHistogramAggBuilder(
-                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000)),
                 null,
-                null),
+                createGenericDateHistogramAggregatorFactoriesBuilder()),
             Duration.ofMillis(3000));
 
     // Validate search response

@@ -10,6 +10,7 @@ import static com.slack.astra.testlib.MessageUtil.TEST_MESSAGE_TYPE;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.SpanUtil.makeSpan;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
+import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
@@ -20,7 +21,6 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.schema.ReservedFields;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
-import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.metadata.schema.SchemaUtil;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.AstraConfigUtil;
@@ -95,12 +95,10 @@ public class LogMessageWriterImplTest {
             0L,
             MAX_TIME,
             10,
-            new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder(queryString, 0L, MAX_TIME),
             null,
-            null),
+            createGenericDateHistogramAggregatorFactoriesBuilder()),
         Duration.ofMillis(3000));
   }
 
@@ -179,12 +177,10 @@ public class LogMessageWriterImplTest {
                         0L,
                         MAX_TIME,
                         100,
-                        new DateHistogramAggBuilder(
-                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
                         null,
-                        null),
+                        createGenericDateHistogramAggregatorFactoriesBuilder()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())

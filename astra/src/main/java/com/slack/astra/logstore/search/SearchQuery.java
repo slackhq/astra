@@ -1,6 +1,5 @@
 package com.slack.astra.logstore.search;
 
-import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import java.util.List;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
@@ -13,7 +12,6 @@ public class SearchQuery {
   public final AggregatorFactories.Builder aggregatorFactoriesBuilder;
   public final QueryBuilder queryBuilder;
   public final int howMany;
-  public final AggBuilder aggBuilder;
   public final List<String> chunkIds;
   public final SourceFieldFilter sourceFieldFilter;
   public final long startTimeEpochMs;
@@ -24,14 +22,12 @@ public class SearchQuery {
       long startTimeEpochMs,
       long endTimeEpochMs,
       int howMany,
-      AggBuilder aggBuilder,
       List<String> chunkIds,
       QueryBuilder queryBuilder,
       SourceFieldFilter sourceFieldFilter,
       AggregatorFactories.Builder aggregatorFactoriesBuilder) {
     this.dataset = dataset;
     this.howMany = howMany;
-    this.aggBuilder = aggBuilder;
     this.chunkIds = chunkIds;
     this.queryBuilder = queryBuilder;
     this.sourceFieldFilter = sourceFieldFilter;
@@ -50,8 +46,6 @@ public class SearchQuery {
         + howMany
         + ", chunkIds="
         + chunkIds
-        + ", aggBuilder="
-        + aggBuilder
         + ", queryBuilder="
         + queryBuilder
         + ", sourceFieldFilter="

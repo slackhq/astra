@@ -13,7 +13,6 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
-import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
@@ -58,14 +57,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   private final ReferenceManager.RefreshListener refreshListener;
 
-  // This feature flag enables using OpenSearch to parse our aggregations, rather than using the
-  // home-rolled
-  // aggregation parsing we're currently using
-  private static final Boolean useOpenSearchAggregationParsing =
-      Boolean.parseBoolean(
-          System.getProperty("astra.query.useOpenSearchAggregationParsing", "false"));
-  ;
-
   @VisibleForTesting
   public static SearcherManager searcherManagerFromChunkId(String chunkId, BlobStore blobStore)
       throws IOException {
@@ -106,14 +97,15 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   public SearchResult<LogMessage> search(
       String dataset,
       int howMany,
-      AggBuilder aggBuilder,
       QueryBuilder queryBuilder,
       SourceFieldFilter sourceFieldFilter,
       AggregatorFactories.Builder aggregatorFactoriesBuilder) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureTrue(howMany >= 0, "hits requested should not be negative.");
-    ensureTrue(howMany > 0 || aggBuilder != null, "Hits or aggregation should be requested.");
+    ensureTrue(
+        howMany > 0 || aggregatorFactoriesBuilder != null,
+        "Hits or aggregation should be requested.");
 
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("LogIndexSearcherImpl.search");
     span.tag("dataset", dataset);
@@ -132,20 +124,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
-              buildTopFieldCollector(howMany, aggBuilder != null ? Integer.MAX_VALUE : howMany);
+              buildTopFieldCollector(
+                  howMany, aggregatorFactoriesBuilder != null ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
 
-          if (aggregatorFactoriesBuilder != null && useOpenSearchAggregationParsing) {
+          if (aggregatorFactoriesBuilder != null) {
             collectorManager =
                 new MultiCollectorManager(
                     topFieldCollector,
                     openSearchAdapter.getCollectorManager(
                         aggregatorFactoriesBuilder, searcher, query));
-          } else if (aggBuilder != null) {
-            collectorManager =
-                new MultiCollectorManager(
-                    topFieldCollector,
-                    openSearchAdapter.getCollectorManager(aggBuilder, searcher, query));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -156,14 +144,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           for (ScoreDoc hit : hits) {
             results.add(buildLogMessage(searcher, hit, sourceFieldFilter));
           }
-          if (aggBuilder != null) {
+          if (aggregatorFactoriesBuilder != null) {
             internalAggregation = (InternalAggregation) collector[1];
           }
         } else {
           results = Collections.emptyList();
           internalAggregation =
               searcher.search(
-                  query, openSearchAdapter.getCollectorManager(aggBuilder, searcher, query));
+                  query,
+                  openSearchAdapter.getCollectorManager(
+                      aggregatorFactoriesBuilder, searcher, query));
         }
 
         elapsedTime.stop();

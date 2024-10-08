@@ -8,7 +8,7 @@ import "schema.proto";
 
 message SearchRequest {
   // Previously deleted field numbers
-  reserved 3;
+  reserved 3, 7;
 
   // Data sets or chunk_ids to be searched
   string dataset = 1;
@@ -18,9 +18,6 @@ message SearchRequest {
   int64 start_time_epoch_ms = 4;
   int64 end_time_epoch_ms = 5;
   int32 how_many = 6;
-
-  // Only a single top-level aggregation is currently supported
-  SearchAggregation aggregations = 7;
 
   // The fully query JSON object, to be used in the leaf nodes and parsed by OpenSearch
   string query = 8;

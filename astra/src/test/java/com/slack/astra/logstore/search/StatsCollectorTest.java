@@ -7,11 +7,11 @@ import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.astra.testlib.MessageUtil.TEST_DATASET_NAME;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
+import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.slack.astra.logstore.LogMessage;
-import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.astra.util.QueryBuilderUtil;
@@ -50,12 +50,10 @@ public class StatsCollectorTest {
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             0,
-            new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             QueryBuilderUtil.generateQueryBuilder(
                 "", time.toEpochMilli(), time.plusSeconds(4 * 60).toEpochMilli()),
             null,
-            null);
+            createGenericDateHistogramAggregatorFactoriesBuilder());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
 

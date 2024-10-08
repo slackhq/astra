@@ -4,7 +4,6 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.opensearch.AstraBigArrays;
-import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.opensearch.ScriptServiceProvider;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,14 +22,6 @@ import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchResultAggregator<T> {
 
   private final SearchQuery searchQuery;
-
-  // This feature flag enables using OpenSearch to parse our aggregations, rather than using the
-  // home-rolled
-  // aggregation parsing we're currently using
-  private static final Boolean useOpenSearchAggregationParsing =
-      Boolean.parseBoolean(
-          System.getProperty("astra.query.useOpenSearchAggregationParsing", "false"));
-  ;
 
   public SearchResultAggregatorImpl(SearchQuery searchQuery) {
     this.searchQuery = searchQuery;
@@ -65,14 +56,10 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       // The last aggregation should be indicated using the final aggregation boolean. This performs
       // some final pass "destructive" actions, such as applying min doc count or extended bounds.
       if (finalAggregation) {
-        if (searchQuery.aggregatorFactoriesBuilder != null
-            && this.useOpenSearchAggregationParsing) {
+        if (searchQuery.aggregatorFactoriesBuilder != null) {
           Collection<AggregationBuilder> aggregationBuilders =
               searchQuery.aggregatorFactoriesBuilder.getAggregatorFactories();
           pipelineTree = aggregationBuilders.iterator().next().buildPipelineTree();
-        } else {
-          pipelineTree =
-              OpenSearchAdapter.getAggregationBuilder(searchQuery.aggBuilder).buildPipelineTree();
         }
 
         reduceContext =
