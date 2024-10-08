@@ -247,7 +247,6 @@ public class OpenSearchAdapter {
    * empty.
    */
   private static ValuesSourceRegistry buildValueSourceRegistry() {
-    // TODO FOR KYLE: Is this method needed?
     ValuesSourceRegistry.Builder valuesSourceRegistryBuilder = new ValuesSourceRegistry.Builder();
 
     AutoDateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
