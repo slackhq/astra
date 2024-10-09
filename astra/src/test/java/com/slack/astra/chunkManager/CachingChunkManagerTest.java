@@ -27,6 +27,7 @@ import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheNodeMetadata;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.ChunkSchema;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
@@ -75,6 +76,7 @@ public class CachingChunkManagerTest {
   private CachingChunkManager<LogMessage> cachingChunkManager;
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private SnapshotMetadataStore snapshotMetadataStore;
+  private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
   @BeforeEach
   public void startup() throws Exception {
@@ -159,6 +161,7 @@ public class CachingChunkManagerTest {
   private CacheNodeAssignment initAssignment(String snapshotId) throws Exception {
     cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
     snapshotMetadataStore.createSync(new SnapshotMetadata(snapshotId, 1, 1, 0, "abcd", 29));
     CacheNodeAssignment newAssignment =
         new CacheNodeAssignment(
@@ -181,7 +184,8 @@ public class CachingChunkManagerTest {
             Duration.ofSeconds(60),
             true,
             SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
-            meterRegistry);
+            meterRegistry,
+            fieldRedactionMetadataStore);
     addMessages(logStore, 1, 10, true);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(10);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);

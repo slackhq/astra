@@ -1,49 +1,47 @@
 package com.slack.astra.logstore.search.fieldRedaction;
 
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
+import java.io.IOException;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.StoredFieldVisitor;
-
-import java.io.IOException;
 
 // implements the redacted field reader
 class RedactedFieldReader extends StoredFieldsReader {
 
-    private final StoredFieldsReader in;
-    private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
+  private final StoredFieldsReader in;
+  private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
-    public RedactedFieldReader(
-            StoredFieldsReader in, FieldRedactionMetadataStore fieldRedactionMetadataStore) {
-        this.in = in;
-//        this.fieldRedactions = fieldRedactions;
+  public RedactedFieldReader(
+      StoredFieldsReader in, FieldRedactionMetadataStore fieldRedactionMetadataStore) {
+    this.in = in;
+    this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
+  }
 
-        this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
-    }
+  @Override
+  public StoredFieldsReader clone() {
+    return new RedactedFieldReader(in, fieldRedactionMetadataStore);
+  }
 
-    @Override
-    public StoredFieldsReader clone() {
-        return new RedactedFieldReader(in, fieldRedactionMetadataStore);
-    }
+  @Override
+  public void checkIntegrity() throws IOException {
+    in.checkIntegrity();
+  }
 
-    @Override
-    public void checkIntegrity() throws IOException {
-        in.checkIntegrity();
-    }
+  @Override
+  public void close() throws IOException {
+    in.close();
+  }
 
-    @Override
-    public void close() throws IOException {
-        in.close();
-    }
-
-    // todo - Do we need a field visitor on the field reader AND the leaf reader?
-    @Override
-    public void document(int docID, StoredFieldVisitor visitor) throws IOException {
-        //        visitor = getDlsFlsVisitor(visitor);
-//        try {
-            visitor = new RedactionStoredFieldVisitor(visitor, fieldRedactionMetadataStore);
-            in.document(docID, visitor);
-//        } finally {
-            //          finishVisitor(visitor);
-//        }
-    }
+  // todo - Do we need a field visitor on the field reader AND the leaf reader?
+  // todo - look into finishvisitor function
+  @Override
+  public void document(int docID, StoredFieldVisitor visitor) throws IOException {
+    //        visitor = getDlsFlsVisitor(visitor);
+    //        try {
+    visitor = new RedactionStoredFieldVisitor(visitor, fieldRedactionMetadataStore);
+    in.document(docID, visitor);
+    //        } finally {
+    //          finishVisitor(visitor);
+    //        }
+  }
 }

@@ -408,13 +408,13 @@ public class LuceneIndexStoreImplTest {
       // setup ZK and redaction metadata store for field redaction testing
       TestingServer testingServer = new TestingServer();
       AstraConfigs.ZookeeperConfig zkConfig =
-              AstraConfigs.ZookeeperConfig.newBuilder()
-                      .setZkConnectString(testingServer.getConnectString())
-                      .setZkPathPrefix("test")
-                      .setZkSessionTimeoutMs(1000)
-                      .setZkConnectionTimeoutMs(1000)
-                      .setSleepBetweenRetriesMs(1000)
-                      .build();
+          AstraConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("test")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
 
       MeterRegistry meterRegistry = new SimpleMeterRegistry();
       AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
@@ -425,19 +425,19 @@ public class LuceneIndexStoreImplTest {
       long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
 
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
-              new FieldRedactionMetadataStore(curatorFramework, true);
+          new FieldRedactionMetadataStore(curatorFramework, true);
       fieldRedactionMetadataStore.createSync(
-              new FieldRedactionMetadata(redactionName, fieldName, start, end));
+          new FieldRedactionMetadata(redactionName, fieldName, start, end));
       await()
-              .until(
-                      () ->
-                              AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
-
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
+              LogIndexSearcherImpl.searcherManagerFromPath(
+                  tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
               logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
