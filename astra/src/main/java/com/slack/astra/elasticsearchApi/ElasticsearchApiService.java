@@ -96,6 +96,7 @@ public class ElasticsearchApiService {
     LOG.debug("Search request: {}", postBody);
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
+    LOG.info("Current trace context: {}", currentTraceContext);
     try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
       List<StructuredTaskScope.Subtask<EsSearchResponse>> requestSubtasks =
           openSearchRequest.parseHttpPostBody(postBody).stream()
@@ -103,11 +104,13 @@ public class ElasticsearchApiService {
               .toList();
 
       scope.join();
+      String traceId = getTraceId();
+      LOG.info("Final traceId: {}", traceId);
       SearchResponseMetadata responseMetadata =
           new SearchResponseMetadata(
               0,
               requestSubtasks.stream().map(StructuredTaskScope.Subtask::get).toList(),
-              Map.of("traceId", getTraceId()));
+              Map.of("traceId", traceId));
       return HttpResponse.of(
           HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
     }
@@ -161,6 +164,7 @@ public class ElasticsearchApiService {
 
   private String getTraceId() {
     TraceContext traceContext = Tracing.current().currentTraceContext().get();
+    LOG.info("traceContext inside getTraceId is: {}", traceContext);
     if (traceContext != null) {
       return traceContext.traceIdString();
     }
