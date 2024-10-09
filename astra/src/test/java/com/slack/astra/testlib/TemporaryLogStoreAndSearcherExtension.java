@@ -89,7 +89,8 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
             indexStoreCfg,
             SchemaAwareLogDocumentBuilderImpl.build(
                 fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
-            metricsRegistry);
+            metricsRegistry,
+                null);
 
     ConcurrentHashMap<String, LuceneFieldDef> schema = logStore.getSchema();
 
