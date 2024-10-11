@@ -13,15 +13,19 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
+import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+
+import jdk.internal.util.StaticProperty;
 import org.apache.lucene.store.IndexInput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,7 +93,7 @@ public class S3IndexInput extends IndexInput {
 
     try {
       Path slicePath = Files.createTempFile(String.format("astra-cache-slice-%s-%s-%s", chunkId, UUID.randomUUID(), resourceDescription), ".tmp");
-      this.tmpFile = Files.copy(inFile, slicePath);
+      this.tmpFile = Files.copy(inFile, slicePath, StandardCopyOption.REPLACE_EXISTING);
 
       //fileChannel
       this.randomAccessFile = new BufferedRandomAccessFile(tmpFile.toFile(), "r");
