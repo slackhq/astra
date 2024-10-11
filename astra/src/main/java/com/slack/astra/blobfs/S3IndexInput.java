@@ -19,14 +19,17 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.lucene.store.IndexInput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.core.FileTransformerConfiguration;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 
 /**
@@ -85,7 +88,7 @@ public class S3IndexInput extends IndexInput {
    this.cacheKey = cacheKey;
 
     try {
-      Path slicePath = Files.createTempFile(String.format("astra-cache-slice-%s-%s", chunkId, resourceDescription), ".tmp");
+      Path slicePath = Files.createTempFile(String.format("astra-cache-slice-%s-%s-%s", chunkId, UUID.randomUUID(), resourceDescription), ".tmp");
       this.tmpFile = Files.copy(tmpFile, slicePath);
 
       //fileChannel
@@ -132,27 +135,28 @@ public class S3IndexInput extends IndexInput {
       long readTo = Math.min((pageKey + 1) * PAGE_SIZE, Long.MAX_VALUE);
 
       Stopwatch timeDownload = Stopwatch.createStarted();
-      byte[] response =
-          s3AsyncClient
-              .getObject(
-                  GetObjectRequest.builder()
-                      .bucket(blobStore.bucketName)
-                      .key(String.format("%s/%s", chunkId, objectName))
-                      .range(String.format("bytes=%s-%s", readFrom, readTo))
-                      .build(),
-                  AsyncResponseTransformer.toBytes())
-              .get()
-              .asByteArray();
+      GetObjectResponse response =
+      s3AsyncClient
+          .getObject(
+              GetObjectRequest.builder()
+                  .bucket(blobStore.bucketName)
+                  .key(String.format("%s/%s", chunkId, objectName))
+                  .range(String.format("bytes=%s-%s", readFrom, readTo))
+                  .build(),
+              AsyncResponseTransformer.toFile(tmpFile, FileTransformerConfiguration.builder()
+                      .failureBehavior(FileTransformerConfiguration.FailureBehavior.DELETE)
+                      .fileWriteOption(FileTransformerConfiguration.FileWriteOption.CREATE_OR_REPLACE_EXISTING)
+                  .build()))
+          .get();
 
       LOG.debug(
           "Downloaded {} - byte length {} in {} ms for chunk {}",
           objectName,
-          response.length,
+          response.contentLength(),
           timeDownload.elapsed(TimeUnit.MILLISECONDS),
           chunkId);
 
       cacheKey = pageKey;
-      Files.write(tmpFile, response, StandardOpenOption.TRUNCATE_EXISTING);
       return true;
     }
   }
