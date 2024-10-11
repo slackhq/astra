@@ -73,7 +73,7 @@ public class S3IndexInput extends IndexInput {
       String objectName,
       Long sliceOffset,
       long cacheKey,
-      Path tmpFile,
+      Path inFile,
       Long length) {
     super(resourceDescription);
     this.blobStore = blobStore;
@@ -89,7 +89,7 @@ public class S3IndexInput extends IndexInput {
 
     try {
       Path slicePath = Files.createTempFile(String.format("astra-cache-slice-%s-%s-%s", chunkId, UUID.randomUUID(), resourceDescription), ".tmp");
-      this.tmpFile = Files.copy(tmpFile, slicePath);
+      this.tmpFile = Files.copy(inFile, slicePath);
 
       //fileChannel
       this.randomAccessFile = new BufferedRandomAccessFile(tmpFile.toFile(), "r");
@@ -149,7 +149,7 @@ public class S3IndexInput extends IndexInput {
                   .build()))
           .get();
 
-      LOG.debug(
+      LOG.info(
           "Downloaded {} - byte length {} in {} ms for chunk {}",
           objectName,
           response.contentLength(),
@@ -256,12 +256,8 @@ public class S3IndexInput extends IndexInput {
 
       //try (Files.newByteChannel()
       //return getData(getCacheKey)[byteArrayPos];
-    } catch (ExecutionException | InterruptedException e) {
+    } catch (ExecutionException | InterruptedException | IOException e) {
       LOG.error("Error reading byte", e);
-      throw new RuntimeException(e);
-    } catch (FileNotFoundException e) {
-      throw new RuntimeException(e);
-    } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
