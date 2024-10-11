@@ -85,7 +85,7 @@ public class S3IndexInput extends IndexInput {
    this.cacheKey = cacheKey;
 
     try {
-      Path slicePath = Files.createTempFile(String.format("astra-cache-slice-%s", chunkId), "tmp");
+      Path slicePath = Files.createTempFile(String.format("astra-cache-slice-%s-%s", chunkId, resourceDescription), ".tmp");
       this.tmpFile = Files.copy(tmpFile, slicePath);
 
       //fileChannel
@@ -101,7 +101,7 @@ public class S3IndexInput extends IndexInput {
     super(resourceDescription);
 
     try {
-      this.tmpFile = Files.createTempFile(String.format("astra-cache-%s", chunkId), "tmp");
+      this.tmpFile = Files.createTempFile(String.format("astra-cache-%s-%s", chunkId, resourceDescription), ".tmp");
       this.randomAccessFile = new BufferedRandomAccessFile(tmpFile.toFile(), "rw");
     } catch (IOException e) {
       throw new RuntimeException(e);
