@@ -50,7 +50,7 @@ class S3IndexInputTest {
     try (S3IndexInput s3IndexInput =
         new S3IndexInput(
             blobStore, resourceDescription, chunkId, tempFile.getFileName().toString())) {
-      assertThat(s3IndexInput.getCachedData().size()).isZero();
+      assertThat(s3IndexInput.getCacheData().length).isZero();
 
       // read in a single byte, and ensure that it paged in a single page worth of contents
       byte readByte = s3IndexInput.readByte();
@@ -61,13 +61,13 @@ class S3IndexInputTest {
       byte[] bulkRead = new byte[Math.toIntExact(S3IndexInput.PAGE_SIZE - 1)];
       s3IndexInput.readBytes(bulkRead, 0, Math.toIntExact(S3IndexInput.PAGE_SIZE - 1));
       assertThat(bulkRead[bulkRead.length - 1]).isEqualTo((byte) 1);
-      assertTrue(s3IndexInput.getCachedData().containsKey(0L));
+      assertThat(s3IndexInput.getCacheKey()).isEqualTo(0L);
 
       // read in a single byte more, which will trigger another page load
       // ensure that the page was loaded as expected
       byte readByteNextPage = s3IndexInput.readByte();
       assertThat(readByteNextPage).isEqualTo((byte) 2);
-      assertTrue(s3IndexInput.getCachedData().containsKey(1L));
+      assertThat(s3IndexInput.getCacheKey()).isEqualTo(1L);
     }
   }
 }

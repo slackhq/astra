@@ -5,8 +5,18 @@ import static com.slack.astra.util.SizeConstant.MB;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import io.micrometer.core.instrument.Metrics;
+
+import java.io.BufferedReader;
 import java.io.EOFException;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -30,13 +40,19 @@ public class S3IndexInput extends IndexInput {
 
   public static final String ASTRA_S3_STREAMING_PAGESIZE = "astra.s3Streaming.pageSize";
   protected static final long PAGE_SIZE =
-      Long.parseLong(System.getProperty(ASTRA_S3_STREAMING_PAGESIZE, String.valueOf(2 * MB)));
+      Long.parseLong(System.getProperty(ASTRA_S3_STREAMING_PAGESIZE, String.valueOf(100 * MB)));
 
   private final BlobStore blobStore;
   private final S3AsyncClient s3AsyncClient;
   private final String chunkId;
   private final String objectName;
-  private final Map<Long, byte[]> cachedData = new HashMap<>();
+
+  private long cacheKey = -1;
+  private final Path tmpFile;
+
+  private BufferedRandomAccessFile randomAccessFile;// = new RandomAccessFile();
+  //private FileChannel fileChannel;
+  //private FileInputStream fileInputStream;
 
   // pointer for next byte read within this input
   private long filePointer = 0;
@@ -53,7 +69,8 @@ public class S3IndexInput extends IndexInput {
       String chunkId,
       String objectName,
       Long sliceOffset,
-      Map<Long, byte[]> cachedData,
+      long cacheKey,
+      Path tmpFile,
       Long length) {
     super(resourceDescription);
     this.blobStore = blobStore;
@@ -63,14 +80,33 @@ public class S3IndexInput extends IndexInput {
 
     this.filePointer = 0;
     this.sliceOffset = sliceOffset;
-
-    this.cachedData.putAll(cachedData);
     this.sliceLength = length;
+
+   this.cacheKey = cacheKey;
+
+    try {
+      Path slicePath = Files.createTempFile(String.format("astra-cache-slice-%s", chunkId), "tmp");
+      this.tmpFile = Files.copy(tmpFile, slicePath);
+
+      //fileChannel
+      this.randomAccessFile = new BufferedRandomAccessFile(tmpFile.toFile(), "r");
+      //this.fileInputStream = new FileInputStream(tmpFile.toFile());
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public S3IndexInput(
       BlobStore blobStore, String resourceDescription, String chunkId, String objectName) {
     super(resourceDescription);
+
+    try {
+      this.tmpFile = Files.createTempFile(String.format("astra-cache-%s", chunkId), "tmp");
+      this.randomAccessFile = new BufferedRandomAccessFile(tmpFile.toFile(), "rw");
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
     this.blobStore = blobStore;
     this.s3AsyncClient = blobStore.s3AsyncClient;
     this.chunkId = chunkId;
@@ -85,12 +121,12 @@ public class S3IndexInput extends IndexInput {
    *
    * @param pageKey the offset to download
    */
-  private byte[] getData(long pageKey) throws ExecutionException, InterruptedException {
-    if (cachedData.containsKey(pageKey)) {
-      return cachedData.get(pageKey);
+  private boolean getData(long pageKey) throws ExecutionException, InterruptedException, IOException {
+    if (this.cacheKey == pageKey) {
+      // return byte array from file
+      return false;
     } else {
       Metrics.counter(PAGE_COUNTER).increment();
-      cachedData.clear();
 
       long readFrom = pageKey * PAGE_SIZE;
       long readTo = Math.min((pageKey + 1) * PAGE_SIZE, Long.MAX_VALUE);
@@ -114,14 +150,17 @@ public class S3IndexInput extends IndexInput {
           response.length,
           timeDownload.elapsed(TimeUnit.MILLISECONDS),
           chunkId);
-      cachedData.put(pageKey, response);
-      return response;
+
+      cacheKey = pageKey;
+      Files.write(tmpFile, response, StandardOpenOption.TRUNCATE_EXISTING);
+      return true;
     }
   }
 
   @Override
   public void close() throws IOException {
-    // nothing to close/cleanup
+    randomAccessFile.close();
+    tmpFile.toFile().delete();
   }
 
   /** Returns the current position in this file, where the next read will occur. */
@@ -183,7 +222,8 @@ public class S3IndexInput extends IndexInput {
         chunkId,
         objectName,
         offset,
-        cachedData,
+        cacheKey,
+        tmpFile,
         length);
   }
 
@@ -194,9 +234,28 @@ public class S3IndexInput extends IndexInput {
       long getCacheKey = Math.floorDiv(filePointer + sliceOffset, PAGE_SIZE);
       int byteArrayPos = Math.toIntExact(filePointer + sliceOffset - (getCacheKey * PAGE_SIZE));
       filePointer++;
-      return getData(getCacheKey)[byteArrayPos];
+
+      // page it in, if needed from S3
+      getData(getCacheKey);
+
+
+      //if (pagedIn) {
+        randomAccessFile.seek(byteArrayPos);
+      //}
+
+
+        return randomAccessFile.readByte();
+       // return fileInputStream.readNBytes(1)[0];
+      //}
+
+      //try (Files.newByteChannel()
+      //return getData(getCacheKey)[byteArrayPos];
     } catch (ExecutionException | InterruptedException e) {
       LOG.error("Error reading byte", e);
+      throw new RuntimeException(e);
+    } catch (FileNotFoundException e) {
+      throw new RuntimeException(e);
+    } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
@@ -215,8 +274,11 @@ public class S3IndexInput extends IndexInput {
     }
   }
 
-  @VisibleForTesting
-  protected Map<Long, byte[]> getCachedData() {
-    return new HashMap<>(cachedData);
+  protected long getCacheKey() {
+    return this.cacheKey;
+  }
+
+  protected byte[] getCacheData() throws IOException {
+    return Files.readAllBytes(tmpFile);
   }
 }
