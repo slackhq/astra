@@ -144,6 +144,10 @@ public final class BufferedRandomAccessFile extends RandomAccessFile
     super.close();
   }
 
+  public void reset() {
+    this.lo_ = this.curr_ = this.hi_ = 0;
+  }
+
   /**
    * Flush any bytes in the file's buffer that have not yet been written to
    * disk. If the file was created read-only, this method is a no-op.

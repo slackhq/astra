@@ -236,8 +236,10 @@ public class S3IndexInput extends IndexInput {
       filePointer++;
 
       // page it in, if needed from S3
-      getData(getCacheKey);
-
+      boolean shouldReloadBuffer = getData(getCacheKey);
+      if (shouldReloadBuffer) {
+        randomAccessFile.reset();
+      }
 
       //if (pagedIn) {
         randomAccessFile.seek(byteArrayPos);
