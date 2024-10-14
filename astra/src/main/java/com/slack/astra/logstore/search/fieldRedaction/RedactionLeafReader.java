@@ -9,7 +9,6 @@ import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.index.StoredFields;
 import org.opensearch.common.lucene.index.SequentialStoredFieldsLeafReader;
 
-// Implements the redaction leaf reader
 class RedactionLeafReader extends SequentialStoredFieldsLeafReader {
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
@@ -29,8 +28,7 @@ class RedactionLeafReader extends SequentialStoredFieldsLeafReader {
     return in.storedFields();
   }
 
-  // todo is this correct? Why would a field visitor be on both a leaf reader and a field
-  // reader?
+  // RedactionStoredFieldVisitor can be called here or in the RedactedFieldReader
   @Override
   public void document(int docID, StoredFieldVisitor visitor) throws IOException {
     visitor = new RedactionStoredFieldVisitor(visitor, fieldRedactionMetadataStore);

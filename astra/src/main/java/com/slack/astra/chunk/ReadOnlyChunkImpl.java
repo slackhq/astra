@@ -237,7 +237,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         this.logSearcher =
             (LogIndexSearcher<T>)
                 new LogIndexSearcherImpl(
-                    LogIndexSearcherImpl.searcherManagerFromChunkId(chunkInfo.chunkId, blobStore),
+                    LogIndexSearcherImpl.searcherManagerFromChunkId(chunkInfo.chunkId, blobStore, fieldRedactionMetadataStore),
                     chunkSchema.fieldDefMap);
       } else {
         // get data directory
@@ -271,7 +271,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         this.logSearcher =
             (LogIndexSearcher<T>)
                 new LogIndexSearcherImpl(
-                    LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory, fieldRedactionMetadataStore),
+                    LogIndexSearcherImpl.searcherManagerFromPath(
+                        dataDirectory, fieldRedactionMetadataStore),
                     chunkSchema.fieldDefMap);
       }
 
@@ -570,6 +571,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       replicaMetadataStore.close();
       snapshotMetadataStore.close();
       searchMetadataStore.close();
+      fieldRedactionMetadataStore.close();
 
       LOG.debug("Closed chunk");
     } else {

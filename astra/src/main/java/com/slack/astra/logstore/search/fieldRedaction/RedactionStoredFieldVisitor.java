@@ -12,7 +12,6 @@ import java.util.Map;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
 
-// Implements the redaction for stored fields
 class RedactionStoredFieldVisitor extends StoredFieldVisitor {
   private ObjectMapper om = new ObjectMapper();
   private final StoredFieldVisitor delegate;
@@ -33,7 +32,6 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
             });
 
     // TODO - do we need the listener at all if we listsync at the field level anyway?
-    // where do we close the listener?
     AstraMetadataStoreChangeListener<FieldRedactionMetadata> listener =
         new AstraMetadataStoreChangeListener() {
           @Override

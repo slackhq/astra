@@ -5,7 +5,6 @@ import java.io.IOException;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.StoredFieldVisitor;
 
-// implements the redacted field reader
 class RedactedFieldReader extends StoredFieldsReader {
 
   private final StoredFieldsReader in;
