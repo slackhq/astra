@@ -62,10 +62,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final ReferenceManager.RefreshListener refreshListener;
 
   @VisibleForTesting
-  public static SearcherManager searcherManagerFromChunkId(String chunkId, BlobStore blobStore)
+  public static SearcherManager searcherManagerFromChunkId(String chunkId, BlobStore blobStore, FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
     Directory directory = new S3RemoteDirectory(chunkId, blobStore);
-    return new SearcherManager(directory, null);
+    DirectoryReader directoryReader = DirectoryReader.open(directory);
+
+    RedactionFilterDirectoryReader reader =
+            new RedactionFilterDirectoryReader(directoryReader, fieldRedactionMetadataStore);
+    return new SearcherManager(reader, null);
   }
 
   @VisibleForTesting

@@ -4,7 +4,6 @@ import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import org.apache.lucene.index.FilterDirectoryReader;
 import org.apache.lucene.index.LeafReader;
 
-// Implements a field redaction subreaderwrapper
 class RedactionSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
 

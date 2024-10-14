@@ -450,7 +450,6 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   }
 
   /** Deletes a single field redaction by name */
-  // todo - return true
   @Override
   public void deleteFieldRedaction(
       ManagerApi.DeleteFieldRedactionRequest request,

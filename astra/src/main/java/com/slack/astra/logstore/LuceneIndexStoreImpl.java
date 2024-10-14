@@ -143,10 +143,10 @@ public class LuceneIndexStoreImpl implements LogStore {
     if (fieldRedactionMetadataStore != null) {
       RedactionFilterDirectoryReader reader =
           new RedactionFilterDirectoryReader(
-              DirectoryReader.open(indexWriter.get()), fieldRedactionMetadataStore);
+              DirectoryReader.open(indexWriter.get(), false, false), fieldRedactionMetadataStore);
       this.searcherManager = new SearcherManager(reader, null);
     } else {
-      this.searcherManager = new SearcherManager(indexWriter.get(), null);
+      this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
       LOG.warn("fieldRedactionMetadataStore is NULL");
     }
 

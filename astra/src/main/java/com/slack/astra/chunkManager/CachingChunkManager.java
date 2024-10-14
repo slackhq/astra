@@ -159,6 +159,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     searchMetadataStore.close();
     snapshotMetadataStore.close();
     replicaMetadataStore.close();
+    fieldRedactionMetadataStore.close();
 
     LOG.info("Closed caching chunk manager.");
   }

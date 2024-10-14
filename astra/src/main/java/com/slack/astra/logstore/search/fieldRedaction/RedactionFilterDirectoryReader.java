@@ -11,7 +11,6 @@ import org.apache.lucene.index.IndexWriter;
 // Heavily inspired by the DlsFlsFilterLeafReader from opensearch
 // https://github.com/opensearch-project/security/blob/4f2e689a37765786dd256a7591434815bbb950a4/src/main/java/org/opensearch/security/configuration/DlsFlsFilterLeafReader.java
 
-// Implements a filterdirectoryreader for field redaction
 public class RedactionFilterDirectoryReader extends FilterDirectoryReader {
   public final FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
