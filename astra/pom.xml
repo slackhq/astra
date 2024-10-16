@@ -26,9 +26,9 @@
         <jackson.databind.version>2.18.0</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.1</opensearch.version>
-        <curator.version>5.7.0</curator.version>
+        <curator.version>5.7.1</curator.version>
         <log4j.version>2.24.1</log4j.version>
-        <aws.sdk.version>2.28.17</aws.sdk.version>
+        <aws.sdk.version>2.28.24</aws.sdk.version>
         <error.prone.version>2.33.0</error.prone.version>
         <junit.jupiter.version>5.11.2</junit.jupiter.version>
     </properties>
@@ -434,7 +434,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.15.3</version>
+            <version>1.15.4</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
@@ -654,7 +654,7 @@
             <plugin>
                 <groupId>com.spotify.fmt</groupId>
                 <artifactId>fmt-maven-plugin</artifactId>
-                <version>2.24</version>
+                <version>2.25</version>
                 <configuration>
                     <sourceDirectory>src/main/java</sourceDirectory>
                     <testSourceDirectory>src/test/java</testSourceDirectory>

@@ -12,6 +12,7 @@ import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
+import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
@@ -24,7 +25,6 @@ import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
-import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.search.SearchMetadata;
@@ -165,12 +165,10 @@ public class IndexingChunkImplTest {
               0L,
               MAX_TIME,
               10,
-              new DateHistogramAggBuilder(
-                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
               QueryBuilderUtil.generateQueryBuilder("*:*", 0L, MAX_TIME),
               null,
-              null));
+              createGenericDateHistogramAggregatorFactoriesBuilder()));
 
       chunk.query(
           new SearchQuery(
@@ -178,12 +176,10 @@ public class IndexingChunkImplTest {
               0L,
               MAX_TIME,
               10,
-              new DateHistogramAggBuilder(
-                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
               QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
               null,
-              null));
+              createGenericDateHistogramAggregatorFactoriesBuilder()));
 
       SearchResult<LogMessage> results =
           chunk.query(
@@ -192,12 +188,10 @@ public class IndexingChunkImplTest {
                   0L,
                   MAX_TIME,
                   10,
-                  new DateHistogramAggBuilder(
-                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
                   QueryBuilderUtil.generateQueryBuilder("Message*", 0L, MAX_TIME),
                   null,
-                  null));
+                  createGenericDateHistogramAggregatorFactoriesBuilder()));
       assertThat(results.hits.size()).isEqualTo(10);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
@@ -315,13 +309,11 @@ public class IndexingChunkImplTest {
                           startTimeMs,
                           endTimeMs,
                           10,
-                          new DateHistogramAggBuilder(
-                              "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                           Collections.emptyList(),
                           QueryBuilderUtil.generateQueryBuilder(
                               searchString, startTimeMs, endTimeMs),
                           null,
-                          null))
+                          createGenericDateHistogramAggregatorFactoriesBuilder()))
                   .hits
                   .size())
           .isEqualTo(expectedResultCount);
@@ -349,12 +341,10 @@ public class IndexingChunkImplTest {
                   0L,
                   MAX_TIME,
                   10,
-                  new DateHistogramAggBuilder(
-                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
                   QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                   null,
-                  null));
+                  createGenericDateHistogramAggregatorFactoriesBuilder()));
       assertThat(results.hits.size()).isEqualTo(1);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
@@ -421,12 +411,10 @@ public class IndexingChunkImplTest {
                   0L,
                   MAX_TIME,
                   10,
-                  new DateHistogramAggBuilder(
-                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
                   QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                   null,
-                  null));
+                  createGenericDateHistogramAggregatorFactoriesBuilder()));
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
       // Snapshot forces commit and refresh
@@ -439,12 +427,10 @@ public class IndexingChunkImplTest {
                   0L,
                   MAX_TIME,
                   10,
-                  new DateHistogramAggBuilder(
-                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList(),
                   QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                   null,
-                  null));
+                  createGenericDateHistogramAggregatorFactoriesBuilder()));
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
     }
   }
@@ -622,12 +608,10 @@ public class IndexingChunkImplTest {
               0L,
               MAX_TIME,
               10,
-              new DateHistogramAggBuilder(
-                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
               QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
               null,
-              null);
+              createGenericDateHistogramAggregatorFactoriesBuilder());
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
@@ -682,12 +666,10 @@ public class IndexingChunkImplTest {
               0L,
               MAX_TIME,
               10,
-              new DateHistogramAggBuilder(
-                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList(),
               QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
               null,
-              null);
+              createGenericDateHistogramAggregatorFactoriesBuilder());
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
