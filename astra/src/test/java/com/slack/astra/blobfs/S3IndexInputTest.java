@@ -1,7 +1,6 @@
 package com.slack.astra.blobfs;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.spy;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -37,12 +36,12 @@ class S3IndexInputTest {
     // first page is all "1", second is all "2"
     Path directoryUpload = Files.createTempDirectory("");
     Path tempFile = Files.createTempFile(directoryUpload, "example", "");
-    byte[] testData = new byte[2 * Math.toIntExact(S3IndexInput.PAGE_SIZE)];
-    for (int i = 0; i < S3IndexInput.PAGE_SIZE; i++) {
+    byte[] testData = new byte[2 * Math.toIntExact(S3CachePagingLoader.DISK_PAGE_SIZE)];
+    for (int i = 0; i < S3CachePagingLoader.DISK_PAGE_SIZE; i++) {
       testData[i] = 1;
     }
-    for (int i = 0; i < S3IndexInput.PAGE_SIZE; i++) {
-      testData[Math.toIntExact(i + S3IndexInput.PAGE_SIZE)] = 2;
+    for (int i = 0; i < S3CachePagingLoader.DISK_PAGE_SIZE; i++) {
+      testData[Math.toIntExact(i + S3CachePagingLoader.DISK_PAGE_SIZE)] = 2;
     }
     Files.write(tempFile, testData);
     blobStore.upload(chunkId, directoryUpload);
@@ -50,7 +49,6 @@ class S3IndexInputTest {
     try (S3IndexInput s3IndexInput =
         new S3IndexInput(
             blobStore, resourceDescription, chunkId, tempFile.getFileName().toString())) {
-      assertThat(s3IndexInput.getCachedData().size()).isZero();
 
       // read in a single byte, and ensure that it paged in a single page worth of contents
       byte readByte = s3IndexInput.readByte();
@@ -58,16 +56,14 @@ class S3IndexInputTest {
       assertThat(s3IndexInput.getFilePointer()).isEqualTo(1);
 
       // bulk read in the remainder of the page, ensure that is still is using the cached data
-      byte[] bulkRead = new byte[Math.toIntExact(S3IndexInput.PAGE_SIZE - 1)];
-      s3IndexInput.readBytes(bulkRead, 0, Math.toIntExact(S3IndexInput.PAGE_SIZE - 1));
+      byte[] bulkRead = new byte[Math.toIntExact(S3CachePagingLoader.DISK_PAGE_SIZE - 1)];
+      s3IndexInput.readBytes(bulkRead, 0, Math.toIntExact(S3CachePagingLoader.DISK_PAGE_SIZE - 1));
       assertThat(bulkRead[bulkRead.length - 1]).isEqualTo((byte) 1);
-      assertTrue(s3IndexInput.getCachedData().containsKey(0L));
 
       // read in a single byte more, which will trigger another page load
       // ensure that the page was loaded as expected
       byte readByteNextPage = s3IndexInput.readByte();
       assertThat(readByteNextPage).isEqualTo((byte) 2);
-      assertTrue(s3IndexInput.getCachedData().containsKey(1L));
     }
   }
 }
