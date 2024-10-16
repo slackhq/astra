@@ -1,5 +1,6 @@
 package com.slack.astra.server;
 
+import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
@@ -8,7 +9,6 @@ import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.opensearch.OpenSearchInternalAggregation;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.logstore.search.SearchResultUtils;
-import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
@@ -47,10 +47,9 @@ public class SearchResultTest {
     OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of());
 
     Aggregator dateHistogramAggregation =
-        openSearchAdapter.buildAggregatorUsingContext(
-            new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+        openSearchAdapter.buildAggregatorFromFactory(
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
             null);
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =

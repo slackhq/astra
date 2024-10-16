@@ -10,6 +10,7 @@ import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
+import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -22,7 +23,6 @@ import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
-import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.metadata.cache.CacheNodeAssignment;
 import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadata;
@@ -160,15 +160,13 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
-                new DateHistogramAggBuilder(
-                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
                 QueryBuilderUtil.generateQueryBuilder(
                     "*:*",
                     Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                     Instant.now().toEpochMilli()),
                 null,
-                null));
+                createGenericDateHistogramAggregatorFactoriesBuilder()));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
     await()
@@ -216,15 +214,13 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
-                new DateHistogramAggBuilder(
-                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
                 QueryBuilderUtil.generateQueryBuilder(
                     "*:*",
                     Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                     Instant.now().toEpochMilli()),
                 null,
-                null));
+                createGenericDateHistogramAggregatorFactoriesBuilder()));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
 
@@ -434,15 +430,13 @@ public class ReadOnlyChunkImplTest {
             Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().toEpochMilli(),
             500,
-            new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder(
                 "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli()),
             null,
-            null);
+            createGenericDateHistogramAggregatorFactoriesBuilder());
     SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
@@ -560,15 +554,13 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
-                new DateHistogramAggBuilder(
-                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList(),
                 QueryBuilderUtil.generateQueryBuilder(
                     "*:*",
                     Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                     Instant.now().toEpochMilli()),
                 null,
-                null));
+                createGenericDateHistogramAggregatorFactoriesBuilder()));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
     // ensure we registered a search node for this cache assignment

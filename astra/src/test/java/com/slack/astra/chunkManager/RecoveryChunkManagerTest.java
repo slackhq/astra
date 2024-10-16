@@ -15,6 +15,7 @@ import static com.slack.astra.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getValue;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
+import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
@@ -29,7 +30,6 @@ import com.slack.astra.chunk.ReadWriteChunk;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
-import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.search.SearchMetadata;
@@ -193,12 +193,10 @@ public class RecoveryChunkManagerTest {
             0,
             MAX_TIME,
             10,
-            new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
             null,
-            null);
+            createGenericDateHistogramAggregatorFactoriesBuilder());
     SearchResult<LogMessage> results = chunkManager.getActiveChunk().query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -237,12 +235,10 @@ public class RecoveryChunkManagerTest {
                         0,
                         MAX_TIME,
                         10,
-                        new DateHistogramAggBuilder(
-                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message101", 0L, MAX_TIME),
                         null,
-                        null))
+                        createGenericDateHistogramAggregatorFactoriesBuilder()))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -269,12 +265,10 @@ public class RecoveryChunkManagerTest {
                         0,
                         MAX_TIME,
                         10,
-                        new DateHistogramAggBuilder(
-                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message102", 0L, MAX_TIME),
                         null,
-                        null))
+                        createGenericDateHistogramAggregatorFactoriesBuilder()))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -344,12 +338,10 @@ public class RecoveryChunkManagerTest {
             0,
             TemporaryLogStoreAndSearcherExtension.MAX_TIME,
             10,
-            new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder(searchString, 0L, MAX_TIME),
             null,
-            null);
+            createGenericDateHistogramAggregatorFactoriesBuilder());
     SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
