@@ -601,7 +601,6 @@ public class LuceneIndexStoreImplTest {
 
       assertThat(log.getSource().get("stringproperty")).isEqualTo("REDACTED");
       assertThat(log.getSource().get("service_name")).isEqualTo("testDataSet");
-      //      assertThat(log.getSource().get("binaryproperty")).isEqualTo("REDACTED");
 
       // Clean up
       newSearcher.close();
