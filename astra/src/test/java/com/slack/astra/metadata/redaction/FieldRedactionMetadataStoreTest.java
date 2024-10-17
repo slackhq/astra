@@ -37,6 +37,7 @@ public class FieldRedactionMetadataStoreTest {
             .setSleepBetweenRetriesMs(500)
             .build();
     this.curatorFramework = CuratorBuilder.build(meterRegistry, zookeeperConfig);
+    store = new FieldRedactionMetadataStore(curatorFramework, true);
   }
 
   @AfterEach
