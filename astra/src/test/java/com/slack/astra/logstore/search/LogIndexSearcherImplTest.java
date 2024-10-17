@@ -405,31 +405,31 @@ public class LogIndexSearcherImplTest {
       featureFlagEnabledStrictLogStore.logStore.refresh();
 
       SearchResult<LogMessage> scriptNull =
-              featureFlagEnabledStrictLogStore.logSearcher.search(
-                      TEST_DATASET_NAME,
-                      1000,
-                      QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
-                      null,
-                      createFiltersAggregatorFactoriesBuilder(
-                              "1",
-                              List.of(),
-                              Map.of(
-                                      "foo",
-                                      QueryBuilderUtil.generateQueryBuilder(
-                                              String.format(
-                                                      "%s:<=%s",
-                                                      LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-                                                      time.plusSeconds(2).toEpochMilli()),
-                                              time.toEpochMilli(),
-                                              time.plusSeconds(2).toEpochMilli()),
-                                      "bar",
-                                      QueryBuilderUtil.generateQueryBuilder(
-                                              String.format(
-                                                      "%s:>%s",
-                                                      LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-                                                      time.plusSeconds(2).toEpochMilli()),
-                                              time.plusSeconds(2).toEpochMilli(),
-                                              time.plusSeconds(10).toEpochMilli()))));
+          featureFlagEnabledStrictLogStore.logSearcher.search(
+              TEST_DATASET_NAME,
+              1000,
+              QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
+              null,
+              createFiltersAggregatorFactoriesBuilder(
+                  "1",
+                  List.of(),
+                  Map.of(
+                      "foo",
+                      QueryBuilderUtil.generateQueryBuilder(
+                          String.format(
+                              "%s:<=%s",
+                              LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                              time.plusSeconds(2).toEpochMilli()),
+                          time.toEpochMilli(),
+                          time.plusSeconds(2).toEpochMilli()),
+                      "bar",
+                      QueryBuilderUtil.generateQueryBuilder(
+                          String.format(
+                              "%s:>%s",
+                              LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                              time.plusSeconds(2).toEpochMilli()),
+                          time.plusSeconds(2).toEpochMilli(),
+                          time.plusSeconds(10).toEpochMilli()))));
 
       assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().size())
           .isEqualTo(2);

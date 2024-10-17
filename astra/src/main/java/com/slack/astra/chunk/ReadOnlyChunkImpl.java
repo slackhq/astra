@@ -237,7 +237,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         this.logSearcher =
             (LogIndexSearcher<T>)
                 new LogIndexSearcherImpl(
-                    LogIndexSearcherImpl.searcherManagerFromChunkId(chunkInfo.chunkId, blobStore, fieldRedactionMetadataStore),
+                    LogIndexSearcherImpl.searcherManagerFromChunkId(
+                        chunkInfo.chunkId, blobStore, fieldRedactionMetadataStore),
                     chunkSchema.fieldDefMap);
       } else {
         // get data directory

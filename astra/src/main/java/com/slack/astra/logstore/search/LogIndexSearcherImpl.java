@@ -13,7 +13,6 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
-import com.slack.astra.logstore.search.aggregations.AggBuilder;
 import com.slack.astra.logstore.search.fieldRedaction.RedactionFilterDirectoryReader;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
@@ -62,13 +61,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final ReferenceManager.RefreshListener refreshListener;
 
   @VisibleForTesting
-  public static SearcherManager searcherManagerFromChunkId(String chunkId, BlobStore blobStore, FieldRedactionMetadataStore fieldRedactionMetadataStore)
+  public static SearcherManager searcherManagerFromChunkId(
+      String chunkId, BlobStore blobStore, FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
     Directory directory = new S3RemoteDirectory(chunkId, blobStore);
     DirectoryReader directoryReader = DirectoryReader.open(directory);
 
     RedactionFilterDirectoryReader reader =
-            new RedactionFilterDirectoryReader(directoryReader, fieldRedactionMetadataStore);
+        new RedactionFilterDirectoryReader(directoryReader, fieldRedactionMetadataStore);
     return new SearcherManager(reader, null);
   }
 
