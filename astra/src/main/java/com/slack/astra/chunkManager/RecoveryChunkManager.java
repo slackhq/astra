@@ -16,6 +16,7 @@ import com.slack.astra.chunk.RecoveryChunkFactoryImpl;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.chunkrollover.NeverRolloverChunkStrategy;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
@@ -217,6 +218,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
       MeterRegistry meterRegistry,
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore,
       AstraConfigs.IndexerConfig indexerConfig,
       BlobStore blobStore)
       throws Exception {
@@ -230,6 +232,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
             meterRegistry,
             searchMetadataStore,
             snapshotMetadataStore,
+            fieldRedactionMetadataStore,
             searchContext);
 
     ChunkRolloverFactory chunkRolloverFactory =

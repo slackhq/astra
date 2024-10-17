@@ -27,6 +27,7 @@ import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadata;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
@@ -115,6 +116,8 @@ public class IndexingChunkImplTest {
 
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
+      FieldRedactionMetadataStore fieldRedactionMetadataStore =
+          new FieldRedactionMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -124,7 +127,8 @@ public class IndexingChunkImplTest {
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
-              registry);
+              registry,
+              fieldRedactionMetadataStore);
       chunk =
           new IndexingChunkImpl<>(
               logStore,
@@ -465,6 +469,8 @@ public class IndexingChunkImplTest {
 
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
+      FieldRedactionMetadataStore fieldRedactionMetadataStore =
+          new FieldRedactionMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -473,7 +479,8 @@ public class IndexingChunkImplTest {
               REFRESH_INTERVAL,
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR,
-              registry);
+              registry,
+              fieldRedactionMetadataStore);
       chunk =
           new IndexingChunkImpl<>(
               logStore,
@@ -529,6 +536,7 @@ public class IndexingChunkImplTest {
     private boolean closeChunk;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
+    private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -549,6 +557,7 @@ public class IndexingChunkImplTest {
 
       snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
       searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
+      fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -558,7 +567,8 @@ public class IndexingChunkImplTest {
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
-              registry);
+              registry,
+              fieldRedactionMetadataStore);
       chunk =
           new IndexingChunkImpl<>(
               logStore,

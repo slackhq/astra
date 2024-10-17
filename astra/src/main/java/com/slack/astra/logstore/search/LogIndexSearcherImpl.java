@@ -13,6 +13,8 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
+import com.slack.astra.logstore.search.fieldRedaction.RedactionFilterDirectoryReader;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MultiCollectorManager;
@@ -58,16 +61,26 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final ReferenceManager.RefreshListener refreshListener;
 
   @VisibleForTesting
-  public static SearcherManager searcherManagerFromChunkId(String chunkId, BlobStore blobStore)
+  public static SearcherManager searcherManagerFromChunkId(
+      String chunkId, BlobStore blobStore, FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
     Directory directory = new S3RemoteDirectory(chunkId, blobStore);
-    return new SearcherManager(directory, null);
+    DirectoryReader directoryReader = DirectoryReader.open(directory);
+
+    RedactionFilterDirectoryReader reader =
+        new RedactionFilterDirectoryReader(directoryReader, fieldRedactionMetadataStore);
+    return new SearcherManager(reader, null);
   }
 
   @VisibleForTesting
-  public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
+  public static SearcherManager searcherManagerFromPath(
+      Path path, FieldRedactionMetadataStore fieldRedactionMetadataStore) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
-    return new SearcherManager(directory, null);
+    DirectoryReader directoryReader = DirectoryReader.open(directory);
+
+    RedactionFilterDirectoryReader reader =
+        new RedactionFilterDirectoryReader(directoryReader, fieldRedactionMetadataStore);
+    return new SearcherManager(reader, null);
   }
 
   public LogIndexSearcherImpl(
@@ -87,7 +100,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         };
     this.searcherManager = searcherManager;
     this.searcherManager.addListener(refreshListener);
-
     // initialize the adapter with whatever the default schema is
 
     openSearchAdapter.loadSchema();
