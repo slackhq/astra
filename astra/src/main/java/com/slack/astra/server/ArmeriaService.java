@@ -151,9 +151,9 @@ public class ArmeriaService extends AbstractIdleService {
                       return next.startCall(call, headers);
                     }
                   });
-      serverBuilder.decorator(
+      serverBuilder.service(
+          searchBuilder.build(),
           MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
-      serverBuilder.service(searchBuilder.build());
       return this;
     }
 
