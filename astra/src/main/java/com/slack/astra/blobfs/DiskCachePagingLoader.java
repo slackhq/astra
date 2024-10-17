@@ -18,6 +18,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Semaphore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.FileTransformerConfiguration;
@@ -37,11 +38,22 @@ public class DiskCachePagingLoader {
 
   private static final Logger LOG = LoggerFactory.getLogger(DiskCachePagingLoader.class);
 
+  // Total number of concurrently downloading files supported at a time. If this is
+  // set too high it can trigger significantly higher disk use than the configured cache size as
+  // files are first
+  // downloaded before setting their associated
+  public static final String ASTRA_S3_STREAMING_DISK_CACHE_CONCURRENT =
+      "astra.s3Streaming.diskCacheConcurrent";
+  protected static final int DISK_CACHE_CONCURRENT =
+      Integer.parseInt(
+          System.getProperty(ASTRA_S3_STREAMING_DISK_CACHE_CONCURRENT, String.valueOf(50)));
+  private static final Semaphore concurrentDownloads = new Semaphore(DISK_CACHE_CONCURRENT);
+
   private final LoadingCache<LoadingCacheKey, Path> diskCache =
       Caffeine.newBuilder()
           .maximumWeight(DISK_CACHE_SIZE)
           .scheduler(Scheduler.systemScheduler())
-          .evictionListener(evictionListener())
+          .removalListener(removalListener())
           .weigher(weigher())
           .build(this.bytesCacheLoader());
 
@@ -71,7 +83,7 @@ public class DiskCachePagingLoader {
     };
   }
 
-  private static RemovalListener<LoadingCacheKey, Path> evictionListener() {
+  private static RemovalListener<LoadingCacheKey, Path> removalListener() {
     return (cacheKey, path, removalCause) -> {
       if (cacheKey != null) {
         LOG.debug(
@@ -96,37 +108,42 @@ public class DiskCachePagingLoader {
 
   private CacheLoader<LoadingCacheKey, Path> bytesCacheLoader() {
     return key -> {
-      LOG.debug(
-          "Using S3 to load disk cache - chunkID: {} / filename: {}, fromOffset: {}, toOffset: {}",
-          key.getChunkId(),
-          key.getFilename(),
-          key.getFromOffset(),
-          key.getToOffset());
+      concurrentDownloads.acquire();
+      try {
+        LOG.debug(
+            "Using S3 to load disk cache - chunkID: {} / filename: {}, fromOffset: {}, toOffset: {}",
+            key.getChunkId(),
+            key.getFilename(),
+            key.getFromOffset(),
+            key.getToOffset());
 
-      // todo - consider making this configurable to a different directory (or using the data dir
-      // value)
-      Path filePath =
-          Path.of(
-              System.getProperty("java.io.tmpdir"),
-              String.format(
-                  "astra-cache-%s-%s-%s-%s.tmp",
-                  key.getChunkId(), key.getFilename(), key.getFromOffset(), key.getToOffset()));
-      s3AsyncClient
-          .getObject(
-              GetObjectRequest.builder()
-                  .bucket(blobStore.bucketName)
-                  .key(key.getPath())
-                  .range(String.format("bytes=%s-%s", key.getFromOffset(), key.getToOffset()))
-                  .build(),
-              AsyncResponseTransformer.toFile(
-                  filePath,
-                  FileTransformerConfiguration.builder()
-                      .failureBehavior(FileTransformerConfiguration.FailureBehavior.DELETE)
-                      .fileWriteOption(
-                          FileTransformerConfiguration.FileWriteOption.CREATE_OR_REPLACE_EXISTING)
-                      .build()))
-          .get();
-      return filePath;
+        // todo - consider making this configurable to a different directory (or using the data dir
+        // value)
+        Path filePath =
+            Path.of(
+                System.getProperty("java.io.tmpdir"),
+                String.format(
+                    "astra-cache-%s-%s-%s-%s.tmp",
+                    key.getChunkId(), key.getFilename(), key.getFromOffset(), key.getToOffset()));
+        s3AsyncClient
+            .getObject(
+                GetObjectRequest.builder()
+                    .bucket(blobStore.bucketName)
+                    .key(key.getPath())
+                    .range(String.format("bytes=%s-%s", key.getFromOffset(), key.getToOffset()))
+                    .build(),
+                AsyncResponseTransformer.toFile(
+                    filePath,
+                    FileTransformerConfiguration.builder()
+                        .failureBehavior(FileTransformerConfiguration.FailureBehavior.DELETE)
+                        .fileWriteOption(
+                            FileTransformerConfiguration.FileWriteOption.CREATE_OR_REPLACE_EXISTING)
+                        .build()))
+            .get();
+        return filePath;
+      } finally {
+        concurrentDownloads.release();
+      }
     };
   }
 
