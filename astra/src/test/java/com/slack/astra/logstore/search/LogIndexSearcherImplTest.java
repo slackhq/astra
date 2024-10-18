@@ -276,7 +276,7 @@ public class LogIndexSearcherImplTest {
       fieldRedactionMetadataStore.createSync(
           new FieldRedactionMetadata("testRedaction1", "message", start, end));
       fieldRedactionMetadataStore.createSync(
-          new FieldRedactionMetadata("testRedaction2", "stringproperty", start, end));
+          new FieldRedactionMetadata("testRedaction2", "binaryproperty", start, end));
 
       await()
           .until(
@@ -319,8 +319,8 @@ public class LogIndexSearcherImplTest {
       assertThat(messages).hasSize(1);
       assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
       assertThat(messages.get(0).getSource().get("message")).isEqualTo("REDACTED");
-      assertThat(messages.get(0).getSource().containsKey("stringproperty")).isTrue();
-      assertThat(messages.get(0).getSource().get("stringproperty")).isEqualTo("REDACTED");
+      assertThat(messages.get(0).getSource().containsKey("binaryproperty")).isTrue();
+      assertThat(messages.get(0).getSource().get("binaryproperty")).isEqualTo("REDACTED");
     }
 
     @Test
