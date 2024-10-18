@@ -50,23 +50,25 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
   }
 
   private Map<String, Object> redactField(byte[] value) throws IOException {
-      Map<String, Object> source =
-              om.readValue(value, new TypeReference<HashMap<String, Object>>() {});
+    Map<String, Object> source =
+        om.readValue(value, new TypeReference<HashMap<String, Object>>() {});
 
-      if (source.containsKey("source")) {
-        Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
-        long timestamp = Instant.parse((String) innerSource.get(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)).toEpochMilli();
+    if (source.containsKey("source")) {
+      Map<String, Object> innerSource = (Map<String, Object>) source.get("source");
+      long timestamp =
+          Instant.parse((String) innerSource.get(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName))
+              .toEpochMilli();
 
-        for (FieldRedactionMetadata fieldRedactionMetadata : fieldRedactionsMap.values()) {
-          if (fieldRedactionMetadata.inRedactionTimerange(timestamp)) {
-            if (innerSource.containsKey(fieldRedactionMetadata.getFieldName())) {
-              innerSource.put(fieldRedactionMetadata.getFieldName(), redactedValue);
-              source.put("source", innerSource);
-            }
+      for (FieldRedactionMetadata fieldRedactionMetadata : fieldRedactionsMap.values()) {
+        if (fieldRedactionMetadata.inRedactionTimerange(timestamp)) {
+          if (innerSource.containsKey(fieldRedactionMetadata.getFieldName())) {
+            innerSource.put(fieldRedactionMetadata.getFieldName(), redactedValue);
+            source.put("source", innerSource);
           }
         }
       }
-      return source;
+    }
+    return source;
   }
 
   @Override

@@ -581,7 +581,7 @@ public class LuceneIndexStoreImplTest {
       fieldRedactionMetadataStore.createSync(
           new FieldRedactionMetadata("testRedactionString", "stringproperty", start, end));
       fieldRedactionMetadataStore.createSync(
-              new FieldRedactionMetadata("testRedactionBinary", "binaryproperty", start, end));
+          new FieldRedactionMetadata("testRedactionBinary", "binaryproperty", start, end));
       await()
           .until(
               () ->
