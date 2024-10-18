@@ -139,16 +139,10 @@ public class LuceneIndexStoreImpl implements LogStore {
     indexDirectory = new MMapDirectory(config.indexFolder(id).toPath());
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
 
-    // fieldRedactionMetadataStore should only be null for certain tests
-    if (fieldRedactionMetadataStore != null) {
-      RedactionFilterDirectoryReader reader =
-          new RedactionFilterDirectoryReader(
-              DirectoryReader.open(indexWriter.get(), false, false), fieldRedactionMetadataStore);
-      this.searcherManager = new SearcherManager(reader, null);
-    } else {
-      this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
-      LOG.warn("fieldRedactionMetadataStore is NULL");
-    }
+    RedactionFilterDirectoryReader reader =
+        new RedactionFilterDirectoryReader(
+            DirectoryReader.open(indexWriter.get(), false, false), fieldRedactionMetadataStore);
+    this.searcherManager = new SearcherManager(reader, null);
 
     scheduledCommit.scheduleWithFixedDelay(
         () -> {
