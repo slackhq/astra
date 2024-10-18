@@ -573,19 +573,19 @@ public class LuceneIndexStoreImplTest {
       MeterRegistry meterRegistry = new SimpleMeterRegistry();
       AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
-      String redactionName = "testRedaction";
-      String fieldName = "stringproperty";
       long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
       long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
 
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(curatorFramework, true);
       fieldRedactionMetadataStore.createSync(
-          new FieldRedactionMetadata(redactionName, fieldName, start, end));
+          new FieldRedactionMetadata("testRedactionString", "stringproperty", start, end));
+      fieldRedactionMetadataStore.createSync(
+              new FieldRedactionMetadata("testRedactionBinary", "binaryproperty", start, end));
       await()
           .until(
               () ->
-                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 2);
 
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
@@ -601,6 +601,7 @@ public class LuceneIndexStoreImplTest {
 
       assertThat(log.getSource().get("stringproperty")).isEqualTo("REDACTED");
       assertThat(log.getSource().get("service_name")).isEqualTo("testDataSet");
+      assertThat(log.getSource().get("binaryproperty")).isEqualTo("REDACTED");
 
       // Clean up
       newSearcher.close();
