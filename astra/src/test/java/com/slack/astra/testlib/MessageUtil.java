@@ -23,6 +23,7 @@ public class MessageUtil {
   public static final String TEST_SOURCE_DOUBLE_PROPERTY = "doubleproperty";
   public static final String TEST_SOURCE_FLOAT_PROPERTY = "floatproperty";
   public static final String TEST_SOURCE_STRING_PROPERTY = "stringproperty";
+  public static final String TEST_SOURCE_BINARY_PROPERTY = "binaryproperty";
 
   // TODO: Convert message to a Span object.
   public static LogWireMessage makeWireMessage(int i) {
@@ -44,6 +45,7 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
     fieldMap.put(TEST_SOURCE_STRING_PROPERTY, String.format("String-%s", i));
+    fieldMap.put(TEST_SOURCE_BINARY_PROPERTY, String.format("String-%s", i).getBytes());
 
     fieldMap.putAll(properties);
 
@@ -59,6 +61,7 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
     fieldMap.put(TEST_SOURCE_STRING_PROPERTY, String.format("String-%s", i));
+    fieldMap.put(TEST_SOURCE_BINARY_PROPERTY, String.format("String-%s", i).getBytes());
 
     fieldMap.putAll(properties);
 
