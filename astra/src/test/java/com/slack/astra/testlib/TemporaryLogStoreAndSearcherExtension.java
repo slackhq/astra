@@ -81,7 +81,6 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
   public final File tempFolder;
 
   // use this method if you do not want to include zookeeper setup or redaction in your tests
-  // sets the fieldRedactionMetadataStore to null which is not what actually happens in prod
   public TemporaryLogStoreAndSearcherExtension(boolean enableFullTextSearch) throws IOException {
     this(
         Duration.of(5, ChronoUnit.MINUTES),
