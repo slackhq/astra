@@ -9,6 +9,10 @@ import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.index.StoredFields;
 import org.opensearch.common.lucene.index.SequentialStoredFieldsLeafReader;
 
+/**
+ * RedactionLeafReader is Astra's leaf reader and creates a StoredFieldsReader or a
+ * RedactionStoredFieldVisitor to read in the individual fields.
+ */
 class RedactionLeafReader extends SequentialStoredFieldsLeafReader {
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
