@@ -1,5 +1,6 @@
 package com.slack.astra.util;
 
+import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import java.util.List;
@@ -19,4 +20,7 @@ public class TestingFieldRedactionMetadataStore extends FieldRedactionMetadataSt
   public List<FieldRedactionMetadata> listSync() {
     return List.of();
   }
+
+  @Override
+  public void addListener(AstraMetadataStoreChangeListener<FieldRedactionMetadata> watcher) {}
 }
