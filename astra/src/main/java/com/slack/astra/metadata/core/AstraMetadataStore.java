@@ -214,12 +214,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private void awaitCacheInitialized() {
     try {
-      if (!cacheInitialized.await(30, TimeUnit.SECONDS)) {
-        // in the event we deadlock, go ahead and time this out at 30s and restart the pod
-        new RuntimeHalterImpl()
-            .handleFatal(
-                new TimeoutException("Timed out waiting for Zookeeper cache to initialize"));
-      }
+      cacheInitialized.await();
     } catch (InterruptedException e) {
       new RuntimeHalterImpl().handleFatal(e);
     }
