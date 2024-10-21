@@ -26,6 +26,18 @@ service ManagerApiService {
 
   // Resets the partition offset data to allow using a newer offset for a partition ID
   rpc ResetPartitionData(ResetPartitionDataRequest) returns (ResetPartitionDataResponse) {}
+
+  // CreateFieldRedaction initializes a new field redaction with a name and time range window
+  rpc CreateFieldRedaction(CreateFieldRedactionRequest) returns (RedactedFieldMetadata) {}
+
+  // GetFieldRedaction returns a single field redaction by name
+  rpc GetFieldRedaction(GetFieldRedactionRequest) returns (RedactedFieldMetadata) {}
+
+  // DeleteFieldRedaction deletes an existing field redaction by name
+  rpc DeleteFieldRedaction(DeleteFieldRedactionRequest) returns (RedactedFieldMetadata) {}
+
+  // ListFieldRedactions lists all existing field redactions
+  rpc ListFieldRedactions(ListFieldRedactionsRequest) returns (ListFieldRedactionsResponse) {}
 }
 
 // CreateDatasetMetadataRequest represents a new dataset with uninitialized thoughput and partition assignments
@@ -104,4 +116,36 @@ message ResetPartitionDataRequest {
 
 message ResetPartitionDataResponse {
   string status = 1;
+}
+
+// CreateNewFieldRedactionRequest represents a request to create a new field redaction
+message CreateFieldRedactionRequest {
+  // name of the redaction rule
+  string name = 1;
+  // name of the field to be redacted
+  string field_name = 2;
+  // start time of the redaction window
+  int64 start_time_epoch_ms = 3;
+  // end time of the redaction window
+  int64 end_time_epoch_ms = 4;
+}
+
+// GetNewFieldRedactionRequest represents a request to fetch an existing field redaction
+message GetFieldRedactionRequest {
+  // name of the redaction rule
+  string name = 1;
+}
+
+// DeleteNewFieldRedactionRequest represents a request to delete an existing field redaction
+message DeleteFieldRedactionRequest {
+  // name of the redaction rule
+  string name = 1;
+}
+
+// ListFieldRedactionsRequest represents a request to list all existing field redactions
+message ListFieldRedactionsRequest {}
+
+// ListFieldRedactionsResponse represents the response when listing all existing field redactions
+message ListFieldRedactionsResponse {
+  repeated RedactedFieldMetadata redacted_fields = 1;
 }
