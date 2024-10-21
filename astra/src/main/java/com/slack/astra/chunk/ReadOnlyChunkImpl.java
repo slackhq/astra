@@ -572,7 +572,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       replicaMetadataStore.close();
       snapshotMetadataStore.close();
       searchMetadataStore.close();
-      fieldRedactionMetadataStore.close();
 
       LOG.debug("Closed chunk");
     } else {

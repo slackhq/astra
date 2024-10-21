@@ -5,6 +5,10 @@ import java.io.IOException;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.StoredFieldVisitor;
 
+/**
+ * RedactedFieldReader reads in the document and creates a new RedactionStoredFieldVisitor to read
+ * the individual fields.
+ */
 class RedactedFieldReader extends StoredFieldsReader {
 
   private final StoredFieldsReader in;
