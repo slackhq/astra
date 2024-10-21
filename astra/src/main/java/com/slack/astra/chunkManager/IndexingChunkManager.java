@@ -165,7 +165,11 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
    */
   @Override
   public void addMessage(
-      final Trace.Span message, long msgSize, String kafkaPartitionId, long offset)
+      final Trace.Span message,
+      long msgSize,
+      String kafkaPartitionId,
+      long offset,
+      boolean local_insert)
       throws IOException {
     if (stopIngestion) {
       // Currently, this flag is set on only a chunkRollOverException.
@@ -175,7 +179,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     // find the active chunk and add a message to it
     ReadWriteChunk<T> currentChunk = getOrCreateActiveChunk(kafkaPartitionId, indexerConfig);
-    currentChunk.addMessage(message, kafkaPartitionId, offset);
+    currentChunk.addMessage(message, kafkaPartitionId, offset, local_insert);
     long currentIndexedMessages = liveMessagesIndexedGauge.incrementAndGet();
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
 
