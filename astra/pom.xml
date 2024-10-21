@@ -19,7 +19,7 @@
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.5</protobuf.version>
         <grpc.version>1.68.0</grpc.version>
-        <micrometer.version>1.13.5</micrometer.version>
+        <micrometer.version>1.13.6</micrometer.version>
         <armeria.version>1.27.3</armeria.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.18.0</jackson.version>
@@ -29,7 +29,7 @@
         <curator.version>5.7.1</curator.version>
         <log4j.version>2.24.1</log4j.version>
         <aws.sdk.version>2.28.24</aws.sdk.version>
-        <error.prone.version>2.33.0</error.prone.version>
+        <error.prone.version>2.34.0</error.prone.version>
         <junit.jupiter.version>5.11.2</junit.jupiter.version>
     </properties>
 
@@ -421,7 +421,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.14.1</version>
+            <version>5.14.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -434,7 +434,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.15.4</version>
+            <version>1.15.5</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
