@@ -9,7 +9,6 @@ import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.findAllMessages;
-import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -22,6 +21,7 @@ import com.slack.astra.logstore.LogMessage.ReservedField;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchResult;
+import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
@@ -121,27 +121,33 @@ public class LuceneIndexStoreImplTest {
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
               100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               QueryBuilderUtil.generateQueryBuilder("nested.key1:value1", 0L, MAX_TIME),
               null,
-              createGenericDateHistogramAggregatorFactoriesBuilder());
+              null);
       assertThat(result1.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result2 =
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
               100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               QueryBuilderUtil.generateQueryBuilder("duplicateproperty:duplicate1", 0L, MAX_TIME),
               null,
-              createGenericDateHistogramAggregatorFactoriesBuilder());
+              null);
       assertThat(result2.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result3 =
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
               100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               QueryBuilderUtil.generateQueryBuilder("nested.duplicateproperty:2", 0L, MAX_TIME),
               null,
-              createGenericDateHistogramAggregatorFactoriesBuilder());
+              null);
       assertThat(result3.hits.size()).isEqualTo(1);
     }
 
@@ -190,6 +196,8 @@ public class LuceneIndexStoreImplTest {
           logStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME,
               100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               QueryBuilderUtil.generateQueryBuilder("nested.key1:value1", 0L, MAX_TIME),
               null,
               aggregatorFactoriesBuilder);

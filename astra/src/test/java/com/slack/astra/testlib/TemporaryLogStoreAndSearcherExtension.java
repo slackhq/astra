@@ -9,6 +9,7 @@ import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchResult;
+import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.service.murron.trace.Trace;
@@ -25,9 +26,6 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryStringQueryBuilder;
-import org.opensearch.search.aggregations.AggregatorFactories;
-import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 
 public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback {
 
@@ -52,19 +50,15 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
 
   public static List<LogMessage> findAllMessages(
       LogIndexSearcherImpl searcher, String dataset, int howMany, QueryBuilder queryBuilder) {
-    DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
-        new DateHistogramAggregationBuilder("1");
-    dateHistogramAggregationBuilder
-        .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
-        .fixedInterval(new DateHistogramInterval("1s"));
-
     SearchResult<LogMessage> results =
         searcher.search(
             dataset,
             howMany,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             queryBuilder,
             null,
-            new AggregatorFactories.Builder().addAggregator(dateHistogramAggregationBuilder));
+            null);
     return results.hits;
   }
 

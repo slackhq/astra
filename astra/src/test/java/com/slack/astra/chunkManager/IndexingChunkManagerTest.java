@@ -19,8 +19,6 @@ import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.MetricsUtil.getValue;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
-import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
-import static com.slack.astra.util.AggregatorJSONUtil.createGenericDateHistogramJSONBlob;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
@@ -50,6 +48,7 @@ import com.slack.astra.logstore.search.AstraLocalQueryService;
 import com.slack.astra.logstore.search.IllegalArgumentLogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
+import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.schema.FieldType;
@@ -410,10 +409,12 @@ public class IndexingChunkManagerTest {
             0,
             MAX_TIME,
             10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            null);
     SearchResult<LogMessage> results = chunkManager.query(searchQuery, Duration.ofMillis(3000));
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -469,10 +470,12 @@ public class IndexingChunkManagerTest {
                         0,
                         MAX_TIME,
                         10,
+                        new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message101", 0L, MAX_TIME),
                         null,
-                        createGenericDateHistogramAggregatorFactoriesBuilder()),
+                        null),
                     Duration.ofMillis(3000))
                 .hits
                 .size())
@@ -499,10 +502,12 @@ public class IndexingChunkManagerTest {
                         0,
                         MAX_TIME,
                         10,
+                        new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message102", 0L, MAX_TIME),
                         null,
-                        createGenericDateHistogramAggregatorFactoriesBuilder()),
+                        null),
                     Duration.ofMillis(3000))
                 .hits
                 .size())
@@ -539,9 +544,23 @@ public class IndexingChunkManagerTest {
                 .setStartTimeEpochMs(0)
                 .setEndTimeEpochMs(Long.MAX_VALUE)
                 .setHowMany(10)
-                .setAggregationJson(
-                    createGenericDateHistogramJSONBlob(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s", 1))
+                .setAggregations(
+                    AstraSearch.SearchRequest.SearchAggregation.newBuilder()
+                        .setType(DateHistogramAggBuilder.TYPE)
+                        .setName("1")
+                        .setValueSource(
+                            AstraSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                .newBuilder()
+                                .setField(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+                                .setDateHistogram(
+                                    AstraSearch.SearchRequest.SearchAggregation
+                                        .ValueSourceAggregation.DateHistogramAggregation
+                                        .newBuilder()
+                                        .setMinDocCount(1)
+                                        .setInterval("1s")
+                                        .build())
+                                .build())
+                        .build())
                 .addAllChunkIds(chunkIds)
                 .build());
 
@@ -580,10 +599,12 @@ public class IndexingChunkManagerTest {
             startTimeEpochMs,
             endTimeEpochMs,
             10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder(searchString, startTimeEpochMs, endTimeEpochMs),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            null);
     return chunkManager.query(searchQuery, Duration.ofMillis(3000)).hits.size();
   }
 

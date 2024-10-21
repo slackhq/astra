@@ -282,6 +282,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     return logSearcher.search(
         query.dataset,
         query.howMany,
+        query.aggBuilder,
         query.queryBuilder,
         query.sourceFieldFilter,
         query.aggregatorFactoriesBuilder);

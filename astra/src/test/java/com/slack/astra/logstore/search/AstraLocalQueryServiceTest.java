@@ -16,6 +16,7 @@ import com.slack.astra.chunkManager.RollOverChunkTask;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchInternalAggregation;
+import com.slack.astra.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.proto.service.AstraServiceGrpc;
 import com.slack.astra.testlib.AstraConfigUtil;
@@ -83,17 +84,22 @@ public class AstraLocalQueryServiceTest {
     }
   }
 
-  private static String buildHistogramRequestJSON(long startMs, long endMs, int numBuckets) {
-    String histogramRequest =
-        """
-        {"%s":{"date_histogram":{"interval":"%ds","field":"%s","min_doc_count":"%d","extended_bounds":{"min":1676498801027,"max":1676500240688},"format":"epoch_millis","offset":"5s"},"aggs":{}}}
-    """
-            .formatted(
-                "1",
-                (endMs - startMs) / numBuckets,
-                LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-                1);
-    return histogramRequest;
+  private static AstraSearch.SearchRequest.SearchAggregation buildHistogramRequest(
+      long startMs, long endMs, int numBuckets) {
+    return AstraSearch.SearchRequest.SearchAggregation.newBuilder()
+        .setType(DateHistogramAggBuilder.TYPE)
+        .setName("1")
+        .setValueSource(
+            AstraSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                .setField(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+                .setDateHistogram(
+                    AstraSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                        .DateHistogramAggregation.newBuilder()
+                        .setInterval((endMs - startMs) / numBuckets + "s")
+                        .setMinDocCount(1)
+                        .build())
+                .build())
+        .build();
   }
 
   private static String buildQueryFromQueryString(
@@ -135,8 +141,7 @@ public class AstraLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setAggregationJson(
-                    buildHistogramRequestJSON(chunk1StartTimeMs, chunk1EndTimeMs, 2))
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -197,8 +202,7 @@ public class AstraLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setAggregationJson(
-                    buildHistogramRequestJSON(chunk1StartTimeMs, chunk1EndTimeMs, 2))
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     assertThat(response.getHitsCount()).isZero();
@@ -244,8 +248,7 @@ public class AstraLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(0)
-                .setAggregationJson(
-                    buildHistogramRequestJSON(chunk1StartTimeMs, chunk1EndTimeMs, 2))
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(0);
@@ -291,7 +294,7 @@ public class AstraLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setAggregationJson("")
+                .setAggregations(AstraSearch.SearchRequest.SearchAggregation.newBuilder().build())
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -350,7 +353,8 @@ public class AstraLocalQueryServiceTest {
                         .setStartTimeEpochMs(chunk1StartTimeMs)
                         .setEndTimeEpochMs(chunk1EndTimeMs)
                         .setHowMany(0)
-                        .setAggregationJson("")
+                        .setAggregations(
+                            AstraSearch.SearchRequest.SearchAggregation.newBuilder().build())
                         .build()));
   }
 
@@ -398,8 +402,7 @@ public class AstraLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setAggregationJson(
-                    buildHistogramRequestJSON(chunk1StartTimeMs, chunk1EndTimeMs, 2))
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     // Validate search response
@@ -481,7 +484,8 @@ public class AstraLocalQueryServiceTest {
                         .setStartTimeEpochMs(chunk1StartTimeMs)
                         .setEndTimeEpochMs(chunk1EndTimeMs)
                         .setHowMany(0)
-                        .setAggregationJson("")
+                        .setAggregations(
+                            AstraSearch.SearchRequest.SearchAggregation.newBuilder().build())
                         .build()));
   }
 }
