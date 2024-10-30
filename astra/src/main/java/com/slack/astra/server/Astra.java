@@ -192,6 +192,7 @@ public class Astra {
       ArmeriaService.Builder armeriaServiceBuilder =
           new ArmeriaService.Builder(serverPort, "astraIndex", meterRegistry)
               .withRequestTimeout(requestTimeout)
+              .maxContentLength(700000000)
               .withTracing(astraConfig.getTracingConfig())
               .withGrpcService(searcher);
       //              .build();

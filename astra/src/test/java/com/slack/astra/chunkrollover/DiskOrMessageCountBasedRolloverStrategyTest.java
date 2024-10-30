@@ -181,7 +181,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     boolean shouldCheckOnNextMessage = false;
     for (Trace.Span m : SpanUtil.makeSpansWithTimeDifference(1, totalMessages, 1000, startTime)) {
       final int msgSize = m.toString().length();
-      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset, false);
       offset++;
       Thread.sleep(DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS);
       if (chunkManager.getActiveChunk() != null) {
@@ -250,11 +250,11 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     // wait for 2+ seconds so that the chunk rollover code will get triggered
     // add 2nd message to trigger chunk rollover
     // add 3rd message to create new chunk
-    chunkManager.addMessage(SpanUtil.makeSpan(1), 100, TEST_KAFKA_PARTITION_ID, 1);
+    chunkManager.addMessage(SpanUtil.makeSpan(1), 100, TEST_KAFKA_PARTITION_ID, 1, false);
     // so that the chunk rollover code will get triggered
     Thread.sleep(2_000 + DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS);
-    chunkManager.addMessage(SpanUtil.makeSpan(2), 100, TEST_KAFKA_PARTITION_ID, 1);
-    chunkManager.addMessage(SpanUtil.makeSpan(3), 100, TEST_KAFKA_PARTITION_ID, 1);
+    chunkManager.addMessage(SpanUtil.makeSpan(2), 100, TEST_KAFKA_PARTITION_ID, 1, false);
+    chunkManager.addMessage(SpanUtil.makeSpan(3), 100, TEST_KAFKA_PARTITION_ID, 1, false);
 
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
 
@@ -277,7 +277,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     int offset = 1;
     for (Trace.Span m : SpanUtil.makeSpansWithTimeDifference(1, totalMessages, 1000, startTime)) {
       final int msgSize = m.toString().length();
-      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset, false);
       offset++;
       if (chunkManager.getActiveChunk() != null) {
         chunkManager.getActiveChunk().commit();

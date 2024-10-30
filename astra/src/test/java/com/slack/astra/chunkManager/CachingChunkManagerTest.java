@@ -239,7 +239,8 @@ public class CachingChunkManagerTest {
   @Test
   public void testAddMessageIsUnsupported() throws TimeoutException {
     cachingChunkManager = initChunkManager();
-    assertThatThrownBy(() -> cachingChunkManager.addMessage(SpanUtil.makeSpan(1), 10, "1", 1))
+    assertThatThrownBy(
+            () -> cachingChunkManager.addMessage(SpanUtil.makeSpan(1), 10, "1", 1, false))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 

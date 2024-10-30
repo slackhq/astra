@@ -100,6 +100,11 @@ public class ArmeriaService extends AbstractIdleService {
       return this;
     }
 
+    public Builder maxContentLength(long maxRequestLength) {
+      serverBuilder.maxRequestLength(maxRequestLength);
+      return this;
+    }
+
     public Builder withTracing(AstraConfigs.TracingConfig tracingConfig) {
       // span handlers is an ordered list, so we need to be careful with ordering
       if (tracingConfig.getCommonTagsCount() > 0) {

@@ -74,6 +74,10 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
+      - ASTRA_PREPROCESSOR_REQUEST_TIMEOUT_MS=120000
     depends_on:
       - zookeeper
       - kafka
@@ -94,6 +98,13 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
+      - INDEXER_MAX_MESSAGES_PER_CHUNK=165346700
+      - INDEXER_MAX_BYTES_PER_CHUNK=80000000000
+      - INDEXER_MAX_TIME_PER_CHUNK_SECONDS=1296000
+      - ASTRA_INDEX_REQUEST_TIMEOUT_MS=4200000
+      - ASTRA_INDEX_DEFAULT_QUERY_TIMEOUT_MS=3600000
     depends_on:
       - astra_preprocessor
 
@@ -111,6 +122,11 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
+      - ASTRA_MANAGER_REPLICA_LIFESPAN_MINS=30
+      - ASTRA_MANAGER_SNAPSHOT_LIFESPAN_MINS=120
     depends_on:
       - astra_preprocessor
 
@@ -129,6 +145,9 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
     depends_on:
       - astra_preprocessor
 
@@ -146,6 +165,9 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
     depends_on:
       - astra_preprocessor
 
@@ -163,5 +185,8 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - ZIPKIN_TRACING_ENDPOINT=http://openzipkin:9411/api/v2/spans
       - S3_ENDPOINT=http://dep_s3:9090
+      - ASTRA_ZK_SESSION_TIMEOUT_MS=60000
+      - ASTRA_ZK_CONNECT_TIMEOUT_MS=15000
+      - ASTRA_ZK_SLEEP_RETRIES_MS=5000
     depends_on:
       - astra_preprocessor
