@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -200,7 +201,12 @@ public class ZipkinService {
       @Param("endTimeEpochMs") Optional<Long> endTimeEpochMs,
       @Param("maxSpans") Optional<Integer> maxSpans)
       throws IOException {
-    String queryString = "trace_id:" + traceId;
+
+    JSONObject traceObject = new JSONObject();
+    traceObject.put("trace_id", traceId);
+    JSONObject queryJson = new JSONObject();
+    queryJson.put("term", traceObject);
+    String queryString = queryJson.toString();
     long startTime =
         startTimeEpochMs.orElseGet(
             () -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
