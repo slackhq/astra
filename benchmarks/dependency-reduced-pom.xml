@@ -51,7 +51,6 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.1</version>
         <configuration>
-          <forkMode>always</forkMode>
           <redirectTestOutputToFile>true</redirectTestOutputToFile>
         </configuration>
       </plugin>
@@ -89,7 +88,7 @@
   </dependencies>
   <properties>
     <jmh.version>1.37</jmh.version>
-    <javac.target>21</javac.target>
+    <javac.target>22</javac.target>
     <uberjar.name>benchmarks</uberjar.name>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>

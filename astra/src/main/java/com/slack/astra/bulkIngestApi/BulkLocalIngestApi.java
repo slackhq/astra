@@ -92,7 +92,7 @@ public class BulkLocalIngestApi {
       // We think most indexing requests will be against 1 index
       if (docs.keySet().size() > 1) {
         BulkIngestResponse response =
-                new BulkIngestResponse(0, 0, "request must contain only 1 unique index");
+            new BulkIngestResponse(0, 0, "request must contain only 1 unique index");
         future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
         //            bulkIngestErrorCounter.increment();
         return HttpResponse.of(future);
@@ -118,7 +118,7 @@ public class BulkLocalIngestApi {
           try {
             chunkManager.addMessage(span, span.getSerializedSize(), String.valueOf(0), 12345, true);
             count += 1;
-//            return HttpResponse.of(future);
+            //            return HttpResponse.of(future);
           } catch (Exception e) {
             LOG.error("Request failed ", e);
             //                      bulkIngestErrorCounter.increment();
