@@ -19,7 +19,7 @@
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.5</protobuf.version>
         <grpc.version>1.68.0</grpc.version>
-        <micrometer.version>1.13.5</micrometer.version>
+        <micrometer.version>1.13.6</micrometer.version>
         <armeria.version>1.27.3</armeria.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.18.0</jackson.version>
@@ -28,9 +28,9 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.7.1</curator.version>
         <log4j.version>2.24.1</log4j.version>
-        <aws.sdk.version>2.28.24</aws.sdk.version>
-        <error.prone.version>2.33.0</error.prone.version>
-        <junit.jupiter.version>5.11.2</junit.jupiter.version>
+        <aws.sdk.version>2.29.2</aws.sdk.version>
+        <error.prone.version>2.35.1</error.prone.version>
+        <junit.jupiter.version>5.11.3</junit.jupiter.version>
     </properties>
 
     <repositories>
@@ -338,7 +338,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.31.3</version>
+            <version>0.33.0</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -394,7 +394,7 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>1.11.2</version>
+            <version>1.11.3</version>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
@@ -426,7 +426,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.14.1</version>
+            <version>5.14.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -439,7 +439,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.15.4</version>
+            <version>1.15.7</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
@@ -749,7 +749,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-site-plugin</artifactId>
-                    <version>3.20.0</version>
+                    <version>3.21.0</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-source-plugin</artifactId>
