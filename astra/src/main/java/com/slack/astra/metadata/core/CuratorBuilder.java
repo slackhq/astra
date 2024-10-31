@@ -11,6 +11,7 @@ import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.CuratorEventType;
+import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.retry.RetryUntilElapsed;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.Watcher;
@@ -62,8 +63,12 @@ public class CuratorBuilder {
     curator
         .getConnectionStateListenable()
         .addListener(
-            (listener, connectionState) ->
-                LOG.info("Curator connection state changed to {}", connectionState));
+            (listener, connectionState) -> {
+              LOG.info("Curator connection state changed to {}", connectionState);
+              if (connectionState == ConnectionState.SUSPENDED) {
+                new RuntimeHalterImpl().handleFatal(new Throwable("ZK session suspended."));
+              }
+            });
 
     curator
         .getCuratorListenable()
