@@ -110,7 +110,7 @@ public class AstraLocalQueryServiceTest {
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset, false);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -179,7 +179,7 @@ public class AstraLocalQueryServiceTest {
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset, false);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -225,7 +225,7 @@ public class AstraLocalQueryServiceTest {
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset, false);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -273,7 +273,7 @@ public class AstraLocalQueryServiceTest {
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset, false);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -328,7 +328,7 @@ public class AstraLocalQueryServiceTest {
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset, false);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -363,7 +363,7 @@ public class AstraLocalQueryServiceTest {
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset, false);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
@@ -442,7 +442,7 @@ public class AstraLocalQueryServiceTest {
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1000, startTime);
     int offset = 1;
     for (Trace.Span m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset, false);
       offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.

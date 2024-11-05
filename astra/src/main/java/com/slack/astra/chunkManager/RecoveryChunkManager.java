@@ -80,7 +80,11 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
 
   @Override
   public void addMessage(
-      final Trace.Span message, long msgSize, String kafkaPartitionId, long offset)
+      final Trace.Span message,
+      long msgSize,
+      String kafkaPartitionId,
+      long offset,
+      boolean local_insert)
       throws IOException {
     if (readOnly) {
       LOG.warn("Ingestion is stopped since the chunk is in read only mode.");
@@ -89,7 +93,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
 
     // find the active chunk and add a message to it
     ReadWriteChunk<T> currentChunk = getOrCreateActiveChunk(kafkaPartitionId);
-    currentChunk.addMessage(message, kafkaPartitionId, offset);
+    currentChunk.addMessage(message, kafkaPartitionId, offset, local_insert);
     liveMessagesIndexedGauge.incrementAndGet();
     liveBytesIndexedGauge.addAndGet(msgSize);
   }

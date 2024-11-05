@@ -56,9 +56,9 @@ metadataStoreConfig:
   zookeeperConfig:
     zkConnectString: ${ASTRA_ZK_CONNECTION_STRING:-localhost:2181}
     zkPathPrefix: ${ASTRA_ZK_PATH_PREFIX:-ASTRA}
-    zkSessionTimeoutMs: ${ASTRA_ZK_SESSION_TIMEOUT_MS:-5000}
-    zkConnectionTimeoutMs: ${ASTRA_ZK_CONNECT_TIMEOUT_MS:-500}
-    sleepBetweenRetriesMs: ${ASTRA_ZK_SLEEP_RETRIES_MS:-100}
+    zkSessionTimeoutMs: ${ASTRA_ZK_SESSION_TIMEOUT_MS:-60000}
+    zkConnectionTimeoutMs: ${ASTRA_ZK_CONNECT_TIMEOUT_MS:-15000}
+    sleepBetweenRetriesMs: ${ASTRA_ZK_SLEEP_RETRIES_MS:-5000}
 
 cacheConfig:
   slotsPerInstance: ${ASTRA_CACHE_SLOTS_PER_INSTANCE:-10}

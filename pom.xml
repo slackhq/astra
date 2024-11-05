@@ -18,7 +18,7 @@
     <packaging>pom</packaging>
 
     <properties>
-        <javac.target>21</javac.target>
+        <javac.target>22</javac.target>
     </properties>
 
     <modules>

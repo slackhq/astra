@@ -154,7 +154,7 @@ public class IndexingChunkImplTest {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset, false);
         offset++;
       }
       chunk.commit();
@@ -208,7 +208,7 @@ public class IndexingChunkImplTest {
           TimeUnit.MILLISECONDS.convert(messages.get(0).getTimestamp(), TimeUnit.MICROSECONDS);
       int offset = 1;
       for (Trace.Span m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset, false);
         offset++;
       }
       chunk.commit();
@@ -256,7 +256,7 @@ public class IndexingChunkImplTest {
       final long newMessageEndTimeEpochMs =
           TimeUnit.MILLISECONDS.convert(newMessages.get(99).getTimestamp(), TimeUnit.MICROSECONDS);
       for (Trace.Span m : newMessages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset, false);
         offset++;
       }
       chunk.commit();
@@ -325,7 +325,7 @@ public class IndexingChunkImplTest {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset, false);
         offset++;
       }
       chunk.commit();
@@ -358,7 +358,7 @@ public class IndexingChunkImplTest {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset, false);
         offset++;
       }
       chunk.commit();
@@ -370,7 +370,9 @@ public class IndexingChunkImplTest {
       int finalOffset = offset;
       assertThatExceptionOfType(IllegalStateException.class)
           .isThrownBy(
-              () -> chunk.addMessage(SpanUtil.makeSpan(101), TEST_KAFKA_PARTITION_ID, finalOffset));
+              () ->
+                  chunk.addMessage(
+                      SpanUtil.makeSpan(101), TEST_KAFKA_PARTITION_ID, finalOffset, false));
     }
 
     @Test
@@ -378,7 +380,7 @@ public class IndexingChunkImplTest {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset, false);
         offset++;
       }
       chunk.commit();
@@ -391,7 +393,8 @@ public class IndexingChunkImplTest {
       assertThatExceptionOfType(IllegalArgumentException.class)
           .isThrownBy(
               () ->
-                  chunk.addMessage(SpanUtil.makeSpan(101), "differentKafkaPartition", finalOffset));
+                  chunk.addMessage(
+                      SpanUtil.makeSpan(101), "differentKafkaPartition", finalOffset, false));
     }
 
     @Test
@@ -399,7 +402,7 @@ public class IndexingChunkImplTest {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset, false);
         offset++;
       }
       assertThat(chunk.isReadOnly()).isFalse();
@@ -503,7 +506,7 @@ public class IndexingChunkImplTest {
       Trace.Span invalidSpan = Trace.Span.newBuilder().build();
 
       // An Invalid message is dropped but failure counter is incremented.
-      chunk.addMessage(invalidSpan, TEST_KAFKA_PARTITION_ID, 1);
+      chunk.addMessage(invalidSpan, TEST_KAFKA_PARTITION_ID, 1, false);
       chunk.commit();
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
@@ -595,7 +598,7 @@ public class IndexingChunkImplTest {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset, false);
         offset++;
       }
 
@@ -653,7 +656,7 @@ public class IndexingChunkImplTest {
       List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
       int offset = 1;
       for (Trace.Span m : messages) {
-        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset, false);
         offset++;
       }
 
