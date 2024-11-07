@@ -51,7 +51,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private final ExecutorService cacheInitializedService;
   private final ModeledCacheListener<T> initializedListener = getCacheInitializedListener();
-  private static final AstraConfigs.ZookeeperConfig zookeeperConfig = AstraConfig.get().getMetadataStoreConfig().getZookeeperConfig();
 
   public AstraMetadataStore(
       AsyncCuratorFramework curator,
@@ -216,11 +215,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private void awaitCacheInitialized() {
     try {
-      int timeout = 30_000;
-      if (zookeeperConfig.getZkCacheInitializationTimeoutMs() != 0) {
-        timeout = zookeeperConfig.getZkCacheInitializationTimeoutMs();
-      }
-      if (!cacheInitialized.await(timeout, TimeUnit.MILLISECONDS)) {
+      if (!cacheInitialized.await(60, TimeUnit.SECONDS)) {
         // in the event we deadlock, go ahead and time this out at 30s and restart the pod
         new RuntimeHalterImpl()
             .handleFatal(
