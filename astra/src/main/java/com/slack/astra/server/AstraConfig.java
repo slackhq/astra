@@ -103,7 +103,7 @@ public class AstraConfig {
     _instance = new AstraConfig(config);
   }
 
-  static AstraConfigs.AstraConfig get() {
+  public static AstraConfigs.AstraConfig get() {
     return _instance.config;
   }
 
