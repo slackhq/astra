@@ -230,7 +230,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    */
   public T findSync(String path) {
     try {
-      return findAsync(path).toCompletableFuture().get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
+      return findAsync(path)
+          .toCompletableFuture()
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
@@ -283,7 +285,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
   public List<T> listSync() {
     try {
-      return listAsync().toCompletableFuture().get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
+      return listAsync()
+          .toCompletableFuture()
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error listing nodes", e);
     }
