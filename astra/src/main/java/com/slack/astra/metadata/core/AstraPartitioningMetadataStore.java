@@ -1,7 +1,5 @@
 package com.slack.astra.metadata.core;
 
-import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
-
 import com.google.common.collect.Sets;
 import com.slack.astra.proto.config.AstraConfigs;
 import java.io.Closeable;
@@ -194,7 +192,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     try {
       createAsync(metadataNode)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error creating node " + metadataNode, e);
     }
@@ -208,7 +206,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     try {
       return getAsync(partition, path)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
@@ -232,7 +230,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    */
   public T findSync(String path) {
     try {
-      return findAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return findAsync(path).toCompletableFuture().get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
@@ -246,7 +244,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     try {
       updateAsync(metadataNode)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
     }
@@ -260,7 +258,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     try {
       deleteAsync(metadataNode)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException(
           "Error deleting node under at path: " + metadataNode.name, e);
@@ -285,7 +283,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
   public List<T> listSync() {
     try {
-      return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return listAsync().toCompletableFuture().get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error listing nodes", e);
     }

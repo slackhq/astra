@@ -1,7 +1,5 @@
 package com.slack.astra.metadata.core;
 
-// import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
-
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.RuntimeHalterImpl;
