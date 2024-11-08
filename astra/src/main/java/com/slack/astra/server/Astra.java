@@ -165,6 +165,7 @@ public class Astra {
               meterRegistry,
               curatorFramework,
               astraConfig.getIndexerConfig(),
+              astraConfig.getMetadataStoreConfig().getZookeeperConfig(),
               blobStore,
               astraConfig.getS3Config());
       services.add(chunkManager);
@@ -196,7 +197,9 @@ public class Astra {
     }
 
     if (roles.contains(AstraConfigs.NodeRole.QUERY)) {
-      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
+      SearchMetadataStore searchMetadataStore =
+          new SearchMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
       DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 

@@ -113,7 +113,7 @@ public class RecoveryChunkManagerTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
   }
 

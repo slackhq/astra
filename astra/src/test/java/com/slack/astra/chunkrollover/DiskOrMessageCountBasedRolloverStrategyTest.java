@@ -72,6 +72,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private BlobStore blobStore;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
+  private AstraConfigs.ZookeeperConfig zkConfig;
 
   private static long MAX_BYTES_PER_CHUNK = 12000;
 
@@ -95,7 +96,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     localZkServer = new TestingServer();
     localZkServer.start();
 
-    AstraConfigs.ZookeeperConfig zkConfig =
+    zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(localZkServer.getConnectString())
             .setZkPathPrefix(ZK_PATH_PREFIX)
@@ -140,7 +141,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             listeningExecutorService,
             curatorFramework,
             searchContext,
-            AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100));
+            AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100),
+            zkConfig);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 

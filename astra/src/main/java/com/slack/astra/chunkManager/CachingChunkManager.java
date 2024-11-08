@@ -96,7 +96,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
     replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
     cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
     cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework, cacheNodeId);
     cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework, zkConfig);

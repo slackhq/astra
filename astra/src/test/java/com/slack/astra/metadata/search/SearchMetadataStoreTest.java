@@ -17,6 +17,7 @@ public class SearchMetadataStoreTest {
   private SimpleMeterRegistry meterRegistry;
   private TestingServer testingServer;
   private AsyncCuratorFramework curatorFramework;
+  private AstraConfigs.ZookeeperConfig zkConfig;
   private SearchMetadataStore store;
 
   @BeforeEach
@@ -24,7 +25,7 @@ public class SearchMetadataStoreTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    AstraConfigs.ZookeeperConfig zookeeperConfig =
+    zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("Test")
@@ -32,7 +33,7 @@ public class SearchMetadataStoreTest {
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(500)
             .build();
-    this.curatorFramework = CuratorBuilder.build(meterRegistry, zookeeperConfig);
+    this.curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
   }
 
   @AfterEach
@@ -45,7 +46,7 @@ public class SearchMetadataStoreTest {
 
   @Test
   public void testSearchMetadataStoreIsNotUpdatable() throws Exception {
-    store = new SearchMetadataStore(curatorFramework, true);
+    store = new SearchMetadataStore(curatorFramework, zkConfig, true);
     SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot", "http");
     Throwable exAsync = catchThrowable(() -> store.updateAsync(searchMetadata));
     assertThat(exAsync).isInstanceOf(UnsupportedOperationException.class);
