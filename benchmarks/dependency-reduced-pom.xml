@@ -88,8 +88,8 @@
   </dependencies>
   <properties>
     <jmh.version>1.37</jmh.version>
-    <javac.target>22</javac.target>
-    <uberjar.name>benchmarks</uberjar.name>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <javac.target>23</javac.target>
+    <uberjar.name>benchmarks</uberjar.name>
   </properties>
 </project>

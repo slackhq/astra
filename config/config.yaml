@@ -1,9 +1,9 @@
 nodeRoles: [${NODE_ROLES:-QUERY,INDEX,CACHE,MANAGER,RECOVERY,PREPROCESSOR}]
 
 indexerConfig:
-  maxMessagesPerChunk: ${INDEXER_MAX_MESSAGES_PER_CHUNK:-100000}
-  maxBytesPerChunk: ${INDEXER_MAX_BYTES_PER_CHUNK:-1000000}
-  maxTimePerChunkSeconds: ${INDEXER_MAX_TIME_PER_CHUNK_SECONDS:-5400}
+  maxMessagesPerChunk: ${INDEXER_MAX_MESSAGES_PER_CHUNK:-165346700}
+  maxBytesPerChunk: ${INDEXER_MAX_BYTES_PER_CHUNK:-80000000000}
+  maxTimePerChunkSeconds: ${INDEXER_MAX_TIME_PER_CHUNK_SECONDS:-1296000}
   luceneConfig:
     commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
     refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
@@ -11,14 +11,14 @@ indexerConfig:
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
   maxOffsetDelayMessages: ${INDEXER_MAX_OFFSET_DELAY_MESSAGES:-10000000}
-  defaultQueryTimeoutMs: ${ASTRA_INDEX_DEFAULT_QUERY_TIMEOUT_MS:-2500}
+  defaultQueryTimeoutMs: ${ASTRA_INDEX_DEFAULT_QUERY_TIMEOUT_MS:-3600000}
   readFromLocationOnStart: ${INDEXER_READ_FROM_LOCATION_ON_START:-LATEST}
   createRecoveryTasksOnStart: ${INDEXER_CREATE_RECOVERY_TASKS_ON_START:-true}
   maxChunksOnDisk: ${INDEXER_MAX_CHUNKS_ON_DISK:-3}
   serverConfig:
     serverPort: ${ASTRA_INDEX_SERVER_PORT:-8080}
     serverAddress: ${ASTRA_INDEX_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${ASTRA_INDEX_REQUEST_TIMEOUT_MS:-5000}
+    requestTimeoutMs: ${ASTRA_INDEX_REQUEST_TIMEOUT_MS:-4200000}
   kafkaConfig:
     kafkaTopic: ${KAFKA_TOPIC:-test-topic}
     kafkaTopicPartition: ${KAFKA_TOPIC_PARTITION:-0}
@@ -80,7 +80,7 @@ managerConfig:
     requestTimeoutMs: ${ASTRA_MANAGER_REQUEST_TIMEOUT_MS:-5000}
   replicaCreationServiceConfig:
     schedulePeriodMins: ${ASTRA_MANAGER_REPLICAS_PERIOD_MINS:-15}
-    replicaLifespanMins: ${ASTRA_MANAGER_REPLICA_LIFESPAN_MINS:-1440}
+    replicaLifespanMins: ${ASTRA_MANAGER_REPLICA_LIFESPAN_MINS:-30}
     replicaSets: [${ASTRA_MANAGER_REPLICA_SETS:-rep1}]
   replicaAssignmentServiceConfig:
     schedulePeriodMins: ${ASTRA_MANAGER_CACHE_SLOT_PERIOD_MINS:-15}
@@ -94,7 +94,7 @@ managerConfig:
     schedulePeriodMins: ${ASTRA_MANAGER_RECOVERY_PERIOD_MINS:-15}
   snapshotDeletionServiceConfig:
     schedulePeriodMins: ${ASTRA_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
-    snapshotLifespanMins: ${ASTRA_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
+    snapshotLifespanMins: ${ASTRA_MANAGER_SNAPSHOT_LIFESPAN_MINS:-120}
   replicaRestoreServiceConfig:
     schedulePeriodMins: ${ASTRA_MANAGER_REPLICA_RESTORE_PERIOD_MINS:-15}
     maxReplicasPerRequest: ${ASTRA_MANAGER_REPLICA_RESTORE_MAX_REPLICAS_PER_REQUEST:-200}
@@ -136,7 +136,7 @@ preprocessorConfig:
   serverConfig:
     serverPort: ${ASTRA_PREPROCESSOR_SERVER_PORT:-8086}
     serverAddress: ${ASTRA_PREPROCESSOR_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${ASTRA_PREPROCESSOR_REQUEST_TIMEOUT_MS:-30000}
+    requestTimeoutMs: ${ASTRA_PREPROCESSOR_REQUEST_TIMEOUT_MS:-120000}
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
   rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}
   rateLimitExceededErrorCode: ${ASTRA_PREPROCESSOR_RATE_LIMIT_EXCEEDED_ERROR_CODE:-400}

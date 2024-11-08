@@ -387,23 +387,23 @@
     </dependency>
   </dependencies>
   <properties>
+    <opensearch.version>2.11.1</opensearch.version>
     <aws.sdk.version>2.28.24</aws.sdk.version>
+    <jackson.databind.version>2.18.0</jackson.databind.version>
     <jackson.version>2.18.0</jackson.version>
+    <junit.jupiter.version>5.11.2</junit.jupiter.version>
+    <kafka.version>3.5.0</kafka.version>
+    <javac.target>23</javac.target>
     <uberjar.name>astra</uberjar.name>
     <lucene.version>9.7.0</lucene.version>
     <protobuf.version>3.25.5</protobuf.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <http.core.version>4.4.16</http.core.version>
     <log4j.version>2.24.1</log4j.version>
     <grpc.version>1.68.0</grpc.version>
     <armeria.version>1.27.3</armeria.version>
     <error.prone.version>2.33.0</error.prone.version>
-    <micrometer.version>1.13.5</micrometer.version>
-    <opensearch.version>2.11.1</opensearch.version>
-    <jackson.databind.version>2.18.0</jackson.databind.version>
-    <junit.jupiter.version>5.11.2</junit.jupiter.version>
-    <kafka.version>3.5.0</kafka.version>
-    <javac.target>22</javac.target>
-    <http.core.version>4.4.16</http.core.version>
     <curator.version>5.7.1</curator.version>
+    <micrometer.version>1.13.5</micrometer.version>
   </properties>
 </project>

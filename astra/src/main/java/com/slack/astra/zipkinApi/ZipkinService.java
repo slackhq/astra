@@ -118,7 +118,7 @@ public class ZipkinService {
         span.setRemoteEndpoint(remoteEndpoint);
       }
       span.setTimestamp(convertToMicroSeconds(message.getTimestamp()));
-      span.setDuration(Math.toIntExact(duration));
+      span.setDuration(duration);
       span.setTags(messageTags);
       traces.add(span);
     }

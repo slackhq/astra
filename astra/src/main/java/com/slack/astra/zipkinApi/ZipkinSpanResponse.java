@@ -23,8 +23,8 @@ public class ZipkinSpanResponse {
   private ZipkinEndpointResponse remoteEndpoint = null;
 
   @JsonProperty("duration")
-  // Zipkin spec defines this is integer, even though a long seems like it would be more appropriate
-  private int durationMicros;
+  // Zipkin spec defines this is integer64, so long seems to be more appropriate
+  private long durationMicros;
 
   private String kind;
 
@@ -48,7 +48,7 @@ public class ZipkinSpanResponse {
     this.timestampMicros = timestampMicros;
   }
 
-  public void setDuration(int durationMicros) {
+  public void setDuration(long durationMicros) {
     this.durationMicros = durationMicros;
   }
 
@@ -96,7 +96,7 @@ public class ZipkinSpanResponse {
     return timestampMicros;
   }
 
-  public int getDuration() {
+  public long getDuration() {
     return durationMicros;
   }
 
