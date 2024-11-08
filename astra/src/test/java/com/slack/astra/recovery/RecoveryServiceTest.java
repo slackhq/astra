@@ -157,7 +157,9 @@ public class RecoveryServiceTest {
     final Instant startTime = Instant.now();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
     // Start recovery
     RecoveryTaskMetadata recoveryTask =
@@ -227,7 +229,9 @@ public class RecoveryServiceTest {
     await()
         .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
 
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     // Start recovery service
@@ -309,7 +313,9 @@ public class RecoveryServiceTest {
     await()
         .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
 
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     // Start recovery service
@@ -363,7 +369,9 @@ public class RecoveryServiceTest {
     assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
     assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name())
         .isNotEqualTo(fakeS3Bucket);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     // Start recovery
@@ -400,7 +408,9 @@ public class RecoveryServiceTest {
 
     assertThat(s3AsyncClient.listBuckets().get().buckets().size()).isEqualTo(1);
     assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
@@ -486,7 +496,9 @@ public class RecoveryServiceTest {
     // fakeS3Bucket is not present.
     assertThat(s3AsyncClient.listBuckets().get().buckets().size()).isEqualTo(1);
     assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();

@@ -79,6 +79,7 @@ public class BulkIngestApiTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
@@ -103,7 +104,7 @@ public class BulkIngestApiTest {
             .setRateLimiterMaxBurstSeconds(1)
             .build();
 
-    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
+    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
             INDEX_NAME,

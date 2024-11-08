@@ -160,8 +160,8 @@ public class CachingChunkManagerTest {
   }
 
   private CacheNodeAssignment initAssignment(String snapshotId) throws Exception {
-    cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework, zkConfig);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
     snapshotMetadataStore.createSync(new SnapshotMetadata(snapshotId, 1, 1, 0, "abcd", 29));
     CacheNodeAssignment newAssignment =
         new CacheNodeAssignment(

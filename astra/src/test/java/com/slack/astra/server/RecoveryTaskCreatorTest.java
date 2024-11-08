@@ -83,7 +83,7 @@ public class RecoveryTaskCreatorTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, zkConfig));
     recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, zkConfig, true));
   }
 

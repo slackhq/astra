@@ -34,7 +34,7 @@ public class CacheSlotMetadataStoreTest {
     // flaky.
     testingServer = new TestingServer();
 
-    AstraConfigs.ZookeeperConfig zookeeperConfig =
+    AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("Test")
@@ -42,8 +42,8 @@ public class CacheSlotMetadataStoreTest {
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(500)
             .build();
-    this.curatorFramework = CuratorBuilder.build(meterRegistry, zookeeperConfig);
-    this.store = new CacheSlotMetadataStore(curatorFramework);
+    this.curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    this.store = new CacheSlotMetadataStore(curatorFramework, zkConfig);
   }
 
   @AfterEach

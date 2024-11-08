@@ -81,10 +81,10 @@ public class CacheNodeAssignmentServiceTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    cacheNodeAssignmentStore = spy(new CacheNodeAssignmentStore(curatorFramework));
+    cacheNodeAssignmentStore = spy(new CacheNodeAssignmentStore(curatorFramework, zkConfig));
     cacheNodeMetadataStore = spy(new CacheNodeMetadataStore(curatorFramework, zkConfig));
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, zkConfig));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
   }
 
   @AfterEach

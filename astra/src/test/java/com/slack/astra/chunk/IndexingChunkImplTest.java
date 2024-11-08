@@ -113,7 +113,8 @@ public class IndexingChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, zkConfig);
       SearchMetadataStore searchMetadataStore =
           new SearchMetadataStore(curatorFramework, zkConfig, true);
 
@@ -464,7 +465,8 @@ public class IndexingChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, zkConfig);
       SearchMetadataStore searchMetadataStore =
           new SearchMetadataStore(curatorFramework, zkConfig, true);
 
@@ -549,7 +551,7 @@ public class IndexingChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
       searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, true);
 
       final LuceneIndexStoreImpl logStore =

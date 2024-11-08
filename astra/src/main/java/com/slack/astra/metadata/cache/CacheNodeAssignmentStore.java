@@ -3,6 +3,7 @@ package com.slack.astra.metadata.cache;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import java.util.List;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -11,18 +12,22 @@ import org.apache.zookeeper.CreateMode;
 public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<CacheNodeAssignment> {
   public static final String CACHE_NODE_ASSIGNMENT_STORE_ZK_PATH = "/cacheAssignment";
 
-  public CacheNodeAssignmentStore(AsyncCuratorFramework curator) {
+  public CacheNodeAssignmentStore(
+      AsyncCuratorFramework curator, AstraConfigs.ZookeeperConfig zkConfig) {
     super(
         curator,
+        zkConfig,
         CreateMode.PERSISTENT,
         new CacheNodeAssignmentSerializer().toModelSerializer(),
         CACHE_NODE_ASSIGNMENT_STORE_ZK_PATH);
   }
 
   /** Restricts the cache node assignment store to only watching events for cacheNodeId */
-  public CacheNodeAssignmentStore(AsyncCuratorFramework curator, String cacheNodeId) {
+  public CacheNodeAssignmentStore(
+      AsyncCuratorFramework curator, AstraConfigs.ZookeeperConfig zkConfig, String cacheNodeId) {
     super(
         curator,
+        zkConfig,
         CreateMode.PERSISTENT,
         new CacheNodeAssignmentSerializer().toModelSerializer(),
         CACHE_NODE_ASSIGNMENT_STORE_ZK_PATH,

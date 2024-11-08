@@ -388,7 +388,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     LOG.info("Starting indexing chunk manager");
 
     searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
 
     stopIngestion = false;
   }

@@ -77,9 +77,9 @@ public class ManagerApiGrpcTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    datasetMetadataStore = spy(new DatasetMetadataStore(curatorFramework, true));
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
+    datasetMetadataStore = spy(new DatasetMetadataStore(curatorFramework, zkConfig, true));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, zkConfig));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
 
     AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()

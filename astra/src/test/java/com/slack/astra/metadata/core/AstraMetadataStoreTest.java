@@ -29,7 +29,7 @@ public class AstraMetadataStoreTest {
 
   private AsyncCuratorFramework curatorFramework;
 
-  private AstraConfigs.ZookeeperConfig zookeeperConfig;
+  private AstraConfigs.ZookeeperConfig zkConfig;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -38,7 +38,7 @@ public class AstraMetadataStoreTest {
     // flaky.
     testingServer = new TestingServer();
 
-    zookeeperConfig =
+    zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("Test")
@@ -46,7 +46,7 @@ public class AstraMetadataStoreTest {
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(500)
             .build();
-    this.curatorFramework = CuratorBuilder.build(meterRegistry, zookeeperConfig);
+    this.curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
   }
 
   @AfterEach
@@ -100,6 +100,7 @@ public class AstraMetadataStoreTest {
       public TestMetadataStore() {
         super(
             curatorFramework,
+            zkConfig,
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
@@ -157,6 +158,7 @@ public class AstraMetadataStoreTest {
       public TestMetadataStore() {
         super(
             curatorFramework,
+            zkConfig,
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
@@ -178,6 +180,7 @@ public class AstraMetadataStoreTest {
       public TestMetadataStore() {
         super(
             curatorFramework,
+            zkConfig,
             CreateMode.PERSISTENT,
             false,
             new JacksonModelSerializer<>(TestMetadata.class),
@@ -212,6 +215,7 @@ public class AstraMetadataStoreTest {
       public PersistentMetadataStore() {
         super(
             curatorFramework,
+            zkConfig,
             CreateMode.PERSISTENT,
             false,
             new JacksonModelSerializer<>(TestMetadata.class),
@@ -223,6 +227,7 @@ public class AstraMetadataStoreTest {
       public EphemeralMetadataStore() {
         super(
             curatorFramework,
+            zkConfig,
             CreateMode.EPHEMERAL,
             false,
             new JacksonModelSerializer<>(TestMetadata.class),
@@ -253,7 +258,7 @@ public class AstraMetadataStoreTest {
     // close curator, and then instantiate a new copy
     // This is because we cannot restart the closed curator.
     curatorFramework.unwrap().close();
-    curatorFramework = CuratorBuilder.build(meterRegistry, zookeeperConfig);
+    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
     try (AstraMetadataStore<TestMetadata> persistentStore = new PersistentMetadataStore()) {
       assertThat(persistentStore.getSync("foo")).isEqualTo(metadata1);
@@ -272,6 +277,7 @@ public class AstraMetadataStoreTest {
       public TestMetadataStore() {
         super(
             curatorFramework,
+            zkConfig,
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
@@ -311,6 +317,7 @@ public class AstraMetadataStoreTest {
       public TestMetadataStore() {
         super(
             curatorFramework,
+            zkConfig,
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
@@ -374,7 +381,12 @@ public class AstraMetadataStoreTest {
     class TestMetadataStore extends AstraMetadataStore<TestMetadata> {
       public TestMetadataStore() {
         super(
-            curatorFramework, CreateMode.PERSISTENT, true, new CountingSerializer(), STORE_FOLDER);
+            curatorFramework,
+            zkConfig,
+            CreateMode.PERSISTENT,
+            true,
+            new CountingSerializer(),
+            STORE_FOLDER);
       }
     }
 
@@ -401,6 +413,7 @@ public class AstraMetadataStoreTest {
       public FastMetadataStore() {
         super(
             curatorFramework,
+            zkConfig,
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
@@ -430,7 +443,13 @@ public class AstraMetadataStoreTest {
 
     class SlowMetadataStore extends AstraMetadataStore<TestMetadata> {
       public SlowMetadataStore() {
-        super(curatorFramework, CreateMode.PERSISTENT, true, new SlowSerializer(), STORE_FOLDER);
+        super(
+            curatorFramework,
+            zkConfig,
+            CreateMode.PERSISTENT,
+            true,
+            new SlowSerializer(),
+            STORE_FOLDER);
       }
     }
 

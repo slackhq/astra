@@ -91,7 +91,8 @@ public class AstraIndexer extends AbstractExecutionThreadService {
    */
   private long indexerPreStart() throws Exception {
     LOG.info("Starting Astra indexer pre start.");
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, zkConfig);
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(curatorFramework, zkConfig, true);
 

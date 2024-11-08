@@ -60,20 +60,20 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
   public AstraPartitioningMetadataStore(
       AsyncCuratorFramework curator,
+      AstraConfigs.ZookeeperConfig zkConfig,
       CreateMode createMode,
       ModelSerializer<T> modelSerializer,
-      String storeFolder,
-      AstraConfigs.ZookeeperConfig zkConfig) {
-    this(curator, createMode, modelSerializer, storeFolder, List.of(), zkConfig);
+      String storeFolder) {
+    this(curator, zkConfig, createMode, modelSerializer, storeFolder, List.of());
   }
 
   public AstraPartitioningMetadataStore(
       AsyncCuratorFramework curator,
+      AstraConfigs.ZookeeperConfig zkConfig,
       CreateMode createMode,
       ModelSerializer<T> modelSerializer,
       String storeFolder,
-      List<String> partitionFilters,
-      AstraConfigs.ZookeeperConfig zkConfig) {
+      List<String> partitionFilters) {
     this.curator = curator;
     this.storeFolder = storeFolder;
     this.createMode = createMode;
@@ -140,8 +140,8 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * <p>This method creates stores internally when they are detected in ZK storing them to the store
    * map, and removes stores that are in the map that no longer exist in ZK.
    *
-   * @see AstraMetadataStore#AstraMetadataStore(AsyncCuratorFramework, CreateMode, boolean,
-   *     ModelSerializer, String, AstraConfigs.ZookeeperConfig)
+   * @see AstraMetadataStore#AstraMetadataStore(AsyncCuratorFramework, AstraConfigs.ZookeeperConfig,
+   *     CreateMode, boolean, ModelSerializer, String)
    */
   private Watcher buildWatcher() {
     return event -> {
