@@ -97,7 +97,7 @@ public class OpenSearchAdapter {
                 searchContext, null, CardinalityUpperBound.ONE);
         return aggregators[0];
       } catch (Exception e) {
-        LOG.error("Aggregator parse exception", e);
+        LOG.error("Aggregator parse exception {} for AggregatorFactoriesBuilder {} and Query {}", e, aggregatorFactoriesBuilder, query);
         throw new IllegalArgumentException(e);
       }
     }
