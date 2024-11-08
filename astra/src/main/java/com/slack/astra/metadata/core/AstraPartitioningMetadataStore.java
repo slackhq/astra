@@ -3,6 +3,7 @@ package com.slack.astra.metadata.core;
 import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.collect.Sets;
+import com.slack.astra.proto.config.AstraConfigs;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -55,13 +56,15 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   protected final ModelSerializer<T> modelSerializer;
   private final Watcher watcher;
   private final List<String> partitionFilters;
+  private final AstraConfigs.ZookeeperConfig zkConfig;
 
   public AstraPartitioningMetadataStore(
       AsyncCuratorFramework curator,
       CreateMode createMode,
       ModelSerializer<T> modelSerializer,
-      String storeFolder) {
-    this(curator, createMode, modelSerializer, storeFolder, List.of());
+      String storeFolder,
+      AstraConfigs.ZookeeperConfig zkConfig) {
+    this(curator, createMode, modelSerializer, storeFolder, List.of(), zkConfig);
   }
 
   public AstraPartitioningMetadataStore(
@@ -69,13 +72,15 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       CreateMode createMode,
       ModelSerializer<T> modelSerializer,
       String storeFolder,
-      List<String> partitionFilters) {
+      List<String> partitionFilters,
+      AstraConfigs.ZookeeperConfig zkConfig) {
     this.curator = curator;
     this.storeFolder = storeFolder;
     this.createMode = createMode;
     this.modelSerializer = modelSerializer;
     this.watcher = buildWatcher();
     this.partitionFilters = partitionFilters;
+    this.zkConfig = zkConfig;
 
     // register watchers for when partitions are added or removed
     curator
@@ -136,7 +141,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * map, and removes stores that are in the map that no longer exist in ZK.
    *
    * @see AstraMetadataStore#AstraMetadataStore(AsyncCuratorFramework, CreateMode, boolean,
-   *     ModelSerializer, String)
+   *     ModelSerializer, String, AstraConfigs.ZookeeperConfig)
    */
   private Watcher buildWatcher() {
     return event -> {
@@ -304,7 +309,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               "Creating new metadata store for partition - {}, at path - {}", partition, path);
 
           AstraMetadataStore<T> newStore =
-              new AstraMetadataStore<>(curator, createMode, true, modelSerializer, path);
+              new AstraMetadataStore<>(curator, zkConfig, createMode, true, modelSerializer, path);
           listeners.forEach(newStore::addListener);
 
           return newStore;

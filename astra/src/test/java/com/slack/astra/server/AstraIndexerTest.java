@@ -81,6 +81,7 @@ public class AstraIndexerTest {
   private TestKafkaServer kafkaServer;
   private TestingServer testZKServer;
   private AsyncCuratorFramework curatorFramework;
+  private AstraConfigs.ZookeeperConfig zkConfig;
   private SnapshotMetadataStore snapshotMetadataStore;
   private RecoveryTaskMetadataStore recoveryTaskStore;
   private SearchMetadataStore searchMetadataStore;
@@ -93,13 +94,14 @@ public class AstraIndexerTest {
 
     testZKServer = new TestingServer();
     // Metadata store
-    AstraConfigs.ZookeeperConfig zkConfig =
+    zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testZKServer.getConnectString())
             .setZkPathPrefix("indexerTest")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
@@ -120,7 +122,7 @@ public class AstraIndexerTest {
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
-    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, false));
+    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, zkConfig, false));
     searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, false));
 
     kafkaServer = new TestKafkaServer();
@@ -172,6 +174,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            zkConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
@@ -209,6 +212,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            zkConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
@@ -255,6 +259,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            zkConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
@@ -290,6 +295,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            zkConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
@@ -338,6 +344,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            zkConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
@@ -388,6 +395,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            zkConfig,
             makeIndexerConfig(50),
             getKafkaConfig(),
             metricsRegistry);
@@ -446,6 +454,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            zkConfig,
             makeIndexerConfig(50),
             getKafkaConfig(),
             metricsRegistry);
@@ -508,6 +517,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            zkConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);
@@ -562,6 +572,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            zkConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
             metricsRegistry);

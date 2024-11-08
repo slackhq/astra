@@ -39,10 +39,11 @@ class HpaMetricPublisherServiceTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(new SimpleMeterRegistry(), zkConfig);
-    hpaMetricMetadataStore = spy(new HpaMetricMetadataStore(curatorFramework, true));
+    hpaMetricMetadataStore = spy(new HpaMetricMetadataStore(curatorFramework, zkConfig, true));
   }
 
   @AfterEach

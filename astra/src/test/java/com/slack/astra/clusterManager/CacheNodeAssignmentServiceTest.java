@@ -64,6 +64,7 @@ public class CacheNodeAssignmentServiceTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     AstraConfigs.ManagerConfig.CacheNodeAssignmentServiceConfig cacheNodeAssignmentServiceConfig =
@@ -81,7 +82,7 @@ public class CacheNodeAssignmentServiceTest {
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     cacheNodeAssignmentStore = spy(new CacheNodeAssignmentStore(curatorFramework));
-    cacheNodeMetadataStore = spy(new CacheNodeMetadataStore(curatorFramework));
+    cacheNodeMetadataStore = spy(new CacheNodeMetadataStore(curatorFramework, zkConfig));
     snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
   }

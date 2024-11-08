@@ -173,6 +173,7 @@ public class Astra {
           new AstraIndexer(
               chunkManager,
               curatorFramework,
+              astraConfig.getMetadataStoreConfig().getZookeeperConfig(),
               astraConfig.getIndexerConfig(),
               astraConfig.getIndexerConfig().getKafkaConfig(),
               meterRegistry);
@@ -234,13 +235,15 @@ public class Astra {
           CachingChunkManager.fromConfig(
               meterRegistry,
               curatorFramework,
+              astraConfig.getMetadataStoreConfig().getZookeeperConfig(),
               astraConfig.getS3Config(),
               astraConfig.getCacheConfig(),
               blobStore);
       services.add(chunkManager);
 
       HpaMetricMetadataStore hpaMetricMetadataStore =
-          new HpaMetricMetadataStore(curatorFramework, true);
+          new HpaMetricMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
       services.add(
           new CloseableLifecycleManager(
               AstraConfigs.NodeRole.CACHE, List.of(hpaMetricMetadataStore)));
@@ -272,13 +275,16 @@ public class Astra {
       ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
       RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-          new RecoveryTaskMetadataStore(curatorFramework, true);
+          new RecoveryTaskMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
       RecoveryNodeMetadataStore recoveryNodeMetadataStore =
-          new RecoveryNodeMetadataStore(curatorFramework, true);
+          new RecoveryNodeMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
       CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
       DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
       HpaMetricMetadataStore hpaMetricMetadataStore =
-          new HpaMetricMetadataStore(curatorFramework, true);
+          new HpaMetricMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
 
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs());
@@ -333,7 +339,9 @@ public class Astra {
               replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
       services.add(snapshotDeletionService);
 
-      CacheNodeMetadataStore cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
+      CacheNodeMetadataStore cacheNodeMetadataStore =
+          new CacheNodeMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig());
       CacheNodeAssignmentStore cacheNodeAssignmentStore =
           new CacheNodeAssignmentStore(curatorFramework);
 

@@ -58,6 +58,7 @@ metadataStoreConfig:
     zkPathPrefix: ${ASTRA_ZK_PATH_PREFIX:-ASTRA}
     zkSessionTimeoutMs: ${ASTRA_ZK_SESSION_TIMEOUT_MS:-5000}
     zkConnectionTimeoutMs: ${ASTRA_ZK_CONNECT_TIMEOUT_MS:-500}
+    zkCacheInitTimeoutMs: ${ASTRA_ZK_CACHE_INIT_TIMEOUT_MS:-30000}
     sleepBetweenRetriesMs: ${ASTRA_ZK_SLEEP_RETRIES_MS:-100}
 
 cacheConfig:

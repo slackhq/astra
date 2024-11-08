@@ -1,8 +1,9 @@
 package com.slack.astra.metadata.core;
 
-import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
+// import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.RuntimeHalterImpl;
 import java.io.Closeable;
 import java.util.List;
@@ -50,8 +51,11 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private final ExecutorService cacheInitializedService;
   private final ModeledCacheListener<T> initializedListener = getCacheInitializedListener();
 
+  private final AstraConfigs.ZookeeperConfig zkConfig;
+
   public AstraMetadataStore(
       AsyncCuratorFramework curator,
+      AstraConfigs.ZookeeperConfig zkConfig,
       CreateMode createMode,
       boolean shouldCache,
       ModelSerializer<T> modelSerializer,
@@ -59,6 +63,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
     this.storeFolder = storeFolder;
     this.zPath = ZPath.parseWithIds(String.format("%s/{name}", storeFolder));
+    this.zkConfig = zkConfig;
 
     ModelSpec<T> modelSpec =
         ModelSpec.builder(modelSerializer)
@@ -91,7 +96,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     try {
       createAsync(metadataNode)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error creating node " + metadataNode, e);
     }
@@ -106,7 +111,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public T getSync(String path) {
     try {
-      return getAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return getAsync(path)
+          .toCompletableFuture()
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
@@ -122,7 +129,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public boolean hasSync(String path) {
     try {
-      return hasAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS)
+      return hasAsync(path)
+              .toCompletableFuture()
+              .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
           != null;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
@@ -137,7 +146,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     try {
       updateAsync(metadataNode)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
     }
@@ -149,7 +158,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public void deleteSync(String path) {
     try {
-      deleteAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      deleteAsync(path)
+          .toCompletableFuture()
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error deleting node under at path: " + path, e);
     }
@@ -163,7 +174,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     try {
       deleteAsync(metadataNode)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException(
           "Error deleting node under at path: " + metadataNode.name, e);
@@ -181,7 +192,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public List<T> listSync() {
     try {
-      return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return listAsync()
+          .toCompletableFuture()
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error getting cached nodes", e);
     }
@@ -214,7 +227,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private void awaitCacheInitialized() {
     try {
-      if (!cacheInitialized.await(30, TimeUnit.SECONDS)) {
+      if (!cacheInitialized.await(zkConfig.getZkCacheInitTimeoutMs(), TimeUnit.MILLISECONDS)) {
         // in the event we deadlock, go ahead and time this out at 30s and restart the pod
         new RuntimeHalterImpl()
             .handleFatal(

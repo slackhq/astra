@@ -28,6 +28,7 @@ public class AstraIndexer extends AbstractExecutionThreadService {
 
   private final AsyncCuratorFramework curatorFramework;
   private final MeterRegistry meterRegistry;
+  private final AstraConfigs.ZookeeperConfig zkConfig;
   private final AstraConfigs.IndexerConfig indexerConfig;
   private final AstraConfigs.KafkaConfig kafkaConfig;
   private final AstraKafkaConsumer kafkaConsumer;
@@ -53,11 +54,13 @@ public class AstraIndexer extends AbstractExecutionThreadService {
   public AstraIndexer(
       IndexingChunkManager<LogMessage> chunkManager,
       AsyncCuratorFramework curatorFramework,
+      AstraConfigs.ZookeeperConfig zkConfig,
       AstraConfigs.IndexerConfig indexerConfig,
       AstraConfigs.KafkaConfig kafkaConfig,
       MeterRegistry meterRegistry) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
     this.curatorFramework = curatorFramework;
+    this.zkConfig = zkConfig;
     this.indexerConfig = indexerConfig;
     this.kafkaConfig = kafkaConfig;
     this.meterRegistry = meterRegistry;
@@ -90,7 +93,7 @@ public class AstraIndexer extends AbstractExecutionThreadService {
     LOG.info("Starting Astra indexer pre start.");
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(curatorFramework, true);
+        new RecoveryTaskMetadataStore(curatorFramework, zkConfig, true);
 
     String partitionId = kafkaConfig.getKafkaTopicPartition();
     long maxOffsetDelay = indexerConfig.getMaxOffsetDelayMessages();

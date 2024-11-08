@@ -406,7 +406,8 @@ public class RecoveryServiceTest {
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
     // Create a recovery task
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(curatorFramework, false);
+        new RecoveryTaskMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig(), false);
     assertThat(AstraMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size()).isZero();
     RecoveryTaskMetadata recoveryTask =
         new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
@@ -418,7 +419,8 @@ public class RecoveryServiceTest {
 
     // Assign the recovery task to node.
     RecoveryNodeMetadataStore recoveryNodeMetadataStore =
-        new RecoveryNodeMetadataStore(curatorFramework, false);
+        new RecoveryNodeMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig(), false);
     List<RecoveryNodeMetadata> recoveryNodes =
         AstraMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore);
     assertThat(recoveryNodes.size()).isEqualTo(1);
@@ -490,7 +492,8 @@ public class RecoveryServiceTest {
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
     // Create a recovery task
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(curatorFramework, false);
+        new RecoveryTaskMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig(), false);
     assertThat(AstraMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size()).isZero();
     RecoveryTaskMetadata recoveryTask =
         new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
@@ -502,7 +505,8 @@ public class RecoveryServiceTest {
 
     // Assign the recovery task to node.
     RecoveryNodeMetadataStore recoveryNodeMetadataStore =
-        new RecoveryNodeMetadataStore(curatorFramework, false);
+        new RecoveryNodeMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig(), false);
     List<RecoveryNodeMetadata> recoveryNodes =
         AstraMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore);
     assertThat(recoveryNodes.size()).isEqualTo(1);
@@ -654,7 +658,8 @@ public class RecoveryServiceTest {
 
     // Create a recovery task
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(curatorFramework, false);
+        new RecoveryTaskMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig(), false);
     assertThat(AstraMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size()).isZero();
     RecoveryTaskMetadata recoveryTask =
         new RecoveryTaskMetadata("testRecoveryTask", "0", 0, 0, Instant.now().toEpochMilli());
@@ -666,7 +671,8 @@ public class RecoveryServiceTest {
 
     // Assign the recovery task to node.
     RecoveryNodeMetadataStore recoveryNodeMetadataStore =
-        new RecoveryNodeMetadataStore(curatorFramework, false);
+        new RecoveryNodeMetadataStore(
+            curatorFramework, astraCfg.getMetadataStoreConfig().getZookeeperConfig(), false);
     List<RecoveryNodeMetadata> recoveryNodes =
         AstraMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore);
     assertThat(recoveryNodes.size()).isEqualTo(1);
