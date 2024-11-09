@@ -88,6 +88,7 @@ public class RecoveryChunkImplTest {
               .setZkSessionTimeoutMs(1000)
               .setZkConnectionTimeoutMs(1000)
               .setSleepBetweenRetriesMs(1000)
+                  .setZkCacheInitTimeoutMs(1000)
               .build();
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
@@ -443,12 +444,13 @@ public class RecoveryChunkImplTest {
       registry = new SimpleMeterRegistry();
 
       AstraConfigs.ZookeeperConfig zkConfig =
-          AstraConfigs.ZookeeperConfig.newBuilder()
+
               .setZkConnectString(testingServer.getConnectString())
               .setZkPathPrefix("shouldHandleChunkLivecycle")
               .setZkSessionTimeoutMs(1000)
               .setZkConnectionTimeoutMs(1000)
               .setSleepBetweenRetriesMs(1000)
+                  .setSleepBetweenRetriesMs(1000)
               .build();
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
@@ -525,7 +527,7 @@ public class RecoveryChunkImplTest {
       Tracing.newBuilder().build();
       testingServer = new TestingServer();
       AstraConfigs.ZookeeperConfig zkConfig =
-          AstraConfigs.ZookeeperConfig.newBuilder()
+
               .setZkConnectString(testingServer.getConnectString())
               .setZkPathPrefix("shouldHandleChunkLivecycle")
               .setZkSessionTimeoutMs(1000)

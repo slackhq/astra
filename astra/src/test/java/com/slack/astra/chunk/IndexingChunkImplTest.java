@@ -107,6 +107,7 @@ public class IndexingChunkImplTest {
               .setZkSessionTimeoutMs(1000)
               .setZkConnectionTimeoutMs(1000)
               .setSleepBetweenRetriesMs(1000)
+              .setZkCacheInitTimeoutMs(1000)
               .build();
 
       registry = new SimpleMeterRegistry();
@@ -459,6 +460,7 @@ public class IndexingChunkImplTest {
               .setZkSessionTimeoutMs(1000)
               .setZkConnectionTimeoutMs(1000)
               .setSleepBetweenRetriesMs(1000)
+              .setZkCacheInitTimeoutMs(1000)
               .build();
 
       registry = new SimpleMeterRegistry();
@@ -545,6 +547,7 @@ public class IndexingChunkImplTest {
               .setZkSessionTimeoutMs(1000)
               .setZkConnectionTimeoutMs(1000)
               .setSleepBetweenRetriesMs(1000)
+              .setZkCacheInitTimeoutMs(1000)
               .build();
 
       registry = new SimpleMeterRegistry();
