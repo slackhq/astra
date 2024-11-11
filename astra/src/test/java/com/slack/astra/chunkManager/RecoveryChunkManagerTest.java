@@ -110,11 +110,12 @@ public class RecoveryChunkManagerTest {
             .setZkSessionTimeoutMs(15000)
             .setZkConnectionTimeoutMs(1500)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
   }
 
   @AfterEach

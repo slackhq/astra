@@ -42,6 +42,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
   private final MeterRegistry meterRegistry;
   private final AsyncCuratorFramework curatorFramework;
+  private final AstraConfigs.ZookeeperConfig zkConfig;
   private final BlobStore blobStore;
   private final SearchContext searchContext;
   private final String s3Bucket;
@@ -68,6 +69,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   public CachingChunkManager(
       MeterRegistry registry,
       AsyncCuratorFramework curatorFramework,
+      AstraConfigs.ZookeeperConfig zkConfig,
       BlobStore blobStore,
       SearchContext searchContext,
       String s3Bucket,
@@ -77,6 +79,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       long capacityBytes) {
     this.meterRegistry = registry;
     this.curatorFramework = curatorFramework;
+    this.zkConfig = zkConfig;
     this.blobStore = blobStore;
     this.searchContext = searchContext;
     this.s3Bucket = s3Bucket;
@@ -91,12 +94,13 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   protected void startUp() throws Exception {
     LOG.info("Starting caching chunk manager");
 
-    replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
-    cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
-    cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework, cacheNodeId);
-    cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
+    replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, zkConfig);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
+    cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework, zkConfig);
+    cacheNodeAssignmentStore =
+        new CacheNodeAssignmentStore(curatorFramework, zkConfig, cacheNodeId);
+    cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework, zkConfig);
 
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
@@ -158,6 +162,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   public static CachingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       AsyncCuratorFramework curatorFramework,
+      AstraConfigs.ZookeeperConfig zkConfig,
       AstraConfigs.S3Config s3Config,
       AstraConfigs.CacheConfig cacheConfig,
       BlobStore blobStore)
@@ -165,6 +170,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     return new CachingChunkManager<>(
         meterRegistry,
         curatorFramework,
+        zkConfig,
         blobStore,
         SearchContext.fromConfig(cacheConfig.getServerConfig()),
         s3Config.getS3Bucket(),

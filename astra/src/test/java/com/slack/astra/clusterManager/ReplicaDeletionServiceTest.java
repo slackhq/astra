@@ -63,12 +63,13 @@ public class ReplicaDeletionServiceTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
-    cacheNodeMetadataStore = spy(new CacheNodeAssignmentStore(curatorFramework));
+    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, zkConfig));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
+    cacheNodeMetadataStore = spy(new CacheNodeAssignmentStore(curatorFramework, zkConfig));
   }
 
   @AfterEach

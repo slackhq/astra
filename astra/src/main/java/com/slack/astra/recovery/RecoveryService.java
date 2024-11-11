@@ -135,10 +135,18 @@ public class RecoveryService extends AbstractIdleService {
   protected void startUp() throws Exception {
     LOG.info("Starting recovery service");
 
-    recoveryNodeMetadataStore = new RecoveryNodeMetadataStore(curatorFramework, false);
-    recoveryTaskMetadataStore = new RecoveryTaskMetadataStore(curatorFramework, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+    recoveryNodeMetadataStore =
+        new RecoveryNodeMetadataStore(
+            curatorFramework, AstraConfig.getMetadataStoreConfig().getZookeeperConfig(), false);
+    recoveryTaskMetadataStore =
+        new RecoveryTaskMetadataStore(
+            curatorFramework, AstraConfig.getMetadataStoreConfig().getZookeeperConfig(), false);
+    snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            curatorFramework, AstraConfig.getMetadataStoreConfig().getZookeeperConfig());
+    searchMetadataStore =
+        new SearchMetadataStore(
+            curatorFramework, AstraConfig.getMetadataStoreConfig().getZookeeperConfig(), false);
 
     recoveryNodeMetadataStore.createSync(
         new RecoveryNodeMetadata(
@@ -149,7 +157,11 @@ public class RecoveryService extends AbstractIdleService {
     recoveryNodeLastKnownState = Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE;
 
     recoveryNodeListenerMetadataStore =
-        new RecoveryNodeMetadataStore(curatorFramework, searchContext.hostname, true);
+        new RecoveryNodeMetadataStore(
+            curatorFramework,
+            AstraConfig.getMetadataStoreConfig().getZookeeperConfig(),
+            searchContext.hostname,
+            true);
     recoveryNodeListenerMetadataStore.addListener(recoveryNodeListener);
   }
 

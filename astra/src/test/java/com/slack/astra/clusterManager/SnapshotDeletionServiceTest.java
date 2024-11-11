@@ -81,11 +81,12 @@ public class SnapshotDeletionServiceTest {
             .setZkSessionTimeoutMs(2500)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, zkConfig));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
 
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
     blobStore = spy(new BlobStore(s3AsyncClient, S3_TEST_BUCKET));

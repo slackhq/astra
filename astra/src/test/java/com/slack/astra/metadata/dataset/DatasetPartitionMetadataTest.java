@@ -42,10 +42,11 @@ public class DatasetPartitionMetadataTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     this.curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
-    this.datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
+    this.datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
   }
 
   @AfterEach

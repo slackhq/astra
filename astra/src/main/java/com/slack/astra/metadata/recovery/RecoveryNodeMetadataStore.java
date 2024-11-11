@@ -1,6 +1,7 @@
 package com.slack.astra.metadata.recovery;
 
 import com.slack.astra.metadata.core.AstraMetadataStore;
+import com.slack.astra.proto.config.AstraConfigs;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
 
@@ -11,9 +12,13 @@ public class RecoveryNodeMetadataStore extends AstraMetadataStore<RecoveryNodeMe
    * Initializes a recovery node metadata store at the RECOVERY_NODE_ZK_PATH. This should be used to
    * create/update the recovery nodes, and for listening to all recovery node events.
    */
-  public RecoveryNodeMetadataStore(AsyncCuratorFramework curatorFramework, boolean shouldCache) {
+  public RecoveryNodeMetadataStore(
+      AsyncCuratorFramework curatorFramework,
+      AstraConfigs.ZookeeperConfig zkConfig,
+      boolean shouldCache) {
     super(
         curatorFramework,
+        zkConfig,
         CreateMode.EPHEMERAL,
         shouldCache,
         new RecoveryNodeMetadataSerializer().toModelSerializer(),
@@ -26,9 +31,13 @@ public class RecoveryNodeMetadataStore extends AstraMetadataStore<RecoveryNodeMe
    * mutating any nodes.
    */
   public RecoveryNodeMetadataStore(
-      AsyncCuratorFramework curatorFramework, String recoveryNodeName, boolean shouldCache) {
+      AsyncCuratorFramework curatorFramework,
+      AstraConfigs.ZookeeperConfig zkConfig,
+      String recoveryNodeName,
+      boolean shouldCache) {
     super(
         curatorFramework,
+        zkConfig,
         CreateMode.EPHEMERAL,
         shouldCache,
         new RecoveryNodeMetadataSerializer().toModelSerializer(),

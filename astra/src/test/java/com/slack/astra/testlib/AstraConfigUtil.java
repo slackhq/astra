@@ -68,6 +68,7 @@ public class AstraConfigUtil {
             .setZkSessionTimeoutMs(15000)
             .setZkConnectionTimeoutMs(15000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder().setZookeeperConfig(zkConfig).build();

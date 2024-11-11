@@ -83,13 +83,14 @@ public class AstraDistributedQueryServiceTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
 
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
-    searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, true));
-    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, zkConfig));
+    searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, zkConfig, true));
+    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
 
     indexer1SearchContext = new SearchContext("indexer_host1", 10000);
     indexer2SearchContext = new SearchContext("indexer_host2", 10001);

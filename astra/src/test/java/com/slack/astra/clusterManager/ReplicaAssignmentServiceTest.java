@@ -65,11 +65,12 @@ public class ReplicaAssignmentServiceTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
+    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, zkConfig));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
   }
 
   @AfterEach

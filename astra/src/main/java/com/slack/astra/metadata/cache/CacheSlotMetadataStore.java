@@ -3,6 +3,7 @@ package com.slack.astra.metadata.cache;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import java.time.Instant;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -15,9 +16,12 @@ public class CacheSlotMetadataStore extends AstraPartitioningMetadataStore<Cache
    * Initializes a cache slot metadata store at the CACHE_SLOT_ZK_PATH. This should be used to
    * create/update the cache slots, and for listening to all cache slot events.
    */
-  public CacheSlotMetadataStore(AsyncCuratorFramework curatorFramework) throws Exception {
+  public CacheSlotMetadataStore(
+      AsyncCuratorFramework curatorFramework, AstraConfigs.ZookeeperConfig zkConfig)
+      throws Exception {
     super(
         curatorFramework,
+        zkConfig,
         CreateMode.EPHEMERAL,
         new CacheSlotMetadataSerializer().toModelSerializer(),
         CACHE_SLOT_ZK_PATH);
