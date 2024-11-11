@@ -134,12 +134,13 @@ public class IndexingChunkManagerTest {
     localZkServer.start();
 
     zkConfig =
-
+        AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(localZkServer.getConnectString())
             .setZkPathPrefix(ZK_PATH_PREFIX)
             .setZkSessionTimeoutMs(15000)
             .setZkConnectionTimeoutMs(1500)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);

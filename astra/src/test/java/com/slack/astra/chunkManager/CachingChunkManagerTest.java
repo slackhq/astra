@@ -130,7 +130,7 @@ public class CachingChunkManagerTest {
             .build();
 
     zkConfig =
-
+        AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("test")
             .setZkSessionTimeoutMs(1000)
