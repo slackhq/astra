@@ -81,6 +81,7 @@ public class SnapshotDeletionServiceTest {
             .setZkSessionTimeoutMs(2500)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);

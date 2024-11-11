@@ -83,6 +83,7 @@ public class AstraDistributedQueryServiceTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));

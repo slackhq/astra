@@ -103,6 +103,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             .setZkSessionTimeoutMs(15000)
             .setZkConnectionTimeoutMs(1500)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);

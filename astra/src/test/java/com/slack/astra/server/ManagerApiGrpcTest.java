@@ -74,6 +74,7 @@ public class ManagerApiGrpcTest {
             .setZkSessionTimeoutMs(30000)
             .setZkConnectionTimeoutMs(30000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);

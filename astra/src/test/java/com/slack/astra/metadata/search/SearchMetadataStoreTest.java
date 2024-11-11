@@ -32,6 +32,7 @@ public class SearchMetadataStoreTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(500)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
     this.curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
   }
