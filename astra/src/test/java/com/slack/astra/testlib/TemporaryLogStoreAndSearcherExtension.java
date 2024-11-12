@@ -170,7 +170,7 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
 
     public TestingFieldRedactionMetadataStore(
         AsyncCuratorFramework curatorFramework, boolean shouldCache) {
-      super(curatorFramework, shouldCache);
+      super(curatorFramework, null, shouldCache);
     }
 
     @Override
