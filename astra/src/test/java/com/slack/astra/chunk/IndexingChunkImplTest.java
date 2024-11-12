@@ -120,7 +120,7 @@ public class IndexingChunkImplTest {
       SearchMetadataStore searchMetadataStore =
           new SearchMetadataStore(curatorFramework, zkConfig, true);
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
-              new FieldRedactionMetadataStore(curatorFramework, true);
+          new FieldRedactionMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -476,7 +476,7 @@ public class IndexingChunkImplTest {
       SearchMetadataStore searchMetadataStore =
           new SearchMetadataStore(curatorFramework, zkConfig, true);
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
-              new FieldRedactionMetadataStore(curatorFramework, true);
+          new FieldRedactionMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
