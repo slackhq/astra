@@ -121,7 +121,7 @@ public class ReadOnlyChunkImplTest {
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig);
     FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, true);
+        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -268,7 +268,7 @@ public class ReadOnlyChunkImplTest {
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig);
     FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, true);
+        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -342,7 +342,7 @@ public class ReadOnlyChunkImplTest {
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig);
     FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, true);
+        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -416,7 +416,7 @@ public class ReadOnlyChunkImplTest {
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig);
     FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, true);
+        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -529,7 +529,7 @@ public class ReadOnlyChunkImplTest {
     CacheNodeAssignmentStore cacheNodeAssignmentStore =
         new CacheNodeAssignmentStore(curatorFramework, zkConfig);
     FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, true);
+        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "boo";

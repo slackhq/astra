@@ -302,7 +302,8 @@ public class Astra {
           new HpaMetricMetadataStore(
               curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, true);
+          new FieldRedactionMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
 
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs());

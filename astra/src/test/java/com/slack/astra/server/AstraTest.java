@@ -129,7 +129,7 @@ public class AstraTest {
             .build();
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
-    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
+    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
     final DatasetPartitionMetadata partition =
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);

@@ -103,7 +103,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     cacheNodeAssignmentStore =
         new CacheNodeAssignmentStore(curatorFramework, zkConfig, cacheNodeId);
     cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework, zkConfig);
-    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
+    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);

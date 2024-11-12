@@ -28,7 +28,7 @@ public class FieldRedactionMetadataStoreTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    AstraConfigs.ZookeeperConfig zookeeperConfig =
+    AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("Test")
@@ -36,8 +36,8 @@ public class FieldRedactionMetadataStoreTest {
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(500)
             .build();
-    this.curatorFramework = CuratorBuilder.build(meterRegistry, zookeeperConfig);
-    store = new FieldRedactionMetadataStore(curatorFramework, true);
+    this.curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    store = new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
   }
 
   @AfterEach

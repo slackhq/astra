@@ -88,7 +88,8 @@ public class LogIndexSearcherImplTest {
       MeterRegistry meterRegistry = new SimpleMeterRegistry();
       AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
-      fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
+      fieldRedactionMetadataStore =
+          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
     }
 
     @AfterEach

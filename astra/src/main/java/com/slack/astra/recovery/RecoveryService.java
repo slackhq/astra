@@ -149,7 +149,9 @@ public class RecoveryService extends AbstractIdleService {
     searchMetadataStore =
         new SearchMetadataStore(
             curatorFramework, AstraConfig.getMetadataStoreConfig().getZookeeperConfig(), false);
-    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
+    fieldRedactionMetadataStore =
+        new FieldRedactionMetadataStore(
+            curatorFramework, AstraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
 
     recoveryNodeMetadataStore.createSync(
         new RecoveryNodeMetadata(

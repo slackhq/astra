@@ -394,7 +394,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, true);
+    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     stopIngestion = false;
   }
