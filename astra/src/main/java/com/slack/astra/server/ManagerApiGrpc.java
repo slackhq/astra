@@ -1,6 +1,7 @@
 package com.slack.astra.server;
 
 import static com.slack.astra.metadata.dataset.DatasetMetadataSerializer.toDatasetMetadataProto;
+import static com.slack.astra.metadata.snapshot.SnapshotMetadataSerializer.toSnapshotMetadataProto;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -133,6 +134,29 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error getting datasets.", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  @Override
+  public void createSnapshotMetadata(
+      ManagerApi.CreateSnapshotMetadataRequest request,
+      StreamObserver<Metadata.SnapshotMetadata> responseObserver) {
+    try {
+      snapshotMetadataStore.createSync(
+          new SnapshotMetadata(
+              request.getSnapshotId(),
+              request.getStartTimeEpochMs(),
+              request.getEndTimeEpochMs(),
+              request.getMaxOffset(),
+              request.getPartitionId(),
+              request.getSizeInBytes()));
+      responseObserver.onNext(
+          toSnapshotMetadataProto(
+              snapshotMetadataStore.getSync(request.getPartitionId(), request.getSnapshotPath())));
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error creating new snapshot metadata", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }

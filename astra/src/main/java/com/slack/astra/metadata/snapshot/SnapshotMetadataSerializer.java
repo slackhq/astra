@@ -6,7 +6,7 @@ import com.slack.astra.metadata.core.MetadataSerializer;
 import com.slack.astra.proto.metadata.Metadata;
 
 public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMetadata> {
-  private static Metadata.SnapshotMetadata toSnapshotMetadataProto(
+  public static Metadata.SnapshotMetadata toSnapshotMetadataProto(
       SnapshotMetadata snapshotMetadata) {
     return Metadata.SnapshotMetadata.newBuilder()
         .setName(snapshotMetadata.name)

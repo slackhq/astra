@@ -26,6 +26,27 @@ service ManagerApiService {
 
   // Resets the partition offset data to allow using a newer offset for a partition ID
   rpc ResetPartitionData(ResetPartitionDataRequest) returns (ResetPartitionDataResponse) {}
+
+  rpc CreateSnapshotMetadata(CreateSnapshotMetadataRequest) returns (SnapshotMetadata) {}
+}
+
+message CreateSnapshotMetadataRequest {
+  // Permanent id for a blob. This id is used to uniquely identify
+  // the blob incase it get's copied around.
+  // If not, should be same as name
+  string snapshot_id = 1;
+  // Path of the file stored in blobstore.
+  string snapshot_path = 2;
+  // earliest timestamp of the event in the snapshot file.
+  int64 start_time_epoch_ms = 3;
+  // End or latest timestamp of the event in the snapshot file.
+  int64 end_time_epoch_ms = 4;
+  // Kafka offset when this snapshot was taken for that partition.
+  int64 max_offset = 5;
+  // Kafka partitionId.
+  string partition_id = 6;
+  // Size of the snapshot in bytes
+  int64 sizeInBytes = 7;
 }
 
 // CreateDatasetMetadataRequest represents a new dataset with uninitialized thoughput and partition assignments
