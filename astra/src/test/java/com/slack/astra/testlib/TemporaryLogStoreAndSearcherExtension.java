@@ -9,10 +9,11 @@ import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchResult;
+import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
-import com.slack.astra.util.TestingFieldRedactionMetadataStore;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -163,5 +164,24 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
     }
     FileUtils.deleteDirectory(tempFolder);
     metricsRegistry.close();
+  }
+
+  public static class TestingFieldRedactionMetadataStore extends FieldRedactionMetadataStore {
+
+    public TestingFieldRedactionMetadataStore(
+        AsyncCuratorFramework curatorFramework, boolean shouldCache) {
+      super(curatorFramework, shouldCache);
+    }
+
+    @Override
+    public void createSync(FieldRedactionMetadata metadataNode) {}
+
+    @Override
+    public List<FieldRedactionMetadata> listSync() {
+      return List.of();
+    }
+
+    @Override
+    public void addListener(AstraMetadataStoreChangeListener<FieldRedactionMetadata> watcher) {}
   }
 }

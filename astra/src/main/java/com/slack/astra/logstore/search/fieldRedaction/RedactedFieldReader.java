@@ -7,7 +7,8 @@ import org.apache.lucene.index.StoredFieldVisitor;
 
 /**
  * RedactedFieldReader reads in the document and creates a new RedactionStoredFieldVisitor to read
- * the individual fields.
+ * the individual fields. This is sometimes called by the RedactionLeafReader in
+ * doGetSequentialStoredFieldsReader which is needed to fulfill the extension.
  */
 class RedactedFieldReader extends StoredFieldsReader {
 
