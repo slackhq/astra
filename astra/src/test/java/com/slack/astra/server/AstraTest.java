@@ -20,6 +20,8 @@ import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.AstraConfigUtil;
@@ -61,6 +63,7 @@ public class AstraTest {
   private static final String ASTRA_TEST_CLIENT_2 = "astra-test-client2";
 
   private DatasetMetadataStore datasetMetadataStore;
+  private FieldRedactionMetadataStore fieldRedactionMetadataStore;
   private AsyncCuratorFramework curatorFramework;
   private PrometheusMeterRegistry meterRegistry;
 
@@ -126,6 +129,7 @@ public class AstraTest {
             .build();
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
+    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
     final DatasetPartitionMetadata partition =
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
@@ -150,6 +154,9 @@ public class AstraTest {
     }
     if (datasetMetadataStore != null) {
       datasetMetadataStore.close();
+    }
+    if (fieldRedactionMetadataStore != null) {
+      fieldRedactionMetadataStore.close();
     }
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
@@ -282,6 +289,15 @@ public class AstraTest {
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
     Thread.sleep(2000);
 
+    fieldRedactionMetadataStore.createSync(
+        new FieldRedactionMetadata(
+            "testRedaction",
+            "message",
+            Instant.now().minusSeconds(100).toEpochMilli(),
+            Instant.now().plusSeconds(100).toEpochMilli()));
+    await()
+        .until(
+            () -> AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
     // Query from query service.
     AstraSearch.SearchResult queryServiceSearchResponse =
         searchUsingGrpcApi("*:*", queryServicePort, 0, end1Time.toEpochMilli(), "3650d");

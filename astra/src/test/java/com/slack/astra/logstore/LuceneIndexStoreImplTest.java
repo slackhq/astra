@@ -22,12 +22,19 @@ import com.slack.astra.logstore.LogMessage.ReservedField;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchResult;
+import com.slack.astra.metadata.core.AstraMetadataTestUtils;
+import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -41,6 +48,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.io.FileUtils;
+import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.lucene.index.IndexCommit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
@@ -253,7 +262,8 @@ public class LuceneIndexStoreImplTest {
             Duration.of(5, ChronoUnit.MINUTES),
             Duration.of(5, ChronoUnit.MINUTES),
             true,
-            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR);
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR,
+            null);
 
     public TestsWithRaiseErrorFieldConflictPolicy() throws IOException {}
 
@@ -450,10 +460,39 @@ public class LuceneIndexStoreImplTest {
                     >= activeFiles.size();
               });
 
+      // setup ZK and redaction metadata store for field redaction testing
+      TestingServer testingServer = new TestingServer();
+      AstraConfigs.ZookeeperConfig zkConfig =
+          AstraConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("test")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
+
+      MeterRegistry meterRegistry = new SimpleMeterRegistry();
+      AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+
+      String redactionName = "testRedaction";
+      String fieldName = "stringproperty";
+      long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
+
+      FieldRedactionMetadataStore fieldRedactionMetadataStore =
+          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata(redactionName, fieldName, start, end));
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
+              LogIndexSearcherImpl.searcherManagerFromPath(
+                  tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
               logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
@@ -461,6 +500,114 @@ public class LuceneIndexStoreImplTest {
 
       // Clean up
       newSearcher.close();
+    }
+
+    @Test
+    public void testFieldRedactionsS3Snapshot() throws Exception {
+      LuceneIndexStoreImpl logStore = strictLogStore.logStore;
+      addMessages(strictLogStore.logStore, 1, 100, true);
+      Collection<LogMessage> results =
+          findAllMessages(
+              strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
+
+      Path dirPath = strictLogStore.logStore.getDirectory().getDirectory().toAbsolutePath();
+      IndexCommit indexCommit = strictLogStore.logStore.getIndexCommit();
+      Collection<String> activeFiles = indexCommit.getFileNames();
+
+      strictLogStore.logStore.close();
+      strictLogStore.logSearcher.close();
+      strictLogStore.logStore = null;
+      strictLogStore.logSearcher = null;
+
+      // create an S3 client
+      S3AsyncClient s3AsyncClient =
+          S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
+      String bucket = "redaction-test";
+      s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
+      BlobStore blobStore = new BlobStore(s3AsyncClient, bucket);
+
+      String chunkId = UUID.randomUUID().toString();
+      blobStore.upload(chunkId, dirPath);
+
+      for (String fileName : activeFiles) {
+        File fileToCopy = new File(dirPath.toString(), fileName);
+        HeadObjectResponse headObjectResponse =
+            s3AsyncClient
+                .headObject(
+                    HeadObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(String.format("%s/%s", chunkId, fileName))
+                        .build())
+                .get();
+        assertThat(headObjectResponse.contentLength()).isEqualTo(fileToCopy.length());
+      }
+
+      // this try/retry/catch is to improve test reliability due to an AWS crt bug around mocked S3
+      // https://github.com/aws/aws-sdk-java-v2/issues/3658
+      await()
+          .ignoreExceptions()
+          .until(
+              () -> {
+                // clean the directory, in case a previous await try failed (would cause new copy to
+                // then fail)
+                FileUtils.cleanDirectory(tmpPath.toFile());
+                // Download files from S3 to local FS.
+                blobStore.download(chunkId, tmpPath.toAbsolutePath());
+                // the delta is the presence of the write.lock file, which is released but still in
+                // the directory
+                return Objects.requireNonNull(tmpPath.toFile().listFiles()).length
+                    >= activeFiles.size();
+              });
+
+      // setup ZK and redaction metadata store for field redaction testing
+      TestingServer testingServer = new TestingServer();
+      AstraConfigs.ZookeeperConfig zkConfig =
+          AstraConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("test")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
+
+      MeterRegistry meterRegistry = new SimpleMeterRegistry();
+      AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+
+      long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+      long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
+
+      FieldRedactionMetadataStore fieldRedactionMetadataStore =
+          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata("testRedactionString", "stringproperty", start, end));
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata("testRedactionBinary", "binaryproperty", start, end));
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 2);
+
+      // Search files in local FS.
+      LogIndexSearcherImpl newSearcher =
+          new LogIndexSearcherImpl(
+              LogIndexSearcherImpl.searcherManagerFromPath(
+                  tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
+              logStore.getSchema());
+      Collection<LogMessage> newResults =
+          findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
+      assertThat(newResults.size()).isEqualTo(1);
+      List<LogMessage> resultList = newResults.stream().toList();
+      LogMessage log = resultList.getFirst();
+
+      assertThat(log.getSource().get("stringproperty")).isEqualTo("REDACTED");
+      assertThat(log.getSource().get("service_name")).isEqualTo("testDataSet");
+      assertThat(log.getSource().get("binaryproperty")).isEqualTo("REDACTED");
+
+      // Clean up
+      newSearcher.close();
+      meterRegistry.close();
+      curatorFramework.unwrap().close();
+      testingServer.close();
     }
   }
 
@@ -505,8 +652,8 @@ public class LuceneIndexStoreImplTest {
             commitDuration,
             commitDuration,
             true,
-            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
-                .CONVERT_VALUE_AND_DUPLICATE_FIELD);
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
+            null);
 
     public AutoCommitTests() throws IOException {}
 

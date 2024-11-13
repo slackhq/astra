@@ -17,6 +17,8 @@ import com.slack.astra.metadata.core.InternalMetadataStoreException;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
@@ -59,6 +61,7 @@ public class ManagerApiGrpcTest {
   private SnapshotMetadataStore snapshotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
   private ReplicaRestoreService replicaRestoreService;
+  private FieldRedactionMetadataStore fieldRedactionMetadataStore;
   private ManagerApiServiceGrpc.ManagerApiServiceBlockingStub managerApiStub;
 
   @BeforeEach
@@ -81,6 +84,8 @@ public class ManagerApiGrpcTest {
     datasetMetadataStore = spy(new DatasetMetadataStore(curatorFramework, zkConfig, true));
     snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, zkConfig));
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
+    fieldRedactionMetadataStore =
+        spy(new FieldRedactionMetadataStore(curatorFramework, zkConfig, true));
 
     AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
@@ -103,7 +108,10 @@ public class ManagerApiGrpcTest {
             .directExecutor()
             .addService(
                 new ManagerApiGrpc(
-                    datasetMetadataStore, snapshotMetadataStore, replicaRestoreService))
+                    datasetMetadataStore,
+                    snapshotMetadataStore,
+                    replicaRestoreService,
+                    fieldRedactionMetadataStore))
             .build()
             .start());
     ManagedChannel channel =
@@ -121,6 +129,7 @@ public class ManagerApiGrpcTest {
     replicaMetadataStore.close();
     snapshotMetadataStore.close();
     datasetMetadataStore.close();
+    fieldRedactionMetadataStore.close();
     curatorFramework.unwrap().close();
 
     testingServer.close();
@@ -775,5 +784,237 @@ public class ManagerApiGrpcTest {
         .isEqualTo(0);
 
     replicaRestoreService.stopAsync();
+  }
+
+  @Test
+  public void shouldCreateAndGetNewFieldRedaction() {
+    String redactionName = "testRedaction";
+    String fieldName = "testfieldName";
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    managerApiStub.createFieldRedaction(
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName)
+            .setFieldName(fieldName)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
+
+    Metadata.RedactedFieldMetadata getRedactedFieldResponse =
+        managerApiStub.getFieldRedaction(
+            ManagerApi.GetFieldRedactionRequest.newBuilder().setName(redactionName).build());
+    assertThat(getRedactedFieldResponse.getName()).isEqualTo(redactionName);
+    assertThat(getRedactedFieldResponse.getFieldName()).isEqualTo(fieldName);
+    assertThat(getRedactedFieldResponse.getStartTimeEpochMs()).isEqualTo(start);
+    assertThat(getRedactedFieldResponse.getEndTimeEpochMs()).isEqualTo(end);
+
+    FieldRedactionMetadata fieldRedactionMetadata =
+        fieldRedactionMetadataStore.getSync(redactionName);
+    assertThat(fieldRedactionMetadata.getName()).isEqualTo(redactionName);
+    assertThat(fieldRedactionMetadata.getFieldName()).isEqualTo(fieldName);
+    assertThat(fieldRedactionMetadata.getStartTimeEpochMs()).isEqualTo(start);
+    assertThat(fieldRedactionMetadata.getEndTimeEpochMs()).isEqualTo(end);
+  }
+
+  @Test
+  public void shouldListExistingFieldRedactions() {
+    String redactionName1 = "testFieldRedaction1";
+    String field1 = "testField1";
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    managerApiStub.createFieldRedaction(
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName1)
+            .setFieldName(field1)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
+
+    String redactionName2 = "testFieldRedaction2";
+    String field2 = "testField2";
+
+    managerApiStub.createFieldRedaction(
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName2)
+            .setFieldName(field2)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
+
+    ManagerApi.ListFieldRedactionsResponse listFieldRedactionsResponse =
+        managerApiStub.listFieldRedactions(
+            ManagerApi.ListFieldRedactionsRequest.newBuilder().build());
+
+    assertThat(
+        listFieldRedactionsResponse
+            .getRedactedFieldsList()
+            .containsAll(
+                List.of(
+                    Metadata.RedactedFieldMetadata.newBuilder()
+                        .setName(redactionName1)
+                        .setFieldName(field1)
+                        .setStartTimeEpochMs(start)
+                        .setEndTimeEpochMs(end)
+                        .build(),
+                    Metadata.RedactedFieldMetadata.newBuilder()
+                        .setName(redactionName2)
+                        .setFieldName(field2)
+                        .setStartTimeEpochMs(start)
+                        .setEndTimeEpochMs(end)
+                        .build())));
+
+    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size())
+        .isEqualTo(2);
+    assertThat(
+        AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore)
+            .containsAll(
+                List.of(
+                    new FieldRedactionMetadata(redactionName1, field1, start, end),
+                    new FieldRedactionMetadata(redactionName2, field2, start, end))));
+  }
+
+  @Test
+  public void shouldDeleteExistingFieldRedaction() {
+    String redactionName = "testRedaction";
+    String fieldName = "testFieldName";
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    managerApiStub.createFieldRedaction(
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName)
+            .setFieldName(fieldName)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
+
+    Metadata.RedactedFieldMetadata deleteRedactedFieldResponse =
+        managerApiStub.deleteFieldRedaction(
+            ManagerApi.DeleteFieldRedactionRequest.newBuilder().setName(redactionName).build());
+    assertThat(deleteRedactedFieldResponse.getName()).isEqualTo(redactionName);
+    assertThat(deleteRedactedFieldResponse.getFieldName()).isEqualTo(fieldName);
+    assertThat(deleteRedactedFieldResponse.getStartTimeEpochMs()).isEqualTo(start);
+    assertThat(deleteRedactedFieldResponse.getEndTimeEpochMs()).isEqualTo(end);
+
+    assertThat(fieldRedactionMetadataStore.hasSync(redactionName)).isFalse();
+  }
+
+  @Test
+  public void shouldErrorCreatingDuplicateFieldRedactionName() {
+    String redactionName = "testFieldRedaction";
+    String fieldName1 = "fieldName1";
+    String fieldName2 = "fieldName2";
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    managerApiStub.createFieldRedaction(
+        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+            .setName(redactionName)
+            .setFieldName(fieldName1)
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
+
+    StatusRuntimeException throwable =
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName(redactionName)
+                            .setFieldName(fieldName2)
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
+    assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
+
+    FieldRedactionMetadata fieldRedactionMetadata =
+        fieldRedactionMetadataStore.getSync(redactionName);
+    assertThat(fieldRedactionMetadata.getName()).isEqualTo(redactionName);
+    assertThat(fieldRedactionMetadata.getFieldName()).isEqualTo(fieldName1);
+    assertThat(fieldRedactionMetadata.getStartTimeEpochMs()).isEqualTo(start);
+    assertThat(fieldRedactionMetadata.getEndTimeEpochMs()).isEqualTo(end);
+  }
+
+  @Test
+  public void shouldErrorCreatingWithInvalidRedactionNames() {
+    String fieldName = "testFieldName";
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    StatusRuntimeException throwable1 =
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName("")
+                            .setFieldName(fieldName)
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
+    assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
+    assertThat(throwable1.getStatus().getDescription()).isEqualTo("name can't be null or empty.");
+
+    StatusRuntimeException throwable2 =
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName("/")
+                            .setFieldName(fieldName)
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
+    assertThat(throwable2.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
+
+    StatusRuntimeException throwable3 =
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName(".")
+                            .setFieldName(fieldName)
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
+    assertThat(throwable3.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
+
+    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size())
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void shouldErrorWithEmptyFieldName() {
+    String redactionName = "testRedaction";
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    StatusRuntimeException throwable =
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createFieldRedaction(
+                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                            .setName(redactionName)
+                            .setFieldName("")
+                            .setStartTimeEpochMs(start)
+                            .setEndTimeEpochMs(end)
+                            .build()));
+    assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
+    assertThat(throwable.getStatus().getDescription()).isEqualTo("field name cannot be null");
+
+    assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size())
+        .isEqualTo(0);
   }
 }

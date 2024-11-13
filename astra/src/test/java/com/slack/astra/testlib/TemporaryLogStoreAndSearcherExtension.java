@@ -9,6 +9,9 @@ import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchResult;
+import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.service.murron.trace.Trace;
@@ -21,6 +24,11 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.FileUtils;
+import org.apache.curator.RetryPolicy;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.retry.RetryUntilElapsed;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.opensearch.index.query.QueryBuilder;
@@ -73,30 +81,62 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
   public LogIndexSearcherImpl logSearcher;
   public final File tempFolder;
 
+  // use this method if you do not want to include zookeeper setup or redaction in your tests
   public TemporaryLogStoreAndSearcherExtension(boolean enableFullTextSearch) throws IOException {
     this(
         Duration.of(5, ChronoUnit.MINUTES),
         Duration.of(5, ChronoUnit.MINUTES),
         enableFullTextSearch,
-        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
+        null);
+  }
+
+  // include field redaction metadata for redaction testing
+  public TemporaryLogStoreAndSearcherExtension(
+      boolean enableFullTextSearch, FieldRedactionMetadataStore fieldRedactionMetadataStore)
+      throws IOException {
+    this(
+        Duration.of(5, ChronoUnit.MINUTES),
+        Duration.of(5, ChronoUnit.MINUTES),
+        enableFullTextSearch,
+        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
+        fieldRedactionMetadataStore);
   }
 
   public TemporaryLogStoreAndSearcherExtension(
       Duration commitInterval,
       Duration refreshInterval,
       boolean enableFullTextSearch,
-      SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy)
+      SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
     this.metricsRegistry = new SimpleMeterRegistry();
     this.tempFolder = Files.createTempDir(); // TODO: don't use beta func.
     LuceneIndexStoreConfig indexStoreCfg =
         getIndexStoreConfig(commitInterval, refreshInterval, tempFolder);
+
+    if (fieldRedactionMetadataStore == null) {
+      RetryPolicy retryPolicy = new RetryUntilElapsed(Integer.MAX_VALUE, Integer.MAX_VALUE);
+      CuratorFramework curatorFramework =
+          CuratorFrameworkFactory.builder()
+              .connectString("test")
+              .namespace("test")
+              .connectionTimeoutMs(Integer.MAX_VALUE)
+              .retryPolicy(retryPolicy)
+              .sessionTimeoutMs(Integer.MAX_VALUE)
+              .build();
+      fieldRedactionMetadataStore =
+          new TestingFieldRedactionMetadataStore(
+              AsyncCuratorFramework.wrap(curatorFramework), false);
+    }
+
     logStore =
         new LuceneIndexStoreImpl(
             indexStoreCfg,
             SchemaAwareLogDocumentBuilderImpl.build(
                 fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
-            metricsRegistry);
+            metricsRegistry,
+            fieldRedactionMetadataStore);
 
     ConcurrentHashMap<String, LuceneFieldDef> schema = logStore.getSchema();
 
@@ -124,5 +164,24 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
     }
     FileUtils.deleteDirectory(tempFolder);
     metricsRegistry.close();
+  }
+
+  public static class TestingFieldRedactionMetadataStore extends FieldRedactionMetadataStore {
+
+    public TestingFieldRedactionMetadataStore(
+        AsyncCuratorFramework curatorFramework, boolean shouldCache) {
+      super(curatorFramework, null, shouldCache);
+    }
+
+    @Override
+    public void createSync(FieldRedactionMetadata metadataNode) {}
+
+    @Override
+    public List<FieldRedactionMetadata> listSync() {
+      return List.of();
+    }
+
+    @Override
+    public void addListener(AstraMetadataStoreChangeListener<FieldRedactionMetadata> watcher) {}
   }
 }

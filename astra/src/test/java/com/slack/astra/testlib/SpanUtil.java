@@ -2,6 +2,7 @@ package com.slack.astra.testlib;
 
 import static com.slack.astra.testlib.MessageUtil.DEFAULT_MESSAGE_PREFIX;
 import static com.slack.astra.testlib.MessageUtil.TEST_DATASET_NAME;
+import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_BINARY_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_DOUBLE_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_FLOAT_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_INT_PROPERTY;
@@ -191,6 +192,12 @@ public class SpanUtil {
                 Trace.KeyValue.newBuilder()
                     .setVStr(String.format("String-%s", i))
                     .setKey(TEST_SOURCE_STRING_PROPERTY)
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .build())
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setVBinary(ByteString.copyFromUtf8(String.format("String-%s", i)))
+                    .setKey(TEST_SOURCE_BINARY_PROPERTY)
                     .setFieldType(Schema.SchemaFieldType.KEYWORD)
                     .build())
             .addTags(

@@ -14,6 +14,7 @@ import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadata;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.schema.ChunkSchema;
@@ -50,6 +51,7 @@ import org.slf4j.LoggerFactory;
  * BlobFs.
  */
 public class ReadOnlyChunkImpl<T> implements Chunk<T> {
+
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
   public static final String ASTRA_S3_STREAMING_FLAG = "astra.s3Streaming.enabled";
 
@@ -71,6 +73,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
+  private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
   private final MeterRegistry meterRegistry;
   private final BlobStore blobStore;
 
@@ -104,7 +107,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchMetadataStore searchMetadataStore,
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
       CacheNodeAssignment assignment,
-      SnapshotMetadata snapshotMetadata)
+      SnapshotMetadata snapshotMetadata,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws Exception {
     this(
         curatorFramework,
@@ -117,7 +121,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         cacheSlotMetadataStore,
         replicaMetadataStore,
         snapshotMetadataStore,
-        searchMetadataStore);
+        searchMetadataStore,
+        fieldRedactionMetadataStore);
     this.assignment = assignment;
     this.lastKnownAssignmentState = assignment.state;
     this.snapshotMetadata = snapshotMetadata;
@@ -135,7 +140,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore)
+      SearchMetadataStore searchMetadataStore,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws Exception {
     this.meterRegistry = meterRegistry;
     this.blobStore = blobStore;
@@ -147,6 +153,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.searchMetadataStore = searchMetadataStore;
+    this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
 
     if (!Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       CacheSlotMetadata cacheSlotMetadata =
@@ -230,7 +237,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         this.logSearcher =
             (LogIndexSearcher<T>)
                 new LogIndexSearcherImpl(
-                    LogIndexSearcherImpl.searcherManagerFromChunkId(chunkInfo.chunkId, blobStore),
+                    LogIndexSearcherImpl.searcherManagerFromChunkId(
+                        chunkInfo.chunkId, blobStore, fieldRedactionMetadataStore),
                     chunkSchema.fieldDefMap);
       } else {
         // get data directory
@@ -264,7 +272,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         this.logSearcher =
             (LogIndexSearcher<T>)
                 new LogIndexSearcherImpl(
-                    LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
+                    LogIndexSearcherImpl.searcherManagerFromPath(
+                        dataDirectory, fieldRedactionMetadataStore),
                     chunkSchema.fieldDefMap);
       }
 
@@ -414,7 +423,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
-                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
+                  LogIndexSearcherImpl.searcherManagerFromPath(
+                      dataDirectory, fieldRedactionMetadataStore),
                   chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available

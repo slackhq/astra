@@ -5,6 +5,7 @@ import static com.slack.astra.util.ArgValidationUtils.ensureNonNullString;
 
 import com.slack.astra.logstore.LogStore;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
@@ -24,6 +25,7 @@ public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
   private final MeterRegistry meterRegistry;
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
+  private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
   private final SearchContext searchContext;
   private final AstraConfigs.IndexerConfig indexerConfig;
   private String kafkaPartitionId = null;
@@ -34,6 +36,7 @@ public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
       MeterRegistry meterRegistry,
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
+      FieldRedactionMetadataStore fieldRedactionMetadataStore,
       SearchContext searchContext) {
     checkNotNull(indexerConfig, "indexerConfig can't be null");
     this.indexerConfig = indexerConfig;
@@ -41,6 +44,7 @@ public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
     this.meterRegistry = meterRegistry;
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
+    this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
     this.searchContext = searchContext;
   }
 
@@ -49,9 +53,13 @@ public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
     ensureNonNullString(kafkaPartitionId, "kafkaPartitionId can't be null and should be set.");
     ensureNonNullString(indexerConfig.getDataDirectory(), "The data directory shouldn't be empty");
     final File dataDirectory = new File(indexerConfig.getDataDirectory());
+
     LogStore logStore =
         LuceneIndexStoreImpl.makeLogStore(
-            dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
+            dataDirectory,
+            indexerConfig.getLuceneConfig(),
+            meterRegistry,
+            fieldRedactionMetadataStore);
 
     return new RecoveryChunkImpl<>(
         logStore,

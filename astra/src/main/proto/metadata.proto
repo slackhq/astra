@@ -231,3 +231,14 @@ message CacheNodeMetadata {
   int64  node_capacity_bytes = 4;
   string replica_set = 5;
 }
+
+message RedactedFieldMetadata {
+  // name of the redaction rule
+  string name = 1;
+  // field to redact (key)
+  string field_name = 2;
+  // earliest timestamp of the redaction window
+  int64 start_time_epoch_ms = 3;
+  // End or latest timestamp of the redaction window
+  int64 end_time_epoch_ms = 4;
+}
