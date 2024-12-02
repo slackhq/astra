@@ -567,7 +567,7 @@
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
-                        <arg>>--should-stop=ifError=FLOW</arg>
+                        <arg>--should-stop=ifError=FLOW</arg>
                         <!-- Error prone settings -->
                         <arg>
                             <!-- TODO: consider removing all specific error upgrades in favor of -Werror (all warnings as build errors) -->
