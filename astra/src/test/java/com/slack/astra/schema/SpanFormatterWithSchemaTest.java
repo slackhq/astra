@@ -603,13 +603,8 @@ public class SpanFormatterWithSchemaTest {
                   assertThat(field.binaryValue().utf8ToString()).isEqualTo(tag.getVStr());
                 } else if (fieldType == FieldType.IP) {
                   assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.IP);
-                  if (field instanceof SortedDocValuesField) {
-                    assertThat(InetAddressPoint.decode(field.binaryValue().bytes).getHostName())
-                        .isEqualTo(tag.getVStr());
-                  } else {
-                    assertThat(InetAddressPoint.decode(field.binaryValue().bytes).getHostName())
-                        .isEqualTo(tag.getVStr());
-                  }
+                  assertThat(InetAddressPoint.decode(field.binaryValue().bytes).getHostName())
+                      .isEqualTo(tag.getVStr());
                 } else if (fieldType == FieldType.BYTE) {
                   assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.BYTE);
                   assertThat(field.numericValue().byteValue()).isEqualTo((byte) tag.getVInt32());
