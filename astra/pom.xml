@@ -21,7 +21,7 @@
         <grpc.version>1.68.2</grpc.version>
         <micrometer.version>1.14.1</micrometer.version>
         <armeria.version>1.27.3</armeria.version>
-        <kafka.version>3.5.0</kafka.version>
+        <kafka.version>3.7.1</kafka.version>
         <jackson.version>2.18.2</jackson.version>
         <jackson.databind.version>2.18.2</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
