@@ -29,7 +29,7 @@
         <curator.version>5.7.1</curator.version>
         <log4j.version>2.24.2</log4j.version>
         <aws.sdk.version>2.29.24</aws.sdk.version>
-        <error.prone.version>2.35.1</error.prone.version>
+        <error.prone.version>2.36.0</error.prone.version>
         <junit.jupiter.version>5.11.3</junit.jupiter.version>
     </properties>
 
@@ -567,6 +567,7 @@
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                        <arg>--should-stop=ifError=FLOW</arg>
                         <!-- Error prone settings -->
                         <arg>
                             <!-- TODO: consider removing all specific error upgrades in favor of -Werror (all warnings as build errors) -->
