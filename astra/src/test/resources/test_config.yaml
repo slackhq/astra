@@ -33,6 +33,7 @@ queryConfig:
     serverAddress: "1.2.3.4"
     requestTimeoutMs: 3000
   defaultQueryTimeoutMs: 2500
+  zipkinDefaultMaxSpans: 20000
   managerConnectString: localhost:8083
 
 s3Config:

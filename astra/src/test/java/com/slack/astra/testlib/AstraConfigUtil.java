@@ -82,6 +82,7 @@ public class AstraConfigUtil {
                     .setRequestTimeoutMs(5000)
                     .build())
             .setDefaultQueryTimeoutMs(3000)
+            .setZipkinDefaultMaxSpans(20000)
             .build();
 
     AstraConfigs.RecoveryConfig recoveryConfig =

@@ -50,6 +50,9 @@ public class ValidateAstraConfig {
         queryConfig.getServerConfig().getRequestTimeoutMs()
             > queryConfig.getDefaultQueryTimeoutMs(),
         "QueryConfig requestTimeoutMs must be higher than defaultQueryTimeoutMs");
+    checkArgument(
+        queryConfig.getZipkinDefaultMaxSpans() >= 1000,
+        "QueryConfig zipkinDefaultMaxSpans cannot less than 1000");
   }
 
   private static void validateCacheConfig(AstraConfigs.CacheConfig cacheConfig) {

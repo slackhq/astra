@@ -148,7 +148,7 @@ public class ZipkinService {
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
   private static long LOOKBACK_MINS = 60 * 24 * 7;
 
-  private static final int MAX_SPANS = 20_000;
+  private final int defaultMaxSpans;
 
   private final AstraQueryServiceBase searcher;
 
@@ -160,8 +160,9 @@ public class ZipkinService {
           .serializationInclusion(JsonInclude.Include.NON_EMPTY)
           .build();
 
-  public ZipkinService(AstraQueryServiceBase searcher) {
+  public ZipkinService(AstraQueryServiceBase searcher, int defaultMaxSpans) {
     this.searcher = searcher;
+    this.defaultMaxSpans = defaultMaxSpans;
   }
 
   @Get
@@ -217,7 +218,7 @@ public class ZipkinService {
     long endTime =
         endTimeEpochMs.orElseGet(
             () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
-    int howMany = maxSpans.orElse(MAX_SPANS);
+    int howMany = maxSpans.orElse(this.defaultMaxSpans);
 
     brave.Span span = Tracing.currentTracer().currentSpan();
     span.tag("startTimeEpochMs", String.valueOf(startTime));

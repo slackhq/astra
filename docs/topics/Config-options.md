@@ -345,6 +345,16 @@ seconds higher than the <a href="Config-options.md#defaultquerytimeout">queryCon
 to allow for aggregation post-processing to occur.
 </tip>
 
+### zipkinDefaultMaxSpans
+
+```yaml
+queryConfig:
+  zipkinDefaultMaxSpans: 25000
+```
+
+Max spans that the zipkin endpoint will return when the API call does not include `maxSpans`. A trace with more than 
+this amount of spans will be truncated.
+
 ### managerConnectString
 ```yaml
 queryConfig:

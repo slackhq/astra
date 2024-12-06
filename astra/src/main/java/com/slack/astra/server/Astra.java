@@ -244,7 +244,10 @@ public class Astra {
               .withRequestTimeout(requestTimeout)
               .withTracing(astraConfig.getTracingConfig())
               .withAnnotatedService(new ElasticsearchApiService(astraDistributedQueryService))
-              .withAnnotatedService(new ZipkinService(astraDistributedQueryService))
+              .withAnnotatedService(
+                  new ZipkinService(
+                      astraDistributedQueryService,
+                      astraConfig.getQueryConfig().getZipkinDefaultMaxSpans()))
               .withGrpcService(astraDistributedQueryService)
               .build();
       services.add(armeriaService);

@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 public class ZipkinServiceTest {
@@ -31,10 +32,12 @@ public class ZipkinServiceTest {
   private ZipkinService zipkinService;
   private AstraSearch.SearchResult mockSearchResult;
 
+  private static final int defaultMaxSpans = 2000;
+
   @BeforeEach
   public void setup() throws IOException {
     MockitoAnnotations.openMocks(this);
-    zipkinService = spy(new ZipkinService(searcher));
+    zipkinService = spy(new ZipkinService(searcher, defaultMaxSpans));
     // Build mockSearchResult
     ObjectMapper objectMapper = new ObjectMapper();
     JsonNode jsonNode =
@@ -66,6 +69,57 @@ public class ZipkinServiceTest {
 
       // Assert
       assertEquals(HttpStatus.OK, aggregatedResponse.status());
+    }
+  }
+
+  @Test
+  public void testGetTraceByTraceId_respectsDefaultMaxSpans() throws Exception {
+    try (MockedStatic<Tracing> mockedTracing = mockStatic(Tracing.class)) {
+      // Mocking Tracing and Span
+      brave.Tracer mockTracer = mock(brave.Tracer.class);
+      Span mockSpan = mock(Span.class);
+
+      mockedTracing.when(Tracing::currentTracer).thenReturn(mockTracer);
+      when(mockTracer.currentSpan()).thenReturn(mockSpan);
+
+      String traceId = "test_trace_2";
+      when(searcher.doSearch(any())).thenReturn(mockSearchResult);
+
+      zipkinService.getTraceByTraceId(
+          traceId, Optional.empty(), Optional.empty(), Optional.empty());
+
+      Mockito.verify(searcher)
+          .doSearch(
+              Mockito.argThat(
+                  request ->
+                      request.getHowMany() == defaultMaxSpans
+                          && request.getQuery().contains("\"trace_id\":\"" + traceId + "\"")));
+    }
+  }
+
+  @Test
+  public void testGetTraceByTraceId_respectsMaxSpans() throws Exception {
+    try (MockedStatic<Tracing> mockedTracing = mockStatic(Tracing.class)) {
+      // Mocking Tracing and Span
+      brave.Tracer mockTracer = mock(brave.Tracer.class);
+      Span mockSpan = mock(Span.class);
+
+      mockedTracing.when(Tracing::currentTracer).thenReturn(mockTracer);
+      when(mockTracer.currentSpan()).thenReturn(mockSpan);
+
+      String traceId = "test_trace_2";
+      when(searcher.doSearch(any())).thenReturn(mockSearchResult);
+      int maxSpansParam = 10000;
+
+      zipkinService.getTraceByTraceId(
+          traceId, Optional.empty(), Optional.empty(), Optional.of(maxSpansParam));
+
+      Mockito.verify(searcher)
+          .doSearch(
+              Mockito.argThat(
+                  request ->
+                      request.getHowMany() == maxSpansParam
+                          && request.getQuery().contains("\"trace_id\":\"" + traceId + "\"")));
     }
   }
 }
