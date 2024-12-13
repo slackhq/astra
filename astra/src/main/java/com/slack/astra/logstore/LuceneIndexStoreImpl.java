@@ -34,6 +34,8 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.MMapDirectory;
+import org.opensearch.common.lucene.index.OpenSearchDirectoryReader;
+import org.opensearch.core.index.shard.ShardId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -142,7 +144,11 @@ public class LuceneIndexStoreImpl implements LogStore {
     RedactionFilterDirectoryReader reader =
         new RedactionFilterDirectoryReader(
             DirectoryReader.open(indexWriter.get(), false, false), fieldRedactionMetadataStore);
-    this.searcherManager = new SearcherManager(reader, null);
+    OpenSearchDirectoryReader openSearchDirectoryReader =
+        OpenSearchDirectoryReader.wrap(
+            reader,
+            ShardId.fromString("[shard-index][%d]".formatted(UUID.fromString(id).hashCode())));
+    this.searcherManager = new SearcherManager(openSearchDirectoryReader, null);
 
     scheduledCommit.scheduleWithFixedDelay(
         () -> {
