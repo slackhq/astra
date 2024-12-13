@@ -144,7 +144,10 @@ public class LuceneIndexStoreImpl implements LogStore {
     RedactionFilterDirectoryReader reader =
         new RedactionFilterDirectoryReader(
             DirectoryReader.open(indexWriter.get(), false, false), fieldRedactionMetadataStore);
-    OpenSearchDirectoryReader openSearchDirectoryReader = OpenSearchDirectoryReader.wrap(reader, ShardId.fromString("[shard-index][%d]".formatted(UUID.fromString(id).hashCode())));
+    OpenSearchDirectoryReader openSearchDirectoryReader =
+        OpenSearchDirectoryReader.wrap(
+            reader,
+            ShardId.fromString("[shard-index][%d]".formatted(UUID.fromString(id).hashCode())));
     this.searcherManager = new SearcherManager(openSearchDirectoryReader, null);
 
     scheduledCommit.scheduleWithFixedDelay(
