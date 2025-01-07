@@ -81,6 +81,7 @@ public class CachingChunkManagerTest {
 
   @BeforeEach
   public void startup() throws Exception {
+    System.out.println("Test change");
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
