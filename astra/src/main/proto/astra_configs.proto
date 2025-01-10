@@ -259,4 +259,13 @@ message PreprocessorConfig {
   // We intend to use ZK for the schema file in the future
   // Path to the schema file in the local file system helps us iterate faster
   string schema_file = 12;
+
+  // Dataset rate limit secs is a de-bounce setting. It's the time
+  // a service waits to take an action after a ZK notification.
+  int32 dataset_rate_limit_aggregation_secs = 13;
+
+  // Dataset rate limit period is the amount of time between each
+  // refresh of the dataset rate limits, whether or not a ZK event
+  // has triggered it
+  int32 dataset_rate_limit_period_secs = 14;
 }

@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 public class PreprocessorRateLimiter {
   private static final Logger LOG = LoggerFactory.getLogger(PreprocessorRateLimiter.class);
 
-  private final int preprocessorCount;
+  private int preprocessorCount;
 
   private final int maxBurstSeconds;
 
@@ -134,6 +134,12 @@ public class PreprocessorRateLimiter {
 
   public static int getSpanBytes(List<Trace.Span> spans) {
     return spans.stream().mapToInt(Trace.Span::getSerializedSize).sum();
+  }
+
+  public BiPredicate<String, List<Trace.Span>> createBulkIngestRateLimiter(
+      List<DatasetMetadata> datasetMetadataList, Integer preprocessorCount) {
+    this.preprocessorCount = preprocessorCount;
+    return this.createBulkIngestRateLimiter(datasetMetadataList);
   }
 
   public BiPredicate<String, List<Trace.Span>> createBulkIngestRateLimiter(

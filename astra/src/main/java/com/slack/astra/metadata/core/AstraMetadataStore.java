@@ -86,6 +86,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   public CompletionStage<String> createAsync(T metadataNode) {
+    if (this.cacheInitialized != null) {
+      this.awaitCacheInitialized();
+    }
+
     // by passing the version 0, this will throw if we attempt to create and it already exists
     return modeledClient.set(metadataNode, 0);
   }
@@ -102,8 +106,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public CompletionStage<T> getAsync(String path) {
     if (cachedModeledFramework != null) {
+      this.awaitCacheInitialized();
       return cachedModeledFramework.withPath(zPath.resolved(path)).readThrough();
     }
+
     return modeledClient.withPath(zPath.resolved(path)).read();
   }
 
@@ -137,6 +143,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   public CompletionStage<Stat> updateAsync(T metadataNode) {
+    if (this.cacheInitialized != null) {
+      this.awaitCacheInitialized();
+    }
+
     return modeledClient.update(metadataNode);
   }
 
@@ -151,6 +161,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   public CompletionStage<Void> deleteAsync(String path) {
+    if (this.cacheInitialized != null) {
+      this.awaitCacheInitialized();
+    }
+
     return modeledClient.withPath(zPath.resolved(path)).delete();
   }
 
@@ -223,7 +237,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     cachedModeledFramework.listenable().removeListener(listenerMap.remove(watcher));
   }
 
-  private void awaitCacheInitialized() {
+  public void awaitCacheInitialized() {
     try {
       if (!cacheInitialized.await(zkConfig.getZkCacheInitTimeoutMs(), TimeUnit.MILLISECONDS)) {
         // in the event we deadlock, go ahead and time this out at 30s and restart the pod
