@@ -28,9 +28,9 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.7.1</curator.version>
         <log4j.version>2.24.3</log4j.version>
-        <aws.sdk.version>2.29.35</aws.sdk.version>
+        <aws.sdk.version>2.29.50</aws.sdk.version>
         <error.prone.version>2.36.0</error.prone.version>
-        <junit.jupiter.version>5.11.3</junit.jupiter.version>
+        <junit.jupiter.version>5.11.4</junit.jupiter.version>
     </properties>
 
     <repositories>
@@ -83,6 +83,12 @@
             <groupId>com.linecorp.armeria</groupId>
             <artifactId>armeria</artifactId>
             <version>${armeria.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-codec-http</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.linecorp.armeria</groupId>
@@ -92,7 +98,7 @@
         <dependency>
             <groupId>io.netty.incubator</groupId>
             <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-            <version>0.0.25.Final</version>
+            <version>0.0.26.Final</version>
             <classifier>linux-x86_64</classifier>
         </dependency>
         <dependency>
@@ -105,6 +111,11 @@
                     <artifactId>grpc-core</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http</artifactId>
+            <version>4.1.115.Final</version>
         </dependency>
 
         <!-- Apache curator dependencies -->
@@ -252,7 +263,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20240303</version>
+            <version>20250107</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -263,7 +274,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.3.1-jre</version>
+            <version>33.4.0-jre</version>
         </dependency>
 
         <dependency>
@@ -417,7 +428,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.26.3</version>
+            <version>3.27.2</version>
             <scope>test</scope>
         </dependency>
         <!-- Note: next time we upgrade this, check if mockito-core depends on 1.14.8+ version of bytebuddy -->
@@ -426,7 +437,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.14.2</version>
+            <version>5.15.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
