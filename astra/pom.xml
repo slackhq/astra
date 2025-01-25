@@ -18,8 +18,8 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.5</protobuf.version>
-        <grpc.version>1.69.0</grpc.version>
-        <micrometer.version>1.14.2</micrometer.version>
+        <grpc.version>1.70.0</grpc.version>
+        <micrometer.version>1.14.3</micrometer.version>
         <armeria.version>1.27.3</armeria.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.18.2</jackson.version>
@@ -28,7 +28,7 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.7.1</curator.version>
         <log4j.version>2.24.3</log4j.version>
-        <aws.sdk.version>2.29.50</aws.sdk.version>
+        <aws.sdk.version>2.30.6</aws.sdk.version>
         <error.prone.version>2.36.0</error.prone.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
     </properties>
@@ -115,7 +115,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-http</artifactId>
-            <version>4.1.115.Final</version>
+            <version>4.1.117.Final</version>
         </dependency>
 
         <!-- Apache curator dependencies -->
@@ -280,7 +280,7 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
-            <version>3.1.8</version>
+            <version>3.2.0</version>
         </dependency>
 
         <dependency>
@@ -349,7 +349,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.33.7</version>
+            <version>0.33.9</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -428,7 +428,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.27.2</version>
+            <version>3.27.3</version>
             <scope>test</scope>
         </dependency>
         <!-- Note: next time we upgrade this, check if mockito-core depends on 1.14.8+ version of bytebuddy -->
@@ -450,7 +450,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.15.11</version>
+            <version>1.16.1</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
