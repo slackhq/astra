@@ -98,6 +98,12 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
   protected void startUp() throws Exception {
     datasetMetadataStore.addListener(datasetListener);
     this.preprocessorMetadataStore.addListener(preprocessorListener);
+
+    // We need to await for te cache to be initialized _before_ we try
+    // adding the metadata to the store. If we don't, then we end up
+    // clobbering the ZK init event, which prevents a listSync from
+    // ever being called
+    this.preprocessorMetadataStore.awaitCacheInitialized();
     this.preprocessorMetadataStore.createSync(new PreprocessorMetadata());
   }
 
