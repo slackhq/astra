@@ -33,6 +33,7 @@ import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.hpa.HpaMetricMetadataStore;
+import com.slack.astra.metadata.preprocessor.PreprocessorMetadataStore;
 import com.slack.astra.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.astra.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
@@ -435,6 +436,10 @@ public class Astra {
           new DatasetMetadataStore(
               curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
 
+      PreprocessorMetadataStore preprocessorMetadataStore =
+          new PreprocessorMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
+
       final AstraConfigs.PreprocessorConfig preprocessorConfig =
           astraConfig.getPreprocessorConfig();
       final int serverPort = preprocessorConfig.getServerConfig().getServerPort();
@@ -449,13 +454,16 @@ public class Astra {
 
       services.add(
           new CloseableLifecycleManager(
-              AstraConfigs.NodeRole.PREPROCESSOR, List.of(datasetMetadataStore)));
+              AstraConfigs.NodeRole.PREPROCESSOR,
+              List.of(datasetMetadataStore, preprocessorMetadataStore)));
 
       BulkIngestKafkaProducer bulkIngestKafkaProducer =
           new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
       services.add(bulkIngestKafkaProducer);
+
       DatasetRateLimitingService datasetRateLimitingService =
-          new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
+          new DatasetRateLimitingService(
+              datasetMetadataStore, preprocessorMetadataStore, preprocessorConfig, meterRegistry);
       services.add(datasetRateLimitingService);
 
       Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();

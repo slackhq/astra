@@ -104,6 +104,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     if (cachedModeledFramework != null) {
       return cachedModeledFramework.withPath(zPath.resolved(path)).readThrough();
     }
+
     return modeledClient.withPath(zPath.resolved(path)).read();
   }
 
@@ -223,7 +224,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     cachedModeledFramework.listenable().removeListener(listenerMap.remove(watcher));
   }
 
-  private void awaitCacheInitialized() {
+  public void awaitCacheInitialized() {
     try {
       if (!cacheInitialized.await(zkConfig.getZkCacheInitTimeoutMs(), TimeUnit.MILLISECONDS)) {
         // in the event we deadlock, go ahead and time this out at 30s and restart the pod

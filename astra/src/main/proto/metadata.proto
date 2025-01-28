@@ -4,6 +4,10 @@ package slack.proto.astra;
 
 option java_package = "com.slack.astra.proto.metadata";
 
+message PreprocessorMetadata {
+  string name = 1;
+}
+
 message CacheSlotMetadata {
   enum CacheSlotState {
     FREE = 0;
@@ -168,6 +172,14 @@ message HpaMetricMetadata {
 
   // Value to report for this metric
   double value = 3;
+}
+
+// For cluster wide metadata, such as the number of operating preprocessors
+message AstraClusterMetadata {
+  string name = 1;
+
+  // The number of available/working preprocessors
+ int32 preprocessor_count = 2;
 }
 
 // Describes a set of partitions along with their effective start and end times

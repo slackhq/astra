@@ -20,6 +20,7 @@ import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.astra.metadata.preprocessor.PreprocessorMetadataStore;
 import com.slack.astra.preprocessor.PreprocessorRateLimiter;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
@@ -55,6 +56,7 @@ public class BulkIngestApiTest {
   private static AsyncCuratorFramework curatorFramework;
   private static AstraConfigs.PreprocessorConfig preprocessorConfig;
   private static DatasetMetadataStore datasetMetadataStore;
+  private static PreprocessorMetadataStore preprocessorMetadataStore;
   private static TestingServer zkServer;
   private static TestKafkaServer kafkaServer;
   private BulkIngestApi bulkApi;
@@ -102,6 +104,8 @@ public class BulkIngestApiTest {
             .setServerConfig(serverConfig)
             .setPreprocessorInstanceCount(1)
             .setRateLimiterMaxBurstSeconds(1)
+            .setDatasetRateLimitAggregationSecs(1)
+            .setDatasetRateLimitPeriodSecs(15)
             .build();
 
     datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
@@ -112,11 +116,15 @@ public class BulkIngestApiTest {
             1,
             List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0"))),
             INDEX_NAME);
+
     // Create an entry while init. Update the entry on every test run
     datasetMetadataStore.createSync(datasetMetadata);
 
+    preprocessorMetadataStore = new PreprocessorMetadataStore(curatorFramework, zkConfig, true);
+
     datasetRateLimitingService =
-        new DatasetRateLimitingService(datasetMetadataStore, preprocessorConfig, meterRegistry);
+        new DatasetRateLimitingService(
+            datasetMetadataStore, preprocessorMetadataStore, preprocessorConfig, meterRegistry);
 
     datasetRateLimitingService.startAsync();
 

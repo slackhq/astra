@@ -19,6 +19,111 @@ import org.junit.jupiter.api.Test;
 public class PreprocessorRateLimiterTest {
 
   @Test
+  public void dynamicallySetRateLimiterBasedOnPreprocessorCount() throws Exception {
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    int preprocessorCount = 2;
+    int maxBurstSeconds = 1;
+    boolean initializeWarm = false;
+    PreprocessorRateLimiter rateLimiter =
+        new PreprocessorRateLimiter(
+            meterRegistry, preprocessorCount, maxBurstSeconds, initializeWarm);
+
+    String name = "rateLimiter";
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(name).build())
+            .build();
+
+    // set the target so that we pass the first add, then fail the second
+    long targetThroughput = ((long) span.toByteArray().length * preprocessorCount) + 1;
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
+            name,
+            name,
+            targetThroughput,
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("0"))),
+            DatasetMetadata.MATCH_ALL_SERVICE);
+    BiPredicate<String, List<Trace.Span>> predicate =
+        rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata));
+
+    // try to get just below the scaled limit, then try to go over
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
+
+    // rate limit is targetThroughput per second, so 1 second should refill our limit
+    Thread.sleep(1000);
+
+    // try to get just below the scaled limit, then try to go over
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
+
+    assertThat(
+            meterRegistry
+                .get(RATE_LIMIT_BYTES)
+                .tag("service", datasetMetadata.getName())
+                .gauge()
+                .value())
+        .isEqualTo(targetThroughput);
+    assertThat(
+            meterRegistry
+                .get(MESSAGES_DROPPED)
+                .tag("reason", String.valueOf(PreprocessorRateLimiter.MessageDropReason.OVER_LIMIT))
+                .counter()
+                .count())
+        .isEqualTo(2);
+    assertThat(
+            meterRegistry
+                .get(BYTES_DROPPED)
+                .tag("reason", String.valueOf(PreprocessorRateLimiter.MessageDropReason.OVER_LIMIT))
+                .counter()
+                .count())
+        .isEqualTo(span.toByteArray().length * 2);
+
+    // Attempt to change the number of preprocessors and confirm it changes the rate limit
+    predicate = rateLimiter.createBulkIngestRateLimiter(List.of(datasetMetadata), 4);
+
+    // try to get just below the scaled limit, then try to go over
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
+
+    // rate limit is targetThroughput per second, but with the additional preprocessors, one second
+    // shouldn't refill
+    // our limit
+    Thread.sleep(1000);
+
+    // Confirm that this is still rate limited after waiting the previous amount
+    assertThat(predicate.test("key", List.of(span))).isFalse();
+
+    // Wait a bit longer to actually refill
+    Thread.sleep(1000);
+
+    assertThat(predicate.test("key", List.of(span))).isTrue();
+    assertThat(predicate.test("key", List.of(span))).isFalse();
+
+    assertThat(
+            meterRegistry
+                .get(RATE_LIMIT_BYTES)
+                .tag("service", datasetMetadata.getName())
+                .gauge()
+                .value())
+        .isEqualTo(targetThroughput);
+    assertThat(
+            meterRegistry
+                .get(MESSAGES_DROPPED)
+                .tag("reason", String.valueOf(PreprocessorRateLimiter.MessageDropReason.OVER_LIMIT))
+                .counter()
+                .count())
+        .isEqualTo(5);
+    assertThat(
+            meterRegistry
+                .get(BYTES_DROPPED)
+                .tag("reason", String.valueOf(PreprocessorRateLimiter.MessageDropReason.OVER_LIMIT))
+                .counter()
+                .count())
+        .isEqualTo(span.toByteArray().length * 5);
+  }
+
+  @Test
   public void shouldApplyScaledRateLimit() throws InterruptedException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     int preprocessorCount = 2;
