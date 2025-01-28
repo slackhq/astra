@@ -5,7 +5,7 @@ name: Tag Default Branch Commits with Nightly
 
 on:
   schedule:
-    - cron: "59 23 * * *"
+    - cron: "55 23 * * *"
 
 jobs:
   build:
@@ -25,10 +25,9 @@ jobs:
         script: |
           const { TAG_DATE } = process.env 
           
-          github.rest.git.updateRef({
+          github.rest.git.createRef({
             owner: context.repo.owner,
             repo: context.repo.repo,
             ref: `refs/tags/nightly-${TAG_DATE}`,
-            force: true,
             sha: context.sha
           })
