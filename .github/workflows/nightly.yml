@@ -1,12 +1,11 @@
-# This workflow will tag all commits to the default branch with 'nightly'
+# This workflow will create a 'nightly' tag once a day at midnight
 # For more information see: https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#update-a-reference
 
 name: Tag Default Branch Commits with Nightly
 
 on:
-  push:
-    branches:
-      - master
+  schedule:
+    - cron: "59 23 * * *"
 
 jobs:
   build:
@@ -15,14 +14,21 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Get current date
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
     - name: Update nigtly tag
       uses: actions/github-script@v5
+      env:
+        TAG_DATE: ${{ steps.date.outputs.date }}
       with:
         script: |
+          const { TAG_DATE } = process.env 
+          
           github.rest.git.updateRef({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            ref: 'refs/tags/nightly',
+            ref: `refs/tags/nightly-${TAG_DATE}`,
             force: true,
             sha: context.sha
           })
