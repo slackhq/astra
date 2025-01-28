@@ -1,0 +1,33 @@
+# This workflow will create a 'nightly' tag once a day at midnight
+# For more information see: https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#update-a-reference
+
+name: Tag Default Branch Commits with Nightly
+
+on:
+  schedule:
+    - cron: "55 23 * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 1
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Get current date
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+    - name: Update nigtly tag
+      uses: actions/github-script@v5
+      env:
+        TAG_DATE: ${{ steps.date.outputs.date }}
+      with:
+        script: |
+          const { TAG_DATE } = process.env 
+          
+          github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: `refs/tags/nightly-${TAG_DATE}`,
+            sha: context.sha
+          })
