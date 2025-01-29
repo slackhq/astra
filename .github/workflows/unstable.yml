@@ -24,7 +24,7 @@ jobs:
             github.rest.git.updateRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: 'refs/tags/unstable',
+              ref: 'tags/unstable',
               force: true,
               sha: context.sha
             })
