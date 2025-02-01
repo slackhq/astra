@@ -50,6 +50,7 @@ import org.opensearch.search.aggregations.metrics.ExtendedStatsAggregationBuilde
 import org.opensearch.search.aggregations.metrics.MaxAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.StatsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
@@ -260,6 +261,7 @@ public class OpenSearchAdapter {
     CardinalityAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ExtendedStatsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     PercentilesAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    StatsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
 
     // Filters are registered in a non-standard way

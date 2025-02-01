@@ -130,6 +130,9 @@ message IndexerConfig {
   // past the max_chunks_on_disk. Chunks will be deleted in an oldest
   // to newest order.
   int32 max_chunks_on_disk = 13;
+
+  // Path to the schema file in the local file system helps us iterate faster
+  string schema_file = 15;
 }
 
 // A config object containing all the lucene configs.

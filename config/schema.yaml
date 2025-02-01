@@ -1,0 +1,4 @@
+fields:
+  dropoff_datetime:
+    type: DATE
+    format: "yyyy-MM-dd HH:mm:ss"

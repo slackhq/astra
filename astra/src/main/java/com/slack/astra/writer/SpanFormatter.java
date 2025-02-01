@@ -6,6 +6,10 @@ import com.google.protobuf.Timestamp;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +43,8 @@ public class SpanFormatter {
         .build();
   }
 
-  public static Trace.KeyValue makeTraceKV(String key, Object value, Schema.SchemaFieldType type) {
+  public static Trace.KeyValue makeTraceKV(
+      String key, Object value, Schema.SchemaFieldType type, String format) {
     Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
     tagBuilder.setKey(key);
     try {
@@ -58,10 +63,18 @@ public class SpanFormatter {
         }
         case DATE -> {
           tagBuilder.setFieldType(Schema.SchemaFieldType.DATE);
-          tagBuilder.setVDate(parseDate(value.toString(), type));
+          String dateTime = value.toString();
+          if (format != null) {
+            DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern(format);
+            LocalDateTime localDateTime = LocalDateTime.parse(value.toString(), inputFormatter);
+            ZonedDateTime zonedDateTime = localDateTime.atZone(ZoneId.of("UTC"));
+            dateTime = DateTimeFormatter.ISO_INSTANT.format(zonedDateTime.toInstant());
+          }
+          // value should be of format: yyyy-mm-ddThh:mm:ss.SSSZ
+          tagBuilder.setVDate(parseDate(dateTime, type));
           // setting both for backward compatibility while deploying preprocessor and indexer
           // I however commented it while testing to make sure all tests use the new field
-          tagBuilder.setVInt64(Instant.parse(value.toString()).toEpochMilli());
+          tagBuilder.setVInt64(Instant.parse(dateTime).toEpochMilli());
         }
         case BOOLEAN -> {
           tagBuilder.setFieldType(Schema.SchemaFieldType.BOOLEAN);
@@ -122,7 +135,7 @@ public class SpanFormatter {
     if (schema.containsFields(key)) {
       List<Trace.KeyValue> tags = new ArrayList<>();
       Schema.SchemaField schemaFieldDef = schema.getFieldsMap().get(key);
-      tags.add(makeTraceKV(key, value, schemaFieldDef.getType()));
+      tags.add(makeTraceKV(key, value, schemaFieldDef.getType(), schemaFieldDef.getFormat()));
       for (Map.Entry<String, Schema.SchemaField> additionalField :
           schemaFieldDef.getFieldsMap().entrySet()) {
         // skip conditions
@@ -135,7 +148,8 @@ public class SpanFormatter {
             makeTraceKV(
                 String.format("%s.%s", key, additionalField.getKey()),
                 value,
-                additionalField.getValue().getType());
+                additionalField.getValue().getType(),
+                additionalField.getValue().getFormat());
         tags.add(additionalKV);
       }
       return tags;
@@ -165,7 +179,12 @@ public class SpanFormatter {
               .findFirst();
 
       if (defaultStringField.isPresent()) {
-        tags.add(makeTraceKV(key, value, defaultStringField.get().getMapping().getType()));
+        tags.add(
+            makeTraceKV(
+                key,
+                value,
+                defaultStringField.get().getMapping().getType(),
+                defaultStringField.get().getMapping().getFormat()));
         for (Map.Entry<String, Schema.SchemaField> additionalField :
             defaultStringField.get().getMapping().getFieldsMap().entrySet()) {
           // skip conditions
@@ -178,24 +197,25 @@ public class SpanFormatter {
               makeTraceKV(
                   String.format("%s.%s", key, additionalField.getKey()),
                   value,
-                  additionalField.getValue().getType());
+                  additionalField.getValue().getType(),
+                  additionalField.getValue().getFormat());
           tags.add(additionalKV);
         }
       } else {
-        tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.KEYWORD));
+        tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.KEYWORD, null));
       }
     } else if (value instanceof Boolean) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BOOLEAN));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BOOLEAN, null));
     } else if (value instanceof Integer) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.INTEGER));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.INTEGER, null));
     } else if (value instanceof Long) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.LONG));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.LONG, null));
     } else if (value instanceof Float) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.FLOAT));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.FLOAT, null));
     } else if (value instanceof Double) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.DOUBLE));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.DOUBLE, null));
     } else if (value != null) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BINARY));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BINARY, null));
     }
     return tags;
   }

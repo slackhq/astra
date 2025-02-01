@@ -22,6 +22,7 @@ message SchemaField {
   SchemaFieldType type = 2;
   map<string, SchemaField> fields = 3;
   int32 ignore_above = 4;
+  string format = 5;  // used just for Date format
 }
 
 // https://opensearch.org/docs/2.4/opensearch/supported-field-types/index/

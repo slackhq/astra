@@ -193,20 +193,21 @@ public class Astra {
           new ArmeriaService.Builder(serverPort, "astraIndex", meterRegistry)
               .withRequestTimeout(requestTimeout)
               .maxContentLength(2000000000)
+              .withAnnotatedService(new ElasticsearchApiService(searcher))
               .withTracing(astraConfig.getTracingConfig())
               .withGrpcService(searcher);
       //              .build();
-      //      Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
-      //      if (!preprocessorConfig.getSchemaFile().isEmpty()) {
-      //        LOG.info("Loading schema file: {}", preprocessorConfig.getSchemaFile());
-      Schema.IngestSchema schema = SchemaUtil.parseSchema(Path.of(""));
-      LOG.info(
-          "Loaded schema with fields count: {}, defaults count: {}",
-          schema.getFieldsCount(),
-          schema.getDefaultsCount());
-      //      } else {
-      //        LOG.info("No schema file provided, using default schema");
-      //      }
+      Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
+      if (!astraConfig.getIndexerConfig().getSchemaFile().isEmpty()) {
+        LOG.info("Loading schema file: {}", astraConfig.getIndexerConfig().getSchemaFile());
+        schema = SchemaUtil.parseSchema(Path.of(astraConfig.getIndexerConfig().getSchemaFile()));
+        LOG.info(
+            "Loaded schema with fields count: {}, defaults count: {}",
+            schema.getFieldsCount(),
+            schema.getDefaultsCount());
+      } else {
+        LOG.info("No schema file provided, using default schema");
+      }
       schema = ReservedFields.addPredefinedFields(schema);
       BulkLocalIngestApi localOpenSearchBulkApiService =
           new BulkLocalIngestApi(chunkManager, schema);
