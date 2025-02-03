@@ -28,7 +28,7 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.7.1</curator.version>
         <log4j.version>2.24.3</log4j.version>
-        <aws.sdk.version>2.30.6</aws.sdk.version>
+        <aws.sdk.version>2.30.11</aws.sdk.version>
         <error.prone.version>2.36.0</error.prone.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
     </properties>
