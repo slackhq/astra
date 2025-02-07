@@ -34,6 +34,8 @@ import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.schema.ChunkSchema;
+import com.slack.astra.metadata.schema.FieldType;
+import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.metadata.search.SearchMetadata;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
@@ -140,7 +142,7 @@ public class ReadOnlyChunkImplTest {
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, metadataStoreConfig, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, metadataStoreConfig, snapshotId, 0);
-    initializeBlobStorageWithIndex(snapshotId);
+    initializeBlobStorageWithIndex(snapshotId, false);
     initializeCacheNodeAssignment(
         cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
     initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, replicaSet, true);
@@ -465,7 +467,7 @@ public class ReadOnlyChunkImplTest {
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, metadataStoreConfig, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, metadataStoreConfig, snapshotId, 0);
-    initializeBlobStorageWithIndex(snapshotId);
+    initializeBlobStorageWithIndex(snapshotId, false);
     initializeCacheNodeAssignment(
         cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
     initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, "rep1", true);
@@ -592,7 +594,7 @@ public class ReadOnlyChunkImplTest {
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, metadataStoreConfig, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, metadataStoreConfig, snapshotId, 29);
-    initializeBlobStorageWithIndex(snapshotId);
+    initializeBlobStorageWithIndex(snapshotId, false);
     initializeCacheNodeAssignment(
         cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
     initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, "rep1", true);
@@ -676,6 +678,108 @@ public class ReadOnlyChunkImplTest {
     curatorFramework.unwrap().close();
   }
 
+  @Test
+  public void shouldEvictChunkOnAssignmentFailure() throws Exception {
+    AstraConfigs.AstraConfig AstraConfig = makeCacheConfig();
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(testingServer.getConnectString())
+                    .setZkPathPrefix("shouldEvictChunkOnAssignmentFailure")
+                    .setZkSessionTimeoutMs(1000)
+                    .setZkConnectionTimeoutMs(1000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
+            .build();
+
+    AsyncCuratorFramework curatorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+    CacheNodeAssignmentStore cacheNodeAssignmentStore =
+        new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry);
+    CacheNodeMetadataStore cacheNodeMetadataStore =
+        new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+
+    String replicaId = "foo";
+    String snapshotId = "boo";
+    String assignmentId = "dog";
+    String cacheNodeId = "baz";
+    String replicaSet = "cat";
+
+    // setup Zk, BlobFs so data can be loaded
+    initializeZkReplica(curatorFramework, metadataStoreConfig, replicaId, snapshotId);
+    initializeZkSnapshot(curatorFramework, metadataStoreConfig, snapshotId, 0);
+    initializeBlobStorageWithIndex(snapshotId, true);
+    initializeCacheNodeAssignment(
+        cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
+    initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, replicaSet, true);
+
+    SearchContext searchContext =
+        SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig());
+    ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
+        new ReadOnlyChunkImpl<>(
+            curatorFramework,
+            meterRegistry,
+            blobStore,
+            searchContext,
+            AstraConfig.getS3Config().getS3Bucket(),
+            AstraConfig.getCacheConfig().getDataDirectory(),
+            AstraConfig.getCacheConfig().getReplicaSet(),
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            searchMetadataStore,
+            cacheNodeAssignmentStore,
+            cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
+            snapshotMetadataStore.findSync(snapshotId),
+            cacheNodeMetadataStore);
+
+    // wait for chunk to register
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
+
+    assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
+
+    // The expected state transitions are:
+    // ASSIGNED -> LOADING (encounters manufactured error) -> EVICT -> EVICTING -> FREE
+    // The final state being FREE.
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
+
+    // Ensure that the search metadata was not registered
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(0);
+
+    // Verify eviction metrics were updated. We expect a successful eviction and a failed
+    // assignment.
+    assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful", "true").timer().count())
+        .isEqualTo(1);
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
+        .isEqualTo(1);
+
+    // verify that the directory has been cleaned up
+    try (var files = java.nio.file.Files.list(readOnlyChunk.getDataDirectory())) {
+      assertThat(files.findFirst().isPresent()).isFalse();
+    }
+
+    curatorFramework.unwrap().close();
+  }
+
   private void assignReplicaToChunk(
       CacheSlotMetadataStore cacheSlotMetadataStore,
       String replicaId,
@@ -728,7 +832,7 @@ public class ReadOnlyChunkImplTest {
             false));
   }
 
-  private void initializeBlobStorageWithIndex(String snapshotId) throws Exception {
+  private void initializeBlobStorageWithIndex(String snapshotId, boolean badData) throws Exception {
     LuceneIndexStoreImpl logStore =
         LuceneIndexStoreImpl.makeLogStore(
             Files.newTemporaryFolder(),
@@ -748,6 +852,15 @@ public class ReadOnlyChunkImplTest {
     // Create schema file to upload
     ChunkSchema chunkSchema =
         new ChunkSchema(snapshotId, logStore.getSchema(), new ConcurrentHashMap<>());
+
+    // Introduce bad data in the schema. Specifically, the key in the map should match the field
+    // name when the data is "good".
+    if (badData) {
+      chunkSchema.fieldDefMap.put(
+          "field_name",
+          new LuceneFieldDef(
+              "field_name_does_not_match", FieldType.INTEGER.name, true, true, true));
+    }
     File schemaFile = new File(dirPath + "/" + SCHEMA_FILE_NAME);
     ChunkSchema.serializeToFile(chunkSchema, schemaFile);
 
