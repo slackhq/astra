@@ -26,9 +26,9 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
   private final DatasetMetadataStore datasetMetadataStore;
   private final PreprocessorMetadataStore preprocessorMetadataStore;
   private final AstraMetadataStoreChangeListener<DatasetMetadata> datasetListener =
-      (_) -> runOneIteration();
+      (_) -> updateDatasetMetadataList();
   private final AstraMetadataStoreChangeListener<PreprocessorMetadata> preprocessorListener =
-      (_) -> runOneIteration();
+      (_) -> updatePreprocessorCount();
 
   private final PreprocessorRateLimiter rateLimiter;
   private ScheduledFuture<?> pendingTask;
@@ -40,6 +40,8 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
       "preprocessor_dataset_rate_limit_reload_timer";
   private final Timer rateLimitReloadtimer;
   private final AstraConfigs.PreprocessorConfig preprocessorConfig;
+
+  private int lastKnownPreprocessorCount;
 
   public DatasetRateLimitingService(
       DatasetMetadataStore datasetMetadataStore,
@@ -58,11 +60,12 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
             true);
 
     this.rateLimitReloadtimer = meterRegistry.timer(RATE_LIMIT_RELOAD_TIMER);
+    this.lastKnownPreprocessorCount = 1;
   }
 
-  private void updateRateLimiter() {
+  private void updatePreprocessorCount() {
     Timer.Sample sample = Timer.start(meterRegistry);
-    Integer preprocessorCountValue = 1;
+    int preprocessorCountValue = 1;
     try {
       List<PreprocessorMetadata> preprocessorMetadataList =
           this.preprocessorMetadataStore.listSync();
@@ -71,6 +74,13 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
       sample.stop(rateLimitReloadtimer);
       return;
     }
+
+    // Only recreate the rate limiter if we have to
+    if (preprocessorCountValue == lastKnownPreprocessorCount) {
+      return;
+    }
+
+    lastKnownPreprocessorCount = preprocessorCountValue;
 
     try {
       List<DatasetMetadata> datasetMetadataList = datasetMetadataStore.listSync();
@@ -83,12 +93,26 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
     }
   }
 
+  private void updateDatasetMetadataList() {
+    Timer.Sample sample = Timer.start(meterRegistry);
+
+    try {
+      List<DatasetMetadata> datasetMetadataList = datasetMetadataStore.listSync();
+
+      this.rateLimiterPredicate =
+          rateLimiter.createBulkIngestRateLimiter(datasetMetadataList, lastKnownPreprocessorCount);
+    } finally {
+      // TODO: re-work this so that we can add success/failure tags and capture them
+      sample.stop(rateLimitReloadtimer);
+    }
+  }
+
   @Override
   protected synchronized void runOneIteration() {
     if (pendingTask == null || pendingTask.getDelay(TimeUnit.SECONDS) <= 0) {
       pendingTask =
           executor.schedule(
-              this::updateRateLimiter,
+              this::updatePreprocessorCount,
               this.preprocessorConfig.getDatasetRateLimitAggregationSecs(),
               TimeUnit.SECONDS);
     }
