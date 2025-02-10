@@ -76,7 +76,7 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
     }
 
     // Only recreate the rate limiter if we have to
-    if (preprocessorCountValue == lastKnownPreprocessorCount) {
+    if (preprocessorCountValue == lastKnownPreprocessorCount && rateLimiterPredicate != null) {
       return;
     }
 
