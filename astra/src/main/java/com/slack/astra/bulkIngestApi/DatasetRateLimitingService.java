@@ -120,6 +120,8 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
 
   @Override
   protected void startUp() throws Exception {
+    updateDatasetMetadataList();
+
     datasetMetadataStore.addListener(datasetListener);
     this.preprocessorMetadataStore.addListener(preprocessorListener);
 
