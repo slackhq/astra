@@ -29,27 +29,27 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
     this.delegate = delegate;
 
     Map<String, FieldRedactionMetadata> fieldRedactionsMap = new HashMap<>();
-    fieldRedactionMetadataStore
-        .listSync()
-        .forEach(
-            redaction -> {
-              fieldRedactionsMap.put(redaction.getName(), redaction);
-            });
+//    fieldRedactionMetadataStore
+//        .listSync()
+//        .forEach(
+//            redaction -> {
+//              fieldRedactionsMap.put(redaction.getName(), redaction);
+//            });
 
     // TODO - do we need the listener at all if we listsync at the field level anyway?
-    AstraMetadataStoreChangeListener<FieldRedactionMetadata> listener =
-        new AstraMetadataStoreChangeListener() {
-          @Override
-          public void onMetadataStoreChanged(Object model) {
-            fieldRedactionMetadataStore
-                .listSync()
-                .forEach(
-                    redaction -> {
-                      fieldRedactionsMap.put(redaction.getName(), redaction);
-                    });
-          }
-        };
-    fieldRedactionMetadataStore.addListener(listener);
+//    AstraMetadataStoreChangeListener<FieldRedactionMetadata> listener =
+//        new AstraMetadataStoreChangeListener() {
+//          @Override
+//          public void onMetadataStoreChanged(Object model) {
+//            fieldRedactionMetadataStore
+//                .listSync()
+//                .forEach(
+//                    redaction -> {
+//                      fieldRedactionsMap.put(redaction.getName(), redaction);
+//                    });
+//          }
+//        };
+//    fieldRedactionMetadataStore.addListener(listener);
     this.fieldRedactionsMap = fieldRedactionsMap;
   }
 
