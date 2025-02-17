@@ -6,7 +6,6 @@
 [![All Contributors](https://img.shields.io/github/all-contributors/slackhq/astra?color=ee8449)](#contributors)
 
 
-
 Astra is a cloud-native search and analytics engine for log, trace, and audit data. It is designed to be easy to operate, 
 cost-effective, and scale to petabytes of data.
 
