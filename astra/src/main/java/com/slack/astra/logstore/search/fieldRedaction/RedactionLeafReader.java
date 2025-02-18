@@ -1,7 +1,9 @@
 package com.slack.astra.logstore.search.fieldRedaction;
 
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import java.io.IOException;
+import java.util.HashMap;
+
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.SortedDocValues;
@@ -14,12 +16,12 @@ import org.opensearch.common.lucene.index.SequentialStoredFieldsLeafReader;
  * RedactionStoredFieldVisitor to read in the individual fields.
  */
 class RedactionLeafReader extends SequentialStoredFieldsLeafReader {
-  private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
+  private final HashMap<String, FieldRedactionMetadata> fieldRedactionsMap;
 
   public RedactionLeafReader(
-      LeafReader in, FieldRedactionMetadataStore fieldRedactionMetadataStore) {
+      LeafReader in, HashMap<String, FieldRedactionMetadata> fieldRedactionsMap) {
     super(in);
-    this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
+    this.fieldRedactionsMap = fieldRedactionsMap;
   }
 
   @Override
@@ -35,13 +37,13 @@ class RedactionLeafReader extends SequentialStoredFieldsLeafReader {
   // RedactionStoredFieldVisitor can be called here or in the RedactedFieldReader
   @Override
   public void document(int docID, StoredFieldVisitor visitor) throws IOException {
-    visitor = new RedactionStoredFieldVisitor(visitor, fieldRedactionMetadataStore);
+    visitor = new RedactionStoredFieldVisitor(visitor, fieldRedactionsMap);
     in.document(docID, visitor);
   }
 
   @Override
   protected StoredFieldsReader doGetSequentialStoredFieldsReader(StoredFieldsReader reader) {
-    return new RedactedFieldReader(reader, fieldRedactionMetadataStore);
+    return new RedactedFieldReader(reader, fieldRedactionsMap);
   }
 
   @Override
