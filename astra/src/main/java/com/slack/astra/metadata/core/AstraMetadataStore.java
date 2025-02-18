@@ -203,6 +203,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     if (cachedModeledFramework == null) {
       throw new UnsupportedOperationException("Caching is disabled");
     }
+    awaitCacheInitialized();
 
     // this mapping exists because the remove is by reference, and the listener is a different
     // object type
@@ -239,19 +240,20 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private ModeledCacheListener<T> getCacheInitializedListener() {
     return new ModeledCacheListener<T>() {
-      private volatile boolean isInitialized;
+//      private volatile boolean isInitialized;
+
       @Override
       public void accept(Type type, ZPath path, Stat stat, T model) {
         // no-op
-        if (isInitialized) {
-          this.accept(type, path, stat, model);
-        }
+//        if (isInitialized) {
+//          this.accept(type, path, stat, model);
+//        }
       }
 
       @Override
       public void initialized() {
         ModeledCacheListener.super.initialized();
-        isInitialized = true;
+//        isInitialized = true;
         cacheInitialized.countDown();
 
         // after it's initialized, we no longer need the listener or executor
