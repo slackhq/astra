@@ -1,6 +1,5 @@
 package com.slack.astra.logstore.search.fieldRedaction;
 
-import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import org.apache.lucene.index.FilterDirectoryReader;
@@ -24,20 +23,6 @@ class RedactionSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
                       fieldRedactionsMap.put(redaction.getName(), redaction);
                     });
 
-    //TODO what is this listener for here?
-    AstraMetadataStoreChangeListener<FieldRedactionMetadata> listener =
-            new AstraMetadataStoreChangeListener() {
-              @Override
-              public void onMetadataStoreChanged(Object model) {
-                fieldRedactionMetadataStore
-                        .listSync()
-                        .forEach(
-                                redaction -> {
-                                  fieldRedactionsMap.put(redaction.getName(), redaction);
-                                });
-              }
-            };
-    fieldRedactionMetadataStore.addListener(listener);
   }
 
   @Override

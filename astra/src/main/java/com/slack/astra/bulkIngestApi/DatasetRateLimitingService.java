@@ -129,7 +129,7 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
     // adding the metadata to the store. If we don't, then we end up
     // clobbering the ZK init event, which prevents a listSync from
     // ever being called
-//    this.preprocessorMetadataStore.awaitCacheInitialized();
+    this.preprocessorMetadataStore.awaitCacheInitialized();
     this.preprocessorMetadataStore.createSync(new PreprocessorMetadata());
   }
 
