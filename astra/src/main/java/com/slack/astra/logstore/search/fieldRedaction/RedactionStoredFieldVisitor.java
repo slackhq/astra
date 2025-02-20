@@ -3,9 +3,7 @@ package com.slack.astra.logstore.search.fieldRedaction;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slack.astra.logstore.LogMessage;
-import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
@@ -24,7 +22,8 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
   private final String redactedValue = "REDACTED";
 
   public RedactionStoredFieldVisitor(
-      final StoredFieldVisitor delegate, HashMap<String, FieldRedactionMetadata> fieldRedactionsMap) {
+      final StoredFieldVisitor delegate,
+      HashMap<String, FieldRedactionMetadata> fieldRedactionsMap) {
     super();
     this.delegate = delegate;
     this.fieldRedactionsMap = fieldRedactionsMap;

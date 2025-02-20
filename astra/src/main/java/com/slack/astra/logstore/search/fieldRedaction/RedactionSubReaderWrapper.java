@@ -2,10 +2,9 @@ package com.slack.astra.logstore.search.fieldRedaction;
 
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
+import java.util.HashMap;
 import org.apache.lucene.index.FilterDirectoryReader;
 import org.apache.lucene.index.LeafReader;
-
-import java.util.HashMap;
 
 /**
  * RedactionSubReaderWrapper is called by the RedactionFilterDirectoryReader as a wrapper to the
@@ -18,11 +17,11 @@ class RedactionSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
     this.fieldRedactionsMap = new HashMap<>();
     if (fieldRedactionMetadataStore != null) {
       fieldRedactionMetadataStore
-              .listSync()
-              .forEach(
-                      redaction -> {
-                        fieldRedactionsMap.put(redaction.getName(), redaction);
-                      });
+          .listSync()
+          .forEach(
+              redaction -> {
+                fieldRedactionsMap.put(redaction.getName(), redaction);
+              });
     }
   }
 

@@ -3,7 +3,6 @@ package com.slack.astra.logstore.search.fieldRedaction;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import java.io.IOException;
 import java.util.HashMap;
-
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.SortedDocValues;
