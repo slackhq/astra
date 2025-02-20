@@ -1,6 +1,8 @@
 package com.slack.astra.logstore.search.fieldRedaction;
 
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
+import java.util.HashMap;
 import org.apache.lucene.index.FilterDirectoryReader;
 import org.apache.lucene.index.LeafReader;
 
@@ -9,14 +11,22 @@ import org.apache.lucene.index.LeafReader;
  * reader, and creates a RedactionLeafReader.
  */
 class RedactionSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
-  private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
+  private final HashMap<String, FieldRedactionMetadata> fieldRedactionsMap;
 
   public RedactionSubReaderWrapper(FieldRedactionMetadataStore fieldRedactionMetadataStore) {
-    this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
+    this.fieldRedactionsMap = new HashMap<>();
+    if (fieldRedactionMetadataStore != null) {
+      fieldRedactionMetadataStore
+          .listSync()
+          .forEach(
+              redaction -> {
+                fieldRedactionsMap.put(redaction.getName(), redaction);
+              });
+    }
   }
 
   @Override
   public LeafReader wrap(LeafReader reader) {
-    return new RedactionLeafReader(reader, this.fieldRedactionMetadataStore);
+    return new RedactionLeafReader(reader, this.fieldRedactionsMap);
   }
 }

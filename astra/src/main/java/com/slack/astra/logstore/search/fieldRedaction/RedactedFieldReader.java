@@ -1,7 +1,8 @@
 package com.slack.astra.logstore.search.fieldRedaction;
 
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
+import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import java.io.IOException;
+import java.util.HashMap;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.StoredFieldVisitor;
 
@@ -13,17 +14,17 @@ import org.apache.lucene.index.StoredFieldVisitor;
 class RedactedFieldReader extends StoredFieldsReader {
 
   private final StoredFieldsReader in;
-  private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
+  private final HashMap<String, FieldRedactionMetadata> fieldRedactionsMap;
 
   public RedactedFieldReader(
-      StoredFieldsReader in, FieldRedactionMetadataStore fieldRedactionMetadataStore) {
+      StoredFieldsReader in, HashMap<String, FieldRedactionMetadata> fieldRedactionsMap) {
     this.in = in;
-    this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
+    this.fieldRedactionsMap = fieldRedactionsMap;
   }
 
   @Override
   public StoredFieldsReader clone() {
-    return new RedactedFieldReader(in, fieldRedactionMetadataStore);
+    return new RedactedFieldReader(in, fieldRedactionsMap);
   }
 
   @Override
@@ -38,7 +39,7 @@ class RedactedFieldReader extends StoredFieldsReader {
 
   @Override
   public void document(int docID, StoredFieldVisitor visitor) throws IOException {
-    visitor = new RedactionStoredFieldVisitor(visitor, fieldRedactionMetadataStore);
+    visitor = new RedactionStoredFieldVisitor(visitor, fieldRedactionsMap);
     in.document(docID, visitor);
   }
 }
