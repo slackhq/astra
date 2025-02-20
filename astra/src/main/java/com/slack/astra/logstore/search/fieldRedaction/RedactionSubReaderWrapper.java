@@ -16,13 +16,14 @@ class RedactionSubReaderWrapper extends FilterDirectoryReader.SubReaderWrapper {
 
   public RedactionSubReaderWrapper(FieldRedactionMetadataStore fieldRedactionMetadataStore) {
     this.fieldRedactionsMap = new HashMap<>();
-    fieldRedactionMetadataStore
-            .listSync()
-            .forEach(
-                    redaction -> {
-                      fieldRedactionsMap.put(redaction.getName(), redaction);
-                    });
-
+    if (fieldRedactionMetadataStore != null) {
+      fieldRedactionMetadataStore
+              .listSync()
+              .forEach(
+                      redaction -> {
+                        fieldRedactionsMap.put(redaction.getName(), redaction);
+                      });
+    }
   }
 
   @Override
