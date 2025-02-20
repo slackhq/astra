@@ -249,6 +249,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
         ModeledCacheListener.super.initialized();
         cacheInitialized.countDown();
 
+        // after it's initialized, we no longer need the listener or executor
         if (cachedModeledFramework != null) {
           cachedModeledFramework.listenable().removeListener(initializedListener);
         }
