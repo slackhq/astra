@@ -110,20 +110,9 @@ public class LogIndexSearcherImplTest {
       long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
       long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
 
-      //      await()
-      //              .until(
-      //                      () ->
-      //
-      // AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 0);
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
           new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
-
-      //      await()
-      //              .until(
-      //                      () ->
-      //
-      // AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -152,6 +141,12 @@ public class LogIndexSearcherImplTest {
       // was created and redaction still did not work
       fieldRedactionMetadataStore.createSync(
           new FieldRedactionMetadata(redactionName, fieldName, start, end));
+
+            await()
+                    .until(
+                            () ->
+
+       AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
       List<LogMessage> messages =
           featureFlagEnabledStrictLogStore.logSearcher.search(
