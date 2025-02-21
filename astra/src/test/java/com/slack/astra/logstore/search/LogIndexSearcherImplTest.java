@@ -136,17 +136,15 @@ public class LogIndexSearcherImplTest {
               .build();
 
       // add redaction between log being added and searched to test that the redaction map gets
-      // updated
-      // a previous change passed this test when the redaction was added before the DirectoryReader
-      // was created and redaction still did not work
+      // updated a previous change passed this test when the redaction was added before the
+      // DirectoryReade rwas created and redaction still did not work
       fieldRedactionMetadataStore.createSync(
           new FieldRedactionMetadata(redactionName, fieldName, start, end));
 
-            await()
-                    .until(
-                            () ->
-
-       AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
       List<LogMessage> messages =
           featureFlagEnabledStrictLogStore.logSearcher.search(
