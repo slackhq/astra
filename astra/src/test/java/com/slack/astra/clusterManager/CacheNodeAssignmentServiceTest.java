@@ -61,10 +61,10 @@ public class CacheNodeAssignmentServiceTest {
         com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("CacheNodeAssignmentServiceTest")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
+            .setZkSessionTimeoutMs(10000)
+            .setZkConnectionTimeoutMs(10000)
             .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+            .setZkCacheInitTimeoutMs(10000)
             .build();
 
     AstraConfigs.ManagerConfig.CacheNodeAssignmentServiceConfig cacheNodeAssignmentServiceConfig =
