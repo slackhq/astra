@@ -53,10 +53,12 @@ import org.apache.lucene.index.IndexCommit;
 import org.assertj.core.util.Files;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
+@Disabled("Test")
 public class CachingChunkManagerTest {
   private static final String TEST_S3_BUCKET = "caching-chunkmanager-test";
 

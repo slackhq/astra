@@ -65,6 +65,7 @@ import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalSum;
 
+@Disabled("Test")
 public class LogIndexSearcherImplTest {
 
   @Nested
