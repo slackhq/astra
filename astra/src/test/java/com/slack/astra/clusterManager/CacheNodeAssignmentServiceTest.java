@@ -38,10 +38,8 @@ import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-@Disabled("Test")
 public class CacheNodeAssignmentServiceTest {
 
   private TestingServer testingServer;
@@ -63,10 +61,10 @@ public class CacheNodeAssignmentServiceTest {
         com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("CacheNodeAssignmentServiceTest")
-            .setZkSessionTimeoutMs(10000)
-            .setZkConnectionTimeoutMs(10000)
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(10000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     AstraConfigs.ManagerConfig.CacheNodeAssignmentServiceConfig cacheNodeAssignmentServiceConfig =

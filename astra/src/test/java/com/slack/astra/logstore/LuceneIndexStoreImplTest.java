@@ -64,7 +64,6 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
-// @Disabled("Test")
 @SuppressWarnings("unused")
 public class LuceneIndexStoreImplTest {
 

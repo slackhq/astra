@@ -87,14 +87,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public CompletionStage<String> createAsync(T metadataNode) {
     // by passing the version 0, this will throw if we attempt to create and it already exists
-    try {
-      return modeledClient.set(metadataNode, 0);
-    } catch (Exception e) {
-      System.out.printf(
-          "ENCOUNTERED ERROR WHILE DOING CREATEASYNC FOR storeFolder: %s WITH zPath: %s\n",
-          this.storeFolder, this.zPath);
-      throw new RuntimeException(e);
-    }
+    return modeledClient.set(metadataNode, 0);
   }
 
   public void createSync(T metadataNode) {
