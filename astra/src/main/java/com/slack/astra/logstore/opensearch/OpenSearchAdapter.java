@@ -550,7 +550,11 @@ public class OpenSearchAdapter {
             new CompressedXContent(BytesReference.bytes(mapping)),
             MapperService.MergeReason.MAPPING_UPDATE);
       } catch (Exception e) {
-        LOG.error("Error doing map update errorMsg={}", e.getMessage());
+        LOG.warn(
+            "Error doing map update which affects aggregation failure for field={} errorMsg={} exception={}",
+            fieldName,
+            e.getMessage(),
+            e.getStackTrace());
       }
       return true;
     }

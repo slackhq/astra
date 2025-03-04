@@ -224,4 +224,17 @@ public class SpanUtil {
     }
     return result;
   }
+
+  public static Trace.Span makeSpansCustomKeywordTags(String key, String value, int spanNumber) {
+
+    List<Trace.KeyValue> tags = new ArrayList<>();
+    tags.add(
+        Trace.KeyValue.newBuilder()
+            .setKey(key)
+            .setFieldType(Schema.SchemaFieldType.KEYWORD)
+            .setVStr(value)
+            .build());
+
+    return makeSpan(spanNumber, String.format("test message %s", spanNumber), Instant.now(), tags);
+  }
 }
