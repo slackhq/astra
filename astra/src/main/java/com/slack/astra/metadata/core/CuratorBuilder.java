@@ -69,7 +69,7 @@ public class CuratorBuilder {
         .getCuratorListenable()
         .addListener(
             (listener, curatorEvent) -> {
-                System.out.println(zkConfig.getZkPathPrefix());
+              System.out.println(zkConfig.getZkPathPrefix());
               if (curatorEvent.getType() == CuratorEventType.WATCHED
                   && curatorEvent.getWatchedEvent().getState()
                       == Watcher.Event.KeeperState.Expired) {

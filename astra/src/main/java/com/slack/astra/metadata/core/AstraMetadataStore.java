@@ -90,7 +90,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     try {
       return modeledClient.set(metadataNode, 0);
     } catch (Exception e) {
-      System.out.printf("ENCOUNTERED ERROR WHILE DOING CREATEASYNC FOR storeFolder: %s WITH zPath: %s\n", this.storeFolder, this.zPath);
+      System.out.printf(
+          "ENCOUNTERED ERROR WHILE DOING CREATEASYNC FOR storeFolder: %s WITH zPath: %s\n",
+          this.storeFolder, this.zPath);
       throw new RuntimeException(e);
     }
   }
