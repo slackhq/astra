@@ -154,8 +154,13 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
         commitInterval, refreshInterval, tempFolder.getCanonicalPath(), false);
   }
 
+  // Provide a helper to automatically close everything for folks after each test run
   @Override
   public void afterEach(ExtensionContext context) throws Exception {
+    this.closeAll();
+  }
+
+  public void closeAll() throws Exception {
     if (logStore != null) {
       logStore.close();
     }
