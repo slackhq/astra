@@ -68,13 +68,12 @@ import org.opensearch.search.aggregations.metrics.InternalSum;
 public class LogIndexSearcherImplTest {
 
   @Nested
-//  @Disabled("Test")
+  //  @Disabled("Test")
   public class RedactionTests {
     private FieldRedactionMetadataStore fieldRedactionMetadataStore;
     private TestingServer testingServer;
     private MeterRegistry meterRegistry;
     private AsyncCuratorFramework curatorFramework;
-
 
     @BeforeEach
     public void setup() throws Exception {
@@ -82,14 +81,15 @@ public class LogIndexSearcherImplTest {
 
       testingServer = new TestingServer();
       meterRegistry = new SimpleMeterRegistry();
-      AstraConfigs.ZookeeperConfig zkConfig = AstraConfigs.ZookeeperConfig.newBuilder()
+      AstraConfigs.ZookeeperConfig zkConfig =
+          AstraConfigs.ZookeeperConfig.newBuilder()
               .setZkConnectString(testingServer.getConnectString())
               .setZkPathPrefix("test")
               .setZkSessionTimeoutMs(Integer.MAX_VALUE)
               .setZkConnectionTimeoutMs(Integer.MAX_VALUE)
               .setSleepBetweenRetriesMs(1000)
               .build();
-      curatorFramework =  CuratorBuilder.build(meterRegistry, zkConfig);
+      curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
       fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
     }
