@@ -71,11 +71,15 @@ public class LogIndexSearcherImplTest {
   public class RedactionTests {
     private FieldRedactionMetadataStore fieldRedactionMetadataStore;
     private TestingServer testingServer;
+    private MeterRegistry meterRegistry;
+    private AsyncCuratorFramework curatorFramework;
 
     @BeforeEach
     public void setup() throws Exception {
       // setup ZK and redaction metadata store for field redaction testing
+
       testingServer = new TestingServer();
+      meterRegistry = new SimpleMeterRegistry();
       AstraConfigs.ZookeeperConfig zkConfig =
           AstraConfigs.ZookeeperConfig.newBuilder()
               .setZkConnectString(testingServer.getConnectString())
@@ -84,10 +88,7 @@ public class LogIndexSearcherImplTest {
               .setZkConnectionTimeoutMs(Integer.MAX_VALUE)
               .setSleepBetweenRetriesMs(1000)
               .build();
-
-      MeterRegistry meterRegistry = new SimpleMeterRegistry();
-      AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-
+      curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
       fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
     }
@@ -95,6 +96,9 @@ public class LogIndexSearcherImplTest {
     @AfterEach
     public void teardown() throws IOException {
       testingServer.close();
+      fieldRedactionMetadataStore.close();
+      curatorFramework.unwrap().close();
+      meterRegistry.close();
     }
 
     @Test
@@ -151,6 +155,7 @@ public class LogIndexSearcherImplTest {
       assertThat(messages.get(0).getSource()).hasSize(1);
       assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
       assertThat(messages.get(0).getSource().get("message")).isEqualTo("REDACTED");
+      featureFlagEnabledStrictLogStore.closeAll();
     }
 
     @Test
@@ -207,6 +212,7 @@ public class LogIndexSearcherImplTest {
       assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
       assertThat(messages.get(0).getSource().get("message"))
           .isEqualTo("The identifier in this message is Message1");
+      featureFlagEnabledStrictLogStore.closeAll();
     }
 
     @Test
@@ -266,6 +272,8 @@ public class LogIndexSearcherImplTest {
           .isEqualTo("The identifier in this message is Message1");
       assertThat(messages.get(1).getSource().containsKey("message")).isTrue();
       assertThat(messages.get(1).getSource().get("message")).isEqualTo("REDACTED");
+
+      featureFlagEnabledStrictLogStore.closeAll();
     }
 
     @Test
@@ -322,6 +330,8 @@ public class LogIndexSearcherImplTest {
       assertThat(messages.get(0).getSource().get("message")).isEqualTo("REDACTED");
       assertThat(messages.get(0).getSource().containsKey("binaryproperty")).isTrue();
       assertThat(messages.get(0).getSource().get("binaryproperty")).isEqualTo("REDACTED");
+
+      featureFlagEnabledStrictLogStore.closeAll();
     }
 
     @Test
@@ -375,10 +385,12 @@ public class LogIndexSearcherImplTest {
       assertThat(messages.get(0).getSource()).hasSize(1);
       assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
       assertThat(messages.get(0).getSource().get("message")).isEqualTo("REDACTED");
+
+      featureFlagEnabledStrictLogStore.closeAll();
     }
 
     @Test
-    public void testRedactionWithFilterAggregations() throws IOException {
+    public void testRedactionWithFilterAggregations() throws Exception {
       Instant time = Instant.now();
       long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
       long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
@@ -447,6 +459,8 @@ public class LogIndexSearcherImplTest {
       assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(0).getKey())
           .isNotEqualTo(
               ((InternalFilters) scriptNull.internalAggregation).getBuckets().get(1).getKey());
+
+      featureFlagEnabledStrictLogStore.closeAll();
     }
   }
 
