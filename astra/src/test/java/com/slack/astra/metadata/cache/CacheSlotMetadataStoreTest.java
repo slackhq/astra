@@ -52,6 +52,7 @@ public class CacheSlotMetadataStoreTest {
     curatorFramework.unwrap().close();
     testingServer.close();
     meterRegistry.close();
+    this.store.close();
   }
 
   @Test
