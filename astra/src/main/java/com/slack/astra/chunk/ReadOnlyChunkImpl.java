@@ -304,7 +304,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       // disregarding any errors
       setAssignmentState(
           getCacheNodeAssignment(), Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
-      LOG.error("Error handling chunk assignment", e);
+      LOG.error("Error handling chunk assignment while downloadingChunk for snapshot name '{}' and id '{}' and chunkID: '{}': {}", snapshotMetadata.name, snapshotMetadata.snapshotId, chunkInfo.chunkId, e);
       assignmentTimer.stop(chunkAssignmentTimerFailure);
     } finally {
       chunkAssignmentLock.unlock();
@@ -446,7 +446,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       // if any error occurs during the chunk assignment, try to release the slot for re-assignment,
       // disregarding any errors
       setChunkMetadataState(cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.FREE);
-      LOG.error("Error handling chunk assignment", e);
+      LOG.error("Error handling chunk assignment while handlingChunkAssignment for snapshot name '{}' and id '{}' and chunkID: '{}': {}", snapshotMetadata.name, snapshotMetadata.snapshotId, chunkInfo.chunkId, e);
       assignmentTimer.stop(chunkAssignmentTimerFailure);
     } finally {
       chunkAssignmentLock.unlock();
