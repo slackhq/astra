@@ -232,6 +232,12 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                       replicaMetadata.expireAfterEpochMs > nowMilli
                           && !assignedReplicaIds.contains(replicaMetadata.name)
                           && replicaMetadata.getReplicaSet().equals(replicaSet))
+                  // REMOVEME: After the clusters are back in a good state we should be able to remove this
+                  .filter(replicaMetadata -> {
+                    Instant sevenDaysAgo = Instant.now().minusSeconds(7 * 60 * 60 * 24);
+                    return replicaMetadata.createdTimeEpochMs + sevenDaysAgo.toEpochMilli() <= nowMilli;
+                  })
+                  // REMOVEME: After the clusters are back in a good state we should be able to remove this
               // sort the list by the newest replicas first, in case we run out of available slots
               .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs).reversed())
               .map(replicaMetadata -> replicaMetadata.name)
