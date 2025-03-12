@@ -87,6 +87,7 @@ public class LogIndexSearcherImplTest {
               .setZkSessionTimeoutMs(Integer.MAX_VALUE)
               .setZkConnectionTimeoutMs(Integer.MAX_VALUE)
               .setSleepBetweenRetriesMs(1000)
+              .setZkCacheInitTimeoutMs(1000)
               .build();
       curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
       fieldRedactionMetadataStore =
@@ -108,14 +109,6 @@ public class LogIndexSearcherImplTest {
       String fieldName = "message";
       long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
       long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
-
-      fieldRedactionMetadataStore.createSync(
-          new FieldRedactionMetadata(redactionName, fieldName, start, end));
-
-      await()
-          .until(
-              () ->
-                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
@@ -141,6 +134,18 @@ public class LogIndexSearcherImplTest {
           AstraSearch.SearchRequest.SourceFieldFilter.newBuilder()
               .putIncludeFields("message", true)
               .build();
+
+      // add redaction between log being added and searched to test that the redaction map gets
+      // updated
+      // a previous change passed this test when the redaction was added before the
+      // DirectoryReader was created and redaction still did not work
+      fieldRedactionMetadataStore.createSync(
+          new FieldRedactionMetadata(redactionName, fieldName, start, end));
+
+      await()
+          .until(
+              () ->
+                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
       List<LogMessage> messages =
           featureFlagEnabledStrictLogStore.logSearcher.search(
