@@ -18,7 +18,7 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.6</protobuf.version>
-        <grpc.version>1.70.0</grpc.version>
+        <grpc.version>1.71.0</grpc.version>
         <micrometer.version>1.14.4</micrometer.version>
         <armeria.version>1.27.3</armeria.version>
         <kafka.version>3.5.0</kafka.version>
@@ -26,9 +26,9 @@
         <jackson.databind.version>2.18.3</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.1</opensearch.version>
-        <curator.version>5.7.1</curator.version>
+        <curator.version>5.8.0</curator.version>
         <log4j.version>2.24.3</log4j.version>
-        <aws.sdk.version>2.30.33</aws.sdk.version>
+        <aws.sdk.version>2.30.37</aws.sdk.version>
         <error.prone.version>2.36.0</error.prone.version>
         <junit.jupiter.version>5.12.0</junit.jupiter.version>
     </properties>
@@ -349,7 +349,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.35.0</version>
+            <version>0.36.1</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -410,7 +410,7 @@
         <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
-            <version>4.2.2</version>
+            <version>4.3.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -437,7 +437,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.15.2</version>
+            <version>5.16.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -450,7 +450,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.17.1</version>
+            <version>1.17.2</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
