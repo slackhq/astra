@@ -17,6 +17,8 @@ import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
+import com.slack.astra.metadata.snapshot.SnapshotMetadata;
+import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import io.micrometer.core.instrument.Counter;
@@ -51,6 +53,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
 
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final ReplicaMetadataStore replicaMetadataStore;
+  private final SnapshotMetadataStore snapshotMetadataStore;
   private final AstraConfigs.ManagerConfig managerConfig;
   private final MeterRegistry meterRegistry;
 
@@ -86,10 +89,12 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
   public ReplicaAssignmentService(
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
+      SnapshotMetadataStore snapshotMetadataStore,
       AstraConfigs.ManagerConfig managerConfig,
       MeterRegistry meterRegistry) {
     this.cacheSlotMetadataStore = cacheSlotMetadataStore;
     this.replicaMetadataStore = replicaMetadataStore;
+    this.snapshotMetadataStore = snapshotMetadataStore;
     this.managerConfig = managerConfig;
     this.meterRegistry = meterRegistry;
 
@@ -224,6 +229,12 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
               .collect(Collectors.toUnmodifiableSet());
 
       long nowMilli = Instant.now().toEpochMilli();
+      Set<String> expiredSnapshotIds = this.snapshotMetadataStore.listSync().stream()
+              .filter(
+                      snapshotMetadata -> snapshotMetadata.endTimeEpochMs <= nowMilli
+              ).map(SnapshotMetadata::getName)
+              .collect(Collectors.toUnmodifiableSet());
+
       List<String> replicaIdsToAssign =
           replicaMetadataStore.listSync().stream()
               // only assign replicas that are not expired, and not already assigned
@@ -233,10 +244,11 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                           && !assignedReplicaIds.contains(replicaMetadata.name)
                           && replicaMetadata.getReplicaSet().equals(replicaSet))
                   // REMOVEME: After the clusters are back in a good state we should be able to remove this
-                  .filter(replicaMetadata -> {
-                    Instant sevenDaysAgo = Instant.now().minusSeconds(5 * 60 * 60 * 24);
-                    return replicaMetadata.createdTimeEpochMs >= sevenDaysAgo.toEpochMilli();
-                  })
+//                  .filter(replicaMetadata -> {
+//                    Instant sevenDaysAgo = Instant.now().minusSeconds(5 * 60 * 60 * 24);
+//                    return replicaMetadata.createdTimeEpochMs >= sevenDaysAgo.toEpochMilli();
+//                  })
+                  .filter(replicaMetadata -> !expiredSnapshotIds.contains(replicaMetadata.snapshotId))
                   // REMOVEME: After the clusters are back in a good state we should be able to remove this
               // sort the list by the newest replicas first, in case we run out of available slots
               .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs).reversed())

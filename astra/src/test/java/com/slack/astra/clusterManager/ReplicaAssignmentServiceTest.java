@@ -19,6 +19,7 @@ import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
+import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.MetricsUtil;
@@ -51,6 +52,7 @@ public class ReplicaAssignmentServiceTest {
   private AsyncCuratorFramework curatorFramework;
   private CacheSlotMetadataStore cacheSlotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -71,12 +73,14 @@ public class ReplicaAssignmentServiceTest {
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, zkConfig));
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, zkConfig));
   }
 
   @AfterEach
   public void shutdown() throws IOException {
     cacheSlotMetadataStore.close();
     replicaMetadataStore.close();
+    snapshotMetadataStore.close();
     curatorFramework.unwrap().close();
 
     testingServer.close();
@@ -102,7 +106,7 @@ public class ReplicaAssignmentServiceTest {
         .isThrownBy(
             () ->
                 new ReplicaAssignmentService(
-                    cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry));
+                    cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry));
   }
 
   @Test
@@ -124,7 +128,7 @@ public class ReplicaAssignmentServiceTest {
         .isThrownBy(
             () ->
                 new ReplicaAssignmentService(
-                        cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
+                        cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry)
                     .scheduler());
   }
 
@@ -147,7 +151,7 @@ public class ReplicaAssignmentServiceTest {
         .isThrownBy(
             () ->
                 new ReplicaAssignmentService(
-                        cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
+                        cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry)
                     .scheduler());
   }
 
@@ -168,7 +172,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).size()).isEqualTo(0);
     assertThat(AstraMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(0);
@@ -207,7 +211,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
     for (int i = 0; i < 3; i++) {
@@ -265,7 +269,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     List<CacheSlotMetadata> cacheSlotMetadataList = new ArrayList<>();
     for (int i = 0; i < 3; i++) {
@@ -323,7 +327,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
     for (int i = 0; i < 3; i++) {
@@ -412,7 +416,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
     for (int i = 0; i < 4; i++) {
@@ -524,7 +528,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
     for (int i = 0; i < 5; i++) {
@@ -600,7 +604,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataExpiredList = new ArrayList<>();
     for (int i = 0; i < 2; i++) {
@@ -717,7 +721,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 2; i++) {
       ReplicaMetadata replicaMetadata =
@@ -840,7 +844,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 2; i++) {
       ReplicaMetadata replicaMetadata =
@@ -939,7 +943,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 2; i++) {
       ReplicaMetadata replicaMetadata =
@@ -1025,7 +1029,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 3; i++) {
       CacheSlotMetadata cacheSlotMetadata =
@@ -1119,7 +1123,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
     for (int i = 0; i < 3; i++) {
@@ -1211,7 +1215,7 @@ public class ReplicaAssignmentServiceTest {
 
     ReplicaAssignmentService replicaAssignmentService =
         new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+            cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     Instant now = Instant.now();
     ReplicaMetadata olderReplicaMetadata =
@@ -1284,6 +1288,7 @@ public class ReplicaAssignmentServiceTest {
         new ReplicaAssignmentService(
             cacheSlotMetadataStore,
             replicaMetadataStore,
+            snapshotMetadataStore,
             managerConfig,
             concurrentAssignmentsRegistry);
 
@@ -1361,6 +1366,7 @@ public class ReplicaAssignmentServiceTest {
         new ReplicaAssignmentService(
             cacheSlotMetadataStore,
             replicaMetadataStore,
+            snapshotMetadataStore,
             managerConfig,
             concurrentAssignmentsRegistry);
 

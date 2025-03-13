@@ -354,7 +354,7 @@ public class Astra {
 
       ReplicaAssignmentService replicaAssignmentService =
           new ReplicaAssignmentService(
-              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+              cacheSlotMetadataStore, replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
       services.add(replicaAssignmentService);
 
       SnapshotDeletionService snapshotDeletionService =
