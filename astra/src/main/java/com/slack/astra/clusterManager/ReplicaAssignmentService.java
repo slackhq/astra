@@ -26,6 +26,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -229,11 +231,14 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
               .collect(Collectors.toUnmodifiableSet());
 
       long nowMilli = Instant.now().toEpochMilli();
-      Set<String> expiredSnapshotIds = this.snapshotMetadataStore.listSync().stream()
+      Set<String> oldSnapshotIds = this.snapshotMetadataStore.listSync().stream()
               .filter(
-                      snapshotMetadata -> snapshotMetadata.endTimeEpochMs <= nowMilli
-              ).map(SnapshotMetadata::getName)
+                      snapshotMetadata -> {
+                        return Instant.ofEpochMilli(snapshotMetadata.startTimeEpochMs).isBefore(Instant.now().minus(7, ChronoUnit.DAYS)) && !snapshotMetadata.isLive();
+                      }
+              ).map(snapshotMetadata -> snapshotMetadata.snapshotId)
               .collect(Collectors.toUnmodifiableSet());
+      LOG.info("There are {} old snapshots", oldSnapshotIds.size());
 
       List<String> replicaIdsToAssign =
           replicaMetadataStore.listSync().stream()
@@ -245,10 +250,9 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                           && replicaMetadata.getReplicaSet().equals(replicaSet))
                   // REMOVEME: After the clusters are back in a good state we should be able to remove this
 //                  .filter(replicaMetadata -> {
-//                    Instant sevenDaysAgo = Instant.now().minusSeconds(5 * 60 * 60 * 24);
 //                    return replicaMetadata.createdTimeEpochMs >= sevenDaysAgo.toEpochMilli();
 //                  })
-                  .filter(replicaMetadata -> !expiredSnapshotIds.contains(replicaMetadata.snapshotId))
+                  .filter(replicaMetadata -> !oldSnapshotIds.contains(replicaMetadata.snapshotId))
                   // REMOVEME: After the clusters are back in a good state we should be able to remove this
               // sort the list by the newest replicas first, in case we run out of available slots
               .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs).reversed())
