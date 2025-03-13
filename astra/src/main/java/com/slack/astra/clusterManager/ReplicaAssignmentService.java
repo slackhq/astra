@@ -234,7 +234,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                           && replicaMetadata.getReplicaSet().equals(replicaSet))
                   // REMOVEME: After the clusters are back in a good state we should be able to remove this
                   .filter(replicaMetadata -> {
-                    Instant sevenDaysAgo = Instant.now().minusSeconds(7 * 60 * 60 * 24);
+                    Instant sevenDaysAgo = Instant.now().minusSeconds(5 * 60 * 60 * 24);
                     return replicaMetadata.createdTimeEpochMs >= sevenDaysAgo.toEpochMilli();
                   })
                   // REMOVEME: After the clusters are back in a good state we should be able to remove this
