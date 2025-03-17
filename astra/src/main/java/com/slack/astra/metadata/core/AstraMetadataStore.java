@@ -1,5 +1,6 @@
 package com.slack.astra.metadata.core;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.RuntimeHalterImpl;
@@ -15,6 +16,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.curator.x.async.api.CreateOption;
 import org.apache.curator.x.async.modeled.ModelSerializer;
@@ -25,6 +29,8 @@ import org.apache.curator.x.async.modeled.cached.CachedModeledFramework;
 import org.apache.curator.x.async.modeled.cached.ModeledCacheListener;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.data.Stat;
+
+import static com.slack.astra.util.AstraMeterRegistry.getPrometheusMeterRegistry;
 
 /**
  * AstraMetadataStore is a class which provides consistent ZK apis for all the metadata store class.
@@ -51,17 +57,38 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private final AstraConfigs.ZookeeperConfig zkConfig;
 
+  private final Counter createCall;
+  private final Counter hasCall;
+  private final Counter deleteCall;
+  private final Counter listCall;
+  private final Counter getCall;
+  private final Counter updateCall;
+  private final Counter addedListener;
+  private final Counter removedListener;
+  private final Counter cacheInitializationHandlerFired;
+
   public AstraMetadataStore(
-      AsyncCuratorFramework curator,
-      AstraConfigs.ZookeeperConfig zkConfig,
-      CreateMode createMode,
-      boolean shouldCache,
-      ModelSerializer<T> modelSerializer,
-      String storeFolder) {
+          AsyncCuratorFramework curator,
+          AstraConfigs.ZookeeperConfig zkConfig,
+          CreateMode createMode,
+          boolean shouldCache,
+          ModelSerializer<T> modelSerializer,
+          String storeFolder) {
 
     this.storeFolder = storeFolder;
     this.zPath = ZPath.parseWithIds(String.format("%s/{name}", storeFolder));
     this.zkConfig = zkConfig;
+    MeterRegistry meterRegistry = getPrometheusMeterRegistry();
+    this.createCall = meterRegistry.counter("astra_zk_create_call", storeFolder);
+    this.deleteCall = meterRegistry.counter("astra_zk_delete_call", storeFolder);
+    this.listCall = meterRegistry.counter("astra_zk_list_call", storeFolder);
+    this.getCall = meterRegistry.counter("astra_zk_get_call", storeFolder);
+    this.hasCall = meterRegistry.counter("astra_zk_has_call", storeFolder);
+    this.updateCall = meterRegistry.counter("astra_zk_update_call", storeFolder);
+    this.addedListener = meterRegistry.counter("astra_zk_added_listener", storeFolder);
+    this.removedListener = meterRegistry.counter("astra_zk_removed_listener", storeFolder);
+    this.cacheInitializationHandlerFired = meterRegistry.counter("astra_zk_cache_init_handler_fired", storeFolder);
+
 
     ModelSpec<T> modelSpec =
         ModelSpec.builder(modelSerializer)
@@ -92,6 +119,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public void createSync(T metadataNode) {
     try {
+      this.createCall.increment();
+
       createAsync(metadataNode)
           .toCompletableFuture()
           .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
@@ -110,6 +139,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public T getSync(String path) {
     try {
+      this.getCall.increment();
+
       return getAsync(path)
           .toCompletableFuture()
           .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
@@ -128,6 +159,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public boolean hasSync(String path) {
     try {
+      this.hasCall.increment();
+
       return hasAsync(path)
               .toCompletableFuture()
               .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
@@ -143,6 +176,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public void updateSync(T metadataNode) {
     try {
+      this.updateCall.increment();
+
       updateAsync(metadataNode)
           .toCompletableFuture()
           .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
@@ -157,6 +192,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public void deleteSync(String path) {
     try {
+      this.deleteCall.increment();
+
       deleteAsync(path)
           .toCompletableFuture()
           .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
@@ -171,6 +208,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public void deleteSync(T metadataNode) {
     try {
+      this.deleteCall.increment();
+
       deleteAsync(metadataNode)
           .toCompletableFuture()
           .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
@@ -191,6 +230,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public List<T> listSync() {
     try {
+      this.listCall.increment();
+
       return listAsync()
           .toCompletableFuture()
           .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
@@ -203,6 +244,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     if (cachedModeledFramework == null) {
       throw new UnsupportedOperationException("Caching is disabled");
     }
+
+    this.addedListener.increment();
 
     // this mapping exists because the remove is by reference, and the listener is a different
     // object type
@@ -221,6 +264,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     if (cachedModeledFramework == null) {
       throw new UnsupportedOperationException("Caching is disabled");
     }
+    this.removedListener.increment();
     cachedModeledFramework.listenable().removeListener(listenerMap.remove(watcher));
   }
 
@@ -248,6 +292,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       public void initialized() {
         ModeledCacheListener.super.initialized();
         cacheInitialized.countDown();
+        cacheInitializationHandlerFired.increment();
 
         // after it's initialized, we no longer need the listener or executor
         if (cachedModeledFramework != null) {
