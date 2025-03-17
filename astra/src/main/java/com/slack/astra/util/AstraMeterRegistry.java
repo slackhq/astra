@@ -10,7 +10,7 @@ public class AstraMeterRegistry {
     private static PrometheusMeterRegistry prometheusMeterRegistry;
 
     public static PrometheusMeterRegistry initPrometheusMeterRegistry(AstraConfigs.AstraConfig config) {
-        PrometheusMeterRegistry prometheusMeterRegistry =
+        prometheusMeterRegistry =
                 new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
         prometheusMeterRegistry
                 .config()
