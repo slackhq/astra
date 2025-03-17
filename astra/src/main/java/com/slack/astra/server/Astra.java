@@ -76,7 +76,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 public class Astra {
   private static final Logger LOG = LoggerFactory.getLogger(Astra.class);
 
-  private static PrometheusMeterRegistry prometheusMeterRegistry;
+  private final PrometheusMeterRegistry prometheusMeterRegistry;
 
   private final AstraConfigs.AstraConfig astraConfig;
   private final S3AsyncClient s3Client;
@@ -87,7 +87,7 @@ public class Astra {
       AstraConfigs.AstraConfig astraConfig,
       S3AsyncClient s3Client,
       PrometheusMeterRegistry prometheusMeterRegistry) {
-    Astra.prometheusMeterRegistry = prometheusMeterRegistry;
+    this.prometheusMeterRegistry = prometheusMeterRegistry;
     this.astraConfig = astraConfig;
     this.s3Client = s3Client;
     Metrics.addRegistry(prometheusMeterRegistry);
