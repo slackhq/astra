@@ -94,6 +94,14 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
         store = "/partitioned_snapshot";
       }
 
+      if (store.startsWith("/cacheAssignment")) {
+        store = "/cacheAssignment";
+      }
+
+      if (store.startsWith("/recoveryNode")) {
+        store = "/recoveryNode";
+      }
+
       this.createCall = meterRegistry.counter("astra_zk_create_call", "store", store);
       this.deleteCall = meterRegistry.counter("astra_zk_delete_call", "store", store);
       this.listCall = meterRegistry.counter("astra_zk_list_call", "store", store);
