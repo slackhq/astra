@@ -85,15 +85,15 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     this.zkConfig = zkConfig;
     MeterRegistry meterRegistry = getPrometheusMeterRegistry();
     if (meterRegistry != null) {
-      this.createCall = meterRegistry.counter("astra_zk_create_call", storeFolder);
-      this.deleteCall = meterRegistry.counter("astra_zk_delete_call", storeFolder);
-      this.listCall = meterRegistry.counter("astra_zk_list_call", storeFolder);
-      this.getCall = meterRegistry.counter("astra_zk_get_call", storeFolder);
-      this.hasCall = meterRegistry.counter("astra_zk_has_call", storeFolder);
-      this.updateCall = meterRegistry.counter("astra_zk_update_call", storeFolder);
-      this.addedListener = meterRegistry.counter("astra_zk_added_listener", storeFolder);
-      this.removedListener = meterRegistry.counter("astra_zk_removed_listener", storeFolder);
-      this.cacheInitializationHandlerFired = meterRegistry.counter("astra_zk_cache_init_handler_fired", storeFolder);
+      this.createCall = meterRegistry.counter("astra_zk_create_call", "store", storeFolder);
+      this.deleteCall = meterRegistry.counter("astra_zk_delete_call", "store", storeFolder);
+      this.listCall = meterRegistry.counter("astra_zk_list_call", "store", storeFolder);
+      this.getCall = meterRegistry.counter("astra_zk_get_call", "store", storeFolder);
+      this.hasCall = meterRegistry.counter("astra_zk_has_call", "store", storeFolder);
+      this.updateCall = meterRegistry.counter("astra_zk_update_call", "store", storeFolder);
+      this.addedListener = meterRegistry.counter("astra_zk_added_listener", "store", storeFolder);
+      this.removedListener = meterRegistry.counter("astra_zk_removed_listener", "store", storeFolder);
+      this.cacheInitializationHandlerFired = meterRegistry.counter("astra_zk_cache_init_handler_fired", "store", storeFolder);
     } else {
       LOG.warn("Unable to register meters because it was null");
     }
