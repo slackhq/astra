@@ -17,7 +17,7 @@ public class PreprocessorMetadata extends AstraMetadata {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (!(o instanceof PreprocessorMetadata that)) return false;
+    if (!(o instanceof PreprocessorMetadata)) return false;
     return !super.equals(o);
   }
 
