@@ -16,9 +16,9 @@ import org.slf4j.LoggerFactory;
 /** */
 public class RedactionUpdateService extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(RedactionUpdateService.class);
-  private static HashMap<String, FieldRedactionMetadata> fieldRedactionsMap;
+  private static HashMap<String, FieldRedactionMetadata> fieldRedactionsMap = new HashMap<>();
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
-//  private final MeterRegistry meterRegistry;
+  //  private final MeterRegistry meterRegistry;
   private final AstraConfigs.ManagerConfig managerConfig;
   private ScheduledFuture<?> pendingTask;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
@@ -31,8 +31,7 @@ public class RedactionUpdateService extends AbstractScheduledService {
 
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
     this.managerConfig = managerConfig;
-//    this.meterRegistry = meterRegistry;
-    this.fieldRedactionsMap = new HashMap<>();
+    //    this.meterRegistry = meterRegistry;
   }
 
   @Override
@@ -47,22 +46,24 @@ public class RedactionUpdateService extends AbstractScheduledService {
   }
 
   private void updateRedactionMetadataList() {
+    HashMap<String, FieldRedactionMetadata> map = new HashMap<>();
     fieldRedactionMetadataStore
         .listSync()
         .forEach(
             redaction -> {
-              fieldRedactionsMap.put(redaction.getName(), redaction);
+              map.put(redaction.getName(), redaction);
             });
+    fieldRedactionsMap = map;
   }
 
   public static HashMap<String, FieldRedactionMetadata> getFieldRedactionsMap() {
-      return fieldRedactionsMap;
+    return fieldRedactionsMap;
   }
 
   @Override
   protected Scheduler scheduler() {
-      return Scheduler.newFixedRateSchedule(
-              1, managerConfig.getEventAggregationSecs(), TimeUnit.SECONDS);
+    return Scheduler.newFixedRateSchedule(
+        1, managerConfig.getEventAggregationSecs(), TimeUnit.SECONDS);
   }
 
   @Override

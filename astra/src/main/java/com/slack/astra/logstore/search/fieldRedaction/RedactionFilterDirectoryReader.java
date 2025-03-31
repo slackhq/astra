@@ -21,16 +21,14 @@ public class RedactionFilterDirectoryReader extends FilterDirectoryReader {
   public RedactionFilterDirectoryReader(
       DirectoryReader in, FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
-    super(in, new RedactionSubReaderWrapper(fieldRedactionMetadataStore));
+    super(in, new RedactionSubReaderWrapper());
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
   }
 
   public RedactionFilterDirectoryReader(
       IndexWriter indexWriter, FieldRedactionMetadataStore fieldRedactionMetadataStore)
       throws IOException {
-    super(
-        DirectoryReader.open(indexWriter),
-        new RedactionSubReaderWrapper(fieldRedactionMetadataStore));
+    super(DirectoryReader.open(indexWriter), new RedactionSubReaderWrapper());
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
   }
 
