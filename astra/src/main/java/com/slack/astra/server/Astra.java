@@ -413,7 +413,7 @@ public class Astra {
       services.add(cacheNodeAssignmentService);
 
       RedactionUpdateService redactionUpdateService =
-          new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig);
+          new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig, meterRegistry);
       services.add(redactionUpdateService);
     }
 

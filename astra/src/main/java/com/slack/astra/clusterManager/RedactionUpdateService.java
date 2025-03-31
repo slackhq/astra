@@ -5,6 +5,7 @@ import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -19,6 +20,9 @@ public class RedactionUpdateService extends AbstractScheduledService {
   private static HashMap<String, FieldRedactionMetadata> fieldRedactionsMap = new HashMap<>();
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
   //  private final MeterRegistry meterRegistry;
+  public static final String FIELD_REDACTION_RELOAD_TIMER = "astra_field_redaction_reload_timer";
+  //  private final Timer redactionReloadtimer;
+
   private final AstraConfigs.ManagerConfig managerConfig;
   private ScheduledFuture<?> pendingTask;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
@@ -27,11 +31,13 @@ public class RedactionUpdateService extends AbstractScheduledService {
 
   public RedactionUpdateService(
       FieldRedactionMetadataStore fieldRedactionMetadataStore,
-      AstraConfigs.ManagerConfig managerConfig) {
+      AstraConfigs.ManagerConfig managerConfig,
+      MeterRegistry meterRegistry) {
 
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
     this.managerConfig = managerConfig;
     //    this.meterRegistry = meterRegistry;
+    //    this.redactionReloadtimer = meterRegistry.timer(FIELD_REDACTION_RELOAD_TIMER);
   }
 
   @Override
