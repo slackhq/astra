@@ -4,6 +4,7 @@ import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
+import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
@@ -18,6 +19,7 @@ import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
 import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
+import com.slack.astra.clusterManager.RedactionUpdateService;
 import com.slack.astra.logstore.LogMessage.ReservedField;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
@@ -573,11 +575,17 @@ public class LuceneIndexStoreImplTest {
       MeterRegistry meterRegistry = new SimpleMeterRegistry();
       AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
+      FieldRedactionMetadataStore fieldRedactionMetadataStore =
+              new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+
+      AstraConfigs.ManagerConfig managerConfig = AstraConfigs.ManagerConfig.newBuilder().setEventAggregationSecs(1).build();
+      RedactionUpdateService redactionUpdateService = new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig, meterRegistry);
+      redactionUpdateService.startAsync();
+      redactionUpdateService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
       long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
       long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
 
-      FieldRedactionMetadataStore fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
       fieldRedactionMetadataStore.createSync(
           new FieldRedactionMetadata("testRedactionString", "stringproperty", start, end));
       fieldRedactionMetadataStore.createSync(
@@ -586,6 +594,7 @@ public class LuceneIndexStoreImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 2);
+      Thread.sleep(1000);
 
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
@@ -608,6 +617,8 @@ public class LuceneIndexStoreImplTest {
       meterRegistry.close();
       curatorFramework.unwrap().close();
       testingServer.close();
+      redactionUpdateService.stopAsync();
+      redactionUpdateService.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
   }
 
