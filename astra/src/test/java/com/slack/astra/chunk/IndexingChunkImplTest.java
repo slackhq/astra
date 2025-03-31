@@ -130,8 +130,7 @@ public class IndexingChunkImplTest {
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
-              registry,
-              fieldRedactionMetadataStore);
+              registry);
       chunk =
           new IndexingChunkImpl<>(
               logStore,
@@ -485,8 +484,7 @@ public class IndexingChunkImplTest {
               REFRESH_INTERVAL,
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR,
-              registry,
-              fieldRedactionMetadataStore);
+              registry);
       chunk =
           new IndexingChunkImpl<>(
               logStore,
@@ -575,8 +573,7 @@ public class IndexingChunkImplTest {
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
-              registry,
-              fieldRedactionMetadataStore);
+              registry);
       chunk =
           new IndexingChunkImpl<>(
               logStore,

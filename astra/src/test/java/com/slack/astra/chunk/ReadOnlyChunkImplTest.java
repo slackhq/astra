@@ -29,7 +29,6 @@ import com.slack.astra.metadata.cache.CacheSlotMetadata;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.schema.ChunkSchema;
@@ -120,8 +119,6 @@ public class ReadOnlyChunkImplTest {
         new SearchMetadataStore(curatorFramework, zkConfig, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig);
-    FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -129,7 +126,7 @@ public class ReadOnlyChunkImplTest {
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 0);
-    initializeBlobStorageWithIndex(snapshotId, fieldRedactionMetadataStore);
+    initializeBlobStorageWithIndex(snapshotId);
 
     SearchContext searchContext =
         SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig());
@@ -145,8 +142,7 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            fieldRedactionMetadataStore);
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -267,8 +263,6 @@ public class ReadOnlyChunkImplTest {
         new SearchMetadataStore(curatorFramework, zkConfig, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig);
-    FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -289,8 +283,7 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            fieldRedactionMetadataStore);
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -341,8 +334,6 @@ public class ReadOnlyChunkImplTest {
         new SearchMetadataStore(curatorFramework, zkConfig, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig);
-    FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -363,8 +354,7 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            fieldRedactionMetadataStore);
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -415,8 +405,6 @@ public class ReadOnlyChunkImplTest {
         new SearchMetadataStore(curatorFramework, zkConfig, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig);
-    FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -424,7 +412,7 @@ public class ReadOnlyChunkImplTest {
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 0);
-    initializeBlobStorageWithIndex(snapshotId, fieldRedactionMetadataStore);
+    initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
@@ -438,8 +426,7 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            fieldRedactionMetadataStore);
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -528,8 +515,6 @@ public class ReadOnlyChunkImplTest {
         new CacheSlotMetadataStore(curatorFramework, zkConfig);
     CacheNodeAssignmentStore cacheNodeAssignmentStore =
         new CacheNodeAssignmentStore(curatorFramework, zkConfig);
-    FieldRedactionMetadataStore fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
     String replicaId = "foo";
     String snapshotId = "boo";
@@ -540,7 +525,7 @@ public class ReadOnlyChunkImplTest {
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 29);
-    initializeBlobStorageWithIndex(snapshotId, fieldRedactionMetadataStore);
+    initializeBlobStorageWithIndex(snapshotId);
     initializeCacheNodeAssignment(
         cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
 
@@ -561,8 +546,7 @@ public class ReadOnlyChunkImplTest {
             searchMetadataStore,
             cacheNodeAssignmentStore,
             cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
-            snapshotMetadataStore.findSync(snapshotId),
-            fieldRedactionMetadataStore);
+            snapshotMetadataStore.findSync(snapshotId));
 
     // wait for chunk to register
     // ignoreExceptions is workaround for https://github.com/aws/aws-sdk-java-v2/issues/3658
@@ -675,8 +659,7 @@ public class ReadOnlyChunkImplTest {
             false));
   }
 
-  private void initializeBlobStorageWithIndex(
-      String snapshotId, FieldRedactionMetadataStore fieldRedactionMetadataStore) throws Exception {
+  private void initializeBlobStorageWithIndex(String snapshotId) throws Exception {
     LuceneIndexStoreImpl logStore =
         LuceneIndexStoreImpl.makeLogStore(
             Files.newTemporaryFolder(),
@@ -684,8 +667,7 @@ public class ReadOnlyChunkImplTest {
             Duration.ofSeconds(60),
             true,
             SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
-            meterRegistry,
-            fieldRedactionMetadataStore);
+            meterRegistry);
     addMessages(logStore, 1, 10, true);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(10);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);

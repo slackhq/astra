@@ -17,11 +17,9 @@ import org.opensearch.common.lucene.index.SequentialStoredFieldsLeafReader;
  * RedactionStoredFieldVisitor to read in the individual fields.
  */
 class RedactionLeafReader extends SequentialStoredFieldsLeafReader {
-  //  private static HashMap<String, FieldRedactionMetadata> fieldRedactionsMap;
 
   public RedactionLeafReader(LeafReader in) {
     super(in);
-    //    fieldRedactionsMap = getFieldRedactionsMap();
   }
 
   @Override

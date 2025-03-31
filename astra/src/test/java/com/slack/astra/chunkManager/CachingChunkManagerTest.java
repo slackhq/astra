@@ -187,8 +187,7 @@ public class CachingChunkManagerTest {
             Duration.ofSeconds(60),
             true,
             SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
-            meterRegistry,
-            fieldRedactionMetadataStore);
+            meterRegistry);
     addMessages(logStore, 1, 10, true);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(10);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);

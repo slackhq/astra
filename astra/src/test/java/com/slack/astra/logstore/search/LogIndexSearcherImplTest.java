@@ -4,10 +4,10 @@ import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
+import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.astra.testlib.MessageUtil.TEST_DATASET_NAME;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_LONG_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
-import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
@@ -98,7 +98,8 @@ public class LogIndexSearcherImplTest {
           new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
       managerConfig = AstraConfigs.ManagerConfig.newBuilder().setEventAggregationSecs(1).build();
-      redactionUpdateService = new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig, meterRegistry);
+      redactionUpdateService =
+          new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig, meterRegistry);
       redactionUpdateService.startAsync();
       redactionUpdateService.awaitRunning(DEFAULT_START_STOP_DURATION);
     }
@@ -117,8 +118,6 @@ public class LogIndexSearcherImplTest {
 
     @Test
     public void testRedactionWithIncludeFilters() throws Exception {
-      managerConfig.getEventAggregationSecs();
-
       String redactionName = "testRedaction";
       String fieldName = "message";
       long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
@@ -163,7 +162,7 @@ public class LogIndexSearcherImplTest {
 
       // redaction service is currently set to update every <event_aggreation_secs>
       // setEventAggregationSecs is set to 1 second in setup()
-      Thread.sleep(1000);
+      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
 
       List<LogMessage> messages =
           featureFlagEnabledStrictLogStore.logSearcher.search(
@@ -195,7 +194,7 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
-      Thread.sleep(1000);
+      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
@@ -253,7 +252,7 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
-      Thread.sleep(1000);
+      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
@@ -316,7 +315,7 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 2);
-      Thread.sleep(1000);
+      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
@@ -373,7 +372,7 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
-      Thread.sleep(1000);
+      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
 
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
           new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
@@ -429,7 +428,7 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
-      Thread.sleep(1000);
+      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
 
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
           new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);

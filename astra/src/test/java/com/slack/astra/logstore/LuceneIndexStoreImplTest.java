@@ -493,8 +493,7 @@ public class LuceneIndexStoreImplTest {
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(
-                  tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
+              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
               logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
@@ -576,10 +575,12 @@ public class LuceneIndexStoreImplTest {
       AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
-              new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
-      AstraConfigs.ManagerConfig managerConfig = AstraConfigs.ManagerConfig.newBuilder().setEventAggregationSecs(1).build();
-      RedactionUpdateService redactionUpdateService = new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig, meterRegistry);
+      AstraConfigs.ManagerConfig managerConfig =
+          AstraConfigs.ManagerConfig.newBuilder().setEventAggregationSecs(1).build();
+      RedactionUpdateService redactionUpdateService =
+          new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig, meterRegistry);
       redactionUpdateService.startAsync();
       redactionUpdateService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -599,8 +600,7 @@ public class LuceneIndexStoreImplTest {
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(
-                  tmpPath.toAbsolutePath(), fieldRedactionMetadataStore),
+              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
               logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
