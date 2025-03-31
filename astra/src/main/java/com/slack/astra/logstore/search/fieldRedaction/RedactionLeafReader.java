@@ -1,5 +1,7 @@
 package com.slack.astra.logstore.search.fieldRedaction;
 
+import static com.slack.astra.clusterManager.RedactionUpdateService.getFieldRedactionsMap;
+
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import java.io.IOException;
@@ -23,7 +25,7 @@ class RedactionLeafReader extends SequentialStoredFieldsLeafReader {
       LeafReader in, FieldRedactionMetadataStore fieldRedactionMetadataStore) {
     super(in);
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
-    this.fieldRedactionsMap = new HashMap<>();
+    this.fieldRedactionsMap = getFieldRedactionsMap();
   }
 
   @Override

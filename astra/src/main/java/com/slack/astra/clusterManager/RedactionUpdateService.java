@@ -5,7 +5,6 @@ import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -15,26 +14,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** */
-public class RedactionService extends AbstractScheduledService {
-  private static final Logger LOG =
-      LoggerFactory.getLogger(com.slack.astra.server.HpaMetricPublisherService.class);
-  private HashMap<String, FieldRedactionMetadata> fieldRedactionsMap;
+public class RedactionUpdateService extends AbstractScheduledService {
+  private static final Logger LOG = LoggerFactory.getLogger(RedactionUpdateService.class);
+  private static HashMap<String, FieldRedactionMetadata> fieldRedactionsMap;
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
-  private final MeterRegistry meterRegistry;
+//  private final MeterRegistry meterRegistry;
   private final AstraConfigs.ManagerConfig managerConfig;
   private ScheduledFuture<?> pendingTask;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
   private final AstraMetadataStoreChangeListener<FieldRedactionMetadata> listener =
       (_) -> runOneIteration();
 
-  public RedactionService(
+  public RedactionUpdateService(
       FieldRedactionMetadataStore fieldRedactionMetadataStore,
-      AstraConfigs.ManagerConfig managerConfig,
-      MeterRegistry meterRegistry) {
+      AstraConfigs.ManagerConfig managerConfig) {
 
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
     this.managerConfig = managerConfig;
-    this.meterRegistry = meterRegistry;
+//    this.meterRegistry = meterRegistry;
     this.fieldRedactionsMap = new HashMap<>();
   }
 
@@ -58,11 +55,12 @@ public class RedactionService extends AbstractScheduledService {
             });
   }
 
-  public HashMap<String, FieldRedactionMetadata> getFieldRedactionsMap() {
+  public static HashMap<String, FieldRedactionMetadata> getFieldRedactionsMap() {
       return fieldRedactionsMap;
   }
 
-  @Override Scheduler scheduler() {
+  @Override
+  protected Scheduler scheduler() {
       return Scheduler.newFixedRateSchedule(
               1, managerConfig.getEventAggregationSecs(), TimeUnit.SECONDS);
   }

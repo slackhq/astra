@@ -10,16 +10,7 @@ import com.slack.astra.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.astra.bulkIngestApi.DatasetRateLimitingService;
 import com.slack.astra.chunkManager.CachingChunkManager;
 import com.slack.astra.chunkManager.IndexingChunkManager;
-import com.slack.astra.clusterManager.CacheNodeAssignmentService;
-import com.slack.astra.clusterManager.ClusterHpaMetricService;
-import com.slack.astra.clusterManager.ClusterMonitorService;
-import com.slack.astra.clusterManager.RecoveryTaskAssignmentService;
-import com.slack.astra.clusterManager.ReplicaAssignmentService;
-import com.slack.astra.clusterManager.ReplicaCreationService;
-import com.slack.astra.clusterManager.ReplicaDeletionService;
-import com.slack.astra.clusterManager.ReplicaEvictionService;
-import com.slack.astra.clusterManager.ReplicaRestoreService;
-import com.slack.astra.clusterManager.SnapshotDeletionService;
+import com.slack.astra.clusterManager.*;
 import com.slack.astra.elasticsearchApi.ElasticsearchApiService;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.schema.ReservedFields;
@@ -410,6 +401,10 @@ public class Astra {
               snapshotMetadataStore,
               cacheNodeAssignmentStore);
       services.add(cacheNodeAssignmentService);
+
+      RedactionUpdateService redactionUpdateService =
+           new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig);
+      services.add(redactionUpdateService);
     }
 
     if (roles.contains(AstraConfigs.NodeRole.RECOVERY)) {
