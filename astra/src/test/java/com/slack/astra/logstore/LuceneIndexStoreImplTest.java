@@ -500,6 +500,9 @@ public class LuceneIndexStoreImplTest {
 
       // Clean up
       newSearcher.close();
+      fieldRedactionMetadataStore.close();
+      curatorFramework.unwrap().close();
+      testingServer.close();
     }
 
     @Test
@@ -566,7 +569,7 @@ public class LuceneIndexStoreImplTest {
               .setZkConnectString(testingServer.getConnectString())
               .setZkPathPrefix("test")
               .setZkSessionTimeoutMs(1000)
-              .setZkConnectionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(2000)
               .setSleepBetweenRetriesMs(1000)
               .build();
 

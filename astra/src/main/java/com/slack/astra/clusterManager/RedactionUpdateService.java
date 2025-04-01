@@ -75,7 +75,7 @@ public class RedactionUpdateService extends AbstractScheduledService {
 
   @Override
   protected void startUp() throws Exception {
-    LOG.info("Starting Redaction Service");
+    LOG.info("Starting Redaction Update Service");
     updateRedactionMetadataList();
     fieldRedactionMetadataStore.addListener(listener);
   }
@@ -84,6 +84,6 @@ public class RedactionUpdateService extends AbstractScheduledService {
   protected void shutDown() throws Exception {
     fieldRedactionMetadataStore.removeListener(listener);
     executor.shutdownNow();
-    LOG.info("Closed Redaction Service");
+    LOG.info("Closed Redaction Update Service");
   }
 }
