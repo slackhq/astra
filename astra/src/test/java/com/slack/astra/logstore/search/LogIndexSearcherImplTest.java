@@ -75,7 +75,7 @@ public class LogIndexSearcherImplTest {
     private TestingServer testingServer;
     private MeterRegistry meterRegistry;
     private AsyncCuratorFramework curatorFramework;
-    private AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig redactionUpdateServiceConfig;
+    private AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig;
     private RedactionUpdateService redactionUpdateService;
 
     @BeforeEach
@@ -98,7 +98,7 @@ public class LogIndexSearcherImplTest {
           new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
       redactionUpdateServiceConfig =
-          AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig.newBuilder()
+          AstraConfigs.RedactionUpdateServiceConfig.newBuilder()
               .setRedactionUpdatePeriodSecs(1)
               .build();
       redactionUpdateService =

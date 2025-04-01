@@ -110,6 +110,31 @@ public class Astra {
     astra.start();
   }
 
+  static PrometheusMeterRegistry initPrometheusMeterRegistry(AstraConfigs.AstraConfig config) {
+    PrometheusMeterRegistry prometheusMeterRegistry =
+        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+    prometheusMeterRegistry
+        .config()
+        .commonTags(
+            "astra_cluster_name",
+            config.getClusterConfig().getClusterName(),
+            "astra_env",
+            config.getClusterConfig().getEnv(),
+            "astra_component",
+            getComponentTag(config));
+    return prometheusMeterRegistry;
+  }
+
+  private static String getComponentTag(AstraConfigs.AstraConfig config) {
+    String component;
+    if (config.getNodeRolesList().size() == 1) {
+      component = config.getNodeRolesList().get(0).toString();
+    } else {
+      component = Strings.join(config.getNodeRolesList(), '-');
+    }
+    return Strings.toRootLowerCase(component);
+  }
+
   public void start() throws Exception {
     setupSystemMetrics(prometheusMeterRegistry);
     addShutdownHook();
@@ -165,6 +190,15 @@ public class Astra {
       final int serverPort = astraConfig.getIndexerConfig().getServerConfig().getServerPort();
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getIndexerConfig().getServerConfig().getRequestTimeoutMs());
+
+      FieldRedactionMetadataStore fieldRedactionMetadataStore =
+          new FieldRedactionMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
+      RedactionUpdateService redactionUpdateService =
+          new RedactionUpdateService(
+              fieldRedactionMetadataStore, astraConfig.getRedactionUpdateServiceConfig());
+      services.add(redactionUpdateService);
+
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "astraIndex", meterRegistry)
               .withRequestTimeout(requestTimeout)
@@ -229,6 +263,10 @@ public class Astra {
       HpaMetricMetadataStore hpaMetricMetadataStore =
           new HpaMetricMetadataStore(
               curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
+      FieldRedactionMetadataStore fieldRedactionMetadataStore =
+          new FieldRedactionMetadataStore(
+              curatorFramework, astraConfig.getMetadataStoreConfig().getZookeeperConfig(), true);
+
       services.add(
           new CloseableLifecycleManager(
               AstraConfigs.NodeRole.CACHE, List.of(hpaMetricMetadataStore)));
@@ -236,6 +274,10 @@ public class Astra {
           new HpaMetricPublisherService(
               hpaMetricMetadataStore, meterRegistry, Metadata.HpaMetricMetadata.NodeRole.CACHE);
       services.add(hpaMetricPublisherService);
+      RedactionUpdateService redactionUpdateService =
+          new RedactionUpdateService(
+              fieldRedactionMetadataStore, astraConfig.getRedactionUpdateServiceConfig());
+      services.add(redactionUpdateService);
 
       AstraLocalQueryService<LogMessage> searcher =
           new AstraLocalQueryService<>(
@@ -389,7 +431,7 @@ public class Astra {
 
       RedactionUpdateService redactionUpdateService =
           new RedactionUpdateService(
-              fieldRedactionMetadataStore, managerConfig.getRedactionUpdateServiceConfig());
+              fieldRedactionMetadataStore, astraConfig.getRedactionUpdateServiceConfig());
       services.add(redactionUpdateService);
     }
 

@@ -17,13 +17,12 @@ public class RedactionUpdateService extends AbstractScheduledService {
   private static HashMap<String, FieldRedactionMetadata> fieldRedactionsMap = new HashMap<>();
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
-  private final AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig
-      redactionUpdateServiceConfig;
+  private final AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
   public RedactionUpdateService(
       FieldRedactionMetadataStore fieldRedactionMetadataStore,
-      AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig redactionUpdateServiceConfig) {
+      AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig) {
 
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
     this.redactionUpdateServiceConfig = redactionUpdateServiceConfig;
