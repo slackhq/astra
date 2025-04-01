@@ -55,7 +55,6 @@ import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
-import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -65,7 +64,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
@@ -391,9 +389,7 @@ public class Astra {
 
       RedactionUpdateService redactionUpdateService =
           new RedactionUpdateService(
-              fieldRedactionMetadataStore,
-              managerConfig.getRedactionUpdateServiceConfig(),
-              meterRegistry);
+              fieldRedactionMetadataStore, managerConfig.getRedactionUpdateServiceConfig());
       services.add(redactionUpdateService);
     }
 

@@ -4,7 +4,6 @@ import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
-import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
@@ -19,7 +18,6 @@ import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
 import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
-import com.slack.astra.clusterManager.RedactionUpdateService;
 import com.slack.astra.logstore.LogMessage.ReservedField;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
@@ -547,7 +545,8 @@ public class LuceneIndexStoreImplTest {
             commitDuration,
             commitDuration,
             true,
-            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD);
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
+                .CONVERT_VALUE_AND_DUPLICATE_FIELD);
 
     public AutoCommitTests() throws IOException {}
 

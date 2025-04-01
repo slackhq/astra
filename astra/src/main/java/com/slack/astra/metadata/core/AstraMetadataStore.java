@@ -1,10 +1,12 @@
 package com.slack.astra.metadata.core;
 
-import com.codahale.metrics.MetricRegistry;
+import static com.slack.astra.util.AstraMeterRegistry.getPrometheusMeterRegistry;
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.RuntimeHalterImpl;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
@@ -17,9 +19,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.curator.x.async.api.CreateOption;
 import org.apache.curator.x.async.modeled.ModelSerializer;
@@ -32,8 +31,6 @@ import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.slack.astra.util.AstraMeterRegistry.getPrometheusMeterRegistry;
 
 /**
  * AstraMetadataStore is a class which provides consistent ZK apis for all the metadata store class.
@@ -73,12 +70,12 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(AstraMetadataStore.class);
 
   public AstraMetadataStore(
-          AsyncCuratorFramework curator,
-          AstraConfigs.ZookeeperConfig zkConfig,
-          CreateMode createMode,
-          boolean shouldCache,
-          ModelSerializer<T> modelSerializer,
-          String storeFolder) {
+      AsyncCuratorFramework curator,
+      AstraConfigs.ZookeeperConfig zkConfig,
+      CreateMode createMode,
+      boolean shouldCache,
+      ModelSerializer<T> modelSerializer,
+      String storeFolder) {
 
     this.storeFolder = storeFolder;
     this.zPath = ZPath.parseWithIds(String.format("%s/{name}", storeFolder));
@@ -110,7 +107,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       this.updateCall = meterRegistry.counter("astra_zk_update_call", "store", store);
       this.addedListener = meterRegistry.counter("astra_zk_added_listener", "store", store);
       this.removedListener = meterRegistry.counter("astra_zk_removed_listener", "store", store);
-      this.cacheInitializationHandlerFired = meterRegistry.counter("astra_zk_cache_init_handler_fired", "store", store);
+      this.cacheInitializationHandlerFired =
+          meterRegistry.counter("astra_zk_cache_init_handler_fired", "store", store);
     } else {
       LOG.warn("Unable to register meters because it was null");
     }
