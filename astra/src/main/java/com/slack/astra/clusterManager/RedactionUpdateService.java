@@ -1,15 +1,12 @@
 package com.slack.astra.clusterManager;
 
 import com.google.common.util.concurrent.AbstractScheduledService;
-import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,24 +16,17 @@ public class RedactionUpdateService extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(RedactionUpdateService.class);
   private static HashMap<String, FieldRedactionMetadata> fieldRedactionsMap = new HashMap<>();
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
-  //  private final MeterRegistry meterRegistry;
-  public static final String FIELD_REDACTION_RELOAD_TIMER = "astra_field_redaction_reload_timer";
-  //  private final Timer redactionReloadtimer;
 
   private final AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig
       redactionUpdateServiceConfig;
-  private ScheduledFuture<?> pendingTask;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
   public RedactionUpdateService(
       FieldRedactionMetadataStore fieldRedactionMetadataStore,
-      AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig redactionUpdateServiceConfig,
-      MeterRegistry meterRegistry) {
+      AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig redactionUpdateServiceConfig) {
 
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
     this.redactionUpdateServiceConfig = redactionUpdateServiceConfig;
-    //    this.meterRegistry = meterRegistry;
-    //    this.redactionReloadtimer = meterRegistry.timer(FIELD_REDACTION_RELOAD_TIMER);
   }
 
   @Override

@@ -414,9 +414,7 @@ public class Astra {
 
       RedactionUpdateService redactionUpdateService =
           new RedactionUpdateService(
-              fieldRedactionMetadataStore,
-              managerConfig.getRedactionUpdateServiceConfig(),
-              meterRegistry);
+              fieldRedactionMetadataStore, managerConfig.getRedactionUpdateServiceConfig());
       services.add(redactionUpdateService);
     }
 
