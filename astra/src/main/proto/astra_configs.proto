@@ -210,14 +210,10 @@ message ManagerConfig {
   }
 
   message RedactionUpdateServiceConfig {
-    // Redaction update secs is a de-bounce setting. It's the time
-    // a service waits to take an action after a ZK notification.
-    int32 redaction_update_aggregation_secs = 1;
-
     // Redaction update period is the amount of time between each
     // refresh of the redactions list, whether or not a ZK event
     // has triggered it
-    int32 redaction_update_period_secs = 2;
+    int32 redaction_update_period_secs = 1;
   }
 
   // Event aggregation secs is a de-bounce setting. It's the time

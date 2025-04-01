@@ -27,8 +27,6 @@ public class RedactionUpdateService extends AbstractScheduledService {
       redactionUpdateServiceConfig;
   private ScheduledFuture<?> pendingTask;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-  private final AstraMetadataStoreChangeListener<FieldRedactionMetadata> listener =
-      (_) -> runOneIteration();
 
   public RedactionUpdateService(
       FieldRedactionMetadataStore fieldRedactionMetadataStore,
@@ -43,13 +41,7 @@ public class RedactionUpdateService extends AbstractScheduledService {
 
   @Override
   protected synchronized void runOneIteration() {
-    if (pendingTask == null || pendingTask.getDelay(TimeUnit.SECONDS) <= 0) {
-      pendingTask =
-          executor.schedule(
-              this::updateRedactionMetadataList,
-              this.redactionUpdateServiceConfig.getRedactionUpdateAggregationSecs(),
-              TimeUnit.SECONDS);
-    }
+    updateRedactionMetadataList();
   }
 
   private void updateRedactionMetadataList() {
@@ -77,12 +69,10 @@ public class RedactionUpdateService extends AbstractScheduledService {
   protected void startUp() throws Exception {
     LOG.info("Starting Redaction Update Service");
     updateRedactionMetadataList();
-    fieldRedactionMetadataStore.addListener(listener);
   }
 
   @Override
   protected void shutDown() throws Exception {
-    fieldRedactionMetadataStore.removeListener(listener);
     executor.shutdownNow();
     LOG.info("Closed Redaction Update Service");
   }
