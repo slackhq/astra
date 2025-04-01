@@ -75,7 +75,7 @@ public class LogIndexSearcherImplTest {
     private TestingServer testingServer;
     private MeterRegistry meterRegistry;
     private AsyncCuratorFramework curatorFramework;
-    private AstraConfigs.ManagerConfig managerConfig;
+    private AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig redactionUpdateServiceConfig;
     private RedactionUpdateService redactionUpdateService;
 
     @BeforeEach
@@ -97,9 +97,13 @@ public class LogIndexSearcherImplTest {
       fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
-      managerConfig = AstraConfigs.ManagerConfig.newBuilder().setEventAggregationSecs(1).build();
+      redactionUpdateServiceConfig =
+          AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig.newBuilder()
+              .setRedactionUpdatePeriodSecs(1)
+              .build();
       redactionUpdateService =
-          new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig, meterRegistry);
+          new RedactionUpdateService(
+              fieldRedactionMetadataStore, redactionUpdateServiceConfig, meterRegistry);
       redactionUpdateService.startAsync();
       redactionUpdateService.awaitRunning(DEFAULT_START_STOP_DURATION);
     }
@@ -125,7 +129,7 @@ public class LogIndexSearcherImplTest {
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -160,9 +164,9 @@ public class LogIndexSearcherImplTest {
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
-      // redaction service is currently set to update every <event_aggreation_secs>
-      // setEventAggregationSecs is set to 1 second in setup()
-      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
+      // redaction service is currently set to update every <redaction_update_period_secs>
+      // setRedactionUpdatePeriodSecs is set to 1 second in setup()
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       List<LogMessage> messages =
           featureFlagEnabledStrictLogStore.logSearcher.search(
@@ -194,11 +198,11 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
-      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -252,11 +256,11 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
-      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -315,11 +319,11 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 2);
-      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -372,10 +376,10 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
-      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -428,10 +432,10 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
-      Thread.sleep(managerConfig.getEventAggregationSecs() * 1000);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time));
       featureFlagEnabledStrictLogStore.logStore.addMessage(

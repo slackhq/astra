@@ -23,7 +23,8 @@ public class RedactionUpdateService extends AbstractScheduledService {
   public static final String FIELD_REDACTION_RELOAD_TIMER = "astra_field_redaction_reload_timer";
   //  private final Timer redactionReloadtimer;
 
-  private final AstraConfigs.ManagerConfig managerConfig;
+  private final AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig
+      redactionUpdateServiceConfig;
   private ScheduledFuture<?> pendingTask;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
   private final AstraMetadataStoreChangeListener<FieldRedactionMetadata> listener =
@@ -31,11 +32,11 @@ public class RedactionUpdateService extends AbstractScheduledService {
 
   public RedactionUpdateService(
       FieldRedactionMetadataStore fieldRedactionMetadataStore,
-      AstraConfigs.ManagerConfig managerConfig,
+      AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig redactionUpdateServiceConfig,
       MeterRegistry meterRegistry) {
 
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
-    this.managerConfig = managerConfig;
+    this.redactionUpdateServiceConfig = redactionUpdateServiceConfig;
     //    this.meterRegistry = meterRegistry;
     //    this.redactionReloadtimer = meterRegistry.timer(FIELD_REDACTION_RELOAD_TIMER);
   }
@@ -46,7 +47,7 @@ public class RedactionUpdateService extends AbstractScheduledService {
       pendingTask =
           executor.schedule(
               this::updateRedactionMetadataList,
-              this.managerConfig.getEventAggregationSecs(),
+              this.redactionUpdateServiceConfig.getRedactionUpdateAggregationSecs(),
               TimeUnit.SECONDS);
     }
   }
@@ -69,7 +70,7 @@ public class RedactionUpdateService extends AbstractScheduledService {
   @Override
   protected Scheduler scheduler() {
     return Scheduler.newFixedRateSchedule(
-        1, managerConfig.getEventAggregationSecs(), TimeUnit.SECONDS);
+        1, redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs(), TimeUnit.SECONDS);
   }
 
   @Override

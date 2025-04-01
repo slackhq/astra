@@ -27,7 +27,6 @@ import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheNodeMetadata;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.core.CuratorBuilder;
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.ChunkSchema;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
@@ -77,7 +76,6 @@ public class CachingChunkManagerTest {
   private CachingChunkManager<LogMessage> cachingChunkManager;
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private SnapshotMetadataStore snapshotMetadataStore;
-  private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
   @BeforeEach
   public void startup() throws Exception {
@@ -164,7 +162,6 @@ public class CachingChunkManagerTest {
   private CacheNodeAssignment initAssignment(String snapshotId) throws Exception {
     cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework, zkConfig);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
     snapshotMetadataStore.createSync(new SnapshotMetadata(snapshotId, 1, 1, 0, "abcd", 29));
     CacheNodeAssignment newAssignment =
         new CacheNodeAssignment(

@@ -32,7 +32,6 @@ import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadata;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
@@ -90,7 +89,6 @@ public class RecoveryChunkManagerTest {
   private AsyncCuratorFramework curatorFramework;
   private SearchMetadataStore searchMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
-  private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
   private AstraConfigs.AstraConfig AstraConfig;
 
@@ -118,7 +116,6 @@ public class RecoveryChunkManagerTest {
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
     searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
   }
 
   @AfterEach
@@ -130,7 +127,6 @@ public class RecoveryChunkManagerTest {
     }
     searchMetadataStore.close();
     snapshotMetadataStore.close();
-    fieldRedactionMetadataStore.close();
     curatorFramework.unwrap().close();
     s3AsyncClient.close();
     localZkServer.stop();
@@ -158,7 +154,6 @@ public class RecoveryChunkManagerTest {
             metricsRegistry,
             searchMetadataStore,
             snapshotMetadataStore,
-            fieldRedactionMetadataStore,
             AstraConfig.getIndexerConfig(),
             blobStore);
 

@@ -264,8 +264,7 @@ public class LuceneIndexStoreImplTest {
             Duration.of(5, ChronoUnit.MINUTES),
             Duration.of(5, ChronoUnit.MINUTES),
             true,
-            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR,
-            null);
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR);
 
     public TestsWithRaiseErrorFieldConflictPolicy() throws IOException {}
 
@@ -577,10 +576,13 @@ public class LuceneIndexStoreImplTest {
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
 
-      AstraConfigs.ManagerConfig managerConfig =
-          AstraConfigs.ManagerConfig.newBuilder().setEventAggregationSecs(1).build();
+      AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig redactionUpdateServiceConfig =
+          AstraConfigs.ManagerConfig.RedactionUpdateServiceConfig.newBuilder()
+              .setRedactionUpdatePeriodSecs(1)
+              .build();
       RedactionUpdateService redactionUpdateService =
-          new RedactionUpdateService(fieldRedactionMetadataStore, managerConfig, meterRegistry);
+          new RedactionUpdateService(
+              fieldRedactionMetadataStore, redactionUpdateServiceConfig, meterRegistry);
       redactionUpdateService.startAsync();
       redactionUpdateService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -663,8 +665,7 @@ public class LuceneIndexStoreImplTest {
             commitDuration,
             commitDuration,
             true,
-            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
-            null);
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD);
 
     public AutoCommitTests() throws IOException {}
 
