@@ -504,6 +504,7 @@ public class LuceneIndexStoreImplTest {
       curatorFramework.unwrap().close();
       testingServer.close();
     }
+  }
 
   @Nested
   public class IndexCleanupTests {
