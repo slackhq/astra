@@ -63,24 +63,25 @@ class HpaMetricPublisherServiceTest {
             hpaMetricMetadataStore, meterRegistry, Metadata.HpaMetricMetadata.NodeRole.CACHE);
     hpaMetricPublisherService.startUp();
 
-    assertThat(meterRegistry.getMeters()).isEmpty();
+    // AstraMetadataStore inits 9 of its own metrics
+    assertThat(meterRegistry.getMeters().size()).isEqualTo(9);
 
     hpaMetricMetadataStore.createSync(
         new HpaMetricMetadata("foo", Metadata.HpaMetricMetadata.NodeRole.CACHE, 1.0));
 
     await().until(() -> hpaMetricMetadataStore.listSync().size() == 1);
-    await().until(() -> meterRegistry.getMeters().size() == 1);
+    await().until(() -> meterRegistry.getMeters().size() == 10);
 
     hpaMetricMetadataStore.createSync(
         new HpaMetricMetadata("bar", Metadata.HpaMetricMetadata.NodeRole.INDEX, 1.0));
 
     await().until(() -> hpaMetricMetadataStore.listSync().size() == 2);
-    await().until(() -> meterRegistry.getMeters().size() == 1);
+    await().until(() -> meterRegistry.getMeters().size() == 10);
 
     hpaMetricMetadataStore.createSync(
         new HpaMetricMetadata("baz", Metadata.HpaMetricMetadata.NodeRole.CACHE, 0.0));
 
     await().until(() -> hpaMetricMetadataStore.listSync().size() == 3);
-    await().until(() -> meterRegistry.getMeters().size() == 2);
+    await().until(() -> meterRegistry.getMeters().size() == 11);
   }
 }
