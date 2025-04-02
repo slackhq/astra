@@ -95,7 +95,7 @@ public class LogIndexSearcherImplTest {
               .build();
       curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
       fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+          new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
 
       redactionUpdateServiceConfig =
           AstraConfigs.RedactionUpdateServiceConfig.newBuilder()

@@ -479,7 +479,7 @@ public class LuceneIndexStoreImplTest {
       long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
 
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+          new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
       fieldRedactionMetadataStore.createSync(
           new FieldRedactionMetadata(redactionName, fieldName, start, end));
       await()

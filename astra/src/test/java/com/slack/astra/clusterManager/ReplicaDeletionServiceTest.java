@@ -68,8 +68,9 @@ public class ReplicaDeletionServiceTest {
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, zkConfig));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
-    cacheNodeMetadataStore = spy(new CacheNodeAssignmentStore(curatorFramework, zkConfig));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
+    cacheNodeMetadataStore =
+        spy(new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry));
   }
 
   @AfterEach

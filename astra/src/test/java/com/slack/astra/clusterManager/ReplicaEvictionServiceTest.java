@@ -67,7 +67,7 @@ public class ReplicaEvictionServiceTest {
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, zkConfig));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
   }
 
   @AfterEach

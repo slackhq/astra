@@ -128,8 +128,10 @@ public class AstraTest {
             .setZkCacheInitTimeoutMs(1000)
             .build();
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
-    fieldRedactionMetadataStore = new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+    datasetMetadataStore =
+        new DatasetMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    fieldRedactionMetadataStore =
+        new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
     final DatasetPartitionMetadata partition =
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);

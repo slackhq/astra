@@ -144,8 +144,9 @@ public class IndexingChunkManagerTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry);
+    searchMetadataStore =
+        new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, false);
   }
 
   @AfterEach
@@ -1251,9 +1252,9 @@ public class IndexingChunkManagerTest {
 
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, zkConfig, false);
+        new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, zkConfig);
+        new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
@@ -1305,9 +1306,9 @@ public class IndexingChunkManagerTest {
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     // All ephemeral data is ZK is deleted and no data or metadata is persisted.
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, zkConfig, false);
+        new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, zkConfig);
+        new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     searchMetadataStore.close();

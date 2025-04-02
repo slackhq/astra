@@ -1,7 +1,5 @@
 package com.slack.astra.metadata.core;
 
-import static com.slack.astra.util.AstraMeterRegistry.getPrometheusMeterRegistry;
-
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.RuntimeHalterImpl;
@@ -57,6 +55,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private final AstraConfigs.ZookeeperConfig zkConfig;
 
+  private final MeterRegistry meterRegistry;
+
   private Counter createCall;
   private Counter hasCall;
   private Counter deleteCall;
@@ -75,13 +75,15 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       CreateMode createMode,
       boolean shouldCache,
       ModelSerializer<T> modelSerializer,
-      String storeFolder) {
+      String storeFolder,
+      MeterRegistry meterRegistry) {
 
     this.storeFolder = storeFolder;
     this.zPath = ZPath.parseWithIds(String.format("%s/{name}", storeFolder));
     this.zkConfig = zkConfig;
-    MeterRegistry meterRegistry = getPrometheusMeterRegistry();
-    if (meterRegistry != null) {
+    this.meterRegistry = meterRegistry;
+    //    MeterRegistry meterRegistry = getPrometheusMeterRegistry();
+    if (this.meterRegistry != null) {
       String store = storeFolder;
       if (store.startsWith("/partitioned_replica")) {
         store = "/partitioned_replica";
@@ -99,16 +101,17 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
         store = "/recoveryNode";
       }
 
-      this.createCall = meterRegistry.counter("astra_zk_create_call", "store", store);
-      this.deleteCall = meterRegistry.counter("astra_zk_delete_call", "store", store);
-      this.listCall = meterRegistry.counter("astra_zk_list_call", "store", store);
-      this.getCall = meterRegistry.counter("astra_zk_get_call", "store", store);
-      this.hasCall = meterRegistry.counter("astra_zk_has_call", "store", store);
-      this.updateCall = meterRegistry.counter("astra_zk_update_call", "store", store);
-      this.addedListener = meterRegistry.counter("astra_zk_added_listener", "store", store);
-      this.removedListener = meterRegistry.counter("astra_zk_removed_listener", "store", store);
+      this.createCall = this.meterRegistry.counter("astra_zk_create_call", "store", store);
+      this.deleteCall = this.meterRegistry.counter("astra_zk_delete_call", "store", store);
+      this.listCall = this.meterRegistry.counter("astra_zk_list_call", "store", store);
+      this.getCall = this.meterRegistry.counter("astra_zk_get_call", "store", store);
+      this.hasCall = this.meterRegistry.counter("astra_zk_has_call", "store", store);
+      this.updateCall = this.meterRegistry.counter("astra_zk_update_call", "store", store);
+      this.addedListener = this.meterRegistry.counter("astra_zk_added_listener", "store", store);
+      this.removedListener =
+          this.meterRegistry.counter("astra_zk_removed_listener", "store", store);
       this.cacheInitializationHandlerFired =
-          meterRegistry.counter("astra_zk_cache_init_handler_fired", "store", store);
+          this.meterRegistry.counter("astra_zk_cache_init_handler_fired", "store", store);
     } else {
       LOG.warn("Unable to register meters because it was null");
     }

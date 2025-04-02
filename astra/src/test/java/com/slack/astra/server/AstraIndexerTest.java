@@ -122,9 +122,12 @@ public class AstraIndexerTest {
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, zkConfig));
-    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, zkConfig, false));
-    searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, zkConfig, false));
+    snapshotMetadataStore =
+        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry));
+    recoveryTaskStore =
+        spy(new RecoveryTaskMetadataStore(curatorFramework, zkConfig, metricsRegistry, false));
+    searchMetadataStore =
+        spy(new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, false));
 
     kafkaServer = new TestKafkaServer();
   }

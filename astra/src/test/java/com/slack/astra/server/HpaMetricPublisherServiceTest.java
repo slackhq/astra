@@ -43,7 +43,8 @@ class HpaMetricPublisherServiceTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(new SimpleMeterRegistry(), zkConfig);
-    hpaMetricMetadataStore = spy(new HpaMetricMetadataStore(curatorFramework, zkConfig, true));
+    hpaMetricMetadataStore =
+        spy(new HpaMetricMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
   }
 
   @AfterEach

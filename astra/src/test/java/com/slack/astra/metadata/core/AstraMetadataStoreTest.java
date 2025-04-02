@@ -105,7 +105,8 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
-            STORE_FOLDER);
+            STORE_FOLDER,
+            meterRegistry);
       }
     }
 
@@ -163,7 +164,8 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
-            STORE_FOLDER);
+            STORE_FOLDER,
+            meterRegistry);
       }
     }
 
@@ -185,7 +187,8 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             false,
             new JacksonModelSerializer<>(TestMetadata.class),
-            STORE_FOLDER);
+            STORE_FOLDER,
+            meterRegistry);
       }
     }
 
@@ -220,7 +223,8 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             false,
             new JacksonModelSerializer<>(TestMetadata.class),
-            "/persistent");
+            "/persistent",
+            meterRegistry);
       }
     }
 
@@ -232,7 +236,8 @@ public class AstraMetadataStoreTest {
             CreateMode.EPHEMERAL,
             false,
             new JacksonModelSerializer<>(TestMetadata.class),
-            "/ephemeral");
+            "/ephemeral",
+            meterRegistry);
       }
     }
 
@@ -282,7 +287,8 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
-            STORE_FOLDER);
+            STORE_FOLDER,
+            meterRegistry);
       }
     }
 
@@ -322,7 +328,8 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
-            STORE_FOLDER);
+            STORE_FOLDER,
+            meterRegistry);
       }
     }
 
@@ -387,7 +394,8 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             true,
             new CountingSerializer(),
-            STORE_FOLDER);
+            STORE_FOLDER,
+            meterRegistry);
       }
     }
 
@@ -418,7 +426,8 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
-            STORE_FOLDER);
+            STORE_FOLDER,
+            meterRegistry);
       }
     }
 
@@ -450,7 +459,8 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             true,
             new SlowSerializer(),
-            STORE_FOLDER);
+            STORE_FOLDER,
+            meterRegistry);
       }
     }
 
