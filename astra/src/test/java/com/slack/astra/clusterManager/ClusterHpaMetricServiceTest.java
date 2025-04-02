@@ -68,7 +68,8 @@ class ClusterHpaMetricServiceTest {
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
     replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
-    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, zkConfig));
+    cacheSlotMetadataStore =
+        spy(new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry));
     cacheNodeAssignmentStore =
         spy(new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry));
     cacheNodeMetadataStore =
