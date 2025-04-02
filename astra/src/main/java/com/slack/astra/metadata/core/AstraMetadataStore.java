@@ -27,8 +27,6 @@ import org.apache.curator.x.async.modeled.cached.CachedModeledFramework;
 import org.apache.curator.x.async.modeled.cached.ModeledCacheListener;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.data.Stat;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * AstraMetadataStore is a class which provides consistent ZK apis for all the metadata store class.
@@ -57,6 +55,16 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private final MeterRegistry meterRegistry;
 
+  private final String ASTRA_ZK_CREATE_CALL = "astra_zk_create_call";
+  private final String ASTRA_ZK_HAS_CALL = "astra_zk_has_call";
+  private final String ASTRA_ZK_DELETE_CALL = "astra_zk_delete_call";
+  private final String ASTRA_ZK_LIST_CALL = "astra_zk_list_call";
+  private final String ASTRA_ZK_GET_CALL = "astra_zk_get_call";
+  private final String ASTRA_ZK_UPDATE_CALL = "astra_zk_get_call";
+  private final String ASTRA_ZK_ADDED_LISTENER = "astra_zk_added_listener";
+  private final String ASTRA_ZK_REMOVED_LISTENER = "astra_zk_removed_listener";
+  private final String ASTRA_ZK_CACHE_INIT_HANDLER_FIRED = "astra_zk_cache_init_handler_fired";
+
   private Counter createCall;
   private Counter hasCall;
   private Counter deleteCall;
@@ -66,8 +74,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private Counter addedListener;
   private Counter removedListener;
   private Counter cacheInitializationHandlerFired;
-
-  private static final Logger LOG = LoggerFactory.getLogger(AstraMetadataStore.class);
 
   public AstraMetadataStore(
       AsyncCuratorFramework curator,
@@ -82,38 +88,18 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     this.zPath = ZPath.parseWithIds(String.format("%s/{name}", storeFolder));
     this.zkConfig = zkConfig;
     this.meterRegistry = meterRegistry;
-    if (this.meterRegistry != null) {
-      String store = storeFolder;
-      if (store.startsWith("/partitioned_replica")) {
-        store = "/partitioned_replica";
-      }
+    String store = "/" + storeFolder.split("/")[0];
 
-      if (store.startsWith("/partitioned_snapshot")) {
-        store = "/partitioned_snapshot";
-      }
-
-      if (store.startsWith("/cacheAssignment")) {
-        store = "/cacheAssignment";
-      }
-
-      if (store.startsWith("/recoveryNode")) {
-        store = "/recoveryNode";
-      }
-
-      this.createCall = this.meterRegistry.counter("astra_zk_create_call", "store", store);
-      this.deleteCall = this.meterRegistry.counter("astra_zk_delete_call", "store", store);
-      this.listCall = this.meterRegistry.counter("astra_zk_list_call", "store", store);
-      this.getCall = this.meterRegistry.counter("astra_zk_get_call", "store", store);
-      this.hasCall = this.meterRegistry.counter("astra_zk_has_call", "store", store);
-      this.updateCall = this.meterRegistry.counter("astra_zk_update_call", "store", store);
-      this.addedListener = this.meterRegistry.counter("astra_zk_added_listener", "store", store);
-      this.removedListener =
-          this.meterRegistry.counter("astra_zk_removed_listener", "store", store);
-      this.cacheInitializationHandlerFired =
-          this.meterRegistry.counter("astra_zk_cache_init_handler_fired", "store", store);
-    } else {
-      LOG.warn("Unable to register meters because it was null");
-    }
+    this.createCall = this.meterRegistry.counter(ASTRA_ZK_CREATE_CALL, "store", store);
+    this.deleteCall = this.meterRegistry.counter(ASTRA_ZK_DELETE_CALL, "store", store);
+    this.listCall = this.meterRegistry.counter(ASTRA_ZK_LIST_CALL, "store", store);
+    this.getCall = this.meterRegistry.counter(ASTRA_ZK_GET_CALL, "store", store);
+    this.hasCall = this.meterRegistry.counter(ASTRA_ZK_HAS_CALL, "store", store);
+    this.updateCall = this.meterRegistry.counter(ASTRA_ZK_UPDATE_CALL, "store", store);
+    this.addedListener = this.meterRegistry.counter(ASTRA_ZK_ADDED_LISTENER, "store", store);
+    this.removedListener = this.meterRegistry.counter(ASTRA_ZK_REMOVED_LISTENER, "store", store);
+    this.cacheInitializationHandlerFired =
+        this.meterRegistry.counter(ASTRA_ZK_CACHE_INIT_HANDLER_FIRED, "store", store);
 
     ModelSpec<T> modelSpec =
         ModelSpec.builder(modelSerializer)
@@ -144,9 +130,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public void createSync(T metadataNode) {
     try {
-      if (this.createCall != null) {
-        this.createCall.increment();
-      }
+      this.createCall.increment();
 
       createAsync(metadataNode)
           .toCompletableFuture()
@@ -166,10 +150,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public T getSync(String path) {
     try {
-
-      if (this.getCall != null) {
-        this.getCall.increment();
-      }
+      this.getCall.increment();
 
       return getAsync(path)
           .toCompletableFuture()
@@ -189,10 +170,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public boolean hasSync(String path) {
     try {
-
-      if (this.hasCall != null) {
-        this.hasCall.increment();
-      }
+      this.hasCall.increment();
 
       return hasAsync(path)
               .toCompletableFuture()
@@ -210,9 +188,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   public void updateSync(T metadataNode) {
     try {
 
-      if (this.updateCall != null) {
-        this.updateCall.increment();
-      }
+      this.updateCall.increment();
 
       updateAsync(metadataNode)
           .toCompletableFuture()
@@ -228,10 +204,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public void deleteSync(String path) {
     try {
-
-      if (this.deleteCall != null) {
-        this.deleteCall.increment();
-      }
+      this.deleteCall.increment();
 
       deleteAsync(path)
           .toCompletableFuture()
@@ -247,9 +220,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public void deleteSync(T metadataNode) {
     try {
-      if (this.deleteCall != null) {
-        this.deleteCall.increment();
-      }
+      this.deleteCall.increment();
 
       deleteAsync(metadataNode)
           .toCompletableFuture()
@@ -271,10 +242,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   public List<T> listSync() {
     try {
-
-      if (this.listCall != null) {
-        this.listCall.increment();
-      }
+      this.listCall.increment();
 
       return listAsync()
           .toCompletableFuture()
@@ -289,9 +257,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       throw new UnsupportedOperationException("Caching is disabled");
     }
 
-    if (this.addedListener != null) {
-      this.addedListener.increment();
-    }
+    this.addedListener.increment();
 
     // this mapping exists because the remove is by reference, and the listener is a different
     // object type
@@ -310,9 +276,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     if (cachedModeledFramework == null) {
       throw new UnsupportedOperationException("Caching is disabled");
     }
-    if (this.removedListener != null) {
-      this.removedListener.increment();
-    }
+    this.removedListener.increment();
     cachedModeledFramework.listenable().removeListener(listenerMap.remove(watcher));
   }
 
