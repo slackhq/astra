@@ -82,7 +82,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     this.zPath = ZPath.parseWithIds(String.format("%s/{name}", storeFolder));
     this.zkConfig = zkConfig;
     this.meterRegistry = meterRegistry;
-    //    MeterRegistry meterRegistry = getPrometheusMeterRegistry();
     if (this.meterRegistry != null) {
       String store = storeFolder;
       if (store.startsWith("/partitioned_replica")) {

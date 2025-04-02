@@ -45,7 +45,6 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.recovery.RecoveryService;
-import com.slack.astra.util.AstraMeterRegistry;
 import com.slack.astra.util.RuntimeHalterImpl;
 import com.slack.astra.zipkinApi.ZipkinService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -107,8 +106,7 @@ public class Astra {
 
     AstraConfig.initFromFile(configFilePath);
     AstraConfigs.AstraConfig config = AstraConfig.get();
-    AstraMeterRegistry.initPrometheusMeterRegistry(config);
-    Astra astra = new Astra(AstraConfig.get(), AstraMeterRegistry.getPrometheusMeterRegistry());
+    Astra astra = new Astra(AstraConfig.get(), initPrometheusMeterRegistry(config));
     astra.start();
   }
 
