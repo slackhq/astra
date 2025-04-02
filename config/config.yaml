@@ -107,9 +107,9 @@ managerConfig:
     maxConcurrentPerNode: ${ASTRA_MANAGER_MAX_CONCURRENT_ASSIGNMENTS_PER_NODE:-2}
   clusterMonitorServiceConfig:
     schedulePeriodMins: ${ASTRA_MANAGER_CLUSTER_MONITOR_PERIOD_MINS:-15}
-  redactionUpdateServiceConfig:
-    redactionUpdateAggregationSecs: ${ASTRA_MANAGER_REDACTION_UPDATE_AGGREGATION_SECS:-5}
-    redactionUpdatePeriodSecs: ${ASTRA_MANAGER_REDACTION_UPDATE_PERIOD_SECS:-300}
+
+redactionUpdateServiceConfig:
+  redactionUpdatePeriodSecs: ${ASTRA_MANAGER_REDACTION_UPDATE_PERIOD_SECS:-300}
 
 clusterConfig:
   clusterName: ${ASTRA_CLUSTER_NAME:-ASTRA_local}
