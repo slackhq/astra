@@ -98,6 +98,7 @@ public class AstraConfigUtil {
     AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig =
         AstraConfigs.RedactionUpdateServiceConfig.newBuilder()
             .setRedactionUpdatePeriodSecs(1)
+            .setRedactionUpdateInitDelaySecs(1)
             .build();
 
     return AstraConfigs.AstraConfig.newBuilder()

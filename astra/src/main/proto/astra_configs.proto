@@ -94,6 +94,9 @@ message RedactionUpdateServiceConfig {
   // refresh of the redactions list, whether or not a ZK event
   // has triggered it
   int32 redaction_update_period_secs = 1;
+
+  // Initial delay for redaction list update
+  int32 redaction_update_init_delay_secs = 2;
 }
 
 enum KafkaOffsetLocation {

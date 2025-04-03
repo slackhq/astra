@@ -52,7 +52,9 @@ public class RedactionUpdateService extends AbstractScheduledService {
   @Override
   protected Scheduler scheduler() {
     return Scheduler.newFixedRateSchedule(
-        30, redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs(), TimeUnit.SECONDS);
+        redactionUpdateServiceConfig.getRedactionUpdateInitDelaySecs(),
+        redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs(),
+        TimeUnit.SECONDS);
   }
 
   @Override

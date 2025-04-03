@@ -100,6 +100,7 @@ public class LogIndexSearcherImplTest {
       redactionUpdateServiceConfig =
           AstraConfigs.RedactionUpdateServiceConfig.newBuilder()
               .setRedactionUpdatePeriodSecs(1)
+              .setRedactionUpdateInitDelaySecs(1)
               .build();
       redactionUpdateService =
           new RedactionUpdateService(fieldRedactionMetadataStore, redactionUpdateServiceConfig);
