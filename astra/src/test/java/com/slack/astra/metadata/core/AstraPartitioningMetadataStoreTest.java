@@ -216,6 +216,7 @@ class AstraPartitioningMetadataStoreTest {
         new AstraPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_znodes")) {
@@ -250,6 +251,7 @@ class AstraPartitioningMetadataStoreTest {
         new AstraPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_create")) {
@@ -274,6 +276,7 @@ class AstraPartitioningMetadataStoreTest {
         new AstraPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_update")) {
@@ -307,6 +310,7 @@ class AstraPartitioningMetadataStoreTest {
         new AstraPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_delete")) {
@@ -334,6 +338,7 @@ class AstraPartitioningMetadataStoreTest {
         new AstraPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_find")) {
@@ -357,6 +362,7 @@ class AstraPartitioningMetadataStoreTest {
         new AstraPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_find_missing")) {
@@ -372,6 +378,7 @@ class AstraPartitioningMetadataStoreTest {
         new AstraPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_snapshot_duplicate_create")) {
@@ -391,6 +398,7 @@ class AstraPartitioningMetadataStoreTest {
         super(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_persistent");
@@ -402,6 +410,7 @@ class AstraPartitioningMetadataStoreTest {
         super(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.EPHEMERAL,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_ephemeral");
@@ -455,6 +464,7 @@ class AstraPartitioningMetadataStoreTest {
         super(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_zk_reconnect");
@@ -494,6 +504,7 @@ class AstraPartitioningMetadataStoreTest {
         new AstraPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_snapshot_listeners")) {
@@ -598,6 +609,7 @@ class AstraPartitioningMetadataStoreTest {
         super(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new ExampleMetadataSerializer().toModelSerializer(),
             "/partitioned_add_remove_listeners");
@@ -643,6 +655,7 @@ class AstraPartitioningMetadataStoreTest {
         super(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new FixedPartitionMetadataSerializer().toModelSerializer(),
             "/partitioned_duplicate_listeners");
@@ -710,6 +723,7 @@ class AstraPartitioningMetadataStoreTest {
         super(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new FixedPartitionMetadataSerializer().toModelSerializer(),
             partitionStoreFolder);
@@ -722,6 +736,7 @@ class AstraPartitioningMetadataStoreTest {
         super(
             curatorFramework,
             zkConfig,
+            meterRegistry,
             CreateMode.PERSISTENT,
             new FixedPartitionMetadataSerializer().toModelSerializer(),
             partitionStoreFolder,

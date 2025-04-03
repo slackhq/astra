@@ -44,7 +44,7 @@ public class CacheSlotMetadataStoreTest {
             .setZkCacheInitTimeoutMs(1000)
             .build();
     this.curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    this.store = new CacheSlotMetadataStore(curatorFramework, zkConfig);
+    this.store = new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
   }
 
   @AfterEach

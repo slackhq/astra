@@ -13,7 +13,7 @@ import org.apache.lucene.index.StoredFieldVisitor;
 
 /**
  * RedactionStoreFieldVisitor reads the individual fields of the logs that come back from a search
- * and redacts the values if necessary using the FieldRedactionMetadataStore.
+ * and redacts the values if necessary using the values in FieldRedactionMetadataStore.
  */
 class RedactionStoredFieldVisitor extends StoredFieldVisitor {
   private ObjectMapper om = new ObjectMapper();

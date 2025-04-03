@@ -14,7 +14,6 @@ import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.logstore.search.fieldRedaction.RedactionFilterDirectoryReader;
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
@@ -61,25 +60,21 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final ReferenceManager.RefreshListener refreshListener;
 
   @VisibleForTesting
-  public static SearcherManager searcherManagerFromChunkId(
-      String chunkId, BlobStore blobStore, FieldRedactionMetadataStore fieldRedactionMetadataStore)
+  public static SearcherManager searcherManagerFromChunkId(String chunkId, BlobStore blobStore)
       throws IOException {
     Directory directory = new S3RemoteDirectory(chunkId, blobStore);
     DirectoryReader directoryReader = DirectoryReader.open(directory);
 
-    RedactionFilterDirectoryReader reader =
-        new RedactionFilterDirectoryReader(directoryReader, fieldRedactionMetadataStore);
+    RedactionFilterDirectoryReader reader = new RedactionFilterDirectoryReader(directoryReader);
     return new SearcherManager(reader, null);
   }
 
   @VisibleForTesting
-  public static SearcherManager searcherManagerFromPath(
-      Path path, FieldRedactionMetadataStore fieldRedactionMetadataStore) throws IOException {
+  public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
     DirectoryReader directoryReader = DirectoryReader.open(directory);
 
-    RedactionFilterDirectoryReader reader =
-        new RedactionFilterDirectoryReader(directoryReader, fieldRedactionMetadataStore);
+    RedactionFilterDirectoryReader reader = new RedactionFilterDirectoryReader(directoryReader);
     return new SearcherManager(reader, null);
   }
 

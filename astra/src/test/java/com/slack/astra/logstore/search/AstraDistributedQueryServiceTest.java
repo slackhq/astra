@@ -88,9 +88,12 @@ public class AstraDistributedQueryServiceTest {
 
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
 
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, zkConfig));
-    searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, zkConfig, true));
-    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
+    snapshotMetadataStore =
+        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry));
+    searchMetadataStore =
+        spy(new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, true));
+    datasetMetadataStore =
+        new DatasetMetadataStore(curatorFramework, zkConfig, metricsRegistry, true);
 
     indexer1SearchContext = new SearchContext("indexer_host1", 10000);
     indexer2SearchContext = new SearchContext("indexer_host2", 10001);

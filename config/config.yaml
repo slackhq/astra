@@ -108,6 +108,10 @@ managerConfig:
   clusterMonitorServiceConfig:
     schedulePeriodMins: ${ASTRA_MANAGER_CLUSTER_MONITOR_PERIOD_MINS:-15}
 
+redactionUpdateServiceConfig:
+  redactionUpdatePeriodSecs: ${ASTRA_MANAGER_REDACTION_UPDATE_PERIOD_SECS:-300}
+  redactionUpdateInitDelaySecs: ${ASTRA_MANAGER_REDACTION_UPDATE_INIT_DELAY_SECS:-30}
+
 clusterConfig:
   clusterName: ${ASTRA_CLUSTER_NAME:-ASTRA_local}
   env: ${ASTRA_CLUSTER_ENV:-local}

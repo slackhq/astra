@@ -92,9 +92,9 @@ public class AstraIndexer extends AbstractExecutionThreadService {
   private long indexerPreStart() throws Exception {
     LOG.info("Starting Astra indexer pre start.");
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, zkConfig);
+        new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(curatorFramework, zkConfig, true);
+        new RecoveryTaskMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
 
     String partitionId = kafkaConfig.getKafkaTopicPartition();
     long maxOffsetDelay = indexerConfig.getMaxOffsetDelayMessages();

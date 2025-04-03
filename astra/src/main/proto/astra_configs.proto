@@ -29,6 +29,7 @@ message AstraConfig {
   RecoveryConfig recovery_config = 10;
   PreprocessorConfig preprocessor_config = 11;
   ClusterConfig cluster_config = 12;
+  RedactionUpdateServiceConfig redaction_update_service_config = 13;
 }
 
 // Static configuration for the Astra cluster.
@@ -86,6 +87,16 @@ message QueryServiceConfig {
   ServerConfig server_config = 1;
   int32 default_query_timeout_ms = 2;
   string managerConnectString = 3;
+}
+
+message RedactionUpdateServiceConfig {
+  // Redaction update period is the amount of time between each
+  // refresh of the redactions list, whether or not a ZK event
+  // has triggered it
+  int32 redaction_update_period_secs = 1;
+
+  // Initial delay for redaction list update
+  int32 redaction_update_init_delay_secs = 2;
 }
 
 enum KafkaOffsetLocation {

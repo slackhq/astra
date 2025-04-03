@@ -538,8 +538,7 @@ public class SearchResultAggregatorImplTest {
             true,
             metricsRegistry);
 
-    LogStore logStore =
-        new LuceneIndexStoreImpl(indexStoreCfg, documentBuilder, metricsRegistry, null);
+    LogStore logStore = new LuceneIndexStoreImpl(indexStoreCfg, documentBuilder, metricsRegistry);
     LogIndexSearcherImpl logSearcher =
         new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
 

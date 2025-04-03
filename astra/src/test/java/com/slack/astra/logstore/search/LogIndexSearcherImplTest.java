@@ -4,6 +4,7 @@ import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
+import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.astra.testlib.MessageUtil.TEST_DATASET_NAME;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_LONG_PROPERTY;
 import static com.slack.astra.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
@@ -23,6 +24,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
+import com.slack.astra.clusterManager.RedactionUpdateService;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
@@ -73,6 +75,8 @@ public class LogIndexSearcherImplTest {
     private TestingServer testingServer;
     private MeterRegistry meterRegistry;
     private AsyncCuratorFramework curatorFramework;
+    private AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig;
+    private RedactionUpdateService redactionUpdateService;
 
     @BeforeEach
     public void setup() throws Exception {
@@ -91,20 +95,33 @@ public class LogIndexSearcherImplTest {
               .build();
       curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
       fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+          new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+
+      redactionUpdateServiceConfig =
+          AstraConfigs.RedactionUpdateServiceConfig.newBuilder()
+              .setRedactionUpdatePeriodSecs(1)
+              .setRedactionUpdateInitDelaySecs(1)
+              .build();
+      redactionUpdateService =
+          new RedactionUpdateService(fieldRedactionMetadataStore, redactionUpdateServiceConfig);
+      redactionUpdateService.startAsync();
+      redactionUpdateService.awaitRunning(DEFAULT_START_STOP_DURATION);
     }
 
     @AfterEach
-    public void teardown() throws IOException {
+    public void teardown() throws Exception {
       testingServer.close();
       fieldRedactionMetadataStore.close();
       curatorFramework.unwrap().close();
       meterRegistry.close();
+      if (redactionUpdateService != null) {
+        redactionUpdateService.stopAsync();
+        redactionUpdateService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      }
     }
 
     @Test
     public void testRedactionWithIncludeFilters() throws Exception {
-
       String redactionName = "testRedaction";
       String fieldName = "message";
       long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
@@ -112,7 +129,7 @@ public class LogIndexSearcherImplTest {
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -147,6 +164,10 @@ public class LogIndexSearcherImplTest {
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
+      // redaction service is currently set to update every <redaction_update_period_secs>
+      // setRedactionUpdatePeriodSecs is set to 1 second in setup()
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
+
       List<LogMessage> messages =
           featureFlagEnabledStrictLogStore.logSearcher.search(
                   TEST_DATASET_NAME,
@@ -177,10 +198,11 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -234,10 +256,11 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -296,10 +319,11 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 2);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       // search
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -352,9 +376,10 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       Instant time = Instant.now();
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
@@ -407,9 +432,10 @@ public class LogIndexSearcherImplTest {
           .until(
               () ->
                   AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+      Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
-          new TemporaryLogStoreAndSearcherExtension(true, fieldRedactionMetadataStore);
+          new TemporaryLogStoreAndSearcherExtension(true);
 
       featureFlagEnabledStrictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, "apple", time));
       featureFlagEnabledStrictLogStore.logStore.addMessage(

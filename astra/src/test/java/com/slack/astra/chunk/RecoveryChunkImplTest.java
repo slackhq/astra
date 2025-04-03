@@ -25,7 +25,6 @@ import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
-import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
@@ -74,7 +73,6 @@ public class RecoveryChunkImplTest {
     private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
-    private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -94,10 +92,8 @@ public class RecoveryChunkImplTest {
               .build();
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
-      fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -107,8 +103,7 @@ public class RecoveryChunkImplTest {
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
-              registry,
-              fieldRedactionMetadataStore);
+              registry);
       chunk =
           new RecoveryChunkImpl<>(
               logStore,
@@ -440,7 +435,6 @@ public class RecoveryChunkImplTest {
     private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
-    private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -460,10 +454,8 @@ public class RecoveryChunkImplTest {
               .build();
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
-      fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -472,8 +464,7 @@ public class RecoveryChunkImplTest {
               REFRESH_INTERVAL,
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR,
-              registry,
-              fieldRedactionMetadataStore);
+              registry);
       chunk =
           new RecoveryChunkImpl<>(
               logStore,
@@ -530,7 +521,6 @@ public class RecoveryChunkImplTest {
     private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
-    private FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -550,10 +540,8 @@ public class RecoveryChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, true);
-      fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -563,8 +551,7 @@ public class RecoveryChunkImplTest {
               true,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
-              registry,
-              fieldRedactionMetadataStore);
+              registry);
       chunk =
           new RecoveryChunkImpl<>(
               logStore,

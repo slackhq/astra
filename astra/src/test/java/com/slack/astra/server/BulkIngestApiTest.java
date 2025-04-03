@@ -108,7 +108,8 @@ public class BulkIngestApiTest {
             .setDatasetRateLimitPeriodSecs(15)
             .build();
 
-    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
+    datasetMetadataStore =
+        new DatasetMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
             INDEX_NAME,
@@ -120,7 +121,8 @@ public class BulkIngestApiTest {
     // Create an entry while init. Update the entry on every test run
     datasetMetadataStore.createSync(datasetMetadata);
 
-    preprocessorMetadataStore = new PreprocessorMetadataStore(curatorFramework, zkConfig, true);
+    preprocessorMetadataStore =
+        new PreprocessorMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
 
     datasetRateLimitingService =
         new DatasetRateLimitingService(
