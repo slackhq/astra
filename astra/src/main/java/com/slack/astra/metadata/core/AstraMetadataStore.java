@@ -65,15 +65,15 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private final String ASTRA_ZK_REMOVED_LISTENER = "astra_zk_removed_listener";
   private final String ASTRA_ZK_CACHE_INIT_HANDLER_FIRED = "astra_zk_cache_init_handler_fired";
 
-  private Counter createCall;
-  private Counter hasCall;
-  private Counter deleteCall;
-  private Counter listCall;
-  private Counter getCall;
-  private Counter updateCall;
-  private Counter addedListener;
-  private Counter removedListener;
-  private Counter cacheInitializationHandlerFired;
+  private final Counter createCall;
+  private final Counter hasCall;
+  private final Counter deleteCall;
+  private final Counter listCall;
+  private final Counter getCall;
+  private final Counter updateCall;
+  private final Counter addedListener;
+  private final Counter removedListener;
+  private final Counter cacheInitializationHandlerFired;
 
   public AstraMetadataStore(
       AsyncCuratorFramework curator,

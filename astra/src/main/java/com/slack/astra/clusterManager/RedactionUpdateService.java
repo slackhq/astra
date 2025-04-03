@@ -5,20 +5,21 @@ import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import java.util.HashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** */
+/**
+ * RedactionUpdateService updates the redaction hashmap every x minutes (default 5) which is then
+ * used in searches. This is to prevent excessive calls to ZK on every search. This service runs on
+ * cache and indexer nodes.
+ */
 public class RedactionUpdateService extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(RedactionUpdateService.class);
   private static HashMap<String, FieldRedactionMetadata> fieldRedactionsMap = new HashMap<>();
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
 
   private final AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig;
-  private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
   public RedactionUpdateService(
       FieldRedactionMetadataStore fieldRedactionMetadataStore,
@@ -51,7 +52,7 @@ public class RedactionUpdateService extends AbstractScheduledService {
   @Override
   protected Scheduler scheduler() {
     return Scheduler.newFixedRateSchedule(
-        1, redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs(), TimeUnit.SECONDS);
+        30, redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs(), TimeUnit.SECONDS);
   }
 
   @Override
@@ -62,7 +63,6 @@ public class RedactionUpdateService extends AbstractScheduledService {
 
   @Override
   protected void shutDown() throws Exception {
-    executor.shutdownNow();
     LOG.info("Closed Redaction Update Service");
   }
 }

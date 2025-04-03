@@ -236,7 +236,6 @@ message ManagerConfig {
   ReplicaRestoreServiceConfig replica_restore_service_config = 10;
   CacheNodeAssignmentServiceConfig cache_node_assignment_service_config = 11;
   ClusterMonitorServiceConfig cluster_monitor_service_config = 12;
-  RedactionUpdateServiceConfig redaction_update_service_config = 13;
 }
 
 // Config for the recovery node.
