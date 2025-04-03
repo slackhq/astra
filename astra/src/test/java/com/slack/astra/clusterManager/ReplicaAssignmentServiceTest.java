@@ -69,8 +69,9 @@ public class ReplicaAssignmentServiceTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, zkConfig));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig));
+    cacheSlotMetadataStore =
+        spy(new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
   }
 
   @AfterEach

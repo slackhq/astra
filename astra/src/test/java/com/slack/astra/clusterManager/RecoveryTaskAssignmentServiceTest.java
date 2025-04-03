@@ -65,9 +65,9 @@ public class RecoveryTaskAssignmentServiceTest {
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     recoveryTaskMetadataStore =
-        spy(new RecoveryTaskMetadataStore(curatorFramework, zkConfig, true));
+        spy(new RecoveryTaskMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
     recoveryNodeMetadataStore =
-        spy(new RecoveryNodeMetadataStore(curatorFramework, zkConfig, true));
+        spy(new RecoveryNodeMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
   }
 
   @AfterEach

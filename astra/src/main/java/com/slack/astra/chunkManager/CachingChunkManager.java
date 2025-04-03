@@ -94,13 +94,13 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   protected void startUp() throws Exception {
     LOG.info("Starting caching chunk manager");
 
-    replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, zkConfig);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
-    cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework, zkConfig);
+    replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, false);
+    cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
     cacheNodeAssignmentStore =
-        new CacheNodeAssignmentStore(curatorFramework, zkConfig, cacheNodeId);
-    cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework, zkConfig);
+        new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry, cacheNodeId);
+    cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);

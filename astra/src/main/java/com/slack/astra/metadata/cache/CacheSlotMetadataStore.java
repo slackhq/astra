@@ -5,6 +5,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
@@ -17,11 +18,14 @@ public class CacheSlotMetadataStore extends AstraPartitioningMetadataStore<Cache
    * create/update the cache slots, and for listening to all cache slot events.
    */
   public CacheSlotMetadataStore(
-      AsyncCuratorFramework curatorFramework, AstraConfigs.ZookeeperConfig zkConfig)
+      AsyncCuratorFramework curatorFramework,
+      AstraConfigs.ZookeeperConfig zkConfig,
+      MeterRegistry meterRegistry)
       throws Exception {
     super(
         curatorFramework,
         zkConfig,
+        meterRegistry,
         CreateMode.EPHEMERAL,
         new CacheSlotMetadataSerializer().toModelSerializer(),
         CACHE_SLOT_ZK_PATH);

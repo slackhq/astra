@@ -93,7 +93,8 @@ class BulkIngestKafkaProducerTest {
             .setRateLimiterMaxBurstSeconds(1)
             .build();
 
-    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, zkConfig, true);
+    datasetMetadataStore =
+        new DatasetMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
             INDEX_NAME,

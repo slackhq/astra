@@ -2,6 +2,7 @@ package com.slack.astra.metadata.core;
 
 import com.google.common.collect.Sets;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -55,19 +56,22 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final Watcher watcher;
   private final List<String> partitionFilters;
   private final AstraConfigs.ZookeeperConfig zkConfig;
+  private final MeterRegistry meterRegistry;
 
   public AstraPartitioningMetadataStore(
       AsyncCuratorFramework curator,
       AstraConfigs.ZookeeperConfig zkConfig,
+      MeterRegistry meterRegistry,
       CreateMode createMode,
       ModelSerializer<T> modelSerializer,
       String storeFolder) {
-    this(curator, zkConfig, createMode, modelSerializer, storeFolder, List.of());
+    this(curator, zkConfig, meterRegistry, createMode, modelSerializer, storeFolder, List.of());
   }
 
   public AstraPartitioningMetadataStore(
       AsyncCuratorFramework curator,
       AstraConfigs.ZookeeperConfig zkConfig,
+      MeterRegistry meterRegistry,
       CreateMode createMode,
       ModelSerializer<T> modelSerializer,
       String storeFolder,
@@ -79,6 +83,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     this.watcher = buildWatcher();
     this.partitionFilters = partitionFilters;
     this.zkConfig = zkConfig;
+    this.meterRegistry = meterRegistry;
 
     // register watchers for when partitions are added or removed
     curator
@@ -139,7 +144,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * map, and removes stores that are in the map that no longer exist in ZK.
    *
    * @see AstraMetadataStore#AstraMetadataStore(AsyncCuratorFramework, AstraConfigs.ZookeeperConfig,
-   *     CreateMode, boolean, ModelSerializer, String)
+   *     CreateMode, boolean, ModelSerializer, String, io.micrometer.core.instrument.MeterRegistry)
    */
   private Watcher buildWatcher() {
     return event -> {
@@ -311,7 +316,8 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               "Creating new metadata store for partition - {}, at path - {}", partition, path);
 
           AstraMetadataStore<T> newStore =
-              new AstraMetadataStore<>(curator, zkConfig, createMode, true, modelSerializer, path);
+              new AstraMetadataStore<>(
+                  curator, zkConfig, createMode, true, modelSerializer, path, meterRegistry);
           listeners.forEach(newStore::addListener);
 
           return newStore;

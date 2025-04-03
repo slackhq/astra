@@ -2,6 +2,7 @@ package com.slack.astra.metadata.fieldredaction;
 
 import com.slack.astra.metadata.core.AstraMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
 
@@ -11,6 +12,7 @@ public class FieldRedactionMetadataStore extends AstraMetadataStore<FieldRedacti
   public FieldRedactionMetadataStore(
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.ZookeeperConfig zkConfig,
+      MeterRegistry meterRegistry,
       boolean shouldCache) {
     super(
         curatorFramework,
@@ -18,6 +20,7 @@ public class FieldRedactionMetadataStore extends AstraMetadataStore<FieldRedacti
         CreateMode.PERSISTENT,
         shouldCache,
         new FieldRedactionMetadataSerializer().toModelSerializer(),
-        REDACTED_FIELD_METADATA_STORE_ZK_PATH);
+        REDACTED_FIELD_METADATA_STORE_ZK_PATH,
+        meterRegistry);
   }
 }

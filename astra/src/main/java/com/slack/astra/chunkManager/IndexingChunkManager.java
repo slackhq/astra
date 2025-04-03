@@ -387,8 +387,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   protected void startUp() throws Exception {
     LOG.info("Starting indexing chunk manager");
 
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     stopIngestion = false;
   }

@@ -94,6 +94,9 @@ message RedactionUpdateServiceConfig {
   // refresh of the redactions list, whether or not a ZK event
   // has triggered it
   int32 redaction_update_period_secs = 1;
+
+  // Initial delay for redaction list update
+  int32 redaction_update_init_delay_secs = 2;
 }
 
 enum KafkaOffsetLocation {
@@ -236,7 +239,6 @@ message ManagerConfig {
   ReplicaRestoreServiceConfig replica_restore_service_config = 10;
   CacheNodeAssignmentServiceConfig cache_node_assignment_service_config = 11;
   ClusterMonitorServiceConfig cluster_monitor_service_config = 12;
-  RedactionUpdateServiceConfig redaction_update_service_config = 13;
 }
 
 // Config for the recovery node.

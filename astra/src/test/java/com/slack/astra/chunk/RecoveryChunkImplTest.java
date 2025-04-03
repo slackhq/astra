@@ -92,8 +92,8 @@ public class RecoveryChunkImplTest {
               .build();
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -454,8 +454,8 @@ public class RecoveryChunkImplTest {
               .build();
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, false);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -540,8 +540,8 @@ public class RecoveryChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, true);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(

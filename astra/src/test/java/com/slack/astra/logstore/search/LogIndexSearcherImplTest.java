@@ -95,11 +95,12 @@ public class LogIndexSearcherImplTest {
               .build();
       curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
       fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, true);
+          new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
 
       redactionUpdateServiceConfig =
           AstraConfigs.RedactionUpdateServiceConfig.newBuilder()
               .setRedactionUpdatePeriodSecs(1)
+              .setRedactionUpdateInitDelaySecs(1)
               .build();
       redactionUpdateService =
           new RedactionUpdateService(fieldRedactionMetadataStore, redactionUpdateServiceConfig);
