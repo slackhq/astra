@@ -60,7 +60,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private final String ASTRA_ZK_DELETE_CALL = "astra_zk_delete_call";
   private final String ASTRA_ZK_LIST_CALL = "astra_zk_list_call";
   private final String ASTRA_ZK_GET_CALL = "astra_zk_get_call";
-  private final String ASTRA_ZK_UPDATE_CALL = "astra_zk_get_call";
+  private final String ASTRA_ZK_UPDATE_CALL = "astra_zk_update_call";
   private final String ASTRA_ZK_ADDED_LISTENER = "astra_zk_added_listener";
   private final String ASTRA_ZK_REMOVED_LISTENER = "astra_zk_removed_listener";
   private final String ASTRA_ZK_CACHE_INIT_HANDLER_FIRED = "astra_zk_cache_init_handler_fired";
@@ -88,7 +88,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     this.zPath = ZPath.parseWithIds(String.format("%s/{name}", storeFolder));
     this.zkConfig = zkConfig;
     this.meterRegistry = meterRegistry;
-    String store = "/" + storeFolder.split("/")[0];
+    String store = "/" + storeFolder.split("/")[1];
 
     this.createCall = this.meterRegistry.counter(ASTRA_ZK_CREATE_CALL, "store", store);
     this.deleteCall = this.meterRegistry.counter(ASTRA_ZK_DELETE_CALL, "store", store);

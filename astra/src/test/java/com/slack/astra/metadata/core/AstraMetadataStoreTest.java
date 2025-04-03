@@ -111,6 +111,10 @@ public class AstraMetadataStoreTest {
     }
 
     try (AstraMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+
+      // 9 metrics get created with every metadatastore
+      assertThat(meterRegistry.getMeters().size()).isEqualTo(10);
+
       // create two metadata
       TestMetadata metadata1 = new TestMetadata("foo", "val1");
       TestMetadata metadata2 = new TestMetadata("bar", "val2");
