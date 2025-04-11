@@ -58,6 +58,7 @@ metadataStoreConfig:
     zkPathPrefix: ${ASTRA_ZK_PATH_PREFIX:-ASTRA}
     zkSessionTimeoutMs: ${ASTRA_ZK_SESSION_TIMEOUT_MS:-5000}
     zkConnectionTimeoutMs: ${ASTRA_ZK_CONNECT_TIMEOUT_MS:-500}
+    zkCacheInitTimeoutMs: ${ASTRA_ZK_CACHE_INIT_TIMEOUT_MS:-30000}
     sleepBetweenRetriesMs: ${ASTRA_ZK_SLEEP_RETRIES_MS:-100}
 
 cacheConfig:
@@ -107,6 +108,10 @@ managerConfig:
   clusterMonitorServiceConfig:
     schedulePeriodMins: ${ASTRA_MANAGER_CLUSTER_MONITOR_PERIOD_MINS:-15}
 
+redactionUpdateServiceConfig:
+  redactionUpdatePeriodSecs: ${ASTRA_MANAGER_REDACTION_UPDATE_PERIOD_SECS:-300}
+  redactionUpdateInitDelaySecs: ${ASTRA_MANAGER_REDACTION_UPDATE_INIT_DELAY_SECS:-30}
+
 clusterConfig:
   clusterName: ${ASTRA_CLUSTER_NAME:-ASTRA_local}
   env: ${ASTRA_CLUSTER_ENV:-local}
@@ -140,3 +145,5 @@ preprocessorConfig:
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
   rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}
   rateLimitExceededErrorCode: ${ASTRA_PREPROCESSOR_RATE_LIMIT_EXCEEDED_ERROR_CODE:-400}
+  datasetRateLimitAggregationSecs: ${ASTRA_PREPROCESSOR_DATASET_RATE_LIMIT_AGGREGATION_SECS:-5}
+  datasetRateLimitPeriodSecs: ${ASTRA_PREPROCESSOR_DATASET_RATE_LIMIT_PERIOD_SECS:-60}

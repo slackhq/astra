@@ -73,6 +73,7 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
   public LogIndexSearcherImpl logSearcher;
   public final File tempFolder;
 
+  // use this method if you do not want to include zookeeper setup or redaction in your tests
   public TemporaryLogStoreAndSearcherExtension(boolean enableFullTextSearch) throws IOException {
     this(
         Duration.of(5, ChronoUnit.MINUTES),
@@ -91,6 +92,7 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
     this.tempFolder = Files.createTempDir(); // TODO: don't use beta func.
     LuceneIndexStoreConfig indexStoreCfg =
         getIndexStoreConfig(commitInterval, refreshInterval, tempFolder);
+
     logStore =
         new LuceneIndexStoreImpl(
             indexStoreCfg,
@@ -114,8 +116,13 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
         commitInterval, refreshInterval, tempFolder.getCanonicalPath(), false);
   }
 
+  // Provide a helper to automatically close everything for folks after each test run
   @Override
   public void afterEach(ExtensionContext context) throws Exception {
+    this.closeAll();
+  }
+
+  public void closeAll() throws Exception {
     if (logStore != null) {
       logStore.close();
     }

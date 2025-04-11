@@ -107,20 +107,25 @@ public class ReadOnlyChunkImplTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
-    CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(curatorFramework, replicaId, snapshotId);
-    initializeZkSnapshot(curatorFramework, snapshotId, 0);
+    initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
+    initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 0);
     initializeBlobStorageWithIndex(snapshotId);
 
     SearchContext searchContext =
@@ -246,20 +251,25 @@ public class ReadOnlyChunkImplTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
-    CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(curatorFramework, replicaId, snapshotId);
-    initializeZkSnapshot(curatorFramework, snapshotId, 0);
+    initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
+    initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 0);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
@@ -312,19 +322,24 @@ public class ReadOnlyChunkImplTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
-    CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(curatorFramework, replicaId, snapshotId);
+    initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
     // we intentionally do not initialize a Snapshot, so the lookup is expected to fail
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
@@ -378,20 +393,25 @@ public class ReadOnlyChunkImplTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
-    CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(curatorFramework, replicaId, snapshotId);
-    initializeZkSnapshot(curatorFramework, snapshotId, 0);
+    initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
+    initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 0);
     initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
@@ -481,15 +501,20 @@ public class ReadOnlyChunkImplTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
-    CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
     CacheNodeAssignmentStore cacheNodeAssignmentStore =
-        new CacheNodeAssignmentStore(curatorFramework);
+        new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "boo";
@@ -498,8 +523,8 @@ public class ReadOnlyChunkImplTest {
     String replicaSet = "cat";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(curatorFramework, replicaId, snapshotId);
-    initializeZkSnapshot(curatorFramework, snapshotId, 29);
+    initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
+    initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 29);
     initializeBlobStorageWithIndex(snapshotId);
     initializeCacheNodeAssignment(
         cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
@@ -599,9 +624,13 @@ public class ReadOnlyChunkImplTest {
   }
 
   private void initializeZkSnapshot(
-      AsyncCuratorFramework curatorFramework, String snapshotId, long sizeInBytesOnDisk)
+      AsyncCuratorFramework curatorFramework,
+      AstraConfigs.ZookeeperConfig zkConfig,
+      String snapshotId,
+      long sizeInBytesOnDisk)
       throws Exception {
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
     snapshotMetadataStore.createSync(
         new SnapshotMetadata(
             snapshotId,
@@ -613,9 +642,13 @@ public class ReadOnlyChunkImplTest {
   }
 
   private void initializeZkReplica(
-      AsyncCuratorFramework curatorFramework, String replicaId, String snapshotId)
+      AsyncCuratorFramework curatorFramework,
+      AstraConfigs.ZookeeperConfig zkConfig,
+      String replicaId,
+      String snapshotId)
       throws Exception {
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry);
     replicaMetadataStore.createSync(
         new ReplicaMetadata(
             replicaId,

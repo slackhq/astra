@@ -50,6 +50,7 @@ import org.slf4j.LoggerFactory;
  * BlobFs.
  */
 public class ReadOnlyChunkImpl<T> implements Chunk<T> {
+
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
   public static final String ASTRA_S3_STREAMING_FLAG = "astra.s3Streaming.enabled";
 

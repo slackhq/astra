@@ -4,6 +4,10 @@ package slack.proto.astra;
 
 option java_package = "com.slack.astra.proto.metadata";
 
+message PreprocessorMetadata {
+  string name = 1;
+}
+
 message CacheSlotMetadata {
   enum CacheSlotState {
     FREE = 0;
@@ -170,6 +174,14 @@ message HpaMetricMetadata {
   double value = 3;
 }
 
+// For cluster wide metadata, such as the number of operating preprocessors
+message AstraClusterMetadata {
+  string name = 1;
+
+  // The number of available/working preprocessors
+ int32 preprocessor_count = 2;
+}
+
 // Describes a set of partitions along with their effective start and end times
 message DatasetPartitionMetadata {
   // Start time this partition received traffic
@@ -230,4 +242,15 @@ message CacheNodeMetadata {
   string hostname = 3;
   int64  node_capacity_bytes = 4;
   string replica_set = 5;
+}
+
+message RedactedFieldMetadata {
+  // name of the redaction rule
+  string name = 1;
+  // field to redact (key)
+  string field_name = 2;
+  // earliest timestamp of the redaction window
+  int64 start_time_epoch_ms = 3;
+  // End or latest timestamp of the redaction window
+  int64 end_time_epoch_ms = 4;
 }

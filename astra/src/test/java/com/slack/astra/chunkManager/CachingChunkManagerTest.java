@@ -72,6 +72,7 @@ public class CachingChunkManagerTest {
           .build();
 
   private AsyncCuratorFramework curatorFramework;
+  private AstraConfigs.ZookeeperConfig zkConfig;
   private CachingChunkManager<LogMessage> cachingChunkManager;
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private SnapshotMetadataStore snapshotMetadataStore;
@@ -128,13 +129,14 @@ public class CachingChunkManagerTest {
             .setS3Config(s3Config)
             .build();
 
-    AstraConfigs.ZookeeperConfig zkConfig =
+    zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("test")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
@@ -143,6 +145,7 @@ public class CachingChunkManagerTest {
         new CachingChunkManager<>(
             meterRegistry,
             curatorFramework,
+            zkConfig,
             blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
             AstraConfig.getS3Config().getS3Bucket(),
@@ -157,8 +160,9 @@ public class CachingChunkManagerTest {
   }
 
   private CacheNodeAssignment initAssignment(String snapshotId) throws Exception {
-    cacheNodeAssignmentStore = new CacheNodeAssignmentStore(curatorFramework);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
+    cacheNodeAssignmentStore =
+        new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
     snapshotMetadataStore.createSync(new SnapshotMetadata(snapshotId, 1, 1, 0, "abcd", 29));
     CacheNodeAssignment newAssignment =
         new CacheNodeAssignment(
@@ -271,7 +275,8 @@ public class CachingChunkManagerTest {
     enableDynamicChunksFlag();
 
     cachingChunkManager = initChunkManager();
-    CacheNodeMetadataStore cacheNodeMetadataStore = new CacheNodeMetadataStore(curatorFramework);
+    CacheNodeMetadataStore cacheNodeMetadataStore =
+        new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     List<CacheNodeMetadata> cacheNodeMetadatas = cacheNodeMetadataStore.listSync();
     assertThat(cachingChunkManager.getChunkList().size()).isEqualTo(0);

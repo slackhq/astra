@@ -68,6 +68,7 @@ public class AstraConfigUtil {
             .setZkSessionTimeoutMs(15000)
             .setZkConnectionTimeoutMs(15000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder().setZookeeperConfig(zkConfig).build();
@@ -94,12 +95,19 @@ public class AstraConfigUtil {
             .setKafkaConfig(kafkaConfig)
             .build();
 
+    AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig =
+        AstraConfigs.RedactionUpdateServiceConfig.newBuilder()
+            .setRedactionUpdatePeriodSecs(1)
+            .setRedactionUpdateInitDelaySecs(1)
+            .build();
+
     return AstraConfigs.AstraConfig.newBuilder()
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
         .setRecoveryConfig(recoveryConfig)
         .setQueryConfig(queryConfig)
         .setMetadataStoreConfig(metadataStoreConfig)
+        .setRedactionUpdateServiceConfig(redactionUpdateServiceConfig)
         .addNodeRoles(nodeRole)
         .build();
   }

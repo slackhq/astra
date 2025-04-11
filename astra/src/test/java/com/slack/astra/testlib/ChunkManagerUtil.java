@@ -60,6 +60,7 @@ public class ChunkManagerUtil<T> {
             .setZkSessionTimeoutMs(30000)
             .setZkConnectionTimeoutMs(30000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
@@ -72,7 +73,8 @@ public class ChunkManagerUtil<T> {
         maxMessagesPerChunk,
         new SearchContext(TEST_HOST, TEST_PORT),
         curatorFramework,
-        indexerConfig);
+        indexerConfig,
+        zkConfig);
   }
 
   public ChunkManagerUtil(
@@ -84,7 +86,8 @@ public class ChunkManagerUtil<T> {
       long maxMessagesPerChunk,
       SearchContext searchContext,
       AsyncCuratorFramework curatorFramework,
-      AstraConfigs.IndexerConfig indexerConfig)
+      AstraConfigs.IndexerConfig indexerConfig,
+      AstraConfigs.ZookeeperConfig zkConfig)
       throws Exception {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
@@ -111,7 +114,8 @@ public class ChunkManagerUtil<T> {
             MoreExecutors.newDirectExecutorService(),
             curatorFramework,
             searchContext,
-            indexerConfig);
+            indexerConfig,
+            zkConfig);
   }
 
   public void close() throws IOException, TimeoutException {

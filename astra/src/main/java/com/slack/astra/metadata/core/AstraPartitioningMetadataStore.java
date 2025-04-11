@@ -1,8 +1,8 @@
 package com.slack.astra.metadata.core;
 
-import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
-
 import com.google.common.collect.Sets;
+import com.slack.astra.proto.config.AstraConfigs;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -55,17 +55,23 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   protected final ModelSerializer<T> modelSerializer;
   private final Watcher watcher;
   private final List<String> partitionFilters;
+  private final AstraConfigs.ZookeeperConfig zkConfig;
+  private final MeterRegistry meterRegistry;
 
   public AstraPartitioningMetadataStore(
       AsyncCuratorFramework curator,
+      AstraConfigs.ZookeeperConfig zkConfig,
+      MeterRegistry meterRegistry,
       CreateMode createMode,
       ModelSerializer<T> modelSerializer,
       String storeFolder) {
-    this(curator, createMode, modelSerializer, storeFolder, List.of());
+    this(curator, zkConfig, meterRegistry, createMode, modelSerializer, storeFolder, List.of());
   }
 
   public AstraPartitioningMetadataStore(
       AsyncCuratorFramework curator,
+      AstraConfigs.ZookeeperConfig zkConfig,
+      MeterRegistry meterRegistry,
       CreateMode createMode,
       ModelSerializer<T> modelSerializer,
       String storeFolder,
@@ -76,6 +82,8 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     this.modelSerializer = modelSerializer;
     this.watcher = buildWatcher();
     this.partitionFilters = partitionFilters;
+    this.zkConfig = zkConfig;
+    this.meterRegistry = meterRegistry;
 
     // register watchers for when partitions are added or removed
     curator
@@ -135,8 +143,8 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * <p>This method creates stores internally when they are detected in ZK storing them to the store
    * map, and removes stores that are in the map that no longer exist in ZK.
    *
-   * @see AstraMetadataStore#AstraMetadataStore(AsyncCuratorFramework, CreateMode, boolean,
-   *     ModelSerializer, String)
+   * @see AstraMetadataStore#AstraMetadataStore(AsyncCuratorFramework, AstraConfigs.ZookeeperConfig,
+   *     CreateMode, boolean, ModelSerializer, String, io.micrometer.core.instrument.MeterRegistry)
    */
   private Watcher buildWatcher() {
     return event -> {
@@ -189,7 +197,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     try {
       createAsync(metadataNode)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error creating node " + metadataNode, e);
     }
@@ -203,7 +211,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     try {
       return getAsync(partition, path)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
@@ -227,7 +235,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    */
   public T findSync(String path) {
     try {
-      return findAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return findAsync(path)
+          .toCompletableFuture()
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
@@ -241,7 +251,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     try {
       updateAsync(metadataNode)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
     }
@@ -255,7 +265,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     try {
       deleteAsync(metadataNode)
           .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException(
           "Error deleting node under at path: " + metadataNode.name, e);
@@ -280,7 +290,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
   public List<T> listSync() {
     try {
-      return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return listAsync()
+          .toCompletableFuture()
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error listing nodes", e);
     }
@@ -304,7 +316,8 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               "Creating new metadata store for partition - {}, at path - {}", partition, path);
 
           AstraMetadataStore<T> newStore =
-              new AstraMetadataStore<>(curator, createMode, true, modelSerializer, path);
+              new AstraMetadataStore<>(
+                  curator, zkConfig, createMode, true, modelSerializer, path, meterRegistry);
           listeners.forEach(newStore::addListener);
 
           return newStore;

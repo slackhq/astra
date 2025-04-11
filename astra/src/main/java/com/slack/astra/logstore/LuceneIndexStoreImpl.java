@@ -1,6 +1,7 @@
 package com.slack.astra.logstore;
 
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.astra.logstore.search.fieldRedaction.RedactionFilterDirectoryReader;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.RuntimeHalterImpl;
@@ -21,6 +22,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -31,6 +33,8 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.MMapDirectory;
+import org.opensearch.common.lucene.index.OpenSearchDirectoryReader;
+import org.opensearch.core.index.shard.ShardId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,7 +130,14 @@ public class LuceneIndexStoreImpl implements LogStore {
         buildIndexWriterConfig(analyzer, this.snapshotDeletionPolicy, config, registry);
     indexDirectory = new MMapDirectory(config.indexFolder(id).toPath());
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
-    this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
+
+    RedactionFilterDirectoryReader reader =
+        new RedactionFilterDirectoryReader(DirectoryReader.open(indexWriter.get(), false, false));
+    OpenSearchDirectoryReader openSearchDirectoryReader =
+        OpenSearchDirectoryReader.wrap(
+            reader,
+            ShardId.fromString("[shard-index][%d]".formatted(UUID.fromString(id).hashCode())));
+    this.searcherManager = new SearcherManager(openSearchDirectoryReader, null);
 
     scheduledCommit.scheduleWithFixedDelay(
         () -> {

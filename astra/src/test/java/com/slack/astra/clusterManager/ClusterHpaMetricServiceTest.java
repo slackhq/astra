@@ -62,16 +62,22 @@ class ClusterHpaMetricServiceTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
-    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework));
-    cacheNodeAssignmentStore = spy(new CacheNodeAssignmentStore(curatorFramework));
-    cacheNodeMetadataStore = spy(new CacheNodeMetadataStore(curatorFramework));
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
-    hpaMetricMetadataStore = spy(new HpaMetricMetadataStore(curatorFramework, true));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
+    cacheSlotMetadataStore =
+        spy(new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry));
+    cacheNodeAssignmentStore =
+        spy(new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry));
+    cacheNodeMetadataStore =
+        spy(new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry));
+    snapshotMetadataStore =
+        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry));
+    hpaMetricMetadataStore =
+        spy(new HpaMetricMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
   }
 
   @AfterEach

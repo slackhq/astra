@@ -70,6 +70,7 @@ public class RecoveryTaskCreatorTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(500)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     // Default behavior
@@ -82,8 +83,10 @@ public class RecoveryTaskCreatorTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
-    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, true));
+    snapshotMetadataStore =
+        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry));
+    recoveryTaskStore =
+        spy(new RecoveryTaskMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
   }
 
   @AfterEach

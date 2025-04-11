@@ -60,11 +60,14 @@ public class RecoveryTaskAssignmentServiceTest {
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    recoveryTaskMetadataStore = spy(new RecoveryTaskMetadataStore(curatorFramework, true));
-    recoveryNodeMetadataStore = spy(new RecoveryNodeMetadataStore(curatorFramework, true));
+    recoveryTaskMetadataStore =
+        spy(new RecoveryTaskMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
+    recoveryNodeMetadataStore =
+        spy(new RecoveryNodeMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
   }
 
   @AfterEach

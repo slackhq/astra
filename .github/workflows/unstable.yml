@@ -1,0 +1,30 @@
+# This workflow will tag all commits to the default branch with 'unstable'
+# For more information see: https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#update-a-reference
+
+name: Tag Default Branch Commits with Unstable
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 1
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Update unstable tag
+        uses: actions/github-script@v5
+        with:
+          script: |
+            github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'tags/unstable',
+              force: true,
+              sha: context.sha
+            })
