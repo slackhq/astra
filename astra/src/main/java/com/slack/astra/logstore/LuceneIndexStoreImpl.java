@@ -326,11 +326,6 @@ public class LuceneIndexStoreImpl implements LogStore {
   }
 
   @Override
-  public boolean isOpen() {
-    return indexWriter.isPresent();
-  }
-
-  @Override
   public String toString() {
     return "LuceneIndexStoreImpl{"
         + "id='"
@@ -349,11 +344,6 @@ public class LuceneIndexStoreImpl implements LogStore {
       LOG.error("Tried to snapshot index commit but failed", e);
     }
     return null;
-  }
-
-  @Override
-  public IndexWriter getIndexWriter() {
-    return indexWriter.get();
   }
 
   @Override

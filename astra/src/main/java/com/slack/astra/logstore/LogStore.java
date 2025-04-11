@@ -6,7 +6,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.index.IndexCommit;
-import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.store.FSDirectory;
 
@@ -28,8 +27,6 @@ public interface LogStore extends Closeable {
    */
   void finalMerge();
 
-  boolean isOpen();
-
   void cleanup() throws IOException;
 
   FSDirectory getDirectory();
@@ -46,9 +43,6 @@ public interface LogStore extends Closeable {
    * if no new commits are performed on the index.
    */
   public IndexCommit getIndexCommit();
-
-  // needed by JMH tests. Cannot add @VisibleForTesting on an abstract class
-  public IndexWriter getIndexWriter();
 
   public void releaseIndexCommit(IndexCommit indexCommit);
 
