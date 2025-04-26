@@ -97,6 +97,11 @@ message SearchMetadata {
 
   // url
   string url = 3;
+
+  // Whether or not the current snapshot on this node is allowed to be hit with searches or not.
+  // This is false when a cache node is still hydrating new data, and becomes true once the initial
+  // hydration is finished
+  bool searchable = 4;
 }
 
 message RecoveryNodeMetadata {
@@ -242,6 +247,13 @@ message CacheNodeMetadata {
   string hostname = 3;
   int64  node_capacity_bytes = 4;
   string replica_set = 5;
+
+  // Whether this node ready to handle queries or not.
+  // Searchability is determined by whether this node has
+  // either had its entire capacity filled (i.e. whether
+  // there are no more available chunks that can fit on this node)
+  // _or_ whether all chunks are assigned out
+  bool searchable = 6;
 }
 
 message RedactedFieldMetadata {

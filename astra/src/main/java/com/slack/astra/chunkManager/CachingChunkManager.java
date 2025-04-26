@@ -105,7 +105,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
       cacheNodeMetadataStore.createSync(
-          new CacheNodeMetadata(cacheNodeId, searchContext.hostname, capacityBytes, replicaSet));
+          new CacheNodeMetadata(
+              cacheNodeId, searchContext.hostname, capacityBytes, replicaSet, false));
       LOG.info(
           "New cache node registered with {} bytes capacity and ID {}", capacityBytes, cacheNodeId);
     } else {
@@ -122,7 +123,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                 cacheSlotMetadataStore,
                 replicaMetadataStore,
                 snapshotMetadataStore,
-                searchMetadataStore);
+                searchMetadataStore,
+                cacheNodeMetadataStore);
 
         chunkMap.put(newChunk.getSlotId(), newChunk);
       }
@@ -235,7 +237,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                     searchMetadataStore,
                     cacheNodeAssignmentStore,
                     assignment,
-                    snapshotsBySnapshotId.get(assignment.snapshotId));
+                    snapshotsBySnapshotId.get(assignment.snapshotId),
+                    cacheNodeMetadataStore);
             executorService.submit(newChunk::downloadChunkData);
             chunkMap.put(assignment.assignmentId, newChunk);
           }

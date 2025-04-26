@@ -11,6 +11,8 @@ import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.metadata.cache.CacheNodeAssignment;
 import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
+import com.slack.astra.metadata.cache.CacheNodeMetadata;
+import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadata;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
@@ -82,6 +84,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final Timer chunkAssignmentTimerFailure;
   private final Timer chunkEvictionTimerSuccess;
   private final Timer chunkEvictionTimerFailure;
+  private final CacheNodeMetadataStore cacheNodeMetadataStore;
 
   private final AstraMetadataStoreChangeListener<CacheSlotMetadata> cacheSlotListener =
       this::cacheNodeListener;
@@ -105,7 +108,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchMetadataStore searchMetadataStore,
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
       CacheNodeAssignment assignment,
-      SnapshotMetadata snapshotMetadata)
+      SnapshotMetadata snapshotMetadata,
+      CacheNodeMetadataStore cacheNodeMetadataStore)
       throws Exception {
     this(
         curatorFramework,
@@ -118,7 +122,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         cacheSlotMetadataStore,
         replicaMetadataStore,
         snapshotMetadataStore,
-        searchMetadataStore);
+        searchMetadataStore,
+        cacheNodeMetadataStore);
     this.assignment = assignment;
     this.lastKnownAssignmentState = assignment.state;
     this.snapshotMetadata = snapshotMetadata;
@@ -136,7 +141,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore)
+      SearchMetadataStore searchMetadataStore,
+      CacheNodeMetadataStore cacheNodeMetadataStore)
       throws Exception {
     this.meterRegistry = meterRegistry;
     this.blobStore = blobStore;
@@ -148,6 +154,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.searchMetadataStore = searchMetadataStore;
+    this.cacheNodeMetadataStore = cacheNodeMetadataStore;
 
     if (!Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       CacheSlotMetadata cacheSlotMetadata =
@@ -445,17 +452,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   }
 
   @VisibleForTesting
-  public static SearchMetadata registerSearchMetadata(
+  public SearchMetadata registerSearchMetadata(
       SearchMetadataStore searchMetadataStore,
       SearchContext cacheSearchContext,
       String snapshotName)
       throws ExecutionException, InterruptedException, TimeoutException {
+    CacheNodeMetadata cacheNodeMetadata =
+        this.cacheNodeMetadataStore.getSync(getCacheNodeAssignment().cacheNodeId);
     SearchMetadata metadata =
         new SearchMetadata(
             SearchMetadata.generateSearchContextSnapshotId(
                 snapshotName, cacheSearchContext.hostname),
             snapshotName,
-            cacheSearchContext.toUrl());
+            cacheSearchContext.toUrl(),
+            cacheNodeMetadata.searchable);
     searchMetadataStore.createSync(metadata);
     return metadata;
   }
@@ -557,6 +567,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
+    cacheNodeMetadataStore.close();
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       evictChunk(getCacheNodeAssignment());
       cacheNodeAssignmentStore.close();

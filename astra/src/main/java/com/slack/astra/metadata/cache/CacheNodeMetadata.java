@@ -8,13 +8,20 @@ public class CacheNodeMetadata extends AstraMetadata {
   public final String hostname;
   public final long nodeCapacityBytes;
   public final String replicaSet;
+  public Boolean searchable;
 
   public CacheNodeMetadata(String id, String hostname, long nodeCapacityBytes, String replicaSet) {
+    this(id, hostname, nodeCapacityBytes, replicaSet, true);
+  }
+
+  public CacheNodeMetadata(
+      String id, String hostname, long nodeCapacityBytes, String replicaSet, Boolean searchable) {
     super(id);
     this.id = id;
     this.hostname = hostname;
     this.nodeCapacityBytes = nodeCapacityBytes;
     this.replicaSet = replicaSet;
+    this.searchable = searchable;
   }
 
   public String getReplicaSet() {

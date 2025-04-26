@@ -25,6 +25,8 @@ import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.metadata.cache.CacheNodeAssignment;
 import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
+import com.slack.astra.metadata.cache.CacheNodeMetadata;
+import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadata;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
@@ -119,14 +121,24 @@ public class ReadOnlyChunkImplTest {
         new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    CacheNodeAssignmentStore cacheNodeAssignmentStore =
+        new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry);
+    CacheNodeMetadataStore cacheNodeMetadataStore =
+        new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
-    String snapshotId = "bar";
+    String snapshotId = "boo";
+    String assignmentId = "dog";
+    String cacheNodeId = "baz";
+    String replicaSet = "cat";
 
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 0);
     initializeBlobStorageWithIndex(snapshotId);
+    initializeCacheNodeAssignment(
+        cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
+    initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, replicaSet, true);
 
     SearchContext searchContext =
         SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig());
@@ -142,7 +154,11 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            cacheNodeAssignmentStore,
+            cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
+            snapshotMetadataStore.findSync(snapshotId),
+            cacheNodeMetadataStore);
 
     // wait for chunk to register
     await()
@@ -263,13 +279,17 @@ public class ReadOnlyChunkImplTest {
         new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    CacheNodeMetadataStore cacheNodeMetadataStore =
+        new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
+    String cacheNodeId = "baz";
 
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 0);
+    initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, "rep1", true);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
@@ -283,7 +303,8 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            cacheNodeMetadataStore);
 
     // wait for chunk to register
     await()
@@ -334,12 +355,16 @@ public class ReadOnlyChunkImplTest {
         new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    CacheNodeMetadataStore cacheNodeMetadataStore =
+        new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
+    String cacheNodeId = "baz";
 
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
+    initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, "rep1", true);
     // we intentionally do not initialize a Snapshot, so the lookup is expected to fail
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
@@ -354,7 +379,8 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            cacheNodeMetadataStore);
 
     // wait for chunk to register
     await()
@@ -405,14 +431,24 @@ public class ReadOnlyChunkImplTest {
         new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    CacheNodeMetadataStore cacheNodeMetadataStore =
+        new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    CacheNodeAssignmentStore cacheNodeAssignmentStore =
+        new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
+    String cacheNodeId = "baz";
+    String replicaSet = "cat";
+    String assignmentId = "dog";
 
     // setup Zk, BlobFs so data can be loaded
     initializeZkReplica(curatorFramework, zkConfig, replicaId, snapshotId);
     initializeZkSnapshot(curatorFramework, zkConfig, snapshotId, 0);
     initializeBlobStorageWithIndex(snapshotId);
+    initializeCacheNodeAssignment(
+        cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
+    initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, "rep1", true);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
@@ -426,7 +462,11 @@ public class ReadOnlyChunkImplTest {
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            cacheNodeAssignmentStore,
+            cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
+            snapshotMetadataStore.findSync(snapshotId),
+            cacheNodeMetadataStore);
 
     // wait for chunk to register
     await()
@@ -515,6 +555,8 @@ public class ReadOnlyChunkImplTest {
         new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry);
     CacheNodeAssignmentStore cacheNodeAssignmentStore =
         new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry);
+    CacheNodeMetadataStore cacheNodeMetadataStore =
+        new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "boo";
@@ -528,6 +570,7 @@ public class ReadOnlyChunkImplTest {
     initializeBlobStorageWithIndex(snapshotId);
     initializeCacheNodeAssignment(
         cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet, replicaId);
+    initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, "rep1", true);
 
     SearchContext searchContext =
         SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig());
@@ -546,7 +589,8 @@ public class ReadOnlyChunkImplTest {
             searchMetadataStore,
             cacheNodeAssignmentStore,
             cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
-            snapshotMetadataStore.findSync(snapshotId));
+            snapshotMetadataStore.findSync(snapshotId),
+            cacheNodeMetadataStore);
 
     // wait for chunk to register
     // ignoreExceptions is workaround for https://github.com/aws/aws-sdk-java-v2/issues/3658
@@ -692,6 +736,18 @@ public class ReadOnlyChunkImplTest {
 
     // Copy files to S3.
     blobStore.upload(snapshotId, dirPath);
+  }
+
+  private void initializeCacheNode(
+      CacheNodeMetadataStore cacheNodeMetadataStore,
+      String cacheNodeId,
+      String hostname,
+      long nodeCapacityBytes,
+      String replicaSet,
+      Boolean searchable)
+      throws Exception {
+    cacheNodeMetadataStore.createSync(
+        new CacheNodeMetadata(cacheNodeId, hostname, nodeCapacityBytes, replicaSet, searchable));
   }
 
   private void initializeCacheNodeAssignment(
