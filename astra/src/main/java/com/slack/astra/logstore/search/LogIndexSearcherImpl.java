@@ -58,6 +58,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final OpenSearchAdapter openSearchAdapter;
 
   private final ReferenceManager.RefreshListener refreshListener;
+  private static MMapDirectory mmapDirectory;
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromChunkId(String chunkId, BlobStore blobStore)
@@ -71,8 +72,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
-    MMapDirectory directory = new MMapDirectory(path);
-    DirectoryReader directoryReader = DirectoryReader.open(directory);
+    mmapDirectory = new MMapDirectory(path);
+    DirectoryReader directoryReader = DirectoryReader.open(mmapDirectory);
 
     RedactionFilterDirectoryReader reader = new RedactionFilterDirectoryReader(directoryReader);
     return new SearcherManager(reader, null);
@@ -231,6 +232,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
   public void close() {
     try {
+      if (mmapDirectory != null) {
+        mmapDirectory.close();
+      }
+
       searcherManager.removeListener(refreshListener);
       searcherManager.close();
     } catch (IOException e) {
