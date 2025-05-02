@@ -37,5 +37,8 @@ public class RedactionFilterDirectoryReader extends FilterDirectoryReader {
   @Override
   protected void doClose() throws IOException {
     super.doClose();
+    if (in.directory() != null) {
+      in.directory().close();
+    }
   }
 }
