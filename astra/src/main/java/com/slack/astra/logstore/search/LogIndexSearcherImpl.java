@@ -71,8 +71,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
-    MMapDirectory mmapDirectory = new MMapDirectory(path);
-    DirectoryReader directoryReader = DirectoryReader.open(mmapDirectory);
+    MMapDirectory directory = new MMapDirectory(path);
+    DirectoryReader directoryReader = DirectoryReader.open(directory);
 
     RedactionFilterDirectoryReader reader = new RedactionFilterDirectoryReader(directoryReader);
     return new SearcherManager(reader, null);
