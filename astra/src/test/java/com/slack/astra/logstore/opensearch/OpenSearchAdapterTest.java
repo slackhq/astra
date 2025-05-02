@@ -85,12 +85,20 @@ public class OpenSearchAdapterTest {
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
         openSearchAdapterWithFeatureFlagEnabled.getCollectorManager(
             aggregatorFactoriesBuilder,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            logStoreAndSearcherRule
+                .logStore
+                .getAstraSearcherManager()
+                .getLuceneSearcherManager()
+                .acquire(),
             null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager2 =
         openSearchAdapter.getCollectorManager(
             aggregatorFactoriesBuilder2,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            logStoreAndSearcherRule
+                .logStore
+                .getAstraSearcherManager()
+                .getLuceneSearcherManager()
+                .acquire(),
             null);
 
     Aggregator collector1 = collectorManager1.newCollector();
@@ -109,7 +117,12 @@ public class OpenSearchAdapterTest {
   public void shouldProduceQueryFromQueryBuilder() throws Exception {
     BoolQueryBuilder boolQueryBuilder =
         new BoolQueryBuilder().filter(new RangeQueryBuilder("_timesinceepoch").gte(1).lte(100));
-    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
 
     Query rangeQuery = openSearchAdapter.buildQuery(indexSearcher, boolQueryBuilder);
     assertThat(rangeQuery).isNotNull();
@@ -120,7 +133,12 @@ public class OpenSearchAdapterTest {
   public void shouldParseIdFieldSearch() throws Exception {
     String idField = "_id";
     String idValue = "1";
-    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
     Query idQuery =
         openSearchAdapter.buildQuery(
             indexSearcher, new QueryStringQueryBuilder(String.format("%s:%s", idField, idValue)));
@@ -132,7 +150,12 @@ public class OpenSearchAdapterTest {
 
   @Test
   public void shouldExcludeDateFilterWhenNullTimestamps() throws Exception {
-    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
     Query nullBothTimestamps =
         openSearchAdapter.buildQuery(
             indexSearcher, QueryBuilderUtil.generateQueryBuilder("", null, null));

@@ -540,7 +540,7 @@ public class SearchResultAggregatorImplTest {
 
     LogStore logStore = new LuceneIndexStoreImpl(indexStoreCfg, documentBuilder, metricsRegistry);
     LogIndexSearcherImpl logSearcher =
-        new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
+        new LogIndexSearcherImpl(logStore.getAstraSearcherManager(), logStore.getSchema());
 
     for (Trace.Span logMessage : logMessages) {
       logStore.addMessage(logMessage);

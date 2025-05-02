@@ -48,7 +48,11 @@ public class SearchResultTest {
 
     Aggregator dateHistogramAggregation =
         openSearchAdapter.buildAggregatorFromFactory(
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            logStoreAndSearcherRule
+                .logStore
+                .getAstraSearcherManager()
+                .getLuceneSearcherManager()
+                .acquire(),
             createGenericDateHistogramAggregatorFactoriesBuilder(),
             null);
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
