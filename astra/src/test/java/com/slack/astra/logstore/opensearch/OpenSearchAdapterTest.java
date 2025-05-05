@@ -36,10 +36,10 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherExtension(false);
 
-    private final OpenSearchAdapter openSearchAdapter;
+  private final OpenSearchAdapter openSearchAdapter;
 
   public OpenSearchAdapterTest() throws IOException {
-      ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
     fieldDefBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new LuceneFieldDef(
