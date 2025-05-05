@@ -36,11 +36,10 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherExtension(false);
 
-  private final ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder;
   private final OpenSearchAdapter openSearchAdapter;
 
   public OpenSearchAdapterTest() throws IOException {
-    fieldDefBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
     fieldDefBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new LuceneFieldDef(
@@ -60,14 +59,6 @@ public class OpenSearchAdapterTest {
 
   @Test
   public void testOpenSearchCollectorManagerCorrectlyReducesListOfCollectors() throws IOException {
-    // We need to recreate the OpenSearchAdapter object here to get the feature flag set to true.
-    // Once this feature flag is removed, we can once again use the class-level object
-    System.setProperty("astra.query.useOpenSearchAggregationParsing", "true");
-    OpenSearchAdapter openSearchAdapterWithFeatureFlagEnabled =
-        new OpenSearchAdapter(fieldDefBuilder.build());
-    openSearchAdapterWithFeatureFlagEnabled.reloadSchema();
-    System.setProperty("astra.query.useOpenSearchAggregationParsing", "false");
-
     AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo");
     avgAggregationBuilder.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
     avgAggregationBuilder.missing("2");
@@ -83,7 +74,7 @@ public class OpenSearchAdapterTest {
     aggregatorFactoriesBuilder2.addAggregator(avgAggregationBuilder2);
 
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
-        openSearchAdapterWithFeatureFlagEnabled.getCollectorManager(
+        openSearchAdapter.getCollectorManager(
             aggregatorFactoriesBuilder,
             logStoreAndSearcherRule
                 .logStore

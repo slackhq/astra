@@ -157,7 +157,6 @@ public class LuceneIndexStoreImplTest {
 
     @Test
     public void testSearchWithOpenSearchAggregationBuilder() throws IOException {
-      System.setProperty("astra.query.useOpenSearchAggregationParsing", "true");
       Trace.Span span =
           Trace.Span.newBuilder()
               .setId(ByteString.copyFromUtf8("1"))
@@ -206,7 +205,6 @@ public class LuceneIndexStoreImplTest {
       assertThat(result1.hits.size()).isEqualTo(1);
       assertThat(result1.internalAggregation.getName()).isEqualTo("1");
       assertThat(result1.internalAggregation.getType()).isEqualTo("date_histogram");
-      System.setProperty("astra.query.useOpenSearchAggregationParsing", "false");
     }
 
     @Test
