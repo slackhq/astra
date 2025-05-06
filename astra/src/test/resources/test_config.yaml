@@ -34,6 +34,7 @@ queryConfig:
     requestTimeoutMs: 3000
   defaultQueryTimeoutMs: 2500
   zipkinDefaultMaxSpans: 20000
+  zipkinDefaultLookbackMins: 10080
   managerConnectString: localhost:8083
 
 s3Config:

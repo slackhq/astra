@@ -33,11 +33,12 @@ public class ZipkinServiceTest {
   private AstraSearch.SearchResult mockSearchResult;
 
   private static final int defaultMaxSpans = 2000;
+  private static final int defaultLookbackMins = 60 * 24 * 7;
 
   @BeforeEach
   public void setup() throws IOException {
     MockitoAnnotations.openMocks(this);
-    zipkinService = spy(new ZipkinService(searcher, defaultMaxSpans));
+    zipkinService = spy(new ZipkinService(searcher, defaultMaxSpans, defaultLookbackMins));
     // Build mockSearchResult
     ObjectMapper objectMapper = new ObjectMapper();
     JsonNode jsonNode =

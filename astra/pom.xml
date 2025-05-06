@@ -568,7 +568,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.14.0</version>
                 <configuration>
-                    <compilerVersion>${javac.target}</compilerVersion>
+                    <release>${javac.target}</release>
                     <source>${javac.target}</source>
                     <testSource>${javac.target}</testSource>
                     <target>${javac.target}</target>

@@ -96,6 +96,7 @@ message QueryServiceConfig {
   int32 default_query_timeout_ms = 2;
   string managerConnectString = 3;
   int32 zipkin_default_max_spans = 4;
+  int32 zipkin_default_lookback_mins = 5;
 }
 
 message RedactionUpdateServiceConfig {

@@ -200,6 +200,8 @@ public class AstraConfigTest {
     assertThat(queryServiceConfig.getServerConfig().getServerPort()).isEqualTo(8081);
     assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEqualTo("1.2.3.4");
     assertThat(queryServiceConfig.getManagerConnectString()).isEqualTo("localhost:8083");
+    assertThat(queryServiceConfig.getZipkinDefaultLookbackMins())
+        .isEqualTo(10080); // 7 days in minutes
 
     final AstraConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final AstraConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
@@ -368,6 +370,7 @@ public class AstraConfigTest {
     assertThat(readConfig.getServerConfig().getServerPort()).isEqualTo(8081);
     assertThat(readConfig.getServerConfig().getServerAddress()).isEqualTo("1.2.3.4");
     assertThat(readConfig.getManagerConnectString()).isEqualTo("localhost:8083");
+    assertThat(readConfig.getZipkinDefaultLookbackMins()).isEqualTo(10080); // 7 days in minutes
 
     final AstraConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final AstraConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();

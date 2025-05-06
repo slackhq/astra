@@ -146,9 +146,8 @@ public class ZipkinService {
   }
 
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
-  private static long LOOKBACK_MINS = 60 * 24 * 7;
-
   private final int defaultMaxSpans;
+  private final int defaultLookbackMins;
 
   private final AstraQueryServiceBase searcher;
 
@@ -160,9 +159,11 @@ public class ZipkinService {
           .serializationInclusion(JsonInclude.Include.NON_EMPTY)
           .build();
 
-  public ZipkinService(AstraQueryServiceBase searcher, int defaultMaxSpans) {
+  public ZipkinService(
+      AstraQueryServiceBase searcher, int defaultMaxSpans, int defaultLookbackMins) {
     this.searcher = searcher;
     this.defaultMaxSpans = defaultMaxSpans;
+    this.defaultLookbackMins = defaultLookbackMins;
   }
 
   @Get
@@ -211,18 +212,18 @@ public class ZipkinService {
 
     long startTime =
         startTimeEpochMs.orElseGet(
-            () -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
+            () -> Instant.now().minus(this.defaultLookbackMins, ChronoUnit.MINUTES).toEpochMilli());
     // we are adding a buffer to end time also because some machines clock may be ahead of current
     // system clock and those spans would be stored but can't be queried
 
     long endTime =
         endTimeEpochMs.orElseGet(
-            () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
+            () -> Instant.now().plus(this.defaultLookbackMins, ChronoUnit.MINUTES).toEpochMilli());
     int howMany = maxSpans.orElse(this.defaultMaxSpans);
 
     brave.Span span = Tracing.currentTracer().currentSpan();
     span.tag("startTimeEpochMs", String.valueOf(startTime));
-    span.tag("endTimeEpochMs", String.valueOf(endTimeEpochMs));
+    span.tag("endTimeEpochMs", String.valueOf(endTime));
     span.tag("howMany", String.valueOf(howMany));
 
     // TODO: when MAX_SPANS is hit the results will look weird because the index is sorted in
