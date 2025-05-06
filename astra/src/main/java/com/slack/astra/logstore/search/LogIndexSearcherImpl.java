@@ -74,7 +74,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     this.searcherManager.addListener(refreshListener);
     // initialize the adapter with whatever the default schema is
 
-    openSearchAdapter.loadSchema();
+    try {
+      openSearchAdapter.loadSchema();
+    } catch (Exception e) {
+      LOG.error("Failed to load schema due to error:", e);
+      this.close();
+
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
