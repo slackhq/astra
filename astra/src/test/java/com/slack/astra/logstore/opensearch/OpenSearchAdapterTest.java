@@ -36,11 +36,10 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherExtension(false);
 
-  private final ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder;
   private final OpenSearchAdapter openSearchAdapter;
 
   public OpenSearchAdapterTest() throws IOException {
-    fieldDefBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
     fieldDefBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new LuceneFieldDef(
@@ -60,14 +59,6 @@ public class OpenSearchAdapterTest {
 
   @Test
   public void testOpenSearchCollectorManagerCorrectlyReducesListOfCollectors() throws IOException {
-    // We need to recreate the OpenSearchAdapter object here to get the feature flag set to true.
-    // Once this feature flag is removed, we can once again use the class-level object
-    System.setProperty("astra.query.useOpenSearchAggregationParsing", "true");
-    OpenSearchAdapter openSearchAdapterWithFeatureFlagEnabled =
-        new OpenSearchAdapter(fieldDefBuilder.build());
-    openSearchAdapterWithFeatureFlagEnabled.reloadSchema();
-    System.setProperty("astra.query.useOpenSearchAggregationParsing", "false");
-
     AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo");
     avgAggregationBuilder.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
     avgAggregationBuilder.missing("2");
@@ -83,14 +74,22 @@ public class OpenSearchAdapterTest {
     aggregatorFactoriesBuilder2.addAggregator(avgAggregationBuilder2);
 
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
-        openSearchAdapterWithFeatureFlagEnabled.getCollectorManager(
+        openSearchAdapter.getCollectorManager(
             aggregatorFactoriesBuilder,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            logStoreAndSearcherRule
+                .logStore
+                .getAstraSearcherManager()
+                .getLuceneSearcherManager()
+                .acquire(),
             null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager2 =
         openSearchAdapter.getCollectorManager(
             aggregatorFactoriesBuilder2,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            logStoreAndSearcherRule
+                .logStore
+                .getAstraSearcherManager()
+                .getLuceneSearcherManager()
+                .acquire(),
             null);
 
     Aggregator collector1 = collectorManager1.newCollector();
@@ -109,7 +108,12 @@ public class OpenSearchAdapterTest {
   public void shouldProduceQueryFromQueryBuilder() throws Exception {
     BoolQueryBuilder boolQueryBuilder =
         new BoolQueryBuilder().filter(new RangeQueryBuilder("_timesinceepoch").gte(1).lte(100));
-    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
 
     Query rangeQuery = openSearchAdapter.buildQuery(indexSearcher, boolQueryBuilder);
     assertThat(rangeQuery).isNotNull();
@@ -120,7 +124,12 @@ public class OpenSearchAdapterTest {
   public void shouldParseIdFieldSearch() throws Exception {
     String idField = "_id";
     String idValue = "1";
-    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
     Query idQuery =
         openSearchAdapter.buildQuery(
             indexSearcher, new QueryStringQueryBuilder(String.format("%s:%s", idField, idValue)));
@@ -132,7 +141,12 @@ public class OpenSearchAdapterTest {
 
   @Test
   public void shouldExcludeDateFilterWhenNullTimestamps() throws Exception {
-    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
     Query nullBothTimestamps =
         openSearchAdapter.buildQuery(
             indexSearcher, QueryBuilderUtil.generateQueryBuilder("", null, null));

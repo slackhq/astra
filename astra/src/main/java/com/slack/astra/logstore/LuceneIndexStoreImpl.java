@@ -1,6 +1,7 @@
 package com.slack.astra.logstore;
 
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.astra.logstore.search.AstraSearcherManager;
 import com.slack.astra.logstore.search.fieldRedaction.RedactionFilterDirectoryReader;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.config.AstraConfigs;
@@ -28,7 +29,6 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
 import org.apache.lucene.index.SnapshotDeletionPolicy;
-import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.store.FSDirectory;
@@ -57,7 +57,7 @@ public class LuceneIndexStoreImpl implements LogStore {
 
   public static final String FINAL_MERGES_TIMER = "astra_index_final_merges";
 
-  private final SearcherManager searcherManager;
+  private final AstraSearcherManager astraSearcherManager;
   private final DocumentBuilder documentBuilder;
   private final FSDirectory indexDirectory;
 
@@ -137,7 +137,7 @@ public class LuceneIndexStoreImpl implements LogStore {
         OpenSearchDirectoryReader.wrap(
             reader,
             ShardId.fromString("[shard-index][%d]".formatted(UUID.fromString(id).hashCode())));
-    this.searcherManager = new SearcherManager(openSearchDirectoryReader, null);
+    this.astraSearcherManager = new AstraSearcherManager(openSearchDirectoryReader);
 
     scheduledCommit.scheduleWithFixedDelay(
         () -> {
@@ -244,7 +244,7 @@ public class LuceneIndexStoreImpl implements LogStore {
     indexWriterLock.lock();
     try {
       if (indexWriter.isPresent()) {
-        searcherManager.maybeRefresh();
+        astraSearcherManager.getLuceneSearcherManager().maybeRefresh();
       }
     } finally {
       indexWriterLock.unlock();
@@ -407,7 +407,9 @@ public class LuceneIndexStoreImpl implements LogStore {
     }
   }
 
-  // TODO: Currently, deleting the index. May need to delete the folder.
+  // Deletes the index and closes out the directory. The latter is needed
+  // so that Lucene releases the file handles. Otherwise, it's possible that
+  // the file handles will leak and build up while appear to be deleted
   @Override
   public void cleanup() throws IOException {
     if (indexWriter.isPresent()) {
@@ -415,11 +417,27 @@ public class LuceneIndexStoreImpl implements LogStore {
     }
     LOG.debug("Deleting directory: {}", indexDirectory.getDirectory().toAbsolutePath());
     FileUtils.deleteDirectory(indexDirectory.getDirectory().toFile());
+
+    if (indexDirectory != null) {
+      try {
+        indexDirectory.close();
+      } catch (Exception e) {
+        LOG.error("Error closing index directory for index " + id, e);
+      }
+    }
+
+    if (astraSearcherManager != null) {
+      try {
+        astraSearcherManager.close();
+      } catch (Exception e) {
+        LOG.error("Error closing AstraSearcherManager for index " + id, e);
+      }
+    }
   }
 
   @Override
-  public SearcherManager getSearcherManager() {
-    return searcherManager;
+  public AstraSearcherManager getAstraSearcherManager() {
+    return astraSearcherManager;
   }
 
   public String getId() {

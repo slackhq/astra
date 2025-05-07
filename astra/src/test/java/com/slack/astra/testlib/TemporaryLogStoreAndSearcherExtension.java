@@ -107,7 +107,7 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
         TEST_SOURCE_STRING_PROPERTY,
         new LuceneFieldDef(TEST_SOURCE_STRING_PROPERTY, FieldType.STRING.name, false, true, true));
 
-    logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager(), schema);
+    logSearcher = new LogIndexSearcherImpl(logStore.getAstraSearcherManager(), schema);
   }
 
   public static LuceneIndexStoreConfig getIndexStoreConfig(

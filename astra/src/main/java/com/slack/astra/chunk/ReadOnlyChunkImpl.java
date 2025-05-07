@@ -5,6 +5,7 @@ import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.slack.astra.blobfs.BlobStore;
+import com.slack.astra.logstore.search.AstraSearcherManager;
 import com.slack.astra.logstore.search.LogIndexSearcher;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchQuery;
@@ -238,7 +239,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         this.logSearcher =
             (LogIndexSearcher<T>)
                 new LogIndexSearcherImpl(
-                    LogIndexSearcherImpl.searcherManagerFromChunkId(chunkInfo.chunkId, blobStore),
+                    new AstraSearcherManager(chunkInfo.chunkId, blobStore),
                     chunkSchema.fieldDefMap);
       } else {
         // get data directory
@@ -272,8 +273,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         this.logSearcher =
             (LogIndexSearcher<T>)
                 new LogIndexSearcherImpl(
-                    LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
-                    chunkSchema.fieldDefMap);
+                    new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
       }
 
       // set chunk state
@@ -422,8 +422,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
-                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
-                  chunkSchema.fieldDefMap);
+                  new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available
       if (!setChunkMetadataState(

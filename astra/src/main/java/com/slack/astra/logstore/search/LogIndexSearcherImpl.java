@@ -5,19 +5,14 @@ import static com.slack.astra.util.ArgValidationUtils.ensureTrue;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.slack.astra.blobfs.BlobStore;
-import com.slack.astra.blobfs.S3RemoteDirectory;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
-import com.slack.astra.logstore.search.fieldRedaction.RedactionFilterDirectoryReader;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -25,7 +20,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MultiCollectorManager;
@@ -38,8 +32,6 @@ import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.InternalAggregation;
@@ -59,27 +51,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   private final ReferenceManager.RefreshListener refreshListener;
 
-  @VisibleForTesting
-  public static SearcherManager searcherManagerFromChunkId(String chunkId, BlobStore blobStore)
-      throws IOException {
-    Directory directory = new S3RemoteDirectory(chunkId, blobStore);
-    DirectoryReader directoryReader = DirectoryReader.open(directory);
-
-    RedactionFilterDirectoryReader reader = new RedactionFilterDirectoryReader(directoryReader);
-    return new SearcherManager(reader, null);
-  }
-
-  @VisibleForTesting
-  public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
-    MMapDirectory directory = new MMapDirectory(path);
-    DirectoryReader directoryReader = DirectoryReader.open(directory);
-
-    RedactionFilterDirectoryReader reader = new RedactionFilterDirectoryReader(directoryReader);
-    return new SearcherManager(reader, null);
-  }
+  private final AstraSearcherManager astraSearcherManager;
 
   public LogIndexSearcherImpl(
-      SearcherManager searcherManager, ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
+      AstraSearcherManager astraSearcherManager,
+      ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
     this.openSearchAdapter = new OpenSearchAdapter(chunkSchema);
     this.refreshListener =
         new ReferenceManager.RefreshListener() {
@@ -93,11 +69,19 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             openSearchAdapter.reloadSchema();
           }
         };
-    this.searcherManager = searcherManager;
+    this.astraSearcherManager = astraSearcherManager;
+    this.searcherManager = astraSearcherManager.getLuceneSearcherManager();
     this.searcherManager.addListener(refreshListener);
     // initialize the adapter with whatever the default schema is
 
-    openSearchAdapter.loadSchema();
+    try {
+      openSearchAdapter.loadSchema();
+    } catch (Exception e) {
+      LOG.error("Failed to load schema due to error:", e);
+      this.close();
+
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
@@ -232,7 +216,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   public void close() {
     try {
       searcherManager.removeListener(refreshListener);
-      searcherManager.close();
+      astraSearcherManager.close();
     } catch (IOException e) {
       LOG.error("Encountered error closing searcher manager", e);
     }

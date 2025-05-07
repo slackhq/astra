@@ -1,12 +1,12 @@
 package com.slack.astra.logstore;
 
+import com.slack.astra.logstore.search.AstraSearcherManager;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.service.murron.trace.Trace;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.index.IndexCommit;
-import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.store.FSDirectory;
 
 /* An interface that implements a read and write interface for the LogStore */
@@ -14,7 +14,7 @@ public interface LogStore extends Closeable {
   void addMessage(Trace.Span message);
 
   // TODO: Instead of exposing the searcherManager, consider returning an instance of the searcher.
-  SearcherManager getSearcherManager();
+  AstraSearcherManager getAstraSearcherManager();
 
   void commit();
 

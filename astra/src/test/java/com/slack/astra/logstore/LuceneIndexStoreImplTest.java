@@ -20,6 +20,7 @@ import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
 import com.slack.astra.logstore.LogMessage.ReservedField;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.astra.logstore.search.AstraSearcherManager;
 import com.slack.astra.logstore.search.LogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
@@ -156,7 +157,6 @@ public class LuceneIndexStoreImplTest {
 
     @Test
     public void testSearchWithOpenSearchAggregationBuilder() throws IOException {
-      System.setProperty("astra.query.useOpenSearchAggregationParsing", "true");
       Trace.Span span =
           Trace.Span.newBuilder()
               .setId(ByteString.copyFromUtf8("1"))
@@ -205,7 +205,6 @@ public class LuceneIndexStoreImplTest {
       assertThat(result1.hits.size()).isEqualTo(1);
       assertThat(result1.internalAggregation.getName()).isEqualTo("1");
       assertThat(result1.internalAggregation.getType()).isEqualTo("date_histogram");
-      System.setProperty("astra.query.useOpenSearchAggregationParsing", "false");
     }
 
     @Test
@@ -490,8 +489,7 @@ public class LuceneIndexStoreImplTest {
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
-              logStore.getSchema());
+              new AstraSearcherManager(tmpPath.toAbsolutePath()), logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
       assertThat(newResults.size()).isEqualTo(1);
