@@ -74,7 +74,7 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
 
       // This node is only searchable if it doesn't have more than 1 assignment that is
       // loading
-      boolean searchable = loadingCacheAssignments.size() > 1;
+      boolean searchable = loadingCacheAssignments.size() <= 1;
 
       if (searchable) {
         LOG.info("Marking cache node {} as searchable", cacheNodeMetadata.id);
@@ -96,6 +96,6 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
 
   @Override
   protected Scheduler scheduler() {
-    return Scheduler.newFixedDelaySchedule(5, 5, TimeUnit.MINUTES);
+    return Scheduler.newFixedDelaySchedule(1, 1, TimeUnit.MINUTES);
   }
 }
