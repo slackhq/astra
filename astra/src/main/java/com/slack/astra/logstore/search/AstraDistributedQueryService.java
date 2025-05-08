@@ -241,8 +241,13 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
     Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
     for (SearchMetadata searchMetadata : searchMetadataStore.listSync()) {
-      if (!snapshotsToSearch.containsKey(searchMetadata.snapshotName)
-          || !searchMetadata.getSearchable()) {
+      if (snapshotsToSearch.containsKey(searchMetadata.snapshotName)) {
+        continue;
+      }
+
+      // TODO FOR KYLE: Combine this with the above if-statement and remove the log -- this is just for testing
+      if (!searchMetadata.getSearchable()) {
+        LOG.info("Skipping searching search metadata={} because it's not searchable!", searchMetadata.name);
         continue;
       }
 

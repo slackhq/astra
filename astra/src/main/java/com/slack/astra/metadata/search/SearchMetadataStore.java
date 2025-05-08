@@ -36,6 +36,10 @@ public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
   }
 
   // TODO FOR KYLE: DON'T DO THIS -- DELETE AND CREATE A NEW ONE
+  // Actually, because they're ephemerals created on the cache nodes, wouldn't that break the ephemeral bits?
+  // Like, wouldn't that cause them to not go away when the cache nodes have disappeared, and instead tie them to the
+  // managers?
+  // TODO FOR KYLE: Does just updating these remove where the ephemeral is tied to? I don't think so, but we dont want that
   public void updateSearchability(SearchMetadata oldSearchMetadata, boolean searchable) {
     oldSearchMetadata.setSearchable(searchable);
     try {
