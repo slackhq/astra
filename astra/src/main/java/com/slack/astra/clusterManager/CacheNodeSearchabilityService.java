@@ -87,8 +87,7 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
                 .toList();
 
         for (SearchMetadata searchMetadata : cacheNodesSearchMetadata) {
-          searchMetadata.setSearchable(true);
-          searchMetadataStore.updateSync(searchMetadata);
+          searchMetadataStore.updateSearchability(searchMetadata, true);
         }
       }
     }
