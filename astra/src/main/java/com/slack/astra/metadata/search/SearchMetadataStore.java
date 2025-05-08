@@ -35,17 +35,17 @@ public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
     this.zkConfig = zkConfig;
   }
 
+  // TODO FOR KYLE: DON'T DO THIS -- DELETE AND CREATE A NEW ONE
   public void updateSearchability(SearchMetadata oldSearchMetadata, boolean searchable) {
     oldSearchMetadata.setSearchable(searchable);
-    super.updateSync(oldSearchMetadata);
-      try {
-        super.updateAsync(oldSearchMetadata)
-                .toCompletableFuture()
-                .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-      } catch (InterruptedException | ExecutionException | TimeoutException e) {
-        throw new InternalMetadataStoreException("Error updating node: " + oldSearchMetadata, e);
-      }
-  }
+    try {
+      super.updateAsync(oldSearchMetadata)
+              .toCompletableFuture()
+              .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error updating node: " + oldSearchMetadata, e);
+    }
+}
 
   @Override
   public AsyncStage<Stat> updateAsync(SearchMetadata metadataNode) {
