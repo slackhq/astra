@@ -154,7 +154,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
           .listSync()
           .forEach(
               searchMetadata -> {
-                if (searchMetadata.getSearchable()) {
+                if (searchMetadata.isSearchable()) {
                   latestSearchServers.add(searchMetadata.url);
                 }
               });
@@ -246,7 +246,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       }
 
       // TODO FOR KYLE: Combine this with the above if-statement and remove the log -- this is just for testing
-      if (!searchMetadata.getSearchable()) {
+      if (!searchMetadata.isSearchable()) {
         LOG.info("Skipping searching search metadata={} because it's not searchable!", searchMetadata.name);
         continue;
       }

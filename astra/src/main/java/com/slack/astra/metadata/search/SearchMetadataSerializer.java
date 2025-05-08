@@ -20,7 +20,7 @@ public class SearchMetadataSerializer implements MetadataSerializer<SearchMetada
         .setName(metadata.name)
         .setSnapshotName(metadata.snapshotName)
         .setUrl(metadata.url)
-        .setSearchable(metadata.getSearchable())
+        .setSearchable(metadata.isSearchable())
         .build();
   }
 
