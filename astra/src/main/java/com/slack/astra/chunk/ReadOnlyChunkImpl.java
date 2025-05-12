@@ -450,12 +450,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  @VisibleForTesting
-  public SearchMetadata registerSearchMetadata(
+  private SearchMetadata registerSearchMetadata(
       SearchMetadataStore searchMetadataStore,
       SearchContext cacheSearchContext,
-      String snapshotName)
-      throws ExecutionException, InterruptedException, TimeoutException {
+      String snapshotName) {
     CacheNodeMetadata cacheNodeMetadata =
         this.cacheNodeMetadataStore.getSync(getCacheNodeAssignment().cacheNodeId);
     SearchMetadata metadata =
