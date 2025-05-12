@@ -84,6 +84,7 @@ public class CacheNodeSearchabilityServiceTest {
   public void testCacheNodeSearchabilityServiceWithNoCacheNodes() throws Exception {
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
+            meterRegistry,
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
@@ -98,6 +99,7 @@ public class CacheNodeSearchabilityServiceTest {
         new CacheNodeMetadata("test-id", "testhostname", 1, "rep1", true));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
+            meterRegistry,
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
@@ -115,6 +117,7 @@ public class CacheNodeSearchabilityServiceTest {
         new CacheNodeMetadata("test-id", "testhostname", 1, "rep1", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
+            meterRegistry,
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
@@ -141,6 +144,7 @@ public class CacheNodeSearchabilityServiceTest {
             Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
+            meterRegistry,
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
@@ -169,6 +173,7 @@ public class CacheNodeSearchabilityServiceTest {
         new SearchMetadata("test-name", "snapshot-id", "test-url:testhostname", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
+            meterRegistry,
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
@@ -199,6 +204,7 @@ public class CacheNodeSearchabilityServiceTest {
         new SearchMetadata("test-name", "snapshot-id", "test-url", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
+            meterRegistry,
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
@@ -230,6 +236,7 @@ public class CacheNodeSearchabilityServiceTest {
         new SearchMetadata("test-name", "snapshot-id", "test-url", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
+            meterRegistry,
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,

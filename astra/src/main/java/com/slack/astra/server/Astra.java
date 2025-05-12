@@ -485,6 +485,7 @@ public class Astra {
               true);
       CacheNodeSearchabilityService cacheNodeSearchabilityService =
           new CacheNodeSearchabilityService(
+              meterRegistry,
               cacheNodeMetadataStore,
               managerConfig,
               cacheNodeAssignmentStore,
