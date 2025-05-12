@@ -33,7 +33,6 @@ public class SearchMetadata extends AstraMetadata {
     if (searchable == null) {
       return true;
     }
-    ;
     return searchable;
   }
 
@@ -58,6 +57,8 @@ public class SearchMetadata extends AstraMetadata {
     SearchMetadata that = (SearchMetadata) o;
 
     if (!snapshotName.equals(that.snapshotName)) return false;
+    if (!searchable.equals(that.searchable)) return false;
+
     return url.equals(that.url);
   }
 
@@ -66,6 +67,7 @@ public class SearchMetadata extends AstraMetadata {
     int result = super.hashCode();
     result = 31 * result + snapshotName.hashCode();
     result = 31 * result + url.hashCode();
+    result = 31 * result + searchable.hashCode();
     return result;
   }
 
@@ -81,6 +83,8 @@ public class SearchMetadata extends AstraMetadata {
         + ", url='"
         + url
         + '\''
+        + ", searchable="
+        + searchable
         + '}';
   }
 }
