@@ -241,7 +241,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
     Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
     for (SearchMetadata searchMetadata : searchMetadataStore.listSync()) {
-      if (snapshotsToSearch.containsKey(searchMetadata.snapshotName)) {
+      if (!snapshotsToSearch.containsKey(searchMetadata.snapshotName)) {
         continue;
       }
 
