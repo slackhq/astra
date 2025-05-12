@@ -8,6 +8,7 @@ import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadata;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-// TODO: Can this be merged with the CacheNodeAssignmentService?
 public class CacheNodeSearchabilityService extends AbstractScheduledService {
 
   protected static final Logger LOG = LoggerFactory.getLogger(CacheNodeSearchabilityService.class);
@@ -24,13 +24,16 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
   private final CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
+  private final AstraConfigs.ManagerConfig managerConfig;
 
   public CacheNodeSearchabilityService(
       CacheNodeMetadataStore cacheNodeMetadataStore,
+      AstraConfigs.ManagerConfig managerConfig,
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore) {
     this.cacheNodeMetadataStore = cacheNodeMetadataStore;
+    this.managerConfig = managerConfig;
     this.cacheNodeAssignmentStore = cacheNodeAssignmentStore;
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
@@ -108,6 +111,9 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
 
   @Override
   protected Scheduler scheduler() {
-    return Scheduler.newFixedDelaySchedule(1, 1, TimeUnit.MINUTES);
+    return Scheduler.newFixedDelaySchedule(
+        this.managerConfig.getScheduleInitialDelayMins(),
+        this.managerConfig.getCacheNodeSearchabilityServiceConfig().getSchedulePeriodMins(),
+        TimeUnit.MINUTES);
   }
 }
