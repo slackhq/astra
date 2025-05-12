@@ -9,7 +9,6 @@ import com.slack.astra.metadata.search.SearchMetadata;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.metadata.Metadata;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -65,15 +64,20 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
     for (CacheNodeMetadata cacheNodeMetadata : unsearchableCacheNodes) {
       List<CacheNodeAssignment> loadingCacheAssignments = new ArrayList<>();
       List<CacheNodeAssignment> liveCacheAssignments = new ArrayList<>();
-      cacheNodeAssignmentStore.listSync().forEach(cacheNodeAssignment -> {
-        if (cacheNodeMetadata.id.equals(cacheNodeAssignment.cacheNodeId)) {
-          if (cacheNodeAssignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING) {
-            loadingCacheAssignments.add(cacheNodeAssignment);
-          } else if(cacheNodeAssignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE) {
-            liveCacheAssignments.add(cacheNodeAssignment);
-          }
-        }
-      });
+      cacheNodeAssignmentStore
+          .listSync()
+          .forEach(
+              cacheNodeAssignment -> {
+                if (cacheNodeMetadata.id.equals(cacheNodeAssignment.cacheNodeId)) {
+                  if (cacheNodeAssignment.state
+                      == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING) {
+                    loadingCacheAssignments.add(cacheNodeAssignment);
+                  } else if (cacheNodeAssignment.state
+                      == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE) {
+                    liveCacheAssignments.add(cacheNodeAssignment);
+                  }
+                }
+              });
 
       // This node is only searchable if it doesn't have more than 1 assignment that is
       // loading AND it has at least one assignment that is live
@@ -93,7 +97,11 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
           searchMetadataStore.updateSearchability(searchMetadata, true);
         }
       } else {
-        LOG.info("Cache node {} is NOT searchable. It has {} loading cache assignments and {} live cache assignments", cacheNodeMetadata.id, loadingCacheAssignments.size(), liveCacheAssignments.size());
+        LOG.info(
+            "Cache node {} is NOT searchable. It has {} loading cache assignments and {} live cache assignments",
+            cacheNodeMetadata.id,
+            loadingCacheAssignments.size(),
+            liveCacheAssignments.size());
       }
     }
   }

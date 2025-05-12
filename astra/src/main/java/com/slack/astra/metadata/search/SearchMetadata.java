@@ -30,10 +30,10 @@ public class SearchMetadata extends AstraMetadata {
   }
 
   public Boolean isSearchable() {
-    // TODO FOR KYLE: Live search metadata currently isn't filling out the "searchable" field. We should add that.
     if (searchable == null) {
       return true;
-    };
+    }
+    ;
     return searchable;
   }
 

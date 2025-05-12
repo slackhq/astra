@@ -245,9 +245,10 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         continue;
       }
 
-      // TODO FOR KYLE: Combine this with the above if-statement and remove the log -- this is just for testing
       if (!searchMetadata.isSearchable()) {
-        LOG.info("Skipping searching search metadata={} because it's not searchable!", searchMetadata.name);
+        LOG.info(
+            "Skipping searching search metadata={} because it's not searchable!",
+            searchMetadata.name);
         continue;
       }
 
@@ -261,9 +262,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       }
     }
     getMatchingSearchMetadataSpan.finish();
-    // TODO FOR KYLE: REMOVEME
-    LOG.info("SearchMetadata grouped by snapshot={}", searchMetadataGroupedByName);
-    // TODO FOR KYLE: REMOVEME
     return searchMetadataGroupedByName;
   }
 
@@ -380,10 +378,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     // underlying URL to query
     Map<String, List<String>> nodesAndSnapshotsToQuery =
         getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
-
-    // TODO FOR KYLE: REMOVME
-    LOG.info("Nodes and snapshots to query: {}", nodesAndSnapshotsToQuery);
-    // TODO FOR KYLE: REMOVME
 
     span.tag("queryServerCount", String.valueOf(nodesAndSnapshotsToQuery.size()));
 
