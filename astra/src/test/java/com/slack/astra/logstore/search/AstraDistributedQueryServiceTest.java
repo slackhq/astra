@@ -112,7 +112,7 @@ public class AstraDistributedQueryServiceTest {
     testZKServer.close();
   }
 
-  public SearchMetadata registerTestSearchMetadata(
+  private SearchMetadata registerTestSearchMetadata(
       SearchMetadataStore searchMetadataStore,
       SearchContext cacheSearchContext,
       String snapshotName) {
@@ -125,6 +125,85 @@ public class AstraDistributedQueryServiceTest {
             true);
     searchMetadataStore.createSync(metadata);
     return metadata;
+  }
+
+  private SearchMetadata registerUnsearchableTestSearchMetadata(
+      SearchMetadataStore searchMetadataStore,
+      SearchContext cacheSearchContext,
+      String snapshotName) {
+    SearchMetadata metadata =
+        new SearchMetadata(
+            SearchMetadata.generateSearchContextSnapshotId(
+                snapshotName, cacheSearchContext.hostname),
+            snapshotName,
+            cacheSearchContext.toUrl(),
+            false);
+    searchMetadataStore.createSync(metadata);
+    return metadata;
+  }
+
+  @Test
+  public void testGetSearchNodesToQueryWithUnsearchableNode() {
+    String indexName = "testIndex";
+    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 500, List.of("1"));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
+
+    Instant chunk1CreationTime = Instant.ofEpochMilli(100);
+    Instant chunk1EndTime = Instant.ofEpochMilli(200);
+    String snapshot1Name =
+        createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
+
+    assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(2);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(1);
+
+    AtomicReference<Map<String, List<String>>> searchNodes = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              searchNodes.set(
+                  getSearchNodesToQuery(
+                      snapshotMetadataStore,
+                      searchMetadataStore,
+                      datasetMetadataStore,
+                      chunk1CreationTime.toEpochMilli(),
+                      chunk1EndTime.toEpochMilli(),
+                      indexName));
+              return searchNodes.get().size() == 1;
+            });
+
+    assertThat(searchNodes.get().size()).isEqualTo(1);
+    assertThat(searchNodes.get().keySet().iterator().next())
+        .isEqualTo(indexer1SearchContext.toString());
+    List<String> chunks = searchNodes.get().values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    Iterator<String> chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(snapshot1Name);
+
+    // create cache node entry for search metadata also serving the snapshot
+    registerUnsearchableTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot1Name);
+    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
+
+    searchNodes.set(
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
+            indexName));
+
+    // Confirm that the data we get back is only for the indexer since the cache node is
+    // unsearchable
+    assertThat(searchNodes.get().size()).isEqualTo(1);
+    assertThat(searchNodes.get().keySet().iterator().next())
+        .isEqualTo(indexer1SearchContext.toString());
+    chunks = searchNodes.get().values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(snapshot1Name);
   }
 
   @Test
