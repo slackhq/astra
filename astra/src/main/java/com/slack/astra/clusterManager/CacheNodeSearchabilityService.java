@@ -13,6 +13,9 @@ import com.slack.astra.proto.metadata.Metadata;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,13 +23,17 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
 
   protected static final Logger LOG = LoggerFactory.getLogger(CacheNodeSearchabilityService.class);
 
+  public static final String UNSEARCHABLE_NODES = "unsearchable_nodes";
+
   private final CacheNodeMetadataStore cacheNodeMetadataStore;
   private final CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final AstraConfigs.ManagerConfig managerConfig;
+  private final Counter numberOfUnsearchableNodes;
 
   public CacheNodeSearchabilityService(
+      MeterRegistry meterRegistry,
       CacheNodeMetadataStore cacheNodeMetadataStore,
       AstraConfigs.ManagerConfig managerConfig,
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
@@ -37,6 +44,7 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
     this.cacheNodeAssignmentStore = cacheNodeAssignmentStore;
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
+    this.numberOfUnsearchableNodes = meterRegistry.counter(UNSEARCHABLE_NODES);
   }
 
   @Override
@@ -107,6 +115,7 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
             cacheNodeMetadata.id,
             loadingCacheAssignments.size(),
             liveCacheAssignments.size());
+        numberOfUnsearchableNodes.increment();
       }
     }
   }
