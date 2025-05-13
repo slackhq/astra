@@ -152,7 +152,12 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       Set<String> latestSearchServers = new HashSet<>();
       searchMetadataStore
           .listSync()
-          .forEach(searchMetadata -> latestSearchServers.add(searchMetadata.url));
+          .forEach(
+              searchMetadata -> {
+                if (searchMetadata.isSearchable()) {
+                  latestSearchServers.add(searchMetadata.url);
+                }
+              });
 
       int currentSearchMetadataCount = stubs.size();
       AtomicInteger addedStubs = new AtomicInteger();
@@ -237,6 +242,13 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
     for (SearchMetadata searchMetadata : searchMetadataStore.listSync()) {
       if (!snapshotsToSearch.containsKey(searchMetadata.snapshotName)) {
+        continue;
+      }
+
+      if (!searchMetadata.isSearchable()) {
+        LOG.info(
+            "Skipping searching search metadata={} because it's not searchable!",
+            searchMetadata.name);
         continue;
       }
 

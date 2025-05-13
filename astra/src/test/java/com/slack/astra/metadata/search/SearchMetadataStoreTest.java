@@ -2,11 +2,13 @@ package com.slack.astra.metadata.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
@@ -43,6 +45,19 @@ public class SearchMetadataStoreTest {
     curatorFramework.unwrap().close();
     testingServer.close();
     meterRegistry.close();
+  }
+
+  @Test
+  public void testSearchMetadataStoreUpdateSearchability() throws Exception {
+    store = new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot", "http", false);
+    assertThat(searchMetadata.isSearchable()).isFalse();
+    store.createSync(searchMetadata);
+
+    store.updateSearchability(searchMetadata, true);
+
+    // Confirm that this eventually becomes searchable
+    await().atMost(5, TimeUnit.SECONDS).until(() -> store.getSync("test").isSearchable());
   }
 
   @Test
