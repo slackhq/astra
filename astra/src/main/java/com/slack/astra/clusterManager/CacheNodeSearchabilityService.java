@@ -94,7 +94,7 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
       boolean searchable = loadingCacheAssignments.size() <= 1 && !liveCacheAssignments.isEmpty();
 
       if (searchable) {
-        LOG.info("Marking cache node {} as searchable", cacheNodeMetadata.id);
+        LOG.info("Marking cache node {} as searchable", cacheNodeMetadata.hostname);
         cacheNodeMetadata.searchable = true;
         cacheNodeMetadataStore.updateSync(cacheNodeMetadata);
 
