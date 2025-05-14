@@ -102,7 +102,7 @@ managerConfig:
     replicaLifespanMins: ${ASTRA_MANAGER_REPLICA_RESTORE_LIFESPAN_MINS:-60}
     replicaSets: [${ASTRA_MANAGER_REPLICA_SETS:-rep1}]
   cacheNodeSearchabilityServiceConfig:
-    schedulePeriodMins: ${ASTRA_MANAGER_SEARCHABILITY_PERIOD_MINS:-15}
+    schedulePeriodMins: ${ASTRA_MANAGER_SEARCHABILITY_PERIOD_MINS:-1}
   cacheNodeAssignmentServiceConfig:
     schedulePeriodMins: ${ASTRA_MANAGER_ASSIGNMENT_PERIOD_MINS:-15}
     replicaSets: [${ASTRA_MANAGER_REPLICA_SETS:-rep1}]
