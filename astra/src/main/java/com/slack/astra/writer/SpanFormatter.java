@@ -39,8 +39,10 @@ public class SpanFormatter {
         .build();
   }
 
-  public static Trace.KeyValue makeTraceKV(String key, Object value, Schema.SchemaFieldType type) {
+  public static Trace.KeyValue makeTraceKV(
+      String key, Object value, Schema.SchemaFieldType type, Boolean isDynamic) {
     Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
+    Trace.IndexSignal indexSignal = indexSignal(type, isDynamic);
     tagBuilder.setKey(key);
     try {
       switch (type) {
@@ -104,13 +106,35 @@ public class SpanFormatter {
           tagBuilder.setVBinary(ByteString.copyFrom(value.toString().getBytes()));
         }
       }
+      tagBuilder.setIndexSignal(indexSignal);
       return tagBuilder.build();
     } catch (Exception e) {
       tagBuilder.setKey(String.format("failed_%s", key));
       tagBuilder.setFieldType(Schema.SchemaFieldType.KEYWORD);
       tagBuilder.setVStr(value.toString());
+      tagBuilder.setIndexSignal(Trace.IndexSignal.DO_NOT_INDEX);
       return tagBuilder.build();
     }
+  }
+
+  private static Trace.IndexSignal indexSignal(Schema.SchemaFieldType type, Boolean isDynamic) {
+    if (isDynamic) {
+      return dynamicIndexSignal(type);
+    } else {
+      return inSchemaIndexSignal(type);
+    }
+  }
+
+  private static Trace.IndexSignal inSchemaIndexSignal(Schema.SchemaFieldType type) {
+    return type == Schema.SchemaFieldType.BINARY
+        ? Trace.IndexSignal.DO_NOT_INDEX
+        : Trace.IndexSignal.IN_SCHEMA_INDEX;
+  }
+
+  private static Trace.IndexSignal dynamicIndexSignal(Schema.SchemaFieldType type) {
+    return type == Schema.SchemaFieldType.BINARY
+        ? Trace.IndexSignal.DO_NOT_INDEX
+        : Trace.IndexSignal.DYNAMIC_INDEX;
   }
 
   public static List<Trace.KeyValue> convertKVtoProto(
@@ -122,7 +146,7 @@ public class SpanFormatter {
     if (schema.containsFields(key)) {
       List<Trace.KeyValue> tags = new ArrayList<>();
       Schema.SchemaField schemaFieldDef = schema.getFieldsMap().get(key);
-      tags.add(makeTraceKV(key, value, schemaFieldDef.getType()));
+      tags.add(makeTraceKV(key, value, schemaFieldDef.getType(), false));
       for (Map.Entry<String, Schema.SchemaField> additionalField :
           schemaFieldDef.getFieldsMap().entrySet()) {
         // skip conditions
@@ -135,7 +159,8 @@ public class SpanFormatter {
             makeTraceKV(
                 String.format("%s.%s", key, additionalField.getKey()),
                 value,
-                additionalField.getValue().getType());
+                additionalField.getValue().getType(),
+                false);
         tags.add(additionalKV);
       }
       return tags;
@@ -165,7 +190,8 @@ public class SpanFormatter {
               .findFirst();
 
       if (defaultStringField.isPresent()) {
-        tags.add(makeTraceKV(key, value, defaultStringField.get().getMapping().getType()));
+        Schema.SchemaFieldType fieldType = defaultStringField.get().getMapping().getType();
+        tags.add(makeTraceKV(key, value, fieldType, true));
         for (Map.Entry<String, Schema.SchemaField> additionalField :
             defaultStringField.get().getMapping().getFieldsMap().entrySet()) {
           // skip conditions
@@ -174,28 +200,30 @@ public class SpanFormatter {
               && value.toString().length() > additionalField.getValue().getIgnoreAbove()) {
             continue;
           }
+          Schema.SchemaFieldType additionalFieldType = additionalField.getValue().getType();
           Trace.KeyValue additionalKV =
               makeTraceKV(
                   String.format("%s.%s", key, additionalField.getKey()),
                   value,
-                  additionalField.getValue().getType());
+                  additionalFieldType,
+                  true);
           tags.add(additionalKV);
         }
       } else {
-        tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.KEYWORD));
+        tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.KEYWORD, true));
       }
     } else if (value instanceof Boolean) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BOOLEAN));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BOOLEAN, true));
     } else if (value instanceof Integer) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.INTEGER));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.INTEGER, true));
     } else if (value instanceof Long) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.LONG));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.LONG, true));
     } else if (value instanceof Float) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.FLOAT));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.FLOAT, true));
     } else if (value instanceof Double) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.DOUBLE));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.DOUBLE, true));
     } else if (value != null) {
-      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BINARY));
+      tags.add(makeTraceKV(key, value, Schema.SchemaFieldType.BINARY, true));
     }
     return tags;
   }

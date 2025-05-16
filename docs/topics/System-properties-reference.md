@@ -83,3 +83,13 @@ Maximum amount of total fields used by the mapper service for query parsing.
 {style="narrow"}
 defaultValue
 : 2500
+
+## astra.mapping.dynamicFieldsLimit
+<tldr>experimental</tldr>
+Maximum amount of dynamic fields indexed in indexer when building a schema.
+
+Should be lower than astra.mapping.totalFieldsLimit to account for required fields and schema fields.
+
+{style="narrow"}
+defaultValue
+: 1500

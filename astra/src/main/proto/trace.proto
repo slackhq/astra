@@ -12,6 +12,13 @@ import "google/protobuf/timestamp.proto";
 
 import "schema.proto";
 
+enum IndexSignal {
+  UNKNOWN          = 0;
+  IN_SCHEMA_INDEX  = 1;
+  DYNAMIC_INDEX    = 2;
+  DO_NOT_INDEX     = 3;
+};
+
 message KeyValue {
   string    key       = 1;
   string    v_str     = 3;
@@ -23,6 +30,9 @@ message KeyValue {
   float     v_float32 = 9;
   google.protobuf.Timestamp v_date = 11;
   slack.proto.astra.schema.SchemaFieldType fieldType = 10;
+
+  // pick much later id to allow for value types to be consecutively added
+  IndexSignal index_signal    = 100;
 }
 
 // A span defines a single event in a trace.

@@ -46,6 +46,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.assertj.core.data.Offset;
@@ -98,6 +99,224 @@ public class ElasticsearchApiServiceTest {
   public void tearDown() throws TimeoutException, IOException {
     chunkManagerUtil.close();
     metricsRegistry.close();
+  }
+
+  @Test
+  public void testSchemaIsRetainedAndDynamicFieldsAreDroppedOverLimit() throws Exception {
+    // Load schema from test_schema.yaml
+    final File schemaFile =
+        new File(getClass().getClassLoader().getResource("schema/test_schema.yaml").getFile());
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(schemaFile.toPath());
+
+    // Build a request with all schema fields (reusing test fixture) and extra dynamic fields
+    byte[] rawRequest = getIndexRequestBytes("index_all_schema_fields");
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(2);
+
+    // Insert schema-based spans first
+    for (IndexRequest indexRequest : indexRequests) {
+      IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
+      Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument, schema);
+      ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
+      LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
+      assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
+    }
+
+    // Now add one large span with 3000 dynamic fields
+    Trace.Span.Builder spanBuilder = SpanUtil.makeSpan(100).toBuilder();
+    for (int i = 0; i < 3000; i++) {
+      spanBuilder.addTags(
+          Trace.KeyValue.newBuilder()
+              .setKey("dynamic.extra_field." + i)
+              .setVStr("value" + i)
+              .setIndexSignal(Trace.IndexSignal.DYNAMIC_INDEX)
+              .build());
+    }
+    Trace.Span spanWithExtras = spanBuilder.build();
+    ConsumerRecord<String, byte[]> extraSpanRecord =
+        consumerRecordWithValue(spanWithExtras.toByteArray());
+    LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
+    assertThat(messageWriter.insertRecord(extraSpanRecord)).isTrue();
+
+    // Validate counts
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(3);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    chunkManagerUtil.chunkManager.getActiveChunk().commit();
+
+    // Fetch and parse mapping
+    HttpResponse response =
+        elasticsearchApiService.mapping(
+            Optional.of("test"), Optional.of(0L), Optional.of(Long.MAX_VALUE));
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+    assertThat(jsonNode).isNotNull();
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    Map<String, Object> map =
+        objectMapper.convertValue(
+            jsonNode.get("test").get("mappings").get("properties"), Map.class);
+
+    Set<String> schemaKeys =
+        Set.of(
+            "host",
+            "message",
+            "ip",
+            "my_date",
+            "success",
+            "cost",
+            "amount",
+            "amount_half_float",
+            "message.keyword",
+            "value",
+            "count",
+            "count_scaled_long",
+            "count_short",
+            "bucket");
+
+    // Verify all original schema fields are retained
+    assertThat(map.keySet()).containsAll(schemaKeys);
+
+    // Additional Keys that are required via indexing logic.
+    Set<String> requiredKeys =
+        Set.of(
+            "@timestamp",
+            "_all",
+            "_id",
+            "_index",
+            "_source",
+            "_timesinceepoch",
+            "doubleproperty",
+            "duration",
+            "floatproperty",
+            "intproperty",
+            "longproperty",
+            "name",
+            "parent_id",
+            "service_name",
+            "stringproperty",
+            "trace_id",
+            "binaryproperty");
+
+    // Verify all required keys are retained
+    assertThat(map.keySet()).containsAll(requiredKeys);
+
+    int dynamicFieldsCount = map.keySet().size() - schemaKeys.size() - requiredKeys.size();
+    assertThat(dynamicFieldsCount)
+        .withFailMessage(
+            "Expected dynamic field count to not exceed limit but got %s", dynamicFieldsCount)
+        .isEqualTo(1500);
+  }
+
+  @Test
+  public void testSchemaIsRetainedAndDynamicFieldsAreNotDroppedWhenUNKNOWN() throws Exception {
+    // Load schema from test_schema.yaml
+    final File schemaFile =
+        new File(getClass().getClassLoader().getResource("schema/test_schema.yaml").getFile());
+    Schema.IngestSchema schema = SchemaUtil.parseSchema(schemaFile.toPath());
+
+    // Build a request with all schema fields (reusing test fixture) and extra dynamic fields
+    byte[] rawRequest = getIndexRequestBytes("index_all_schema_fields");
+    List<IndexRequest> indexRequests = BulkApiRequestParser.parseBulkRequest(rawRequest);
+    assertThat(indexRequests.size()).isEqualTo(2);
+
+    // Insert schema-based spans first
+    for (IndexRequest indexRequest : indexRequests) {
+      IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
+      Trace.Span span = BulkApiRequestParser.fromIngestDocument(ingestDocument, schema);
+      ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
+      LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
+      assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
+    }
+
+    // Now add one large span with 3000 dynamic fields
+    Trace.Span.Builder spanBuilder = SpanUtil.makeSpan(100).toBuilder();
+    for (int i = 0; i < 3000; i++) {
+      spanBuilder.addTags(
+          Trace.KeyValue.newBuilder()
+              .setKey("dynamic.extra_field." + i)
+              .setVStr("value" + i)
+              .build());
+    }
+    Trace.Span spanWithExtras = spanBuilder.build();
+    ConsumerRecord<String, byte[]> extraSpanRecord =
+        consumerRecordWithValue(spanWithExtras.toByteArray());
+    LogMessageWriterImpl messageWriter = new LogMessageWriterImpl(chunkManagerUtil.chunkManager);
+    assertThat(messageWriter.insertRecord(extraSpanRecord)).isTrue();
+
+    // Validate counts
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(3);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    chunkManagerUtil.chunkManager.getActiveChunk().commit();
+
+    // Fetch and parse mapping
+    HttpResponse response =
+        elasticsearchApiService.mapping(
+            Optional.of("test"), Optional.of(0L), Optional.of(Long.MAX_VALUE));
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+    assertThat(jsonNode).isNotNull();
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    Map<String, Object> map =
+        objectMapper.convertValue(
+            jsonNode.get("test").get("mappings").get("properties"), Map.class);
+
+    Set<String> schemaKeys =
+        Set.of(
+            "host",
+            "message",
+            "ip",
+            "my_date",
+            "success",
+            "cost",
+            "amount",
+            "amount_half_float",
+            "value",
+            "count",
+            "count_scaled_long",
+            "count_short",
+            "bucket");
+
+    // Verify all original schema fields are retained
+    assertThat(map.keySet()).containsAll(schemaKeys);
+
+    // Additional Keys that are required via indexing logic.
+    Set<String> requiredKeys =
+        Set.of(
+            "@timestamp",
+            "_all",
+            "_id",
+            "_index",
+            "_source",
+            "_timesinceepoch",
+            "doubleproperty",
+            "duration",
+            "floatproperty",
+            "intproperty",
+            "longproperty",
+            "message.keyword",
+            "name",
+            "parent_id",
+            "service_name",
+            "stringproperty",
+            "trace_id",
+            "username",
+            "binaryproperty");
+
+    // Verify all required keys are retained
+    assertThat(map.keySet()).containsAll(requiredKeys);
+
+    // No dynamic fields are dropped with the "old" logic when preprocessor does not have
+    // indexSignal set.
+    int dynamicFieldsCount = map.keySet().size() - schemaKeys.size() - requiredKeys.size();
+    assertThat(dynamicFieldsCount)
+        .withFailMessage(
+            "Expected dynamic field count to not exceed limit but got %s", dynamicFieldsCount)
+        .isEqualTo(3000);
   }
 
   @Test
