@@ -19,7 +19,7 @@
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.7</protobuf.version>
         <grpc.version>1.72.0</grpc.version>
-        <micrometer.version>1.14.6</micrometer.version>
+        <micrometer.version>1.15.0</micrometer.version>
         <armeria.version>1.27.3</armeria.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.19.0</jackson.version>
