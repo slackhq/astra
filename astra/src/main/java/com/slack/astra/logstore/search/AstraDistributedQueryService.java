@@ -20,7 +20,6 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.proto.service.AstraServiceGrpc;
 import com.slack.astra.server.AstraQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.io.Closeable;
@@ -86,14 +85,13 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       "distributed_query_snapshots_with_replicas";
 
   public static final String DISTRIBUTED_QUERY_DURATION_SECONDS =
-          "distributed_query_duration_seconds";
+      "distributed_query_duration_seconds";
 
   private final Counter distributedQueryApdexSatisfied;
   private final Counter distributedQueryApdexTolerating;
   private final Counter distributedQueryApdexFrustrated;
   private final Counter distributedQueryTotalSnapshots;
   private final Counter distributedQuerySnapshotsWithReplicas;
-  private final Timer distributedQueryDurationTimer;
   // Timeouts are structured such that we always attempt to return a successful response, as we
   // include metadata that should always be present. The Armeria timeout is used at the top request,
   // distributed query is used as a deadline for all nodes to return, and the local query timeout
@@ -133,7 +131,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
     this.distributedQuerySnapshotsWithReplicas =
         meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
-    this.distributedQueryDurationTimer = meterRegistry.timer(DISTRIBUTED_QUERY_DURATION_SECONDS);
     this.meterRegistry = meterRegistry;
 
     // start listening for new events
@@ -365,25 +362,45 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     }
   }
 
+  private String getDataRequestBucket(long endTimeEpochMs, long startTimeEpochMs) {
+    long requestedDataHours = Duration.ofMillis(endTimeEpochMs - startTimeEpochMs).toHours();
+
+    if (requestedDataHours < 1) {
+      return "<1hr";
+    } else if (requestedDataHours <= 24) {
+      return "1-24hrs";
+    } else if (requestedDataHours <= 72) {
+      return "24-72hrs";
+    } else {
+      return "72hrs-7days";
+    }
+  }
+
   private List<SearchResult<LogMessage>> distributedSearch(
       final AstraSearch.SearchRequest distribSearchReq) {
     LOG.debug("Starting distributed search for request: {}", distribSearchReq);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("AstraDistributedQueryService.distributedSearch");
 
-    long requestedDataHours = Duration.ofMillis(distribSearchReq.getEndTimeEpochMs() - distribSearchReq.getStartTimeEpochMs()).toHours();
+    String dataRequestBucket =
+        getDataRequestBucket(
+            distribSearchReq.getEndTimeEpochMs(), distribSearchReq.getStartTimeEpochMs());
 
-    String dataRequestBucket = "";
-    if (requestedDataHours < 1) {dataRequestBucket = "<1hr";}
-    else if (requestedDataHours <= 24) {dataRequestBucket = "1-24hrs";}
-    else if (requestedDataHours <= 72) {dataRequestBucket = "24-72hrs";}
-    else {dataRequestBucket = "72hrs-7days";}
-
-    Timer.Builder timerBuilder = Timer.builder(DISTRIBUTED_QUERY_DURATION_SECONDS).description("Histogram of query duration.")
-            .serviceLevelObjectives(Duration.ofSeconds(1), Duration.ofSeconds(5), Duration.ofSeconds(10), Duration.ofSeconds(30), Duration.ofSeconds(60))
+    Timer.Builder timerBuilder =
+        Timer.builder(DISTRIBUTED_QUERY_DURATION_SECONDS)
+            .description("Histogram of query duration.")
+            .serviceLevelObjectives(
+                Duration.ofSeconds(1),
+                Duration.ofSeconds(5),
+                Duration.ofSeconds(10),
+                Duration.ofSeconds(30),
+                Duration.ofSeconds(60))
             .tag("data_requested_bucket", dataRequestBucket);
 
-    //TODO size of this list is the number of snapshots we are requesting??
+    //    Timer.Sample sample = Timer.start(meterRegistry);
+    long startTime = Instant.now().toEpochMilli();
+
+    // TODO size of this list is the number of snapshots we are requesting??
     Map<String, SnapshotMetadata> snapshotsMatchingQuery =
         getMatchingSnapshots(
             snapshotMetadataStore,
@@ -466,23 +483,30 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       span.error(e);
       return List.of(SearchResult.empty());
     } finally {
-      queryTimer.stop(distributedQueryDurationTimer);
+      //      sample.stop(distributedQueryDurationTimer);
+      timerBuilder
+          .register(meterRegistry)
+          .record(Instant.now().toEpochMilli() - startTime, TimeUnit.MILLISECONDS);
       // TODO - histogram of how long did it take
-      //  tag it by duration/amount of data requested - <1 hour, 1-24 hours, 24-72 hours, 72 hours - 7 days
+      //  tag it by duration/amount of data requested - <1 hour, 1-24 hours, 24-72 hours, 72 hours -
+      // 7 days
 
       // TODO - distribution summary? tags for query duration
       //  summary of how we're performing (ie, 85% of requested snapshots were fulfilled)
-      //  tag it by duration/amount of data requested - <1 hour, 1-24 hours, 24-72 hours, 72 hours - 7 days
-      //  MAY be able to use the total snapshots from each indexer - if so, validate that it only increments these upon successfully searching
-
+      //  tag it by duration/amount of data requested - <1 hour, 1-24 hours, 24-72 hours, 72 hours -
+      // 7 days
+      //  MAY be able to use the total snapshots from each indexer - if so, validate that it only
+      // increments these upon successfully searching
 
       // https://docs.micrometer.io/micrometer/reference/concepts/distribution-summaries.html
       // https://prometheus.io/docs/concepts/metric_types/#summary
 
       // questions we're trying to answer:
       // average query duration, & broken down by amount of data requested
-      // percentage of data indexed are we successfully searching, & broken down by amount of data requested
-      // percentage of data sent to a cluster that is indexed (should be determinable already with existing metrics)
+      // percentage of data indexed are we successfully searching, & broken down by amount of data
+      // requested
+      // percentage of data sent to a cluster that is indexed (should be determinable already with
+      // existing metrics)
       span.finish();
     }
   }
