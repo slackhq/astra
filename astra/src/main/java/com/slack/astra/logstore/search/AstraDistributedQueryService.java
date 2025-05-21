@@ -20,6 +20,7 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.proto.service.AstraServiceGrpc;
 import com.slack.astra.server.AstraQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.io.Closeable;
@@ -86,6 +87,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
   public static final String DISTRIBUTED_QUERY_DURATION_SECONDS =
       "distributed_query_duration_seconds";
+  public static final String SNAPSHOT_BATCH_SUCCESS_RATIO = "snapshot_batch_success_ratio";
+
+  private static final String TIME_WINDOW_TAG = "requested_time_window";
 
   private final Counter distributedQueryApdexSatisfied;
   private final Counter distributedQueryApdexTolerating;
@@ -362,9 +366,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     }
   }
 
-  private String getDataRequestBucket(long endTimeEpochMs, long startTimeEpochMs) {
-    long requestedDataHours = Duration.ofMillis(endTimeEpochMs - startTimeEpochMs).toHours();
-
+  private String getTimeWindowTag(long requestedDataHours) {
     if (requestedDataHours < 1) {
       return "<1hr";
     } else if (requestedDataHours <= 24) {
@@ -372,8 +374,52 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     } else if (requestedDataHours <= 72) {
       return "24-72hrs";
     } else {
-      return "72hrs-7days";
+      return "72hrs+";
     }
+  }
+
+  /**
+   * Records the success ratio of a batch snapshot operation.
+   * @param dataWindowHours The duration of the data window requested for the batch.
+   * @param snapshotsRequestedInBatch The total number of snapshots requested in this batch.
+   * @param snapshotsFulfilledInBatch The number of snapshots successfully fulfilled in this batch.
+   */
+  public void recordBatchSnapshotOperation(long dataWindowHours,
+                                           long snapshotsRequestedInBatch,
+                                           long snapshotsFulfilledInBatch) {
+
+    if (snapshotsRequestedInBatch <= 0) {
+      // Avoid division by zero or meaningless ratios for empty requests
+      return;
+    }
+
+    double batchSuccessRatio = (double) snapshotsFulfilledInBatch / snapshotsRequestedInBatch;
+    String timeWindowTag = getTimeWindowTag(dataWindowHours);
+
+    DistributionSummary.builder(SNAPSHOT_BATCH_SUCCESS_RATIO)
+            .description("Distribution of success ratios for batch snapshot operations (0.0 to 1.0)")
+            .tags(TIME_WINDOW_TAG, timeWindowTag)
+            .publishPercentiles(0.01, 0.05, 0.1, 0.5, 0.9, 0.95, 0.99) // Configure useful percentiles
+            .publishPercentileHistogram() // Optional: for more detailed percentile analysis in some backends
+            .register(meterRegistry)
+            .record(batchSuccessRatio);
+  }
+
+  public void recordQueryDuration(long requestedDataHours, long requestDuration) {
+    String timeWindowTag =
+            getTimeWindowTag(requestedDataHours);
+
+            Timer.builder(DISTRIBUTED_QUERY_DURATION_SECONDS)
+                    .description("Histogram of query duration.")
+                    .serviceLevelObjectives(
+                            Duration.ofSeconds(1),
+                            Duration.ofSeconds(5),
+                            Duration.ofSeconds(10),
+                            Duration.ofSeconds(30),
+                            Duration.ofSeconds(60))
+                    .tag(TIME_WINDOW_TAG, timeWindowTag)
+                    .register(meterRegistry)
+                    .record(requestDuration, TimeUnit.MILLISECONDS);
   }
 
   private List<SearchResult<LogMessage>> distributedSearch(
@@ -381,25 +427,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     LOG.debug("Starting distributed search for request: {}", distribSearchReq);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("AstraDistributedQueryService.distributedSearch");
-
-    String dataRequestBucket =
-        getDataRequestBucket(
-            distribSearchReq.getEndTimeEpochMs(), distribSearchReq.getStartTimeEpochMs());
-
-    Timer.Builder timerBuilder =
-        Timer.builder(DISTRIBUTED_QUERY_DURATION_SECONDS)
-            .description("Histogram of query duration.")
-            .serviceLevelObjectives(
-                Duration.ofSeconds(1),
-                Duration.ofSeconds(5),
-                Duration.ofSeconds(10),
-                Duration.ofSeconds(30),
-                Duration.ofSeconds(60))
-            .tag("data_requested_bucket", dataRequestBucket);
-
+    long requestedDataHours = Duration.ofMillis(distribSearchReq.getEndTimeEpochMs() - distribSearchReq.getStartTimeEpochMs()).toHours();
     long startTime = Instant.now().toEpochMilli();
 
-    // TODO size of this list is the number of snapshots we are requesting??
     Map<String, SnapshotMetadata> snapshotsMatchingQuery =
         getMatchingSnapshots(
             snapshotMetadataStore,
@@ -482,9 +512,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       span.error(e);
       return List.of(SearchResult.empty());
     } finally {
-      timerBuilder
-          .register(meterRegistry)
-          .record(Instant.now().toEpochMilli() - startTime, TimeUnit.MILLISECONDS);
+      recordQueryDuration(requestedDataHours, Instant.now().toEpochMilli() - startTime);
+      //TODO how to access the totalsnapshots?
+      recordBatchSnapshotOperation(requestedDataHours, snapshotsMatchingQuery.size(), );
       span.finish();
     }
   }
