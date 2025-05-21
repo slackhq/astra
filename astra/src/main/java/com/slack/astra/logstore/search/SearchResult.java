@@ -16,7 +16,7 @@ public class SearchResult<T> {
       new SearchResult<>(Collections.emptyList(), 0, 1, 1, 0, 0, null);
 
   private static final SearchResult USER_ERROR =
-      new SearchResult<>(Collections.emptyList(), 0, 0, 1, 1, 0, null);
+      new SearchResult<>(Collections.emptyList(), 0, 0, 0, 1, 0, null);
 
   // TODO: Make hits an iterator.
   // An iterator helps with the early termination of a search and may be efficient in some cases.
