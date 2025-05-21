@@ -397,7 +397,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                 Duration.ofSeconds(60))
             .tag("data_requested_bucket", dataRequestBucket);
 
-    //    Timer.Sample sample = Timer.start(meterRegistry);
     long startTime = Instant.now().toEpochMilli();
 
     // TODO size of this list is the number of snapshots we are requesting??
@@ -483,30 +482,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       span.error(e);
       return List.of(SearchResult.empty());
     } finally {
-      //      sample.stop(distributedQueryDurationTimer);
       timerBuilder
           .register(meterRegistry)
           .record(Instant.now().toEpochMilli() - startTime, TimeUnit.MILLISECONDS);
-      // TODO - histogram of how long did it take
-      //  tag it by duration/amount of data requested - <1 hour, 1-24 hours, 24-72 hours, 72 hours -
-      // 7 days
-
-      // TODO - distribution summary? tags for query duration
-      //  summary of how we're performing (ie, 85% of requested snapshots were fulfilled)
-      //  tag it by duration/amount of data requested - <1 hour, 1-24 hours, 24-72 hours, 72 hours -
-      // 7 days
-      //  MAY be able to use the total snapshots from each indexer - if so, validate that it only
-      // increments these upon successfully searching
-
-      // https://docs.micrometer.io/micrometer/reference/concepts/distribution-summaries.html
-      // https://prometheus.io/docs/concepts/metric_types/#summary
-
-      // questions we're trying to answer:
-      // average query duration, & broken down by amount of data requested
-      // percentage of data indexed are we successfully searching, & broken down by amount of data
-      // requested
-      // percentage of data sent to a cluster that is indexed (should be determinable already with
-      // existing metrics)
       span.finish();
     }
   }
