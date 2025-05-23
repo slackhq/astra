@@ -20,7 +20,6 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.proto.service.AstraServiceGrpc;
 import com.slack.astra.server.AstraQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.io.Closeable;
@@ -86,6 +85,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   public static final String DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS =
       "distributed_query_snapshots_with_replicas";
 
+  public static final String ASTRA_QUERIES_SUCCESSFUL_COUNT = "astra_queries_successful_count";
+  public static final String ASTRA_QUERIES_INCOMPLETE_COUNT = "astra_queries_incomplete_count";
+
   public static final String DISTRIBUTED_QUERY_DURATION_SECONDS =
       "distributed_query_duration_seconds";
   public static final String SNAPSHOT_BATCH_SUCCESS_RATIO = "snapshot_batch_success_ratio";
@@ -97,6 +99,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   private final Counter distributedQueryApdexFrustrated;
   private final Counter distributedQueryTotalSnapshots;
   private final Counter distributedQuerySnapshotsWithReplicas;
+  private final Counter successfulQueryCount;
+  private final Counter incompleteQueryCount;
   // Timeouts are structured such that we always attempt to return a successful response, as we
   // include metadata that should always be present. The Armeria timeout is used at the top request,
   // distributed query is used as a deadline for all nodes to return, and the local query timeout
@@ -136,6 +140,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
     this.distributedQuerySnapshotsWithReplicas =
         meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
+    this.successfulQueryCount = meterRegistry.counter(ASTRA_QUERIES_SUCCESSFUL_COUNT);
+    this.incompleteQueryCount = meterRegistry.counter(ASTRA_QUERIES_INCOMPLETE_COUNT);
     this.meterRegistry = meterRegistry;
 
     // start listening for new events
@@ -379,34 +385,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     }
   }
 
-  /**
-   * Records the success ratio of a batch snapshot operation.
-   *
-   * @param dataWindowHours The duration of the data window requested for the batch.
-   * @param snapshotsRequestedInBatch The total number of snapshots requested in this batch.
-   * @param snapshotsFulfilledInBatch The number of snapshots successfully fulfilled in this batch.
-   */
-  public void recordBatchSnapshotOperation(
-      long dataWindowHours, long snapshotsRequestedInBatch, long snapshotsFulfilledInBatch) {
-
-    if (snapshotsRequestedInBatch <= 0) {
-      // Avoid division by zero or meaningless ratios for empty requests
-      return;
-    }
-
-    double batchSuccessRatio = (double) snapshotsFulfilledInBatch / snapshotsRequestedInBatch;
-    String timeWindowTag = getTimeWindowTag(dataWindowHours);
-
-    DistributionSummary.builder(SNAPSHOT_BATCH_SUCCESS_RATIO)
-        .description("Distribution of success ratios for batch snapshot operations (0.0 to 1.0)")
-        .tags(TIME_WINDOW_TAG, timeWindowTag)
-        .publishPercentiles(0.01, 0.05, 0.1, 0.5, 0.9, 0.95, 0.99) // Configure useful percentiles
-        .publishPercentileHistogram() // Optional: for more detailed percentile analysis in some
-        // backends
-        .register(meterRegistry)
-        .record(batchSuccessRatio);
-  }
-
   public void recordQueryDuration(long requestedDataHours, long requestDuration) {
     String timeWindowTag = getTimeWindowTag(requestedDataHours);
 
@@ -522,8 +500,11 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       return List.of(SearchResult.empty());
     } finally {
       recordQueryDuration(requestedDataHours, Instant.now().toEpochMilli() - startTime);
-      recordBatchSnapshotOperation(
-          requestedDataHours, snapshotsMatchingQuery.size(), totalRequests.get());
+      if (snapshotsMatchingQuery.size() == totalRequests.get()) {
+        successfulQueryCount.increment();
+      } else {
+        incompleteQueryCount.increment();
+      }
       span.finish();
     }
   }
@@ -550,6 +531,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
       distributedQueryTotalSnapshots.increment(aggregatedResult.totalSnapshots);
       distributedQuerySnapshotsWithReplicas.increment(aggregatedResult.snapshotsWithReplicas);
+      if (aggregatedResult.totalSnapshots != aggregatedResult.snapshotsWithReplicas) {}
 
       LOG.debug("aggregatedResult={}", aggregatedResult);
       return SearchResultUtils.toSearchResultProto(aggregatedResult);
