@@ -20,6 +20,7 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.proto.service.AstraServiceGrpc;
 import com.slack.astra.server.AstraQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.io.Closeable;
@@ -385,6 +386,31 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     }
   }
 
+  /**
+   * Records the success ratio of a batch snapshot operation.
+   *
+   * @param dataWindowHours The duration of the data window requested for the batch.
+   * @param snapshotsRequestedInBatch The total number of snapshots requested in this batch.
+   * @param snapshotsFulfilledInBatch The number of snapshots successfully fulfilled in this batch.
+   */
+  public void recordBatchSnapshotOperation(
+      long dataWindowHours, long snapshotsRequestedInBatch, long snapshotsFulfilledInBatch) {
+
+    if (snapshotsRequestedInBatch <= 0) {
+      // Avoid division by zero or meaningless ratios for empty requests
+      return;
+    }
+
+    double batchSuccessRatio = (double) snapshotsFulfilledInBatch / snapshotsRequestedInBatch;
+    String timeWindowTag = getTimeWindowTag(dataWindowHours);
+
+    DistributionSummary.builder(SNAPSHOT_BATCH_SUCCESS_RATIO)
+        .description("Distribution of success ratios for batch snapshot operations (0.0 to 1.0)")
+        .tags(TIME_WINDOW_TAG, timeWindowTag)
+        .register(meterRegistry)
+        .record(batchSuccessRatio);
+  }
+
   public void recordQueryDuration(long requestedDataHours, long requestDuration) {
     String timeWindowTag = getTimeWindowTag(requestedDataHours);
 
@@ -500,6 +526,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       return List.of(SearchResult.empty());
     } finally {
       recordQueryDuration(requestedDataHours, Instant.now().toEpochMilli() - startTime);
+      recordBatchSnapshotOperation(
+          requestedDataHours, snapshotsMatchingQuery.size(), totalRequests.get());
       if (snapshotsMatchingQuery.size() == totalRequests.get()) {
         successfulQueryCount.increment();
       } else {
