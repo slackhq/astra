@@ -46,6 +46,7 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.recovery.RecoveryService;
+import com.slack.astra.util.MetricsFactory;
 import com.slack.astra.util.RuntimeHalterImpl;
 import com.slack.astra.zipkinApi.ZipkinService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -55,7 +56,6 @@ import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
-import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -65,7 +65,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
@@ -107,33 +106,9 @@ public class Astra {
 
     AstraConfig.initFromFile(configFilePath);
     AstraConfigs.AstraConfig config = AstraConfig.get();
-    Astra astra = new Astra(AstraConfig.get(), initPrometheusMeterRegistry(config));
+    MetricsFactory.init(config);
+    Astra astra = new Astra(AstraConfig.get(), MetricsFactory.getRegistry());
     astra.start();
-  }
-
-  static PrometheusMeterRegistry initPrometheusMeterRegistry(AstraConfigs.AstraConfig config) {
-    PrometheusMeterRegistry prometheusMeterRegistry =
-        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
-    prometheusMeterRegistry
-        .config()
-        .commonTags(
-            "astra_cluster_name",
-            config.getClusterConfig().getClusterName(),
-            "astra_env",
-            config.getClusterConfig().getEnv(),
-            "astra_component",
-            getComponentTag(config));
-    return prometheusMeterRegistry;
-  }
-
-  private static String getComponentTag(AstraConfigs.AstraConfig config) {
-    String component;
-    if (config.getNodeRolesList().size() == 1) {
-      component = config.getNodeRolesList().get(0).toString();
-    } else {
-      component = Strings.join(config.getNodeRolesList(), '-');
-    }
-    return Strings.toRootLowerCase(component);
   }
 
   public void start() throws Exception {
