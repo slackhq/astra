@@ -6,6 +6,9 @@ import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,15 +21,19 @@ public class RedactionUpdateService extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(RedactionUpdateService.class);
   private static HashMap<String, FieldRedactionMetadata> fieldRedactionsMap = new HashMap<>();
   private final FieldRedactionMetadataStore fieldRedactionMetadataStore;
+  private final AtomicInteger redactionUpdatesGauge;
 
   private final AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig;
 
   public RedactionUpdateService(
       FieldRedactionMetadataStore fieldRedactionMetadataStore,
-      AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig) {
+      AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig,
+      MeterRegistry meterRegistry) {
 
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
     this.redactionUpdateServiceConfig = redactionUpdateServiceConfig;
+
+    this.redactionUpdatesGauge = meterRegistry.gauge("astra_redactions_list_size", new AtomicInteger(0));
   }
 
   @Override
@@ -42,6 +49,7 @@ public class RedactionUpdateService extends AbstractScheduledService {
             redaction -> {
               map.put(redaction.getName(), redaction);
             });
+    this.redactionUpdatesGauge.set(map.size());
     fieldRedactionsMap = map;
   }
 
