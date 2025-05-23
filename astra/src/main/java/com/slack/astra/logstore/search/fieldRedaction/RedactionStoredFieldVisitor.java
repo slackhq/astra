@@ -4,13 +4,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
 
@@ -19,7 +18,7 @@ import org.apache.lucene.index.StoredFieldVisitor;
  * and redacts the values if necessary using the values in FieldRedactionMetadataStore.
  */
 class RedactionStoredFieldVisitor extends StoredFieldVisitor {
-  private static final Counter redactionsCounter  = Metrics.counter("astra_fields_redacted_total");
+  private static final Counter redactionsCounter = Metrics.counter("astra_fields_redacted_total");
 
   private ObjectMapper om = new ObjectMapper();
   private final StoredFieldVisitor delegate;
