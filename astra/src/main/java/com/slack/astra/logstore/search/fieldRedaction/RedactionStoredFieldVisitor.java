@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
 
@@ -16,6 +19,8 @@ import org.apache.lucene.index.StoredFieldVisitor;
  * and redacts the values if necessary using the values in FieldRedactionMetadataStore.
  */
 class RedactionStoredFieldVisitor extends StoredFieldVisitor {
+  private static final Counter redactionsCounter  = Metrics.counter("astra_fields_redacted_total");
+
   private ObjectMapper om = new ObjectMapper();
   private final StoredFieldVisitor delegate;
   private final Map<String, FieldRedactionMetadata> fieldRedactionsMap;
@@ -42,6 +47,7 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
       for (FieldRedactionMetadata fieldRedactionMetadata : fieldRedactionsMap.values()) {
         if (fieldRedactionMetadata.inRedactionTimerange(timestamp)) {
           if (innerSource.containsKey(fieldRedactionMetadata.getFieldName())) {
+            redactionsCounter.increment();
             innerSource.put(fieldRedactionMetadata.getFieldName(), redactedValue);
             source.put("source", innerSource);
           }
