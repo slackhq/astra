@@ -200,7 +200,9 @@ public class Astra {
               true);
       RedactionUpdateService redactionUpdateService =
           new RedactionUpdateService(
-              fieldRedactionMetadataStore, astraConfig.getRedactionUpdateServiceConfig(), meterRegistry);
+              fieldRedactionMetadataStore,
+              astraConfig.getRedactionUpdateServiceConfig(),
+              meterRegistry);
       services.add(redactionUpdateService);
 
       ArmeriaService armeriaService =
@@ -294,7 +296,9 @@ public class Astra {
       services.add(hpaMetricPublisherService);
       RedactionUpdateService redactionUpdateService =
           new RedactionUpdateService(
-              fieldRedactionMetadataStore, astraConfig.getRedactionUpdateServiceConfig(), meterRegistry);
+              fieldRedactionMetadataStore,
+              astraConfig.getRedactionUpdateServiceConfig(),
+              meterRegistry);
       services.add(redactionUpdateService);
 
       AstraLocalQueryService<LogMessage> searcher =
@@ -474,7 +478,9 @@ public class Astra {
 
       RedactionUpdateService redactionUpdateService =
           new RedactionUpdateService(
-              fieldRedactionMetadataStore, astraConfig.getRedactionUpdateServiceConfig(), meterRegistry);
+              fieldRedactionMetadataStore,
+              astraConfig.getRedactionUpdateServiceConfig(),
+              meterRegistry);
       services.add(redactionUpdateService);
 
       SearchMetadataStore searchMetadataStore =

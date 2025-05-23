@@ -4,11 +4,10 @@ import com.google.common.util.concurrent.AbstractScheduledService;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadata;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +32,8 @@ public class RedactionUpdateService extends AbstractScheduledService {
     this.fieldRedactionMetadataStore = fieldRedactionMetadataStore;
     this.redactionUpdateServiceConfig = redactionUpdateServiceConfig;
 
-    this.redactionUpdatesGauge = meterRegistry.gauge("astra_redactions_list_size", new AtomicInteger(0));
+    this.redactionUpdatesGauge =
+        meterRegistry.gauge("astra_redactions_list_size", new AtomicInteger(0));
   }
 
   @Override

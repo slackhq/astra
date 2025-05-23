@@ -103,7 +103,8 @@ public class LogIndexSearcherImplTest {
               .setRedactionUpdateInitDelaySecs(1)
               .build();
       redactionUpdateService =
-          new RedactionUpdateService(fieldRedactionMetadataStore, redactionUpdateServiceConfig, meterRegistry);
+          new RedactionUpdateService(
+              fieldRedactionMetadataStore, redactionUpdateServiceConfig, meterRegistry);
       redactionUpdateService.startAsync();
       redactionUpdateService.awaitRunning(DEFAULT_START_STOP_DURATION);
     }
