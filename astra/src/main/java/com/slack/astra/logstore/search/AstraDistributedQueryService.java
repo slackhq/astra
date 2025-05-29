@@ -54,6 +54,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
   private static final Logger LOG = LoggerFactory.getLogger(AstraDistributedQueryService.class);
 
+  public static final String ASTRA_ENABLE_QUERY_GATING_FLAG = "astra.enableQueryGating";
+
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final DatasetMetadataStore datasetMetadataStore;
@@ -154,7 +156,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
           .listSync()
           .forEach(
               searchMetadata -> {
-                if (searchMetadata.isSearchable()) {
+                if (!Boolean.getBoolean(ASTRA_ENABLE_QUERY_GATING_FLAG)
+                    || searchMetadata.isSearchable()) {
                   latestSearchServers.add(searchMetadata.url);
                 }
               });
@@ -245,7 +248,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         continue;
       }
 
-      if (!searchMetadata.isSearchable()) {
+      if (Boolean.getBoolean(ASTRA_ENABLE_QUERY_GATING_FLAG) && !searchMetadata.isSearchable()) {
         LOG.info(
             "Skipping searching search metadata={} because it's not searchable!",
             searchMetadata.name);
