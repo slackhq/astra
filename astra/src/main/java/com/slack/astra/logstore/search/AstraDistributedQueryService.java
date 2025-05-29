@@ -88,6 +88,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
   public static final String ASTRA_QUERIES_SUCCESSFUL_COUNT = "astra_queries_successful_count";
   public static final String ASTRA_QUERIES_INCOMPLETE_COUNT = "astra_queries_incomplete_count";
+  public static final String ASTRA_QUERIES_FAILED_COUNT = "astra_queries_failed_count";
 
   public static final String DISTRIBUTED_QUERY_DURATION_SECONDS =
       "distributed_query_duration_seconds";
@@ -102,6 +103,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   private final Counter distributedQuerySnapshotsWithReplicas;
   private final Counter successfulQueryCount;
   private final Counter incompleteQueryCount;
+  private final Counter failedQueryCount;
   // Timeouts are structured such that we always attempt to return a successful response, as we
   // include metadata that should always be present. The Armeria timeout is used at the top request,
   // distributed query is used as a deadline for all nodes to return, and the local query timeout
@@ -143,6 +145,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
     this.successfulQueryCount = meterRegistry.counter(ASTRA_QUERIES_SUCCESSFUL_COUNT);
     this.incompleteQueryCount = meterRegistry.counter(ASTRA_QUERIES_INCOMPLETE_COUNT);
+    this.failedQueryCount = meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT);
     this.meterRegistry = meterRegistry;
 
     // start listening for new events
@@ -523,6 +526,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     } catch (Exception e) {
       LOG.error("Search failed with ", e);
       span.error(e);
+      failedQueryCount.increment();
       return List.of(SearchResult.empty());
     } finally {
       recordQueryDuration(requestedDataHours, Instant.now().toEpochMilli() - startTime);
