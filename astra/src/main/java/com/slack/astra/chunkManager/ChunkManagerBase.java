@@ -61,8 +61,6 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    */
   @Override
   public SearchResult<T> query(SearchQuery query, Duration queryTimeout) {
-    SearchResult<T> errorResult = new SearchResult<>(new ArrayList<>(), 0, 0, 0, 1, 0, null);
-
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
 
     List<Chunk<T>> chunksMatchingQuery;
@@ -135,8 +133,8 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                           }
                           LOG.warn("Chunk Query Exception", throwable);
                         }
-                        // else UNAVAILABLE (ie, timedout)
-                        return errorResult;
+                        // else UNAVAILABLE (ie, timedout), return 0 snapshots
+                        return (SearchResult<T>) SearchResult.error();
                       } catch (Exception err) {
                         if (err instanceof IllegalArgumentException) {
                           throw err;
@@ -145,8 +143,9 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                         // Only log the exception message as warn, and not the entire trace
                         // as this can cause performance issues if significant amounts of
                         // invalid queries are received
+                        // return 1 snapshot, still searchable but user-side error cause
                         LOG.warn("Chunk Query Exception: {}", err.getMessage());
-                        return errorResult;
+                        return (SearchResult<T>) SearchResult.soft_error();
                       }
                     })
                 .toList();
