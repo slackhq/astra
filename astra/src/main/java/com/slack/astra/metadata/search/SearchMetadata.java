@@ -87,7 +87,7 @@ public class SearchMetadata extends AstraPartitionedMetadata {
         + searchable
         + '}';
   }
-  
+
   @Override
   public String getPartition() {
     return snapshotName;

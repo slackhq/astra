@@ -1,7 +1,6 @@
 package com.slack.astra.metadata.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.metadata.core.CuratorBuilder;
@@ -57,7 +56,9 @@ public class SearchMetadataStoreTest {
     store.updateSearchability(searchMetadata, true);
 
     // Confirm that this eventually becomes searchable
-    await().atMost(5, TimeUnit.SECONDS).until(() -> store.getSync("test").isSearchable());
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() -> store.getSync("snapshot", "test").isSearchable());
   }
 
   @Test
@@ -65,10 +66,10 @@ public class SearchMetadataStoreTest {
     store = new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
     SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot", "http");
     store.createSync(searchMetadata);
-    
+
     searchMetadata.setSearchable(false);
     store.updateSync(searchMetadata);
-    
+
     SearchMetadata retrieved = store.getSync("snapshot", "test");
     assertThat(retrieved.isSearchable()).isFalse();
   }

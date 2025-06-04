@@ -182,7 +182,7 @@ public class CacheNodeSearchabilityServiceTest {
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name");
+    SearchMetadata searchMetadata = searchMetadataStore.getSync("snapshot-id", "test-name");
     assertThat(cacheNodeMetadata.searchable).isTrue();
     assertThat(searchMetadata.isSearchable()).isTrue();
   }
@@ -213,7 +213,7 @@ public class CacheNodeSearchabilityServiceTest {
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name");
+    SearchMetadata searchMetadata = searchMetadataStore.getSync("snapshot-id", "test-name");
     assertThat(cacheNodeMetadata.searchable).isFalse();
     assertThat(searchMetadata.isSearchable()).isFalse();
   }
@@ -245,7 +245,7 @@ public class CacheNodeSearchabilityServiceTest {
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name");
+    SearchMetadata searchMetadata = searchMetadataStore.getSync("snapshot-id", "test-name");
     assertThat(cacheNodeMetadata.searchable).isFalse();
     assertThat(searchMetadata.isSearchable()).isFalse();
   }

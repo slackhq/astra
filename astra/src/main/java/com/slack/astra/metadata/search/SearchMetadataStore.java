@@ -9,8 +9,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
-import java.io.Closeable;
-import java.io.IOException;
 
 public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMetadata> {
   public static final String SEARCH_METADATA_STORE_ZK_PATH = "/partitioned_search";
