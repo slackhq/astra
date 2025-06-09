@@ -30,7 +30,7 @@
         <log4j.version>2.24.3</log4j.version>
         <aws.sdk.version>2.31.54</aws.sdk.version>
         <error.prone.version>2.38.0</error.prone.version>
-        <junit.jupiter.version>5.13.0</junit.jupiter.version>
+        <junit.jupiter.version>5.13.1</junit.jupiter.version>
     </properties>
 
     <repositories>
