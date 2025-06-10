@@ -1,7 +1,6 @@
 package com.slack.astra.metadata.core;
 
 import com.slack.astra.proto.config.AstraConfigs.MetadataStoreMode;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.util.ArrayList;
@@ -11,6 +10,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.zookeeper.data.Stat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * AstraMetadataStore is a bridge implementation that takes both ZookeeperMetadataStore and
@@ -18,25 +19,23 @@ import org.apache.zookeeper.data.Stat;
  * implementations depending on the configured mode in MetadataStoreConfig.
  *
  * <p>This class is intended to be a bridge for migrating from Zookeeper to Etcd by supporting
- * different modes of operation: - ZookeeperExclusive: All operations go to Zookeeper only -
- * EtcdExclusive: All operations go to Etcd only - BothReadZookeeperWrite: In this migration mode: -
- * Creates go to ZK only - Updates delete from Etcd and create in ZK - Deletes apply to both stores
- * - Get tries ZK first, then falls back to Etcd - Has returns true if either store has the item -
- * List combines results from both stores - BothReadEtcdWrite: In this migration mode: - Creates go
- * to Etcd only - Updates delete from ZK and create in Etcd - Deletes apply to both stores - Get
- * tries Etcd first, then falls back to ZK - Has returns true if either store has the item - List
- * combines results from both stores
+ * different modes of operation: - ZOOKEEPER_EXCLUSIVE: All operations go to Zookeeper only -
+ * ETCD_EXCLUSIVE: All operations go to Etcd only - BOTH_READ_ZOOKEEPER_WRITE: In this migration
+ * mode: - Creates go to ZK only - Updates delete from Etcd and create in ZK - Deletes apply to both
+ * stores - Get tries ZK first, then falls back to Etcd - Has returns true if either store has the
+ * item - List combines results from both stores - BOTH_READ_ETCD_WRITE: In this migration mode: -
+ * Creates go to Etcd only - Updates delete from ZK and create in Etcd - Deletes apply to both
+ * stores - Get tries Etcd first, then falls back to ZK - Has returns true if either store has the
+ * item - List combines results from both stores
  */
 public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
+  private static final Logger LOG = LoggerFactory.getLogger(AstraMetadataStore.class);
 
   protected final ZookeeperMetadataStore<T> zkStore;
   private final EtcdMetadataStore<T> etcdStore;
   private final MetadataStoreMode mode;
 
   private final MeterRegistry meterRegistry;
-
-  private final String ASTRA_METADATA_STORE_INCONSISTENCY = "astra_metadata_store_inconsistency";
-  private final Counter inconsistencyCounter;
 
   // Tracks listeners registered, so we can properly register/unregister from both stores
   private final Map<AstraMetadataStoreChangeListener<T>, DualStoreChangeListener<T>> listenerMap =
@@ -60,9 +59,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     this.etcdStore = etcdStore;
     this.mode = mode;
     this.meterRegistry = meterRegistry;
-
-    this.inconsistencyCounter =
-        this.meterRegistry.counter(ASTRA_METADATA_STORE_INCONSISTENCY, "store", "composite");
   }
 
   /**
@@ -73,14 +69,14 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public CompletionStage<String> createAsync(T metadataNode) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.createAsync(metadataNode);
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.createAsync(metadataNode);
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         // In migration to ZK mode, writes only go to ZK
         return zkStore.createAsync(metadataNode);
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         // In migration to Etcd mode, writes only go to Etcd
         return etcdStore.createAsync(metadataNode);
       default:
@@ -95,17 +91,17 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public void createSync(T metadataNode) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         zkStore.createSync(metadataNode);
         break;
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         etcdStore.createSync(metadataNode);
         break;
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         // In migration to ZK mode, writes only go to ZK
         zkStore.createSync(metadataNode);
         break;
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         // In migration to Etcd mode, writes only go to Etcd
         etcdStore.createSync(metadataNode);
         break;
@@ -122,11 +118,11 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public CompletionStage<T> getAsync(String path) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.getAsync(path);
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.getAsync(path);
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         // Try ZK first, fall back to Etcd if not found
         return zkStore
             .getAsync(path)
@@ -139,7 +135,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
                   // Not found in ZK, try Etcd
                   return etcdStore.getAsync(path);
                 });
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         // Try Etcd first, fall back to ZK if not found
         return etcdStore
             .getAsync(path)
@@ -165,34 +161,32 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public T getSync(String path) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.getSync(path);
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.getSync(path);
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         // Try ZK first, fall back to Etcd if not found
         try {
           T result = zkStore.getSync(path);
           if (result != null) {
             return result;
           }
-        } catch (Exception e) {
+        } catch (Exception ignored) {
           // Fall through to try Etcd
-          inconsistencyCounter.increment();
         }
         // Not found in ZK or ZK threw exception, try Etcd
         return etcdStore.getSync(path);
 
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         // Try Etcd first, fall back to ZK if not found
         try {
           T result = etcdStore.getSync(path);
           if (result != null) {
             return result;
           }
-        } catch (Exception e) {
+        } catch (Exception ignored) {
           // Fall through to try ZK
-          inconsistencyCounter.increment();
         }
         // Not found in Etcd or Etcd threw exception, try ZK
         return zkStore.getSync(path);
@@ -210,20 +204,20 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public CompletionStage<Stat> hasAsync(String path) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.hasAsync(path);
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.hasAsync(path);
-      case BothReadZookeeperWrite:
-      case BothReadEtcdWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
         // Try both stores, return true if either has the item
         CompletionStage<Stat> primaryHas =
-            mode == MetadataStoreMode.BothReadZookeeperWrite
+            mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                 ? zkStore.hasAsync(path) // ZK is primary
                 : etcdStore.hasAsync(path); // Etcd is primary
 
         return primaryHas
-            .thenApply(stat -> stat != null ? stat : null)
+            .thenApply(stat -> stat)
             .exceptionally(ex -> null)
             .thenCompose(
                 primaryStat -> {
@@ -232,7 +226,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
                   }
                   // Not found in primary, check secondary
                   CompletionStage<Stat> secondaryHas =
-                      mode == MetadataStoreMode.BothReadZookeeperWrite
+                      mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                           ? etcdStore.hasAsync(path)
                           : zkStore.hasAsync(path);
                   return secondaryHas.exceptionally(ex -> null);
@@ -250,12 +244,12 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public boolean hasSync(String path) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.hasSync(path);
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.hasSync(path);
-      case BothReadZookeeperWrite:
-      case BothReadEtcdWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
         // Return true if it exists in either store
         boolean primaryResult = false;
         boolean secondaryResult = false;
@@ -263,32 +257,26 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
         // Check primary store
         try {
           primaryResult =
-              mode == MetadataStoreMode.BothReadZookeeperWrite
+              mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                   ? zkStore.hasSync(path)
                   : etcdStore.hasSync(path);
 
           if (primaryResult) {
             return true; // Short-circuit if found in primary
           }
-        } catch (Exception e) {
-          inconsistencyCounter.increment();
+        } catch (Exception ignored) {
         }
 
         // Check secondary store
         try {
           secondaryResult =
-              mode == MetadataStoreMode.BothReadZookeeperWrite
+              mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                   ? etcdStore.hasSync(path)
                   : zkStore.hasSync(path);
-        } catch (Exception e) {
-          inconsistencyCounter.increment();
+        } catch (Exception ignored) {
         }
 
-        if (primaryResult != secondaryResult) {
-          inconsistencyCounter.increment();
-        }
-
-        return primaryResult || secondaryResult;
+        return secondaryResult;
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
     }
@@ -302,17 +290,17 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public CompletionStage<Stat> updateAsync(T metadataNode) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.updateAsync(metadataNode);
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.updateAsync(metadataNode);
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         // Delete from Etcd and create in ZK
         // Try to delete from Etcd first (don't wait)
         etcdStore.deleteAsync(metadataNode);
         // Then update in ZK (this is the operation we wait for)
         return zkStore.updateAsync(metadataNode);
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         // Delete from ZK and create in Etcd
         // Try to delete from ZK first (don't wait)
         zkStore.deleteAsync(metadataNode);
@@ -330,32 +318,28 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public void updateSync(T metadataNode) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         zkStore.updateSync(metadataNode);
         break;
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         etcdStore.updateSync(metadataNode);
         break;
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         // Delete from Etcd and create in ZK
         try {
           // Try to delete from Etcd first
           etcdStore.deleteSync(metadataNode);
-        } catch (Exception e) {
-          // Log but continue with ZK update
-          inconsistencyCounter.increment();
+        } catch (Exception ignored) {
         }
         // Then update in ZK
         zkStore.updateSync(metadataNode);
         break;
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         // Delete from ZK and create in Etcd
         try {
           // Try to delete from ZK first
           zkStore.deleteSync(metadataNode);
-        } catch (Exception e) {
-          // Log but continue with Etcd update
-          inconsistencyCounter.increment();
+        } catch (Exception ignored) {
         }
         // Then update in Etcd
         etcdStore.updateSync(metadataNode);
@@ -373,16 +357,16 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public CompletionStage<Void> deleteAsync(String path) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.deleteAsync(path);
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.deleteAsync(path);
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         // Delete from ZK and also try to delete from Etcd
         CompletionStage<Void> zkResult = zkStore.deleteAsync(path);
         etcdStore.deleteAsync(path); // don't await this operation
         return zkResult;
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         // Delete from Etcd and also try to delete from ZK
         CompletionStage<Void> etcdResult = etcdStore.deleteAsync(path);
         zkStore.deleteAsync(path); // don't await this operation
@@ -399,28 +383,24 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public void deleteSync(String path) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         zkStore.deleteSync(path);
         break;
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         etcdStore.deleteSync(path);
         break;
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         zkStore.deleteSync(path);
         try {
           etcdStore.deleteSync(path);
-        } catch (Exception e) {
-          // Log but don't fail the operation
-          inconsistencyCounter.increment();
+        } catch (Exception ignored) {
         }
         break;
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         etcdStore.deleteSync(path);
         try {
           zkStore.deleteSync(path);
-        } catch (Exception e) {
-          // Log but don't fail the operation
-          inconsistencyCounter.increment();
+        } catch (Exception ignored) {
         }
         break;
       default:
@@ -436,16 +416,16 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public CompletionStage<Void> deleteAsync(T metadataNode) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.deleteAsync(metadataNode);
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.deleteAsync(metadataNode);
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         // Delete from ZK and also try to delete from Etcd
         CompletionStage<Void> zkResult = zkStore.deleteAsync(metadataNode);
         etcdStore.deleteAsync(metadataNode); // don't await this operation
         return zkResult;
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         // Delete from Etcd and also try to delete from ZK
         CompletionStage<Void> etcdResult = etcdStore.deleteAsync(metadataNode);
         zkStore.deleteAsync(metadataNode); // don't await this operation
@@ -462,28 +442,24 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public void deleteSync(T metadataNode) {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         zkStore.deleteSync(metadataNode);
         break;
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         etcdStore.deleteSync(metadataNode);
         break;
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         zkStore.deleteSync(metadataNode);
         try {
           etcdStore.deleteSync(metadataNode);
-        } catch (Exception e) {
-          // Log but don't fail the operation
-          inconsistencyCounter.increment();
+        } catch (Exception ignored) {
         }
         break;
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         etcdStore.deleteSync(metadataNode);
         try {
           zkStore.deleteSync(metadataNode);
-        } catch (Exception e) {
-          // Log but don't fail the operation
-          inconsistencyCounter.increment();
+        } catch (Exception ignored) {
         }
         break;
       default:
@@ -498,19 +474,19 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public CompletionStage<List<T>> listAsync() {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.listAsync();
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.listAsync();
-      case BothReadZookeeperWrite:
-      case BothReadEtcdWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
         // Combine results from both stores
         CompletionStage<List<T>> primaryList =
-            mode == MetadataStoreMode.BothReadZookeeperWrite
+            mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                 ? zkStore.listAsync()
                 : etcdStore.listAsync();
         CompletionStage<List<T>> secondaryList =
-            mode == MetadataStoreMode.BothReadZookeeperWrite
+            mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                 ? etcdStore.listAsync()
                 : zkStore.listAsync();
 
@@ -546,33 +522,31 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public List<T> listSync() {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         return zkStore.listSync();
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         return etcdStore.listSync();
-      case BothReadZookeeperWrite:
-      case BothReadEtcdWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
         // Combine results from both stores
         List<T> primaryList;
         List<T> secondaryList;
 
         try {
           primaryList =
-              mode == MetadataStoreMode.BothReadZookeeperWrite
+              mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                   ? zkStore.listSync()
                   : etcdStore.listSync();
         } catch (Exception e) {
-          inconsistencyCounter.increment();
           primaryList = List.of();
         }
 
         try {
           secondaryList =
-              mode == MetadataStoreMode.BothReadZookeeperWrite
+              mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                   ? etcdStore.listSync()
                   : zkStore.listSync();
         } catch (Exception e) {
-          inconsistencyCounter.increment();
           secondaryList = List.of();
         }
 
@@ -607,14 +581,14 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     listenerMap.put(watcher, dualListener);
 
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         zkStore.addListener(dualListener);
         break;
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         etcdStore.addListener(dualListener);
         break;
-      case BothReadZookeeperWrite:
-      case BothReadEtcdWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
         // In dual modes, we need to listen to both stores
         zkStore.addListener(dualListener);
         etcdStore.addListener(dualListener);
@@ -636,14 +610,14 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         zkStore.removeListener(dualListener);
         break;
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         etcdStore.removeListener(dualListener);
         break;
-      case BothReadZookeeperWrite:
-      case BothReadEtcdWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
         // In dual modes, we need to remove from both stores
         zkStore.removeListener(dualListener);
         etcdStore.removeListener(dualListener);
@@ -656,17 +630,17 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   /** Waits for the cache to be initialized. */
   public void awaitCacheInitialized() {
     switch (mode) {
-      case ZookeeperExclusive:
+      case ZOOKEEPER_EXCLUSIVE:
         zkStore.awaitCacheInitialized();
         break;
-      case EtcdExclusive:
+      case ETCD_EXCLUSIVE:
         etcdStore.awaitCacheInitialized();
         break;
-      case BothReadZookeeperWrite:
+      case BOTH_READ_ZOOKEEPER_WRITE:
         zkStore.awaitCacheInitialized();
         // We don't wait for Etcd in this mode since ZK is primary
         break;
-      case BothReadEtcdWrite:
+      case BOTH_READ_ETCD_WRITE:
         etcdStore.awaitCacheInitialized();
         // We don't wait for ZK in this mode since Etcd is primary
         break;
@@ -683,7 +657,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
         zkStore.close();
       }
     } catch (Exception e) {
-      // Log but continue to close the other store
+      LOG.warn("Failed to close ZK metadata store", e);
     }
 
     try {
@@ -691,7 +665,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
         etcdStore.close();
       }
     } catch (Exception e) {
-      // Log but continue
+      LOG.warn("Failed to close Etcd metadata store", e);
     }
   }
 

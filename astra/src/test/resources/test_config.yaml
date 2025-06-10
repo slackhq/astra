@@ -48,7 +48,7 @@ tracingConfig:
     clusterName: "astra_local"
 
 metadataStoreConfig:
-  mode: ZookeeperExclusive
+  mode: ZOOKEEPER_EXCLUSIVE
   zookeeperConfig:
     zkConnectString: "1.2.3.4:9092"
     zkPathPrefix: "zkPrefix"

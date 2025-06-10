@@ -67,7 +67,7 @@ public class ReplicaEvictionServiceTest {
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZookeeperExclusive)
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
             .setZookeeperConfig(zkConfig)
             .build();
 
