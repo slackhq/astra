@@ -27,6 +27,9 @@ import org.slf4j.LoggerFactory;
  * Creates go to Etcd only - Updates delete from ZK and create in Etcd - Deletes apply to both
  * stores - Get tries Etcd first, then falls back to ZK - Has returns true if either store has the
  * item - List combines results from both stores
+ *
+ * <p>If either zkStore or etcdStore is null, the mode configuration will be overridden and
+ * operations will be routed only to the non-null store, regardless of the specified mode.
  */
 public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(AstraMetadataStore.class);
@@ -44,9 +47,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   /**
    * Constructor for AstraMetadataStore.
    *
-   * @param zkStore the ZookeeperMetadataStore implementation
-   * @param etcdStore the EtcdMetadataStore implementation
-   * @param mode the operation mode
+   * @param zkStore the ZookeeperMetadataStore implementation, may be null
+   * @param etcdStore the EtcdMetadataStore implementation, may be null
+   * @param mode the operation mode (overridden if either store is null)
    * @param meterRegistry the metrics registry
    */
   public AstraMetadataStore(
@@ -57,7 +60,21 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
     this.zkStore = zkStore;
     this.etcdStore = etcdStore;
-    this.mode = mode;
+
+    // Override mode if one of the stores is null
+    if (zkStore == null && etcdStore != null) {
+      this.mode = MetadataStoreMode.ETCD_EXCLUSIVE;
+      LOG.info("ZK store is null, overriding mode to ETCD_EXCLUSIVE regardless of configured mode");
+    } else if (etcdStore == null && zkStore != null) {
+      this.mode = MetadataStoreMode.ZOOKEEPER_EXCLUSIVE;
+      LOG.info(
+          "Etcd store is null, overriding mode to ZOOKEEPER_EXCLUSIVE regardless of configured mode");
+    } else if (etcdStore == null && zkStore == null) {
+      throw new IllegalArgumentException("Both zkStore and etcdStore cannot be null");
+    } else {
+      this.mode = mode;
+    }
+
     this.meterRegistry = meterRegistry;
   }
 
