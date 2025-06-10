@@ -137,27 +137,16 @@ public class RecoveryService extends AbstractIdleService {
 
     recoveryNodeMetadataStore =
         new RecoveryNodeMetadataStore(
-            curatorFramework,
-            AstraConfig.getMetadataStoreConfig().getZookeeperConfig(),
-            meterRegistry,
-            false);
+            curatorFramework, AstraConfig.getMetadataStoreConfig(), meterRegistry, false);
     recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(
-            curatorFramework,
-            AstraConfig.getMetadataStoreConfig().getZookeeperConfig(),
-            meterRegistry,
-            false);
+            curatorFramework, AstraConfig.getMetadataStoreConfig(), meterRegistry, false);
     snapshotMetadataStore =
         new SnapshotMetadataStore(
-            curatorFramework,
-            AstraConfig.getMetadataStoreConfig().getZookeeperConfig(),
-            meterRegistry);
+            curatorFramework, AstraConfig.getMetadataStoreConfig(), meterRegistry);
     searchMetadataStore =
         new SearchMetadataStore(
-            curatorFramework,
-            AstraConfig.getMetadataStoreConfig().getZookeeperConfig(),
-            meterRegistry,
-            false);
+            curatorFramework, AstraConfig.getMetadataStoreConfig(), meterRegistry, false);
 
     recoveryNodeMetadataStore.createSync(
         new RecoveryNodeMetadata(
@@ -170,7 +159,7 @@ public class RecoveryService extends AbstractIdleService {
     recoveryNodeListenerMetadataStore =
         new RecoveryNodeMetadataStore(
             curatorFramework,
-            AstraConfig.getMetadataStoreConfig().getZookeeperConfig(),
+            AstraConfig.getMetadataStoreConfig(),
             meterRegistry,
             searchContext.hostname,
             true);

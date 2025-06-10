@@ -60,6 +60,7 @@
     "managerConnectString": "localhost:8083"
   },
   "metadataStoreConfig": {
+    "mode": "BothReadZookeeperWrite",
     "zookeeperConfig": {
       "zkConnectString": "1.2.3.4:9092",
       "zkPathPrefix": "zkPrefix",

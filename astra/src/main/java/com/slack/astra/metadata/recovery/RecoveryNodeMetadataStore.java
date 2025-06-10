@@ -1,6 +1,7 @@
 package com.slack.astra.metadata.recovery;
 
 import com.slack.astra.metadata.core.AstraMetadataStore;
+import com.slack.astra.metadata.core.ZookeeperMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -15,16 +16,20 @@ public class RecoveryNodeMetadataStore extends AstraMetadataStore<RecoveryNodeMe
    */
   public RecoveryNodeMetadataStore(
       AsyncCuratorFramework curatorFramework,
-      AstraConfigs.ZookeeperConfig zkConfig,
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry,
       boolean shouldCache) {
     super(
-        curatorFramework,
-        zkConfig,
-        CreateMode.EPHEMERAL,
-        shouldCache,
-        new RecoveryNodeMetadataSerializer().toModelSerializer(),
-        RECOVERY_NODE_ZK_PATH,
+        new ZookeeperMetadataStore<>(
+            curatorFramework,
+            metadataStoreConfig.getZookeeperConfig(),
+            CreateMode.EPHEMERAL,
+            shouldCache,
+            new RecoveryNodeMetadataSerializer().toModelSerializer(),
+            RECOVERY_NODE_ZK_PATH,
+            meterRegistry),
+        null, // Not using etcdStore for now
+        metadataStoreConfig.getMode(),
         meterRegistry);
   }
 
@@ -35,17 +40,21 @@ public class RecoveryNodeMetadataStore extends AstraMetadataStore<RecoveryNodeMe
    */
   public RecoveryNodeMetadataStore(
       AsyncCuratorFramework curatorFramework,
-      AstraConfigs.ZookeeperConfig zkConfig,
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry,
       String recoveryNodeName,
       boolean shouldCache) {
     super(
-        curatorFramework,
-        zkConfig,
-        CreateMode.EPHEMERAL,
-        shouldCache,
-        new RecoveryNodeMetadataSerializer().toModelSerializer(),
-        String.format("%s/%s", RECOVERY_NODE_ZK_PATH, recoveryNodeName),
+        new ZookeeperMetadataStore<>(
+            curatorFramework,
+            metadataStoreConfig.getZookeeperConfig(),
+            CreateMode.EPHEMERAL,
+            shouldCache,
+            new RecoveryNodeMetadataSerializer().toModelSerializer(),
+            String.format("%s/%s", RECOVERY_NODE_ZK_PATH, recoveryNodeName),
+            meterRegistry),
+        null, // Not using etcdStore for now
+        metadataStoreConfig.getMode(),
         meterRegistry);
   }
 }

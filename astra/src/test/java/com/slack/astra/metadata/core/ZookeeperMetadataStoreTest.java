@@ -22,7 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-public class AstraMetadataStoreTest {
+public class ZookeeperMetadataStoreTest {
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
@@ -97,8 +97,8 @@ public class AstraMetadataStoreTest {
 
   @Test
   public void testCrudOperations() {
-    class TestMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public TestMetadataStore() {
+    class TestMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public TestMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -110,7 +110,7 @@ public class AstraMetadataStoreTest {
       }
     }
 
-    try (AstraMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> store = new TestMetadataStoreZookeeper()) {
 
       // 9 metrics get created with every metadatastore
       assertThat(meterRegistry.getMeters().size()).isEqualTo(10);
@@ -160,8 +160,8 @@ public class AstraMetadataStoreTest {
 
   @Test
   public void testDuplicateCreate() {
-    class TestMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public TestMetadataStore() {
+    class TestMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public TestMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -173,7 +173,7 @@ public class AstraMetadataStoreTest {
       }
     }
 
-    try (AstraMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> store = new TestMetadataStoreZookeeper()) {
       TestMetadata metadata1 = new TestMetadata("foo", "val1");
       store.createSync(metadata1);
       assertThatExceptionOfType(InternalMetadataStoreException.class)
@@ -183,8 +183,8 @@ public class AstraMetadataStoreTest {
 
   @Test
   public void testUncachedStoreAttemptingCacheOperations() {
-    class TestMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public TestMetadataStore() {
+    class TestMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public TestMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -196,7 +196,7 @@ public class AstraMetadataStoreTest {
       }
     }
 
-    try (AstraMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> store = new TestMetadataStoreZookeeper()) {
       // create metadata
       TestMetadata metadata1 = new TestMetadata("foo", "val1");
       store.createSync(metadata1);
@@ -219,8 +219,8 @@ public class AstraMetadataStoreTest {
 
   @Test
   public void testEphemeralNodeBehavior() {
-    class PersistentMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public PersistentMetadataStore() {
+    class PersistentMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public PersistentMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -232,8 +232,8 @@ public class AstraMetadataStoreTest {
       }
     }
 
-    class EphemeralMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public EphemeralMetadataStore() {
+    class EphemeralMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public EphemeralMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -246,7 +246,8 @@ public class AstraMetadataStoreTest {
     }
 
     TestMetadata metadata1 = new TestMetadata("foo", "val1");
-    try (AstraMetadataStore<TestMetadata> persistentStore = new PersistentMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> persistentStore =
+        new PersistentMetadataStoreZookeeper()) {
       // create metadata
       persistentStore.createSync(metadata1);
 
@@ -256,7 +257,8 @@ public class AstraMetadataStoreTest {
     }
 
     TestMetadata metadata2 = new TestMetadata("foo", "val1");
-    try (AstraMetadataStore<TestMetadata> ephemeralStore = new EphemeralMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> ephemeralStore =
+        new EphemeralMetadataStoreZookeeper()) {
       // create metadata
       ephemeralStore.createSync(metadata2);
 
@@ -270,11 +272,13 @@ public class AstraMetadataStoreTest {
     curatorFramework.unwrap().close();
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
-    try (AstraMetadataStore<TestMetadata> persistentStore = new PersistentMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> persistentStore =
+        new PersistentMetadataStoreZookeeper()) {
       assertThat(persistentStore.getSync("foo")).isEqualTo(metadata1);
     }
 
-    try (AstraMetadataStore<TestMetadata> ephemeralStore = new EphemeralMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> ephemeralStore =
+        new EphemeralMetadataStoreZookeeper()) {
       assertThatExceptionOfType(InternalMetadataStoreException.class)
           .isThrownBy(() -> ephemeralStore.getSync("foo"));
     }
@@ -283,8 +287,8 @@ public class AstraMetadataStoreTest {
   @Test
   @Disabled("ZK reconnect support currently disabled")
   public void testListenersWithZkReconnect() throws Exception {
-    class TestMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public TestMetadataStore() {
+    class TestMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public TestMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -296,7 +300,7 @@ public class AstraMetadataStoreTest {
       }
     }
 
-    try (AstraMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> store = new TestMetadataStoreZookeeper()) {
       AtomicInteger counter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<TestMetadata> listener =
           (testMetadata) -> counter.incrementAndGet();
@@ -324,8 +328,8 @@ public class AstraMetadataStoreTest {
 
   @Test
   public void testAddRemoveListener() throws Exception {
-    class TestMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public TestMetadataStore() {
+    class TestMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public TestMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -337,7 +341,7 @@ public class AstraMetadataStoreTest {
       }
     }
 
-    try (AstraMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> store = new TestMetadataStoreZookeeper()) {
       AtomicInteger counter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<TestMetadata> listener =
           (testMetadata) -> counter.incrementAndGet();
@@ -390,8 +394,8 @@ public class AstraMetadataStoreTest {
       }
     }
 
-    class TestMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public TestMetadataStore() {
+    class TestMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public TestMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -403,7 +407,7 @@ public class AstraMetadataStoreTest {
       }
     }
 
-    try (AstraMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> store = new TestMetadataStoreZookeeper()) {
       TestMetadata metadata = new TestMetadata("name", "value");
       store.createSync(metadata);
 
@@ -422,8 +426,8 @@ public class AstraMetadataStoreTest {
 
   @Test
   public void testSlowCacheInitialization() {
-    class FastMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public FastMetadataStore() {
+    class FastMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public FastMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -455,8 +459,8 @@ public class AstraMetadataStoreTest {
       }
     }
 
-    class SlowMetadataStore extends AstraMetadataStore<TestMetadata> {
-      public SlowMetadataStore() {
+    class SlowMetadataStoreZookeeper extends ZookeeperMetadataStore<TestMetadata> {
+      public SlowMetadataStoreZookeeper() {
         super(
             curatorFramework,
             zkConfig,
@@ -469,13 +473,13 @@ public class AstraMetadataStoreTest {
     }
 
     int testMetadataInitCount = 10;
-    try (AstraMetadataStore<TestMetadata> init = new FastMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> init = new FastMetadataStoreZookeeper()) {
       for (int i = 0; i < testMetadataInitCount; i++) {
         init.createSync(new TestMetadata("name" + i, "value" + i));
       }
     }
 
-    try (AstraMetadataStore<TestMetadata> init = new SlowMetadataStore()) {
+    try (ZookeeperMetadataStore<TestMetadata> init = new SlowMetadataStoreZookeeper()) {
       List<TestMetadata> metadata = init.listSync();
       assertThat(metadata.size()).isEqualTo(testMetadataInitCount);
     }

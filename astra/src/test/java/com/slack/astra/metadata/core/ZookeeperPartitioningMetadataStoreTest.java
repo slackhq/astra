@@ -32,10 +32,10 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class AstraPartitioningMetadataStoreTest {
+class ZookeeperPartitioningMetadataStoreTest {
 
   private static final Logger LOG =
-      LoggerFactory.getLogger(AstraPartitioningMetadataStoreTest.class);
+      LoggerFactory.getLogger(ZookeeperPartitioningMetadataStoreTest.class);
 
   private SimpleMeterRegistry meterRegistry;
   private TestingServer testingServer;
@@ -212,8 +212,8 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testLargeNumberOfZNodes() throws IOException {
-    try (AstraPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
-        new AstraPartitioningMetadataStore<>(
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
+        new ZookeeperPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
             meterRegistry,
@@ -247,8 +247,8 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testCreate() throws IOException {
-    try (AstraPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
-        new AstraPartitioningMetadataStore<>(
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
+        new ZookeeperPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
             meterRegistry,
@@ -272,8 +272,8 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testUpdate() throws IOException {
-    try (AstraPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
-        new AstraPartitioningMetadataStore<>(
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
+        new ZookeeperPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
             meterRegistry,
@@ -306,8 +306,8 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testDelete() throws IOException {
-    try (AstraPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
-        new AstraPartitioningMetadataStore<>(
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
+        new ZookeeperPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
             meterRegistry,
@@ -334,8 +334,8 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testFind() throws IOException {
-    try (AstraPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
-        new AstraPartitioningMetadataStore<>(
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
+        new ZookeeperPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
             meterRegistry,
@@ -358,8 +358,8 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testFindMissingNode() throws IOException {
-    try (AstraPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
-        new AstraPartitioningMetadataStore<>(
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
+        new ZookeeperPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
             meterRegistry,
@@ -374,8 +374,8 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testDuplicateCreate() throws IOException {
-    try (AstraPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
-        new AstraPartitioningMetadataStore<>(
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
+        new ZookeeperPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
             meterRegistry,
@@ -393,7 +393,7 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testEphemeralNodeBehavior() throws IOException {
-    class PersistentMetadataStore extends AstraPartitioningMetadataStore<ExampleMetadata> {
+    class PersistentMetadataStore extends ZookeeperPartitioningMetadataStore<ExampleMetadata> {
       public PersistentMetadataStore() {
         super(
             curatorFramework,
@@ -405,7 +405,7 @@ class AstraPartitioningMetadataStoreTest {
       }
     }
 
-    class EphemeralMetadataStore extends AstraPartitioningMetadataStore<ExampleMetadata> {
+    class EphemeralMetadataStore extends ZookeeperPartitioningMetadataStore<ExampleMetadata> {
       public EphemeralMetadataStore() {
         super(
             curatorFramework,
@@ -418,7 +418,7 @@ class AstraPartitioningMetadataStoreTest {
     }
 
     ExampleMetadata metadata1 = new ExampleMetadata("foo", "va1");
-    try (AstraPartitioningMetadataStore<ExampleMetadata> persistentStore =
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> persistentStore =
         new PersistentMetadataStore()) {
       // create metadata
       persistentStore.createSync(metadata1);
@@ -429,7 +429,7 @@ class AstraPartitioningMetadataStoreTest {
     }
 
     ExampleMetadata metadata2 = new ExampleMetadata("foo", "val1");
-    try (AstraPartitioningMetadataStore<ExampleMetadata> ephemeralStore =
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> ephemeralStore =
         new EphemeralMetadataStore()) {
       // create metadata
       ephemeralStore.createSync(metadata2);
@@ -444,12 +444,12 @@ class AstraPartitioningMetadataStoreTest {
     curatorFramework.unwrap().close();
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
-    try (AstraPartitioningMetadataStore<ExampleMetadata> persistentStore =
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> persistentStore =
         new PersistentMetadataStore()) {
       assertThat(persistentStore.getSync(metadata1.getPartition(), "foo")).isEqualTo(metadata1);
     }
 
-    try (AstraPartitioningMetadataStore<ExampleMetadata> ephemeralStore =
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> ephemeralStore =
         new EphemeralMetadataStore()) {
       assertThatExceptionOfType(InternalMetadataStoreException.class)
           .isThrownBy(() -> ephemeralStore.getSync(metadata2.getPartition(), "foo"));
@@ -459,7 +459,7 @@ class AstraPartitioningMetadataStoreTest {
   @Test
   @Disabled("ZK reconnect support currently disabled")
   void testListenersWithZkReconnect() throws Exception {
-    class TestMetadataStore extends AstraPartitioningMetadataStore<ExampleMetadata> {
+    class TestMetadataStore extends ZookeeperPartitioningMetadataStore<ExampleMetadata> {
       public TestMetadataStore() {
         super(
             curatorFramework,
@@ -471,7 +471,7 @@ class AstraPartitioningMetadataStoreTest {
       }
     }
 
-    try (AstraPartitioningMetadataStore<ExampleMetadata> store = new TestMetadataStore()) {
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<ExampleMetadata> listener =
           (testMetadata) -> counter.incrementAndGet();
@@ -500,8 +500,8 @@ class AstraPartitioningMetadataStoreTest {
   @Test
   void testListenersOnAddRemoveNodes()
       throws ExecutionException, InterruptedException, IOException {
-    try (AstraPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
-        new AstraPartitioningMetadataStore<>(
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> partitionedMetadataStore =
+        new ZookeeperPartitioningMetadataStore<>(
             curatorFramework,
             zkConfig,
             meterRegistry,
@@ -604,7 +604,7 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testAddRemoveListener() throws Exception {
-    class TestMetadataStore extends AstraPartitioningMetadataStore<ExampleMetadata> {
+    class TestMetadataStore extends ZookeeperPartitioningMetadataStore<ExampleMetadata> {
       public TestMetadataStore() {
         super(
             curatorFramework,
@@ -616,7 +616,7 @@ class AstraPartitioningMetadataStoreTest {
       }
     }
 
-    try (AstraPartitioningMetadataStore<ExampleMetadata> store = new TestMetadataStore()) {
+    try (ZookeeperPartitioningMetadataStore<ExampleMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<ExampleMetadata> listener =
           (testMetadata) -> counter.incrementAndGet();
@@ -650,7 +650,8 @@ class AstraPartitioningMetadataStoreTest {
 
   @Test
   void testListenerNotDuplicatedAddingBeforeDuring() throws Exception {
-    class TestMetadataStore extends AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> {
+    class TestMetadataStore
+        extends ZookeeperPartitioningMetadataStore<FixedPartitionExampleMetadata> {
       public TestMetadataStore() {
         super(
             curatorFramework,
@@ -662,7 +663,7 @@ class AstraPartitioningMetadataStoreTest {
       }
     }
 
-    try (AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> store =
+    try (ZookeeperPartitioningMetadataStore<FixedPartitionExampleMetadata> store =
         new TestMetadataStore()) {
       AtomicInteger beforeCounter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<FixedPartitionExampleMetadata> beforeListener =
@@ -718,7 +719,8 @@ class AstraPartitioningMetadataStoreTest {
   void testPartitionFilters() throws Exception {
     final String partitionStoreFolder = "/test_partition_filters";
 
-    class TestMetadataStore extends AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> {
+    class TestMetadataStore
+        extends ZookeeperPartitioningMetadataStore<FixedPartitionExampleMetadata> {
       public TestMetadataStore() {
         super(
             curatorFramework,
@@ -731,7 +733,7 @@ class AstraPartitioningMetadataStoreTest {
     }
 
     class FilteredTestMetadataStore
-        extends AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> {
+        extends ZookeeperPartitioningMetadataStore<FixedPartitionExampleMetadata> {
       public FilteredTestMetadataStore() {
         super(
             curatorFramework,
@@ -744,7 +746,7 @@ class AstraPartitioningMetadataStoreTest {
       }
     }
 
-    try (AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> store =
+    try (ZookeeperPartitioningMetadataStore<FixedPartitionExampleMetadata> store =
         new TestMetadataStore()) {
       store.createSync(new FixedPartitionExampleMetadata("example1", "1"));
       store.createSync(new FixedPartitionExampleMetadata("example2", "2"));
@@ -753,7 +755,7 @@ class AstraPartitioningMetadataStoreTest {
     }
 
     AtomicInteger counter = new AtomicInteger(0);
-    try (AstraPartitioningMetadataStore<FixedPartitionExampleMetadata> store =
+    try (ZookeeperPartitioningMetadataStore<FixedPartitionExampleMetadata> store =
         new FilteredTestMetadataStore()) {
       store.addListener(_ -> counter.incrementAndGet());
 

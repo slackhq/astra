@@ -3,6 +3,7 @@ package com.slack.astra.metadata.cache;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
+import com.slack.astra.metadata.core.ZookeeperPartitioningMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -15,31 +16,39 @@ public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<Cac
 
   public CacheNodeAssignmentStore(
       AsyncCuratorFramework curator,
-      AstraConfigs.ZookeeperConfig zkConfig,
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry) {
     super(
-        curator,
-        zkConfig,
-        meterRegistry,
-        CreateMode.PERSISTENT,
-        new CacheNodeAssignmentSerializer().toModelSerializer(),
-        CACHE_NODE_ASSIGNMENT_STORE_ZK_PATH);
+        new ZookeeperPartitioningMetadataStore<>(
+            curator,
+            metadataStoreConfig.getZookeeperConfig(),
+            meterRegistry,
+            CreateMode.PERSISTENT,
+            new CacheNodeAssignmentSerializer().toModelSerializer(),
+            CACHE_NODE_ASSIGNMENT_STORE_ZK_PATH),
+        null, // Not using etcdStore for now
+        metadataStoreConfig.getMode(),
+        meterRegistry);
   }
 
   /** Restricts the cache node assignment store to only watching events for cacheNodeId */
   public CacheNodeAssignmentStore(
       AsyncCuratorFramework curator,
-      AstraConfigs.ZookeeperConfig zkConfig,
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry,
       String cacheNodeId) {
     super(
-        curator,
-        zkConfig,
-        meterRegistry,
-        CreateMode.PERSISTENT,
-        new CacheNodeAssignmentSerializer().toModelSerializer(),
-        CACHE_NODE_ASSIGNMENT_STORE_ZK_PATH,
-        List.of(cacheNodeId));
+        new ZookeeperPartitioningMetadataStore<>(
+            curator,
+            metadataStoreConfig.getZookeeperConfig(),
+            meterRegistry,
+            CreateMode.PERSISTENT,
+            new CacheNodeAssignmentSerializer().toModelSerializer(),
+            CACHE_NODE_ASSIGNMENT_STORE_ZK_PATH,
+            List.of(cacheNodeId)),
+        null, // Not using etcdStore for now
+        metadataStoreConfig.getMode(),
+        meterRegistry);
   }
 
   public ListenableFuture<?> updateAssignmentState(
