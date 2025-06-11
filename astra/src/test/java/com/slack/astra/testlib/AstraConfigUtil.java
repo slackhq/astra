@@ -1,6 +1,7 @@
 package com.slack.astra.testlib;
 
 import com.slack.astra.proto.config.AstraConfigs;
+import java.util.List;
 
 public class AstraConfigUtil {
 
@@ -63,6 +64,7 @@ public class AstraConfigUtil {
 
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
+            .setEnabled(true)
             .setZkConnectString(metadataZkConnectionString)
             .setZkPathPrefix(metadataZkPathPrefix)
             .setZkSessionTimeoutMs(15000)
@@ -70,8 +72,23 @@ public class AstraConfigUtil {
             .setSleepBetweenRetriesMs(1000)
             .setZkCacheInitTimeoutMs(1000)
             .build();
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            // todo - this will need a proper value when testing etcd
+            .addAllEndpoints(List.of(""))
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
-        AstraConfigs.MetadataStoreConfig.newBuilder().setZookeeperConfig(zkConfig).build();
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(zkConfig)
+            .setEtcdConfig(etcdConfig)
+            .build();
 
     AstraConfigs.QueryServiceConfig queryConfig =
         AstraConfigs.QueryServiceConfig.newBuilder()
