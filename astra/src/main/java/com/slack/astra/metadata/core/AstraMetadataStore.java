@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +72,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       throw new IllegalArgumentException("Both zkStore and etcdStore cannot be null");
     } else {
       this.mode = mode;
+      LOG.info("Using metadata store mode {}", mode);
     }
 
     this.meterRegistry = meterRegistry;
@@ -217,9 +217,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * Checks if a node exists asynchronously.
    *
    * @param path the path to check
-   * @return a CompletionStage that completes with the Stat if the node exists, null otherwise
+   * @return a CompletionStage that completes with true if the node exists, false otherwise
    */
-  public CompletionStage<Stat> hasAsync(String path) {
+  public CompletionStage<Boolean> hasAsync(String path) {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
         return zkStore.hasAsync(path);
@@ -228,21 +228,20 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       case BOTH_READ_ZOOKEEPER_WRITE:
       case BOTH_READ_ETCD_WRITE:
         // Try both stores, return true if either has the item
-        CompletionStage<Stat> primaryHas =
+        CompletionStage<Boolean> primaryHas =
             mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                 ? zkStore.hasAsync(path) // ZK is primary
                 : etcdStore.hasAsync(path); // Etcd is primary
 
         return primaryHas
-            .thenApply(stat -> stat)
-            .exceptionally(ex -> null)
+            .exceptionally(ex -> false)
             .thenCompose(
-                primaryStat -> {
-                  if (primaryStat != null) {
-                    return CompletableFuture.completedFuture(primaryStat);
+                primaryExists -> {
+                  if (primaryExists) {
+                    return CompletableFuture.completedFuture(true);
                   }
                   // Not found in primary, check secondary
-                  CompletionStage<Stat> secondaryHas =
+                  CompletionStage<Boolean> secondaryHas =
                       mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                           ? etcdStore.hasAsync(path)
                           : zkStore.hasAsync(path);
@@ -303,14 +302,14 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * Updates a node asynchronously.
    *
    * @param metadataNode the node to update
-   * @return a CompletionStage that completes when the operation is done
+   * @return a CompletionStage that completes with the node version when the operation is done
    */
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
+  public CompletionStage<String> updateAsync(T metadataNode) {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
-        return checkAndUpdateAsync(zkStore, metadataNode);
+        return zkStore.updateAsync(metadataNode);
       case ETCD_EXCLUSIVE:
-        return checkAndUpdateAsync(etcdStore, metadataNode);
+        return etcdStore.updateAsync(metadataNode);
       case BOTH_READ_ZOOKEEPER_WRITE:
         // Delete from Etcd and create in ZK
         // Try to delete from Etcd first (don't wait)
@@ -333,15 +332,15 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *
    * @param store the ZK store to use
    * @param metadataNode the node to update or create
-   * @return a CompletionStage that completes with the Stat when the operation is done
+   * @return a CompletionStage that completes with the version info when the operation is done
    */
-  private CompletionStage<Stat> checkAndUpdateAsync(
+  private CompletionStage<String> checkAndUpdateAsync(
       ZookeeperMetadataStore<T> store, T metadataNode) {
     return store
         .hasAsync(metadataNode.name)
         .thenCompose(
-            stat -> {
-              if (stat != null) {
+            exists -> {
+              if (exists) {
                 // Node exists, update it
                 return store.updateAsync(metadataNode);
               } else {
@@ -350,9 +349,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
                     .createAsync(metadataNode)
                     .thenApply(
                         path -> {
-                          // Return a dummy Stat since create doesn't return one
+                          // Return empty version since create doesn't return one
                           // but update interface requires one
-                          return new Stat();
+                          return "";
                         });
               }
             });
@@ -363,14 +362,14 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *
    * @param store the Etcd store to use
    * @param metadataNode the node to update or create
-   * @return a CompletionStage that completes with the Stat when the operation is done
+   * @return a CompletionStage that completes with the version info when the operation is done
    */
-  private CompletionStage<Stat> checkAndUpdateAsync(EtcdMetadataStore<T> store, T metadataNode) {
+  private CompletionStage<String> checkAndUpdateAsync(EtcdMetadataStore<T> store, T metadataNode) {
     return store
         .hasAsync(metadataNode.name)
         .thenCompose(
-            stat -> {
-              if (stat != null) {
+            exists -> {
+              if (exists) {
                 // Node exists, update it
                 return store.updateAsync(metadataNode);
               } else {
@@ -379,9 +378,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
                     .createAsync(metadataNode)
                     .thenApply(
                         path -> {
-                          // Return a dummy Stat since create doesn't return one
+                          // Return empty version since create doesn't return one
                           // but update interface requires one
-                          return new Stat();
+                          return "";
                         });
               }
             });
@@ -395,10 +394,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   public void updateSync(T metadataNode) {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
-        checkAndUpdateSync(zkStore, metadataNode);
+        zkStore.updateSync(metadataNode);
         break;
       case ETCD_EXCLUSIVE:
-        checkAndUpdateSync(etcdStore, metadataNode);
+        etcdStore.updateSync(metadataNode);
         break;
       case BOTH_READ_ZOOKEEPER_WRITE:
         // Delete from Etcd and create in ZK

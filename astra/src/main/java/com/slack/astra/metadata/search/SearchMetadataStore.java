@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.data.Stat;
 
 public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
   public static final String SEARCH_METADATA_STORE_ZK_PATH = "/search";
@@ -55,7 +54,7 @@ public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
   }
 
   @Override
-  public CompletionStage<Stat> updateAsync(SearchMetadata metadataNode) {
+  public CompletionStage<String> updateAsync(SearchMetadata metadataNode) {
     throw new UnsupportedOperationException("Updates are not permitted for search metadata");
   }
 

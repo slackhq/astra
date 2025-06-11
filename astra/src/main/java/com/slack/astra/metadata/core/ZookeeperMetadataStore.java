@@ -161,12 +161,18 @@ public class ZookeeperMetadataStore<T extends AstraMetadata> implements Closeabl
     }
   }
 
-  public CompletionStage<Stat> hasAsync(String path) {
+  public CompletionStage<Boolean> hasAsync(String path) {
     if (cachedModeledFramework != null) {
       awaitCacheInitialized();
-      return cachedModeledFramework.withPath(zPath.resolved(path)).checkExists();
+      return cachedModeledFramework
+          .withPath(zPath.resolved(path))
+          .checkExists()
+          .thenApply(stat -> stat != null);
     }
-    return modeledClient.withPath(zPath.resolved(path)).checkExists();
+    return modeledClient
+        .withPath(zPath.resolved(path))
+        .checkExists()
+        .thenApply(stat -> stat != null);
   }
 
   public boolean hasSync(String path) {
@@ -174,16 +180,17 @@ public class ZookeeperMetadataStore<T extends AstraMetadata> implements Closeabl
       this.hasCall.increment();
 
       return hasAsync(path)
-              .toCompletableFuture()
-              .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
-          != null;
+          .toCompletableFuture()
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
   }
 
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
-    return modeledClient.update(metadataNode);
+  public CompletionStage<String> updateAsync(T metadataNode) {
+    return modeledClient
+        .update(metadataNode)
+        .thenApply(stat -> Integer.toString(stat != null ? stat.getVersion() : -1));
   }
 
   public void updateSync(T metadataNode) {

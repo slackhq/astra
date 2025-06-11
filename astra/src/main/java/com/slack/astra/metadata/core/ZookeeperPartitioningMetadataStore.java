@@ -23,7 +23,6 @@ import org.apache.zookeeper.AddWatchMode;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -245,7 +244,35 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
     }
   }
 
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
+  /**
+   * Checks if a node exists asynchronously in a specific partition.
+   *
+   * @param partition the partition to check in
+   * @param path the path to check
+   * @return a CompletionStage that completes with true if the node exists, false otherwise
+   */
+  public CompletionStage<Boolean> hasAsync(String partition, String path) {
+    return getOrCreateMetadataStore(partition).hasAsync(path);
+  }
+
+  /**
+   * Checks if a node exists synchronously in a specific partition.
+   *
+   * @param partition the partition to check in
+   * @param path the path to check
+   * @return true if the node exists, false otherwise
+   */
+  public boolean hasSync(String partition, String path) {
+    try {
+      return hasAsync(partition, path)
+          .toCompletableFuture()
+          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error checking if node exists at path " + path, e);
+    }
+  }
+
+  public CompletionStage<String> updateAsync(T metadataNode) {
     return getOrCreateMetadataStore(metadataNode.getPartition()).updateAsync(metadataNode);
   }
 

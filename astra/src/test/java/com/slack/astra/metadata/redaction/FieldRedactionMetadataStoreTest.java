@@ -38,6 +38,7 @@ public class FieldRedactionMetadataStoreTest {
                     .setZkSessionTimeoutMs(1000)
                     .setZkConnectionTimeoutMs(1000)
                     .setSleepBetweenRetriesMs(500)
+                    .setZkCacheInitTimeoutMs(1000)
                     .build())
             .build();
     this.curatorFramework =

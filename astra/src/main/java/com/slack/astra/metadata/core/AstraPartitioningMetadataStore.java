@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -241,6 +240,91 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   /**
+   * Checks if a node exists asynchronously in the given partition.
+   *
+   * @param partition the partition to look in
+   * @param path the path to check
+   * @return a CompletionStage that completes with true if the node exists, false otherwise
+   */
+  public CompletionStage<Boolean> hasAsync(String partition, String path) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.hasAsync(partition, path);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.hasAsync(partition, path);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // Try ZK first, fall back to Etcd if not found
+        return zkStore
+            .hasAsync(partition, path)
+            .exceptionally(ex -> null)
+            .thenCompose(
+                stat -> {
+                  if (stat != null) {
+                    return CompletableFuture.completedFuture(stat);
+                  }
+                  // Not found in ZK, try Etcd
+                  return etcdStore.hasAsync(partition, path);
+                });
+      case BOTH_READ_ETCD_WRITE:
+        // Try Etcd first, fall back to ZK if not found
+        return etcdStore
+            .hasAsync(partition, path)
+            .exceptionally(ex -> null)
+            .thenCompose(
+                stat -> {
+                  if (stat != null) {
+                    return CompletableFuture.completedFuture(stat);
+                  }
+                  // Not found in Etcd, try ZK
+                  return zkStore.hasAsync(partition, path);
+                });
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Checks if a node exists synchronously in the given partition.
+   *
+   * @param partition the partition to look in
+   * @param path the path to check
+   * @return true if the node exists, false otherwise
+   */
+  public boolean hasSync(String partition, String path) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.hasSync(partition, path);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.hasSync(partition, path);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // Try ZK first, fall back to Etcd if not found
+        boolean primaryResult = false;
+        try {
+          primaryResult = zkStore.hasSync(partition, path);
+          if (primaryResult) {
+            return true; // Short-circuit if found in primary
+          }
+        } catch (Exception ignored) {
+        }
+        // Try secondary store
+        return etcdStore.hasSync(partition, path);
+      case BOTH_READ_ETCD_WRITE:
+        // Try Etcd first, fall back to ZK if not found
+        try {
+          boolean etcdResult = etcdStore.hasSync(partition, path);
+          if (etcdResult) {
+            return true; // Short-circuit if found in primary
+          }
+        } catch (Exception ignored) {
+        }
+        // Try secondary store
+        return zkStore.hasSync(partition, path);
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
    * Attempts to find the metadata synchronously without knowledge of the partition it exists in.
    *
    * @param path the path to the node
@@ -285,9 +369,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * Updates a node asynchronously.
    *
    * @param metadataNode the node to update
-   * @return a CompletionStage that completes when the operation is done
+   * @return a CompletionStage that completes with the node version when the operation is done
    */
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
+  public CompletionStage<String> updateAsync(T metadataNode) {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
         return zkStore.updateAsync(metadataNode);
@@ -297,17 +381,77 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         // Delete from Etcd and create in ZK
         // Try to delete from Etcd first (don't wait)
         etcdStore.deleteAsync(metadataNode);
-        // Then update in ZK (this is the operation we wait for)
-        return zkStore.updateAsync(metadataNode);
+        // Then check-and-update in ZK (this is the operation we wait for)
+        return checkAndUpdateAsync(zkStore, metadataNode);
       case BOTH_READ_ETCD_WRITE:
         // Delete from ZK and create in Etcd
         // Try to delete from ZK first (don't wait)
         zkStore.deleteAsync(metadataNode);
-        // Then update in Etcd (this is the operation we wait for)
-        return etcdStore.updateAsync(metadataNode);
+        // Then check-and-update in Etcd (this is the operation we wait for)
+        return checkAndUpdateAsync(etcdStore, metadataNode);
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
     }
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it in ZooKeeper.
+   *
+   * @param store the ZK store to use
+   * @param metadataNode the node to update or create
+   * @return a CompletionStage that completes with the version info when the operation is done
+   */
+  private CompletionStage<String> checkAndUpdateAsync(
+      ZookeeperPartitioningMetadataStore<T> store, T metadataNode) {
+    return store
+        .hasAsync(metadataNode.getPartition(), metadataNode.name)
+        .thenCompose(
+            exists -> {
+              if (exists) {
+                // Node exists, update it
+                return store.updateAsync(metadataNode);
+              } else {
+                // Node doesn't exist, create it
+                return store
+                    .createAsync(metadataNode)
+                    .thenApply(
+                        path -> {
+                          // Return empty version since create doesn't return one
+                          // but update interface requires one
+                          return "";
+                        });
+              }
+            });
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it in Etcd.
+   *
+   * @param store the Etcd store to use
+   * @param metadataNode the node to update or create
+   * @return a CompletionStage that completes with the version info when the operation is done
+   */
+  private CompletionStage<String> checkAndUpdateAsync(
+      EtcdPartitioningMetadataStore<T> store, T metadataNode) {
+    return store
+        .hasAsync(metadataNode.getPartition(), metadataNode.name)
+        .thenCompose(
+            exists -> {
+              if (exists) {
+                // Node exists, update it
+                return store.updateAsync(metadataNode);
+              } else {
+                // Node doesn't exist, create it
+                return store
+                    .createAsync(metadataNode)
+                    .thenApply(
+                        path -> {
+                          // Return empty version since create doesn't return one
+                          // but update interface requires one
+                          return "";
+                        });
+              }
+            });
   }
 
   /**
@@ -330,8 +474,8 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           etcdStore.deleteSync(metadataNode);
         } catch (Exception ignored) {
         }
-        // Then update in ZK
-        zkStore.updateSync(metadataNode);
+        // Then check-and-update in ZK
+        checkAndUpdateSync(zkStore, metadataNode);
         break;
       case BOTH_READ_ETCD_WRITE:
         // Delete from ZK and create in Etcd
@@ -340,11 +484,45 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           zkStore.deleteSync(metadataNode);
         } catch (Exception ignored) {
         }
-        // Then update in Etcd
-        etcdStore.updateSync(metadataNode);
+        // Then check-and-update in Etcd
+        checkAndUpdateSync(etcdStore, metadataNode);
         break;
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it synchronously in ZooKeeper.
+   *
+   * @param store the ZK store to use
+   * @param metadataNode the node to update or create
+   */
+  private void checkAndUpdateSync(ZookeeperPartitioningMetadataStore<T> store, T metadataNode) {
+    boolean exists = store.hasSync(metadataNode.getPartition(), metadataNode.name);
+    if (exists) {
+      // Node exists, update it
+      store.updateSync(metadataNode);
+    } else {
+      // Node doesn't exist, create it
+      store.createSync(metadataNode);
+    }
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it synchronously in Etcd.
+   *
+   * @param store the Etcd store to use
+   * @param metadataNode the node to update or create
+   */
+  private void checkAndUpdateSync(EtcdPartitioningMetadataStore<T> store, T metadataNode) {
+    boolean exists = store.hasSync(metadataNode.getPartition(), metadataNode.name);
+    if (exists) {
+      // Node exists, update it
+      store.updateSync(metadataNode);
+    } else {
+      // Node doesn't exist, create it
+      store.createSync(metadataNode);
     }
   }
 
@@ -567,20 +745,39 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     }
   }
 
-  /** Waits for the cache to be initialized. */
+  /**
+   * Waits for the cache to be initialized.
+   *
+   * <p>Note: The ZookeeperPartitioningMetadataStore initializes cache during construction, while
+   * EtcdPartitioningMetadataStore requires explicit initialization call.
+   */
   public void awaitCacheInitialized() {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
-        // ZK partition store doesn't have this method directly
+        // ZK partition store initializes cache during construction
+        LOG.info(
+            "ZookeeperPartitioningMetadataStore cache already initialized during construction");
         break;
       case ETCD_EXCLUSIVE:
-        // Etcd partition store doesn't have this method directly
+        if (etcdStore != null) {
+          LOG.info("Initializing EtcdPartitioningMetadataStore cache");
+          etcdStore.awaitCacheInitialized();
+        }
         break;
       case BOTH_READ_ZOOKEEPER_WRITE:
-        // We don't wait for Etcd in this mode since ZK is primary
+        // ZK is primary and initializes during construction
+        // We can also pre-populate the secondary store for faster fallback
+        if (etcdStore != null) {
+          LOG.info("Initializing secondary EtcdPartitioningMetadataStore cache");
+          etcdStore.awaitCacheInitialized();
+        }
         break;
       case BOTH_READ_ETCD_WRITE:
-        // We don't wait for ZK in this mode since Etcd is primary
+        // Initialize primary store first
+        if (etcdStore != null) {
+          LOG.info("Initializing primary EtcdPartitioningMetadataStore cache");
+          etcdStore.awaitCacheInitialized();
+        }
         break;
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);

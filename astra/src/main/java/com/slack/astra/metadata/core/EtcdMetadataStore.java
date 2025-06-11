@@ -5,7 +5,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
-import org.apache.zookeeper.data.Stat;
 
 /**
  * EtcdMetadataStore is a class which provides consistent Etcd apis for all the metadata store
@@ -76,7 +75,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
-  public CompletionStage<Stat> hasAsync(String path) {
+  public CompletionStage<Boolean> hasAsync(String path) {
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }
@@ -87,7 +86,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
+  public CompletionStage<String> updateAsync(T metadataNode) {
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }

@@ -4,7 +4,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,7 +103,31 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @param metadataNode the node to update
    * @return a CompletionStage that completes when the operation is done
    */
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
+  /**
+   * Checks if a node exists asynchronously in a specific partition.
+   *
+   * @param partition the partition to check in
+   * @param path the path to check
+   * @return a CompletionStage that completes with true if the node exists, false otherwise
+   */
+  public CompletionStage<Boolean> hasAsync(String partition, String path) {
+    // To be implemented
+    throw new UnsupportedOperationException("Not yet implemented");
+  }
+
+  /**
+   * Checks if a node exists synchronously in a specific partition.
+   *
+   * @param partition the partition to check in
+   * @param path the path to check
+   * @return true if the node exists, false otherwise
+   */
+  public boolean hasSync(String partition, String path) {
+    // To be implemented
+    throw new UnsupportedOperationException("Not yet implemented");
+  }
+
+  public CompletionStage<String> updateAsync(T metadataNode) {
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }
