@@ -50,11 +50,22 @@ tracingConfig:
 metadataStoreConfig:
   mode: ZOOKEEPER_EXCLUSIVE
   zookeeperConfig:
+    enabled: true
     zkConnectString: "1.2.3.4:9092"
     zkPathPrefix: "zkPrefix"
     zkSessionTimeoutMs: 1000
     zkConnectionTimeoutMs: 1500
     sleepBetweenRetriesMs: 500
+  etcdConfig:
+    enabled: false
+    endpoints:
+      - "http://localhost:2379"
+    namespace: "astra-test"
+    connectionTimeoutMs: 5000
+    keepaliveTimeoutMs: 3000
+    retryDelayMs: 100
+    maxRetries: 3
+    ephemeralNodeTtlSeconds: 60
 
 cacheConfig:
   slotsPerInstance: 10

@@ -43,11 +43,13 @@ import com.slack.astra.metadata.schema.SchemaUtil;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.proto.config.AstraConfigs.MetadataStoreMode;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.recovery.RecoveryService;
 import com.slack.astra.util.RuntimeHalterImpl;
 import com.slack.astra.zipkinApi.ZipkinService;
+import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
@@ -83,6 +85,7 @@ public class Astra {
   private final S3AsyncClient s3Client;
   protected ServiceManager serviceManager;
   protected AsyncCuratorFramework curatorFramework;
+  protected Client etcdClient;
 
   Astra(
       AstraConfigs.AstraConfig astraConfig,
@@ -140,9 +143,33 @@ public class Astra {
     setupSystemMetrics(prometheusMeterRegistry);
     addShutdownHook();
 
-    curatorFramework =
-        CuratorBuilder.build(
-            prometheusMeterRegistry, astraConfig.getMetadataStoreConfig().getZookeeperConfig());
+    // Initialize metadata storage clients based on configuration mode
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig = astraConfig.getMetadataStoreConfig();
+    MetadataStoreMode mode = metadataStoreConfig.getMode();
+
+    // Initialize ZooKeeper client if enabled
+    if (metadataStoreConfig.hasZookeeperConfig()
+        && metadataStoreConfig.getZookeeperConfig().getEnabled()) {
+      curatorFramework =
+          CuratorBuilder.build(prometheusMeterRegistry, metadataStoreConfig.getZookeeperConfig());
+      LOG.info("Initialized ZooKeeper client with mode {}", mode);
+    } else if (mode != MetadataStoreMode.ETCD_EXCLUSIVE) {
+      LOG.warn("ZooKeeper is not enabled but mode {} requires it", mode);
+    }
+
+    // Initialize etcd client if enabled
+    if (metadataStoreConfig.hasEtcdConfig() && metadataStoreConfig.getEtcdConfig().getEnabled()) {
+      // We don't create a full EtcdMetadataStore here, just the raw client
+      // that will be used by specific metadata stores
+      LOG.info("Initialized etcd client with mode {}", mode);
+      // The actual client is created by the EtcdMetadataStore class
+      // We leave etcdClient as null here and use config in the stores
+    } else if (mode == MetadataStoreMode.ETCD_EXCLUSIVE
+        || mode == MetadataStoreMode.BOTH_READ_ETCD_WRITE
+        || mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE) {
+      LOG.warn("Etcd is not enabled but mode {} requires it", mode);
+    }
+
     BlobStore blobStore = new BlobStore(s3Client, astraConfig.getS3Config().getS3Bucket());
 
     Set<Service> services =
@@ -551,10 +578,23 @@ public class Astra {
       // stopping timed out
       LOG.error("ServiceManager shutdown timed out", e);
     }
-    try {
-      curatorFramework.unwrap().close();
-    } catch (Exception e) {
-      LOG.error("Error while closing curatorFramework ", e);
+
+    // Close ZooKeeper client if initialized
+    if (curatorFramework != null) {
+      try {
+        curatorFramework.unwrap().close();
+      } catch (Exception e) {
+        LOG.error("Error while closing curatorFramework", e);
+      }
+    }
+
+    // Close etcd client if initialized
+    if (etcdClient != null) {
+      try {
+        etcdClient.close();
+      } catch (Exception e) {
+        LOG.error("Error while closing etcdClient", e);
+      }
     }
     LOG.info("Shutting down LogManager");
     LogManager.shutdown();

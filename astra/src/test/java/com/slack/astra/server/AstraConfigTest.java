@@ -203,11 +203,23 @@ public class AstraConfigTest {
 
     final AstraConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final AstraConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
+    assertThat(zookeeperConfig.getEnabled()).isTrue();
     assertThat(zookeeperConfig.getZkConnectString()).isEqualTo("1.2.3.4:9092");
     assertThat(zookeeperConfig.getZkPathPrefix()).isEqualTo("zkPrefix");
     assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
+
+    final AstraConfigs.EtcdConfig etcdConfig = metadataStoreConfig.getEtcdConfig();
+    assertThat(etcdConfig.getEnabled()).isTrue();
+    assertThat(etcdConfig.getEndpointsList()).containsExactly("http://localhost:2379");
+    assertThat(etcdConfig.getNamespace()).isEqualTo("astra-test");
+    assertThat(etcdConfig.getConnectionTimeoutMs()).isEqualTo(5000);
+    assertThat(etcdConfig.getKeepaliveTimeoutMs()).isEqualTo(3000);
+    assertThat(etcdConfig.getRetryDelayMs()).isEqualTo(100);
+    assertThat(etcdConfig.getMaxRetries()).isEqualTo(3);
+    assertThat(etcdConfig.getEphemeralNodeTtlSeconds()).isEqualTo(60);
+
     assertThat(metadataStoreConfig.getMode())
         .isEqualTo(AstraConfigs.MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE);
 
@@ -371,11 +383,23 @@ public class AstraConfigTest {
 
     final AstraConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final AstraConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
+    assertThat(zookeeperConfig.getEnabled()).isTrue();
     assertThat(zookeeperConfig.getZkConnectString()).isEqualTo("1.2.3.4:9092");
     assertThat(zookeeperConfig.getZkPathPrefix()).isEqualTo("zkPrefix");
     assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
+
+    final AstraConfigs.EtcdConfig etcdConfig = metadataStoreConfig.getEtcdConfig();
+    assertThat(etcdConfig.getEnabled()).isFalse();
+    assertThat(etcdConfig.getEndpointsList()).containsExactly("http://localhost:2379");
+    assertThat(etcdConfig.getNamespace()).isEqualTo("astra-test");
+    assertThat(etcdConfig.getConnectionTimeoutMs()).isEqualTo(5000);
+    assertThat(etcdConfig.getKeepaliveTimeoutMs()).isEqualTo(3000);
+    assertThat(etcdConfig.getRetryDelayMs()).isEqualTo(100);
+    assertThat(etcdConfig.getMaxRetries()).isEqualTo(3);
+    assertThat(etcdConfig.getEphemeralNodeTtlSeconds()).isEqualTo(60);
+
     assertThat(metadataStoreConfig.getMode())
         .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE);
 
