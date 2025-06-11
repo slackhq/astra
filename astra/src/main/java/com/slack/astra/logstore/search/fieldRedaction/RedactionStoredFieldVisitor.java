@@ -1,5 +1,7 @@
 package com.slack.astra.logstore.search.fieldRedaction;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slack.astra.logstore.LogMessage;
@@ -10,8 +12,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * RedactionStoreFieldVisitor reads the individual fields of the logs that come back from a search

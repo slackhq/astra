@@ -1,5 +1,7 @@
 package com.slack.astra.util;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.fasterxml.jackson.core.JsonParser.Feature;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -10,8 +12,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class JsonUtil {
   private static JsonUtil ourInstance = new JsonUtil();

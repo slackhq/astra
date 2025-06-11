@@ -1,10 +1,10 @@
 package com.slack.astra.metadata.core;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import org.apache.curator.x.async.modeled.ModelSerializer;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * An interface that helps us covert protobuf objects to and from json.

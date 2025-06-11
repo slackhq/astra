@@ -29,7 +29,6 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.opensearch.index.query.QueryBuilder;
@@ -204,7 +203,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private CollectorManager<TopFieldCollector, TopFieldDocs> buildTopFieldCollector(
       int howMany, int totalHitsThreshold) {
     if (howMany > 0) {
-      SortField sortField = new SortField(SystemField.TIME_SINCE_EPOCH.fieldName, SortField.Type.LONG, true);
+      SortField sortField =
+          new SortField(SystemField.TIME_SINCE_EPOCH.fieldName, SortField.Type.LONG, true);
       return TopFieldCollector.createSharedManager(
           new Sort(sortField), howMany, null, totalHitsThreshold);
     } else {

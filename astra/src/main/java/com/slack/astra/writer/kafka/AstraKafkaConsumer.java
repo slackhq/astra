@@ -124,14 +124,16 @@ public class AstraKafkaConsumer {
     for (String property : props.stringPropertyNames()) {
       Preconditions.checkArgument(
           props.getProperty(property) != null && !props.getProperty(property).isEmpty(),
-          "Property %s cannot be null or empty", property);
+          "Property %s cannot be null or empty",
+          property);
     }
 
     // Check required configs.
     for (String requiredConfig : REQUIRED_CONFIGS) {
       checkNotNull(
           props.getProperty(requiredConfig),
-          "Property %s is required but not provided", requiredConfig);
+          "Property %s is required but not provided",
+          requiredConfig);
     }
 
     StringBuilder propertiesBuilder = new StringBuilder("Kafka params are: ");

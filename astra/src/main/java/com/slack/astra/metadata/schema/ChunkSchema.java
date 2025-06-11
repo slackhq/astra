@@ -1,5 +1,7 @@
 package com.slack.astra.metadata.schema;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Objects;
 import com.slack.astra.metadata.core.AstraMetadata;
 import java.io.File;
@@ -7,8 +9,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * This schema class enforces schema for a chunk. The schema is only written in indexer and on the
