@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +72,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       throw new IllegalArgumentException("Both zkStore and etcdStore cannot be null");
     } else {
       this.mode = mode;
+      LOG.info("Using metadata store mode {}", mode);
     }
 
     this.meterRegistry = meterRegistry;
@@ -217,36 +217,35 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * Checks if a node exists asynchronously.
    *
    * @param path the path to check
-   * @return a CompletionStage that completes with the Stat if the node exists, null otherwise
+   * @return a CompletionStage that completes with a boolean if the node exists
    */
-  public CompletionStage<Stat> hasAsync(String path) {
+  public CompletionStage<Boolean> hasAsync(String path) {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
-        return zkStore.hasAsync(path);
+        return zkStore.hasAsync(path).thenApply(stat -> stat != null);
       case ETCD_EXCLUSIVE:
-        return etcdStore.hasAsync(path);
+        return etcdStore.hasAsync(path).thenApply(result -> result != null);
       case BOTH_READ_ZOOKEEPER_WRITE:
       case BOTH_READ_ETCD_WRITE:
         // Try both stores, return true if either has the item
-        CompletionStage<Stat> primaryHas =
+        CompletionStage<Boolean> primaryHas =
             mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
-                ? zkStore.hasAsync(path) // ZK is primary
-                : etcdStore.hasAsync(path); // Etcd is primary
+                ? zkStore.hasAsync(path).thenApply(stat -> stat != null) // ZK is primary
+                : etcdStore.hasAsync(path).thenApply(result -> result != null); // Etcd is primary
 
         return primaryHas
-            .thenApply(stat -> stat)
-            .exceptionally(ex -> null)
+            .exceptionally(ex -> false)
             .thenCompose(
-                primaryStat -> {
-                  if (primaryStat != null) {
-                    return CompletableFuture.completedFuture(primaryStat);
+                primaryResult -> {
+                  if (primaryResult) {
+                    return CompletableFuture.completedFuture(true);
                   }
                   // Not found in primary, check secondary
-                  CompletionStage<Stat> secondaryHas =
+                  CompletionStage<Boolean> secondaryHas =
                       mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
-                          ? etcdStore.hasAsync(path)
-                          : zkStore.hasAsync(path);
-                  return secondaryHas.exceptionally(ex -> null);
+                          ? etcdStore.hasAsync(path).thenApply(result -> result != null)
+                          : zkStore.hasAsync(path).thenApply(stat -> stat != null);
+                  return secondaryHas.exceptionally(ex -> false);
                 });
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
@@ -303,12 +302,13 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * Updates a node asynchronously.
    *
    * @param metadataNode the node to update
-   * @return a CompletionStage that completes when the operation is done
+   * @return a CompletionStage that completes with the node name when the operation is done
    */
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
+  public CompletionStage<String> updateAsync(T metadataNode) {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
-        return zkStore.updateAsync(metadataNode);
+        // Convert Stat to String (node name) for ZK
+        return zkStore.updateAsync(metadataNode).thenApply(stat -> metadataNode.getName());
       case ETCD_EXCLUSIVE:
         return etcdStore.updateAsync(metadataNode);
       case BOTH_READ_ZOOKEEPER_WRITE:
@@ -316,7 +316,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
         // Try to delete from Etcd first (don't wait)
         etcdStore.deleteAsync(metadataNode);
         // Then update in ZK (this is the operation we wait for)
-        return zkStore.updateAsync(metadataNode);
+        return zkStore.updateAsync(metadataNode).thenApply(stat -> metadataNode.getName());
       case BOTH_READ_ETCD_WRITE:
         // Delete from ZK and create in Etcd
         // Try to delete from ZK first (don't wait)

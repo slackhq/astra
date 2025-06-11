@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -285,9 +284,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * Updates a node asynchronously.
    *
    * @param metadataNode the node to update
-   * @return a CompletionStage that completes when the operation is done
+   * @return a CompletionStage that completes with the node name when the operation is done
    */
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
+  public CompletionStage<String> updateAsync(T metadataNode) {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
         return zkStore.updateAsync(metadataNode);
@@ -567,20 +566,39 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     }
   }
 
-  /** Waits for the cache to be initialized. */
+  /**
+   * Waits for the cache to be initialized.
+   *
+   * <p>Note: The ZookeeperPartitioningMetadataStore initializes cache during construction, while
+   * EtcdPartitioningMetadataStore requires explicit initialization call.
+   */
   public void awaitCacheInitialized() {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
-        // ZK partition store doesn't have this method directly
+        // ZK partition store initializes cache during construction
+        LOG.info(
+            "ZookeeperPartitioningMetadataStore cache already initialized during construction");
         break;
       case ETCD_EXCLUSIVE:
-        // Etcd partition store doesn't have this method directly
+        if (etcdStore != null) {
+          LOG.info("Initializing EtcdPartitioningMetadataStore cache");
+          etcdStore.awaitCacheInitialized();
+        }
         break;
       case BOTH_READ_ZOOKEEPER_WRITE:
-        // We don't wait for Etcd in this mode since ZK is primary
+        // ZK is primary and initializes during construction
+        // We can also pre-populate the secondary store for faster fallback
+        if (etcdStore != null) {
+          LOG.info("Initializing secondary EtcdPartitioningMetadataStore cache");
+          etcdStore.awaitCacheInitialized();
+        }
         break;
       case BOTH_READ_ETCD_WRITE:
-        // We don't wait for ZK in this mode since Etcd is primary
+        // Initialize primary store first
+        if (etcdStore != null) {
+          LOG.info("Initializing primary EtcdPartitioningMetadataStore cache");
+          etcdStore.awaitCacheInitialized();
+        }
         break;
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);

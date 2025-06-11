@@ -23,7 +23,6 @@ import org.apache.zookeeper.AddWatchMode;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -245,7 +244,7 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
     }
   }
 
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
+  public CompletionStage<String> updateAsync(T metadataNode) {
     return getOrCreateMetadataStore(metadataNode.getPartition()).updateAsync(metadataNode);
   }
 
@@ -341,6 +340,62 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
       }
     }
     throw new InternalMetadataStoreException("Error finding node at path " + path);
+  }
+
+  /**
+   * Checks if a path exists asynchronously in a specific partition.
+   *
+   * @param partition the partition to look in
+   * @param path the path to check
+   * @return a CompletionStage that completes with a boolean indicating if the path exists
+   */
+  public CompletionStage<Boolean> hasAsync(String partition, String path) {
+    return getOrCreateMetadataStore(partition).hasAsync(path);
+  }
+
+  /**
+   * Checks if a path exists asynchronously in any partition.
+   *
+   * @param path the path to check
+   * @return a CompletionStage that completes with a boolean indicating if the path exists
+   */
+  public CompletionStage<Boolean> hasAsync(String path) {
+    // Try all partitions - return true as soon as we find it in any partition
+    // This is inefficient for large numbers of partitions, but necessary without knowing the
+    // partition
+    List<CompletionStage<Boolean>> checks = new ArrayList<>();
+    for (Map.Entry<String, ZookeeperMetadataStore<T>> entry : metadataStoreMap.entrySet()) {
+      checks.add(entry.getValue().hasAsync(path));
+    }
+
+    CompletableFuture<Boolean> result = new CompletableFuture<>();
+
+    // Process all futures and complete with true if any are true
+    for (CompletionStage<Boolean> check : checks) {
+      check
+          .thenAccept(
+              exists -> {
+                if (exists && !result.isDone()) {
+                  result.complete(true);
+                }
+              })
+          .exceptionally(
+              ex -> {
+                // Ignore exceptions from individual partitions
+                return null;
+              });
+    }
+
+    // After a suitable timeout, if we haven't found it, complete with false
+    CompletableFuture.delayedExecutor(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
+        .execute(
+            () -> {
+              if (!result.isDone()) {
+                result.complete(false);
+              }
+            });
+
+    return result;
   }
 
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
