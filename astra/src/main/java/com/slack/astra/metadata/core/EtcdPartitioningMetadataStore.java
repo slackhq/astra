@@ -1,6 +1,5 @@
 package com.slack.astra.metadata.core;
 
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.util.List;
@@ -26,44 +25,10 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
   private final MeterRegistry meterRegistry;
 
-  private final String ASTRA_ETCD_PARTITIONING_CREATE_CALL = "astra_etcd_partitioning_create_call";
-  private final String ASTRA_ETCD_PARTITIONING_DELETE_CALL = "astra_etcd_partitioning_delete_call";
-  private final String ASTRA_ETCD_PARTITIONING_LIST_CALL = "astra_etcd_partitioning_list_call";
-  private final String ASTRA_ETCD_PARTITIONING_GET_CALL = "astra_etcd_partitioning_get_call";
-  private final String ASTRA_ETCD_PARTITIONING_UPDATE_CALL = "astra_etcd_partitioning_update_call";
-  private final String ASTRA_ETCD_PARTITIONING_ADDED_LISTENER =
-      "astra_etcd_partitioning_added_listener";
-  private final String ASTRA_ETCD_PARTITIONING_REMOVED_LISTENER =
-      "astra_etcd_partitioning_removed_listener";
-  private final String ASTRA_ETCD_PARTITIONING_CACHE_INIT_HANDLER_FIRED =
-      "astra_etcd_partitioning_cache_init_handler_fired";
-
-  private final Counter createCall;
-  private final Counter deleteCall;
-  private final Counter listCall;
-  private final Counter getCall;
-  private final Counter updateCall;
-  private final Counter addedListener;
-  private final Counter removedListener;
-
   public EtcdPartitioningMetadataStore(
       boolean shouldCache, MeterRegistry meterRegistry, String storeFolder) {
     this.storeFolder = storeFolder;
     this.meterRegistry = meterRegistry;
-    String store = "etcd_partitioning";
-
-    this.createCall =
-        this.meterRegistry.counter(ASTRA_ETCD_PARTITIONING_CREATE_CALL, "store", store);
-    this.deleteCall =
-        this.meterRegistry.counter(ASTRA_ETCD_PARTITIONING_DELETE_CALL, "store", store);
-    this.listCall = this.meterRegistry.counter(ASTRA_ETCD_PARTITIONING_LIST_CALL, "store", store);
-    this.getCall = this.meterRegistry.counter(ASTRA_ETCD_PARTITIONING_GET_CALL, "store", store);
-    this.updateCall =
-        this.meterRegistry.counter(ASTRA_ETCD_PARTITIONING_UPDATE_CALL, "store", store);
-    this.addedListener =
-        this.meterRegistry.counter(ASTRA_ETCD_PARTITIONING_ADDED_LISTENER, "store", store);
-    this.removedListener =
-        this.meterRegistry.counter(ASTRA_ETCD_PARTITIONING_REMOVED_LISTENER, "store", store);
   }
 
   /**
@@ -83,7 +48,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @param metadataNode the node to create
    */
   public void createSync(T metadataNode) {
-    this.createCall.increment();
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }
@@ -108,7 +72,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @return the node
    */
   public T getSync(String partition, String path) {
-    this.getCall.increment();
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }
@@ -131,7 +94,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @return the node
    */
   public T findSync(String path) {
-    this.getCall.increment();
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }
@@ -153,7 +115,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @param metadataNode the node to update
    */
   public void updateSync(T metadataNode) {
-    this.updateCall.increment();
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }
@@ -175,7 +136,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @param metadataNode the node to delete
    */
   public void deleteSync(T metadataNode) {
-    this.deleteCall.increment();
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }
@@ -196,7 +156,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @return the list of nodes
    */
   public List<T> listSync() {
-    this.listCall.increment();
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }
@@ -207,7 +166,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @param watcher the listener to add
    */
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
-    this.addedListener.increment();
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }
@@ -218,7 +176,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @param watcher the listener to remove
    */
   public void removeListener(AstraMetadataStoreChangeListener<T> watcher) {
-    this.removedListener.increment();
     // To be implemented
     throw new UnsupportedOperationException("Not yet implemented");
   }

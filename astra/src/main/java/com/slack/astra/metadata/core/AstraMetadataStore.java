@@ -246,7 +246,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
                       mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
                           ? etcdStore.hasAsync(path)
                           : zkStore.hasAsync(path);
-                  return secondaryHas.exceptionally(ex -> null);
+                  return secondaryHas;
                 });
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
@@ -308,24 +308,83 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   public CompletionStage<Stat> updateAsync(T metadataNode) {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
-        return zkStore.updateAsync(metadataNode);
+        return checkAndUpdateAsync(zkStore, metadataNode);
       case ETCD_EXCLUSIVE:
-        return etcdStore.updateAsync(metadataNode);
+        return checkAndUpdateAsync(etcdStore, metadataNode);
       case BOTH_READ_ZOOKEEPER_WRITE:
         // Delete from Etcd and create in ZK
         // Try to delete from Etcd first (don't wait)
         etcdStore.deleteAsync(metadataNode);
-        // Then update in ZK (this is the operation we wait for)
-        return zkStore.updateAsync(metadataNode);
+        // Then check-and-update in ZK (this is the operation we wait for)
+        return checkAndUpdateAsync(zkStore, metadataNode);
       case BOTH_READ_ETCD_WRITE:
         // Delete from ZK and create in Etcd
         // Try to delete from ZK first (don't wait)
         zkStore.deleteAsync(metadataNode);
-        // Then update in Etcd (this is the operation we wait for)
-        return etcdStore.updateAsync(metadataNode);
+        // Then check-and-update in Etcd (this is the operation we wait for)
+        return checkAndUpdateAsync(etcdStore, metadataNode);
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
     }
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it in ZooKeeper.
+   *
+   * @param store the ZK store to use
+   * @param metadataNode the node to update or create
+   * @return a CompletionStage that completes with the Stat when the operation is done
+   */
+  private CompletionStage<Stat> checkAndUpdateAsync(
+      ZookeeperMetadataStore<T> store, T metadataNode) {
+    return store
+        .hasAsync(metadataNode.name)
+        .thenCompose(
+            stat -> {
+              if (stat != null) {
+                // Node exists, update it
+                return store.updateAsync(metadataNode);
+              } else {
+                // Node doesn't exist, create it
+                return store
+                    .createAsync(metadataNode)
+                    .thenApply(
+                        path -> {
+                          // Return a dummy Stat since create doesn't return one
+                          // but update interface requires one
+                          return new Stat();
+                        });
+              }
+            });
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it in Etcd.
+   *
+   * @param store the Etcd store to use
+   * @param metadataNode the node to update or create
+   * @return a CompletionStage that completes with the Stat when the operation is done
+   */
+  private CompletionStage<Stat> checkAndUpdateAsync(EtcdMetadataStore<T> store, T metadataNode) {
+    return store
+        .hasAsync(metadataNode.name)
+        .thenCompose(
+            stat -> {
+              if (stat != null) {
+                // Node exists, update it
+                return store.updateAsync(metadataNode);
+              } else {
+                // Node doesn't exist, create it
+                return store
+                    .createAsync(metadataNode)
+                    .thenApply(
+                        path -> {
+                          // Return a dummy Stat since create doesn't return one
+                          // but update interface requires one
+                          return new Stat();
+                        });
+              }
+            });
   }
 
   /**
@@ -336,10 +395,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   public void updateSync(T metadataNode) {
     switch (mode) {
       case ZOOKEEPER_EXCLUSIVE:
-        zkStore.updateSync(metadataNode);
+        checkAndUpdateSync(zkStore, metadataNode);
         break;
       case ETCD_EXCLUSIVE:
-        etcdStore.updateSync(metadataNode);
+        checkAndUpdateSync(etcdStore, metadataNode);
         break;
       case BOTH_READ_ZOOKEEPER_WRITE:
         // Delete from Etcd and create in ZK
@@ -348,8 +407,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
           etcdStore.deleteSync(metadataNode);
         } catch (Exception ignored) {
         }
-        // Then update in ZK
-        zkStore.updateSync(metadataNode);
+        // Then check-and-update in ZK
+        checkAndUpdateSync(zkStore, metadataNode);
         break;
       case BOTH_READ_ETCD_WRITE:
         // Delete from ZK and create in Etcd
@@ -358,11 +417,45 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
           zkStore.deleteSync(metadataNode);
         } catch (Exception ignored) {
         }
-        // Then update in Etcd
-        etcdStore.updateSync(metadataNode);
+        // Then check-and-update in Etcd
+        checkAndUpdateSync(etcdStore, metadataNode);
         break;
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it synchronously in ZooKeeper.
+   *
+   * @param store the ZK store to use
+   * @param metadataNode the node to update or create
+   */
+  private void checkAndUpdateSync(ZookeeperMetadataStore<T> store, T metadataNode) {
+    boolean exists = store.hasSync(metadataNode.name);
+    if (exists) {
+      // Node exists, update it
+      store.updateSync(metadataNode);
+    } else {
+      // Node doesn't exist, create it
+      store.createSync(metadataNode);
+    }
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it synchronously in Etcd.
+   *
+   * @param store the Etcd store to use
+   * @param metadataNode the node to update or create
+   */
+  private void checkAndUpdateSync(EtcdMetadataStore<T> store, T metadataNode) {
+    boolean exists = store.hasSync(metadataNode.name);
+    if (exists) {
+      // Node exists, update it
+      store.updateSync(metadataNode);
+    } else {
+      // Node doesn't exist, create it
+      store.createSync(metadataNode);
     }
   }
 
