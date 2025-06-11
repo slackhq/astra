@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
  * This schema class enforces schema for a chunk. The schema is only written in indexer and on the
  * cache node the schema is read only.
@@ -24,7 +26,7 @@ public class ChunkSchema extends AstraMetadata {
   }
 
   public static ChunkSchema deserializeBytes(byte[] bytes) throws IOException {
-    return serDe.fromJsonStr(new String(bytes));
+    return serDe.fromJsonStr(new String(bytes, UTF_8));
   }
 
   public static ChunkSchema deserializeFile(Path path) throws IOException {
@@ -57,7 +59,7 @@ public class ChunkSchema extends AstraMetadata {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof ChunkSchema)) return false;
     if (!super.equals(o)) return false;
     ChunkSchema that = (ChunkSchema) o;
     return Objects.equal(fieldDefMap, that.fieldDefMap) && Objects.equal(metadata, that.metadata);

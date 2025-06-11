@@ -227,7 +227,7 @@ public class ChunkInfo {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof ChunkInfo)) return false;
     ChunkInfo chunkInfo = (ChunkInfo) o;
     return chunkCreationTimeEpochMs == chunkInfo.chunkCreationTimeEpochMs
         && maxOffset == chunkInfo.maxOffset

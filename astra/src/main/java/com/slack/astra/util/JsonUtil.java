@@ -11,6 +11,8 @@ import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class JsonUtil {
   private static JsonUtil ourInstance = new JsonUtil();
   private final ObjectMapper mapper;
@@ -20,7 +22,7 @@ public class JsonUtil {
   }
 
   public static <T> ByteBuffer toByteBuffer(T obj) throws JsonProcessingException {
-    return ByteBuffer.wrap(writeAsString(obj).getBytes());
+    return ByteBuffer.wrap(writeAsString(obj).getBytes(UTF_8));
   }
 
   public static <T> String writeAsString(T obj) throws JsonProcessingException {

@@ -42,7 +42,7 @@ public class RecoveryNodeMetadata extends AstraMetadata {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof RecoveryNodeMetadata)) return false;
     if (!super.equals(o)) return false;
     RecoveryNodeMetadata that = (RecoveryNodeMetadata) o;
     return updatedTimeEpochMs == that.updatedTimeEpochMs

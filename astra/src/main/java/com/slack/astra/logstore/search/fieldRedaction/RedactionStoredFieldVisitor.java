@@ -11,6 +11,8 @@ import java.util.Map;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
  * RedactionStoreFieldVisitor reads the individual fields of the logs that come back from a search
  * and redacts the values if necessary using the values in FieldRedactionMetadataStore.
@@ -70,7 +72,7 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
   @Override
   public void stringField(FieldInfo fieldInfo, String value) throws IOException {
     if (fieldInfo.name.equals("_source")) {
-      Map<String, Object> source = redactField(value.getBytes());
+      Map<String, Object> source = redactField(value.getBytes(UTF_8));
       delegate.stringField(fieldInfo, om.writeValueAsString(source));
     } else {
       delegate.stringField(fieldInfo, value);

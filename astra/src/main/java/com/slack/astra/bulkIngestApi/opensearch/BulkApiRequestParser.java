@@ -96,7 +96,7 @@ public class BulkApiRequestParser {
     }
 
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
-    spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
+    spanBuilder.setId(ByteString.copyFromUtf8(id));
     // Trace.Span proto expects duration in microseconds today
     spanBuilder.setTimestamp(timestampInMicros);
 
@@ -205,7 +205,7 @@ public class BulkApiRequestParser {
     List<DocWriteRequest<?>> requests = bulkRequest.requests();
     for (DocWriteRequest<?> request : requests) {
       if (request.opType() == DocWriteRequest.OpType.INDEX
-          | request.opType() == DocWriteRequest.OpType.CREATE) {
+          || request.opType() == DocWriteRequest.OpType.CREATE) {
 
         // The client makes a DocWriteRequest and sends it to the server
         // IngestService#innerExecute is where the server eventually reads when request is an

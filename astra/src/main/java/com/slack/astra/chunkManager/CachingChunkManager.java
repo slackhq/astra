@@ -245,7 +245,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                     assignment,
                     snapshotsBySnapshotId.get(assignment.snapshotId),
                     cacheNodeMetadataStore);
-            executorService.submit(newChunk::downloadChunkData);
+            var unused = executorService.submit(newChunk::downloadChunkData);
             chunkMap.put(assignment.assignmentId, newChunk);
           }
         }

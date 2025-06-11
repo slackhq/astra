@@ -1,7 +1,5 @@
 package com.slack.astra.blobfs;
 
-import static software.amazon.awssdk.services.s3.model.ListObjectsV2Request.builder;
-
 import com.slack.astra.chunk.ReadWriteChunk;
 import java.nio.file.Path;
 import java.util.List;
@@ -162,7 +160,8 @@ public class BlobStore {
   public List<String> listFiles(String prefix) {
     assert prefix != null && !prefix.isEmpty();
 
-    ListObjectsV2Request listRequest = builder().bucket(bucketName).prefix(prefix).build();
+    ListObjectsV2Request listRequest =
+        ListObjectsV2Request.builder().bucket(bucketName).prefix(prefix).build();
     ListObjectsV2Publisher asyncPaginatedListResponse =
         s3AsyncClient.listObjectsV2Paginator(listRequest);
 
@@ -189,7 +188,8 @@ public class BlobStore {
   public boolean delete(String prefix) {
     assert prefix != null && !prefix.isEmpty();
 
-    ListObjectsV2Request listRequest = builder().bucket(bucketName).prefix(prefix).build();
+    ListObjectsV2Request listRequest =
+        ListObjectsV2Request.builder().bucket(bucketName).prefix(prefix).build();
     ListObjectsV2Publisher asyncPaginatedListResponse =
         s3AsyncClient.listObjectsV2Paginator(listRequest);
 

@@ -80,7 +80,7 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
     this.rolloverStartTime = Instant.now();
     this.liveBytesDirGauge = this.registry.gauge(LIVE_BYTES_DIR, new AtomicLong(0));
 
-    directorySizeExecutorService.scheduleAtFixedRate(
+    var unused = directorySizeExecutorService.scheduleAtFixedRate(
         () -> {
           try {
             long dirSize = calculateDirectorySize(activeChunkDirectory);

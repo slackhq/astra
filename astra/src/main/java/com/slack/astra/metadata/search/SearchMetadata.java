@@ -51,7 +51,7 @@ public class SearchMetadata extends AstraMetadata {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof SearchMetadata)) return false;
     if (!super.equals(o)) return false;
 
     SearchMetadata that = (SearchMetadata) o;
