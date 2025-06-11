@@ -40,7 +40,8 @@ import com.slack.astra.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.astra.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.schema.SchemaUtil;
-import com.slack.astra.metadata.search.SearchMetadataStore;
+import com.slack.astra.metadata.search.SearchMetadataStoreManager;
+import com.slack.astra.metadata.search.SearchMetadataStoreType;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
@@ -213,12 +214,13 @@ public class Astra {
     }
 
     if (roles.contains(AstraConfigs.NodeRole.QUERY)) {
-      SearchMetadataStore searchMetadataStore =
-          new SearchMetadataStore(
+      SearchMetadataStoreManager searchMetadataStoreManager =
+          new SearchMetadataStoreManager(
               curatorFramework,
               astraConfig.getMetadataStoreConfig().getZookeeperConfig(),
               meterRegistry,
-              true);
+              true,
+              SearchMetadataStoreType.PARTITIONED);
       SnapshotMetadataStore snapshotMetadataStore =
           new SnapshotMetadataStore(
               curatorFramework,
@@ -234,13 +236,13 @@ public class Astra {
       services.add(
           new CloseableLifecycleManager(
               AstraConfigs.NodeRole.QUERY,
-              List.of(searchMetadataStore, snapshotMetadataStore, datasetMetadataStore)));
+              List.of(searchMetadataStoreManager, snapshotMetadataStore, datasetMetadataStore)));
 
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getQueryConfig().getServerConfig().getRequestTimeoutMs());
       AstraDistributedQueryService astraDistributedQueryService =
           new AstraDistributedQueryService(
-              searchMetadataStore,
+              searchMetadataStoreManager,
               snapshotMetadataStore,
               datasetMetadataStore,
               meterRegistry,
@@ -477,19 +479,20 @@ public class Astra {
               fieldRedactionMetadataStore, astraConfig.getRedactionUpdateServiceConfig());
       services.add(redactionUpdateService);
 
-      SearchMetadataStore searchMetadataStore =
-          new SearchMetadataStore(
+      SearchMetadataStoreManager searchMetadataStoreManager =
+          new SearchMetadataStoreManager(
               curatorFramework,
               astraConfig.getMetadataStoreConfig().getZookeeperConfig(),
               meterRegistry,
-              true);
+              true,
+              SearchMetadataStoreType.PARTITIONED);
       CacheNodeSearchabilityService cacheNodeSearchabilityService =
           new CacheNodeSearchabilityService(
               meterRegistry,
               cacheNodeMetadataStore,
               managerConfig,
               cacheNodeAssignmentStore,
-              searchMetadataStore,
+              searchMetadataStoreManager,
               snapshotMetadataStore);
       services.add(cacheNodeSearchabilityService);
     }

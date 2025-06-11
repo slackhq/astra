@@ -6,7 +6,7 @@ import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheNodeMetadata;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadata;
-import com.slack.astra.metadata.search.SearchMetadataStore;
+import com.slack.astra.metadata.search.SearchMetadataStoreManager;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
@@ -26,7 +26,7 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
 
   private final CacheNodeMetadataStore cacheNodeMetadataStore;
   private final CacheNodeAssignmentStore cacheNodeAssignmentStore;
-  private final SearchMetadataStore searchMetadataStore;
+  private final SearchMetadataStoreManager searchMetadataStoreManager;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final AstraConfigs.ManagerConfig managerConfig;
   private final Counter numberOfUnsearchableNodes;
@@ -36,12 +36,12 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
       CacheNodeMetadataStore cacheNodeMetadataStore,
       AstraConfigs.ManagerConfig managerConfig,
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
-      SearchMetadataStore searchMetadataStore,
+      SearchMetadataStoreManager searchMetadataStoreManager,
       SnapshotMetadataStore snapshotMetadataStore) {
     this.cacheNodeMetadataStore = cacheNodeMetadataStore;
     this.managerConfig = managerConfig;
     this.cacheNodeAssignmentStore = cacheNodeAssignmentStore;
-    this.searchMetadataStore = searchMetadataStore;
+    this.searchMetadataStoreManager = searchMetadataStoreManager;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.numberOfUnsearchableNodes = meterRegistry.counter(UNSEARCHABLE_NODES);
   }
@@ -55,8 +55,8 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
     if (cacheNodeAssignmentStore != null) {
       cacheNodeAssignmentStore.close();
     }
-    if (searchMetadataStore != null) {
-      searchMetadataStore.close();
+    if (searchMetadataStoreManager != null) {
+      searchMetadataStoreManager.close();
     }
     if (snapshotMetadataStore != null) {
       snapshotMetadataStore.close();
@@ -99,13 +99,13 @@ public class CacheNodeSearchabilityService extends AbstractScheduledService {
         cacheNodeMetadataStore.updateSync(cacheNodeMetadata);
 
         List<SearchMetadata> cacheNodesSearchMetadata =
-            searchMetadataStore.listSync().stream()
+            searchMetadataStoreManager.listSync().stream()
                 .filter(searchMetadata -> searchMetadata.url.contains(cacheNodeMetadata.hostname))
                 .toList();
 
         for (SearchMetadata searchMetadata : cacheNodesSearchMetadata) {
           if (!searchMetadata.isSearchable()) {
-            searchMetadataStore.updateSearchability(searchMetadata, true);
+            searchMetadataStoreManager.updateSearchability(searchMetadata.name, true);
           }
         }
       } else {

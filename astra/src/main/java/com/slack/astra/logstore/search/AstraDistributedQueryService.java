@@ -13,7 +13,7 @@ import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.astra.metadata.search.SearchMetadata;
-import com.slack.astra.metadata.search.SearchMetadataStore;
+import com.slack.astra.metadata.search.SearchMetadataStoreManager;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.service.AstraSearch;
@@ -60,7 +60,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
   public static final String ASTRA_ENABLE_QUERY_GATING_FLAG = "astra.enableQueryGating";
 
-  private final SearchMetadataStore searchMetadataStore;
+  private final SearchMetadataStoreManager searchMetadataStoreManager;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final DatasetMetadataStore datasetMetadataStore;
 
@@ -126,13 +126,13 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   // Whichever store we fetch the information in the future, we should also store the
   // protocol that the node can be contacted by there since we hardcode it today
   public AstraDistributedQueryService(
-      SearchMetadataStore searchMetadataStore,
+      SearchMetadataStoreManager searchMetadataStoreManager,
       SnapshotMetadataStore snapshotMetadataStore,
       DatasetMetadataStore datasetMetadataStore,
       MeterRegistry meterRegistry,
       Duration requestTimeout,
       Duration defaultQueryTimeout) {
-    this.searchMetadataStore = searchMetadataStore;
+    this.searchMetadataStoreManager = searchMetadataStoreManager;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.datasetMetadataStore = datasetMetadataStore;
     this.defaultQueryTimeout = defaultQueryTimeout;
@@ -151,7 +151,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     this.meterRegistry = meterRegistry;
 
     // start listening for new events
-    this.searchMetadataStore.addListener(searchMetadataListener);
+    this.searchMetadataStoreManager.addListener(searchMetadataListener);
 
     // trigger an update, if it hasn't already happened
     triggerStubUpdate();
@@ -173,7 +173,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     try {
       searchMetadataTotalChangeCounter.increment();
       Set<String> latestSearchServers = new HashSet<>();
-      searchMetadataStore
+      searchMetadataStoreManager
           .listSync()
           .forEach(
               searchMetadata -> {
@@ -255,7 +255,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
   @VisibleForTesting
   protected static Map<String, List<SearchMetadata>> getMatchingSearchMetadata(
-      SearchMetadataStore searchMetadataStore, Map<String, SnapshotMetadata> snapshotsToSearch) {
+      SearchMetadataStoreManager searchMetadataStoreManager,
+      Map<String, SnapshotMetadata> snapshotsToSearch) {
     // iterate every search metadata whose snapshot needs to be searched.
     // if there are multiple search metadata nodes then pick the most on based on
     // pickSearchNodeToQuery
@@ -264,7 +265,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
             .startScopedSpan("AstraDistributedQueryService.getMatchingSearchMetadata");
 
     Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
-    for (SearchMetadata searchMetadata : searchMetadataStore.listSync()) {
+    for (SearchMetadata searchMetadata : searchMetadataStoreManager.listSync()) {
       if (!snapshotsToSearch.containsKey(searchMetadata.snapshotName)) {
         continue;
       }
@@ -454,7 +455,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
     // for each matching snapshot, we find the search metadata nodes that we can potentially query
     Map<String, List<SearchMetadata>> searchMetadataNodesMatchingQuery =
-        getMatchingSearchMetadata(searchMetadataStore, snapshotsMatchingQuery);
+        getMatchingSearchMetadata(searchMetadataStoreManager, snapshotsMatchingQuery);
 
     // from the list of search metadata nodes per snapshot, pick one. Additionally map it to the
     // underlying URL to query
@@ -596,7 +597,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
     // for each matching snapshot, we find the search metadata nodes that we can potentially query
     Map<String, List<SearchMetadata>> searchMetadataNodesMatchingQuery =
-        getMatchingSearchMetadata(searchMetadataStore, snapshotsMatchingQuery);
+        getMatchingSearchMetadata(searchMetadataStoreManager, snapshotsMatchingQuery);
 
     // from the list of search metadata nodes per snapshot, pick one. Additionally map it to the
     // underlying URL to query
@@ -673,6 +674,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
   @Override
   public void close() {
-    this.searchMetadataStore.removeListener(searchMetadataListener);
+    this.searchMetadataStoreManager.removeListener(searchMetadataListener);
   }
 }
