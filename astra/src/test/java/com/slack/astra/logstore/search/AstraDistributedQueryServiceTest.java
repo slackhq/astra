@@ -25,7 +25,9 @@ import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.astra.metadata.search.SearchMetadata;
-import com.slack.astra.metadata.search.SearchMetadataStore;
+import com.slack.astra.metadata.search.SearchMetadataStoreManager;
+import com.slack.astra.metadata.search.SearchMetadataStoreType;
+import com.slack.astra.metadata.search.SearchMetadataTestUtils;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
@@ -55,7 +57,7 @@ public class AstraDistributedQueryServiceTest {
   private SimpleMeterRegistry metricsRegistry;
 
   private AsyncCuratorFramework curatorFramework;
-  private SearchMetadataStore searchMetadataStore;
+  private SearchMetadataStoreManager searchMetadataStoreManager;
   private SnapshotMetadataStore snapshotMetadataStore;
   private DatasetMetadataStore datasetMetadataStore;
 
@@ -89,8 +91,10 @@ public class AstraDistributedQueryServiceTest {
 
     snapshotMetadataStore =
         spy(new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry));
-    searchMetadataStore =
-        spy(new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, true));
+    searchMetadataStoreManager =
+        spy(
+            new SearchMetadataStoreManager(
+                curatorFramework, zkConfig, metricsRegistry, true, SearchMetadataStoreType.LEGACY));
     datasetMetadataStore =
         new DatasetMetadataStore(curatorFramework, zkConfig, metricsRegistry, true);
 
@@ -105,7 +109,7 @@ public class AstraDistributedQueryServiceTest {
   @AfterEach
   public void tearDown() throws Exception {
     snapshotMetadataStore.close();
-    searchMetadataStore.close();
+    searchMetadataStoreManager.close();
     datasetMetadataStore.close();
     curatorFramework.unwrap().close();
     metricsRegistry.close();
@@ -113,7 +117,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   private SearchMetadata registerTestSearchMetadata(
-      SearchMetadataStore searchMetadataStore,
+      SearchMetadataStoreManager searchMetadataStoreManager,
       SearchContext cacheSearchContext,
       String snapshotName) {
     SearchMetadata metadata =
@@ -123,12 +127,12 @@ public class AstraDistributedQueryServiceTest {
             snapshotName,
             cacheSearchContext.toUrl(),
             true);
-    searchMetadataStore.createSync(metadata);
+    searchMetadataStoreManager.createSync(metadata);
     return metadata;
   }
 
   private SearchMetadata registerUnsearchableTestSearchMetadata(
-      SearchMetadataStore searchMetadataStore,
+      SearchMetadataStoreManager searchMetadataStoreManager,
       SearchContext cacheSearchContext,
       String snapshotName) {
     SearchMetadata metadata =
@@ -138,7 +142,7 @@ public class AstraDistributedQueryServiceTest {
             snapshotName,
             cacheSearchContext.toUrl(),
             false);
-    searchMetadataStore.createSync(metadata);
+    searchMetadataStoreManager.createSync(metadata);
     return metadata;
   }
 
@@ -163,7 +167,7 @@ public class AstraDistributedQueryServiceTest {
 
       assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size())
           .isEqualTo(2);
-      assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(1);
+      assertThat(searchMetadataStoreManager.listSync().size()).isEqualTo(1);
 
       AtomicReference<Map<String, List<String>>> searchNodes = new AtomicReference<>();
       await()
@@ -172,7 +176,7 @@ public class AstraDistributedQueryServiceTest {
                 searchNodes.set(
                     getSearchNodesToQuery(
                         snapshotMetadataStore,
-                        searchMetadataStore,
+                        searchMetadataStoreManager,
                         datasetMetadataStore,
                         chunk1CreationTime.toEpochMilli(),
                         chunk1EndTime.toEpochMilli(),
@@ -190,13 +194,13 @@ public class AstraDistributedQueryServiceTest {
 
       // create cache node entry for search metadata also serving the snapshot
       registerUnsearchableTestSearchMetadata(
-          searchMetadataStore, cache1SearchContext, snapshot1Name);
-      await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
+          searchMetadataStoreManager, cache1SearchContext, snapshot1Name);
+      await().until(() -> searchMetadataStoreManager.listSync().size() == 2);
 
       searchNodes.set(
           getSearchNodesToQuery(
               snapshotMetadataStore,
-              searchMetadataStore,
+              searchMetadataStoreManager,
               datasetMetadataStore,
               chunk1CreationTime.toEpochMilli(),
               chunk1EndTime.toEpochMilli(),
@@ -224,13 +228,13 @@ public class AstraDistributedQueryServiceTest {
     String chunk1Name =
         createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 2);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 1);
 
     // we don't have any dataset metadata entry, so we shouldn't be able to find any snapshot
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -247,7 +251,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -263,7 +267,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1EndTime.toEpochMilli() + 1,
             chunk1EndTime.toEpochMilli() + 100,
@@ -276,10 +280,15 @@ public class AstraDistributedQueryServiceTest {
     String chunk2Name =
         createIndexerZKMetadata(chunk2CreationTime, chunk2EndTime, "1", indexer1SearchContext);
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 4);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 2);
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 0, 300, indexName);
+            snapshotMetadataStore,
+            searchMetadataStoreManager,
+            datasetMetadataStore,
+            0,
+            300,
+            indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
 
     assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
@@ -287,7 +296,12 @@ public class AstraDistributedQueryServiceTest {
     // if we request a time window that matches both chunks the searchable chunks will be 2
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 0, 250, indexName);
+            snapshotMetadataStore,
+            searchMetadataStoreManager,
+            datasetMetadataStore,
+            0,
+            250,
+            indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
 
     assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
@@ -302,7 +316,12 @@ public class AstraDistributedQueryServiceTest {
     // request a time window that matches only 1 chunk
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 250, 300, indexName);
+            snapshotMetadataStore,
+            searchMetadataStoreManager,
+            datasetMetadataStore,
+            250,
+            300,
+            indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
 
     assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
@@ -323,7 +342,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -350,7 +369,8 @@ public class AstraDistributedQueryServiceTest {
         createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(2);
-    assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(1);
+    assertThat(SearchMetadataTestUtils.getUncachedSearchMetadataSize(searchMetadataStoreManager))
+        .isEqualTo(1);
 
     AtomicReference<Map<String, List<String>>> searchNodes = new AtomicReference<>();
     await()
@@ -359,7 +379,7 @@ public class AstraDistributedQueryServiceTest {
               searchNodes.set(
                   getSearchNodesToQuery(
                       snapshotMetadataStore,
-                      searchMetadataStore,
+                      searchMetadataStoreManager,
                       datasetMetadataStore,
                       chunk1CreationTime.toEpochMilli(),
                       chunk1EndTime.toEpochMilli(),
@@ -377,13 +397,13 @@ public class AstraDistributedQueryServiceTest {
 
     // create cache node entry for search metadata also serving the snapshot
     SearchMetadata cacheNodeSearchMetada =
-        registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot1Name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
+        registerTestSearchMetadata(searchMetadataStoreManager, cache1SearchContext, snapshot1Name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 2);
 
     searchNodes.set(
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -397,13 +417,13 @@ public class AstraDistributedQueryServiceTest {
     assertThat(chunkIter.next()).isEqualTo(cacheNodeSearchMetada.snapshotName);
 
     // create cache node entry for search metadata also serving the snapshot
-    registerTestSearchMetadata(searchMetadataStore, cache2SearchContext, snapshot1Name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
+    registerTestSearchMetadata(searchMetadataStoreManager, cache2SearchContext, snapshot1Name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 3);
 
     searchNodes.set(
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -430,8 +450,9 @@ public class AstraDistributedQueryServiceTest {
                 AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 3); // snapshot1(live + non_live) + snapshot2
 
-    registerTestSearchMetadata(searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
+    registerTestSearchMetadata(
+        searchMetadataStoreManager, cache2SearchContext, snapshot2Metadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 4);
 
     Instant snapshot3CreationTime = Instant.ofEpochMilli(151);
     Instant snapshot3EndTime = Instant.ofEpochMilli(250);
@@ -443,13 +464,14 @@ public class AstraDistributedQueryServiceTest {
                 AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 4); // snapshot1(live + non_live) + snapshot2 + snapshot3
 
-    registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 5);
+    registerTestSearchMetadata(
+        searchMetadataStoreManager, cache1SearchContext, snapshot3Metadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 5);
 
     searchNodes.set(
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -468,7 +490,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes.set(
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             snapshot2CreationTime.toEpochMilli(),
             snapshot2EndTime.toEpochMilli(),
@@ -509,15 +531,16 @@ public class AstraDistributedQueryServiceTest {
         createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(2);
-    assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(1);
+    assertThat(SearchMetadataTestUtils.getUncachedSearchMetadataSize(searchMetadataStoreManager))
+        .isEqualTo(1);
 
     await().until(() -> snapshotMetadataStore.listSync().size(), (size) -> size == 2);
-    await().until(() -> searchMetadataStore.listSync().size(), (size) -> size == 1);
+    await().until(() -> searchMetadataStoreManager.listSync().size(), (size) -> size == 1);
 
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -536,12 +559,13 @@ public class AstraDistributedQueryServiceTest {
         createIndexerZKMetadata(chunk2CreationTime, chunk2EndTime, "1", indexer1SearchContext);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(4);
-    assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(2);
+    assertThat(SearchMetadataTestUtils.getUncachedSearchMetadataSize(searchMetadataStoreManager))
+        .isEqualTo(2);
 
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -557,7 +581,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk2CreationTime.toEpochMilli(),
             chunk2EndTime.toEpochMilli(),
@@ -573,7 +597,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk2EndTime.toEpochMilli() + 1,
             chunk2EndTime.toEpochMilli() + 100,
@@ -582,13 +606,13 @@ public class AstraDistributedQueryServiceTest {
 
     // create cache node entry for search metadata also serving the snapshot
     SearchMetadata cacheNodeSearchMetada =
-        registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot1Name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
+        registerTestSearchMetadata(searchMetadataStoreManager, cache1SearchContext, snapshot1Name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 3);
 
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -612,7 +636,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunk1CreationTime.toEpochMilli(),
             chunk1EndTime.toEpochMilli(),
@@ -634,8 +658,9 @@ public class AstraDistributedQueryServiceTest {
 
     // create first search metadata hosted by cache1
     SearchMetadata cache1NodeSearchMetada =
-        registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
+        registerTestSearchMetadata(
+            searchMetadataStoreManager, cache1SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 1);
 
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 500, List.of("1"));
     DatasetMetadata datasetMetadata =
@@ -647,7 +672,7 @@ public class AstraDistributedQueryServiceTest {
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             1,
             chunkCreationTime.toEpochMilli(),
@@ -661,14 +686,15 @@ public class AstraDistributedQueryServiceTest {
 
     // create second search metadata hosted by cache2
     SearchMetadata cache2NodeSearchMetada =
-        registerTestSearchMetadata(searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
+        registerTestSearchMetadata(
+            searchMetadataStoreManager, cache2SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 2);
 
     // assert search will always find cache1 or cache2
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             0,
             chunkCreationTime.toEpochMilli(),
@@ -699,8 +725,9 @@ public class AstraDistributedQueryServiceTest {
                 AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 2); // snapshot1 + snapshot2
 
-    registerTestSearchMetadata(searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
+    registerTestSearchMetadata(
+        searchMetadataStoreManager, cache2SearchContext, snapshot2Metadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 3);
 
     // now add snapshot3 to cache1
     Instant snapshot3CreationTime = Instant.ofEpochMilli(151);
@@ -713,14 +740,15 @@ public class AstraDistributedQueryServiceTest {
                 AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 3); // snapshot1 + snapshot2 + snapshot3
 
-    registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
+    registerTestSearchMetadata(
+        searchMetadataStoreManager, cache1SearchContext, snapshot3Metadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 4);
 
     // assert search will always find cache1 AND cache2
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
@@ -737,7 +765,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             snapshot2CreationTime.toEpochMilli(),
             snapshot2EndTime.toEpochMilli(),
@@ -770,14 +798,16 @@ public class AstraDistributedQueryServiceTest {
     SnapshotMetadata snapshotMetadata =
         createSnapshot(Instant.ofEpochMilli(100), Instant.ofEpochMilli(200), false, "1");
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 1);
-    registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
+    registerTestSearchMetadata(
+        searchMetadataStoreManager, cache1SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 1);
 
     snapshotMetadata =
         createSnapshot(Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), false, "2");
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 2);
-    registerTestSearchMetadata(searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
+    registerTestSearchMetadata(
+        searchMetadataStoreManager, cache2SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 2);
 
     final String name = "testDataset";
     final String owner = "DatasetOwner";
@@ -797,14 +827,16 @@ public class AstraDistributedQueryServiceTest {
     snapshotMetadata =
         createSnapshot(Instant.ofEpochMilli(100), Instant.ofEpochMilli(200), false, "2");
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 3);
-    registerTestSearchMetadata(searchMetadataStore, cache3SearchContext, snapshotMetadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
+    registerTestSearchMetadata(
+        searchMetadataStoreManager, cache3SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 3);
 
     snapshotMetadata =
         createSnapshot(Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), false, "1");
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 4);
-    registerTestSearchMetadata(searchMetadataStore, cache4SearchContext, snapshotMetadata.name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
+    registerTestSearchMetadata(
+        searchMetadataStoreManager, cache4SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 4);
 
     final String name1 = "testDataset1";
     final String owner1 = "DatasetOwner1";
@@ -823,13 +855,23 @@ public class AstraDistributedQueryServiceTest {
     // find search nodes that will be queries for the first dataset
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 100, 199, name);
+            snapshotMetadataStore,
+            searchMetadataStoreManager,
+            datasetMetadataStore,
+            100,
+            199,
+            name);
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.keySet().iterator().next()).isEqualTo(cache1SearchContext.toString());
 
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 100, 299, name);
+            snapshotMetadataStore,
+            searchMetadataStoreManager,
+            datasetMetadataStore,
+            100,
+            299,
+            name);
     assertThat(searchNodes.size()).isEqualTo(2);
     Iterator<String> iter = searchNodes.keySet().iterator();
     String node1 = iter.next();
@@ -845,7 +887,12 @@ public class AstraDistributedQueryServiceTest {
 
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 100, 299, name1);
+            snapshotMetadataStore,
+            searchMetadataStoreManager,
+            datasetMetadataStore,
+            100,
+            299,
+            name1);
     assertThat(searchNodes.size()).isEqualTo(2);
     iter = searchNodes.keySet().iterator();
     node1 = iter.next();
@@ -869,7 +916,7 @@ public class AstraDistributedQueryServiceTest {
     Instant chunkEndTime = Instant.ofEpochMilli(200);
     createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 2);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 1);
 
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 200, List.of("1"));
     DatasetMetadata datasetMetadata =
@@ -880,7 +927,7 @@ public class AstraDistributedQueryServiceTest {
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
@@ -892,7 +939,7 @@ public class AstraDistributedQueryServiceTest {
     // search for partition "2" only
     createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "2", indexer2SearchContext);
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 4);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
+    await().until(() -> searchMetadataStoreManager.listSync().size() == 2);
 
     partition = new DatasetPartitionMetadata(1, 101, List.of("2"));
     datasetMetadata =
@@ -903,7 +950,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
@@ -916,7 +963,7 @@ public class AstraDistributedQueryServiceTest {
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
@@ -930,8 +977,9 @@ public class AstraDistributedQueryServiceTest {
     Instant startTime = endTime.minus(1, ChronoUnit.HOURS);
 
     // mock the zookeeper responses, as we don't want to test ZK behavior here
-    SearchMetadataStore searchMetadataStoreMock = mock(SearchMetadataStore.class);
-    when(searchMetadataStoreMock.listSync())
+    SearchMetadataStoreManager searchMetadataStoreManagerMock =
+        mock(SearchMetadataStoreManager.class);
+    when(searchMetadataStoreManagerMock.listSync())
         .thenReturn(List.of(new SearchMetadata("foo", "snapshot1", "http://127.0.0.1")));
     SnapshotMetadataStore snapshotMetadataStoreMock = mock(SnapshotMetadataStore.class);
     when(snapshotMetadataStoreMock.listSync())
@@ -961,7 +1009,7 @@ public class AstraDistributedQueryServiceTest {
 
     AstraDistributedQueryService distributedQueryService =
         new AstraDistributedQueryService(
-            searchMetadataStoreMock,
+            searchMetadataStoreManagerMock,
             snapshotMetadataStoreMock,
             datasetMetadataStoreMock,
             new SimpleMeterRegistry(),
@@ -1052,7 +1100,7 @@ public class AstraDistributedQueryServiceTest {
         createSnapshot(chunkCreationTime, chunkEndTime, true, partition);
     SearchMetadata liveSearchMetadata = toSearchMetadata(liveSnapshotMetadata.name, searchContext);
 
-    searchMetadataStore.createSync(liveSearchMetadata);
+    searchMetadataStoreManager.createSync(liveSearchMetadata);
 
     return liveSnapshotMetadata.name.substring(
         5); // remove LIVE_ prefix for a search metadata hosted by a cache node
@@ -1088,7 +1136,7 @@ public class AstraDistributedQueryServiceTest {
 
   private Map<String, List<String>> getSearchNodesToQuery(
       SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore,
+      SearchMetadataStoreManager searchMetadataStoreManager,
       DatasetMetadataStore datasetMetadataStore,
       long queryStartTimeEpochMs,
       long queryEndTimeEpochMs,
@@ -1102,7 +1150,7 @@ public class AstraDistributedQueryServiceTest {
             dataset);
 
     Map<String, List<SearchMetadata>> searchMetadataToQuery =
-        getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
+        getMatchingSearchMetadata(searchMetadataStoreManager, snapshotsToSearch);
 
     return getNodesAndSnapshotsToQuery(searchMetadataToQuery);
   }

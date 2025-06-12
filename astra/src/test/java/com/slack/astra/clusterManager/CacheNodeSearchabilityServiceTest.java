@@ -10,7 +10,8 @@ import com.slack.astra.metadata.cache.CacheNodeMetadata;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.search.SearchMetadata;
-import com.slack.astra.metadata.search.SearchMetadataStore;
+import com.slack.astra.metadata.search.SearchMetadataStoreManager;
+import com.slack.astra.metadata.search.SearchMetadataStoreType;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
@@ -27,7 +28,7 @@ public class CacheNodeSearchabilityServiceTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
   private AsyncCuratorFramework curatorFramework;
-  private SearchMetadataStore searchMetadataStore;
+  private SearchMetadataStoreManager searchMetadataStoreManager;
   private SnapshotMetadataStore snapshotMetadataStore;
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private AstraConfigs.ManagerConfig managerConfig;
@@ -62,8 +63,10 @@ public class CacheNodeSearchabilityServiceTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    searchMetadataStore =
-        spy(new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
+    searchMetadataStoreManager =
+        spy(
+            new SearchMetadataStoreManager(
+                curatorFramework, zkConfig, meterRegistry, true, SearchMetadataStoreType.LEGACY));
     cacheNodeMetadataStore =
         spy(new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry));
     cacheNodeAssignmentStore =
@@ -77,6 +80,7 @@ public class CacheNodeSearchabilityServiceTest {
     meterRegistry.close();
     testingServer.close();
     snapshotMetadataStore.close();
+    searchMetadataStoreManager.close();
     curatorFramework.unwrap().close();
   }
 
@@ -88,7 +92,7 @@ public class CacheNodeSearchabilityServiceTest {
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             snapshotMetadataStore);
     cacheNodeSearchabilityService.runOneIteration();
   }
@@ -103,7 +107,7 @@ public class CacheNodeSearchabilityServiceTest {
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             snapshotMetadataStore);
     cacheNodeSearchabilityService.runOneIteration();
 
@@ -121,7 +125,7 @@ public class CacheNodeSearchabilityServiceTest {
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             snapshotMetadataStore);
     cacheNodeSearchabilityService.runOneIteration();
 
@@ -148,7 +152,7 @@ public class CacheNodeSearchabilityServiceTest {
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             snapshotMetadataStore);
     cacheNodeSearchabilityService.runOneIteration();
 
@@ -169,7 +173,7 @@ public class CacheNodeSearchabilityServiceTest {
             "rep1",
             1,
             Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE));
-    searchMetadataStore.createSync(
+    searchMetadataStoreManager.createSync(
         new SearchMetadata("test-name", "snapshot-id", "test-url:testhostname", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
@@ -177,12 +181,12 @@ public class CacheNodeSearchabilityServiceTest {
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             snapshotMetadataStore);
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("snapshot-id", "test-name");
+    SearchMetadata searchMetadata = searchMetadataStoreManager.getSync("test-name");
     assertThat(cacheNodeMetadata.searchable).isTrue();
     assertThat(searchMetadata.isSearchable()).isTrue();
   }
@@ -200,7 +204,7 @@ public class CacheNodeSearchabilityServiceTest {
             "rep1",
             1,
             Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING));
-    searchMetadataStore.createSync(
+    searchMetadataStoreManager.createSync(
         new SearchMetadata("test-name", "snapshot-id", "test-url", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
@@ -208,12 +212,12 @@ public class CacheNodeSearchabilityServiceTest {
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             snapshotMetadataStore);
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("snapshot-id", "test-name");
+    SearchMetadata searchMetadata = searchMetadataStoreManager.getSync("test-name");
     assertThat(cacheNodeMetadata.searchable).isFalse();
     assertThat(searchMetadata.isSearchable()).isFalse();
   }
@@ -232,7 +236,7 @@ public class CacheNodeSearchabilityServiceTest {
             "rep1",
             1,
             Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICTING));
-    searchMetadataStore.createSync(
+    searchMetadataStoreManager.createSync(
         new SearchMetadata("test-name", "snapshot-id", "test-url", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
@@ -240,12 +244,12 @@ public class CacheNodeSearchabilityServiceTest {
             cacheNodeMetadataStore,
             managerConfig,
             cacheNodeAssignmentStore,
-            searchMetadataStore,
+            searchMetadataStoreManager,
             snapshotMetadataStore);
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("snapshot-id", "test-name");
+    SearchMetadata searchMetadata = searchMetadataStoreManager.getSync("test-name");
     assertThat(cacheNodeMetadata.searchable).isFalse();
     assertThat(searchMetadata.isSearchable()).isFalse();
   }

@@ -1,3 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(mvn clean test:*)",
+      "Bash(mvn test:*)",
+      "Bash(mvn -q test -pl astra -Dtest=\"*CacheNodeSearchabilityServiceTest,*AstraDistributedQueryServiceTest\" -DfailIfNoTests=false)"
+    ]
+  },
   "enableAllProjectMcpServers": false
 }
