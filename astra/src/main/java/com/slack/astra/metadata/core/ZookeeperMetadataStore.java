@@ -167,12 +167,22 @@ public class ZookeeperMetadataStore<T extends AstraMetadata> implements Closeabl
       return cachedModeledFramework
           .withPath(zPath.resolved(path))
           .checkExists()
-          .thenApply(stat -> stat != null);
+          .thenApply(stat -> stat != null)
+          .exceptionally(
+              ex -> {
+                throw new InternalMetadataStoreException(
+                    "Error checking if node exists at path " + path, ex);
+              });
     }
     return modeledClient
         .withPath(zPath.resolved(path))
         .checkExists()
-        .thenApply(stat -> stat != null);
+        .thenApply(stat -> stat != null)
+        .exceptionally(
+            ex -> {
+              throw new InternalMetadataStoreException(
+                  "Error checking if node exists at path " + path, ex);
+            });
   }
 
   public boolean hasSync(String path) {
