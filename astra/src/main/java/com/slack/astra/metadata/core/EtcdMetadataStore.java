@@ -3,6 +3,7 @@ package com.slack.astra.metadata.core;
 import com.google.common.base.Strings;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.astra.proto.config.AstraConfigs.EtcdConfig;
+import com.slack.astra.util.RuntimeHalterImpl;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.ClientBuilder;
@@ -309,7 +310,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       }
     } catch (InvalidProtocolBufferException e) {
       CompletableFuture<String> future = new CompletableFuture<>();
-      future.completeExceptionally(e);
+      future.completeExceptionally(
+          new InternalMetadataStoreException("Failed to serialize node", e));
       return future;
     }
   }
@@ -328,7 +330,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           .get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to create node: {}", metadataNode.getName(), e);
-      throw new RuntimeException("Failed to create node", e);
+      throw new InternalMetadataStoreException("Error creating node " + metadataNode, e);
     }
   }
 
@@ -352,7 +354,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         .thenApply(
             getResponse -> {
               if (getResponse.getKvs().isEmpty()) {
-                throw new RuntimeException("Node not found: " + path);
+                throw new InternalMetadataStoreException("Node not found: " + path);
               }
 
               KeyValue kv = getResponse.getKvs().get(0);
@@ -367,7 +369,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
                 return node;
               } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException("Failed to deserialize node", e);
+                throw new InternalMetadataStoreException("Failed to deserialize node", e);
               }
             });
   }
@@ -392,16 +394,14 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       LOG.error("Failed to get node: {}", path, e);
       throw new RuntimeException("Failed to get node", e);
     } catch (ExecutionException e) {
-      // This could be due to node not found (which is handled by returning null from getAsync)
-      // or other exceptions from getAsync that are wrapped in ExecutionException
-      if (e.getCause() instanceof RuntimeException
-          && "Failed to deserialize node".equals(e.getCause().getMessage())) {
-        // Rethrow deserialization failures
+      // Handle exceptions from getAsync that are wrapped in ExecutionException
+      if (e.getCause() instanceof RuntimeException) {
+        // Rethrow all exceptions from getAsync
         throw (RuntimeException) e.getCause();
       }
-      // For any other exception, log and return null
+      // For any other exception, log and throw
       LOG.error("Failed to get node: {}", path, e.getCause());
-      return null;
+      throw new InternalMetadataStoreException("Failed to get node: " + path, e.getCause());
     }
   }
 
@@ -425,6 +425,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         .thenApply(
             getResponse -> {
               return !getResponse.getKvs().isEmpty();
+            })
+        .exceptionally(
+            ex -> {
+              throw new InternalMetadataStoreException(
+                  "Error checking if node exists at path " + path, ex);
             });
   }
 
@@ -446,7 +451,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return hasAsync(path).toCompletableFuture().get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to check if node exists: {}", path, e);
-      throw new RuntimeException("Error fetching node at path " + path, e);
+      throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
   }
 
@@ -476,7 +481,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
               });
     } catch (InvalidProtocolBufferException e) {
       CompletableFuture<String> future = new CompletableFuture<>();
-      future.completeExceptionally(e);
+      future.completeExceptionally(
+          new InternalMetadataStoreException("Failed to serialize node", e));
       return future;
     }
   }
@@ -495,7 +501,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           .get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to update node: {}", metadataNode.getName(), e);
-      throw new RuntimeException("Failed to update node", e);
+      throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
     }
   }
 
@@ -546,7 +552,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       deleteAsync(path).toCompletableFuture().get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to delete node: {}", path, e);
-      throw new RuntimeException("Failed to delete node", e);
+      throw new InternalMetadataStoreException("Error deleting node under at path: " + path, e);
     }
   }
 
@@ -574,7 +580,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           .get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to delete node: {}", metadataNode.getName(), e);
-      throw new RuntimeException("Failed to delete node", e);
+      throw new InternalMetadataStoreException(
+          "Error deleting node under at path: " + metadataNode.name, e);
     }
   }
 
@@ -639,7 +646,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return listAsync().toCompletableFuture().get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to list nodes", e);
-      throw new RuntimeException("Failed to list nodes", e);
+      throw new InternalMetadataStoreException("Error getting cached nodes", e);
     }
   }
 
@@ -650,6 +657,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public void addListener(AstraMetadataStoreChangeListener<T> listener) {
     this.addedListener.increment();
+
+    if (!shouldCache) {
+      throw new UnsupportedOperationException("Caching is disabled");
+    }
 
     if (listener == null) {
       LOG.warn("Attempted to add null listener, ignoring");
@@ -720,6 +731,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   public void removeListener(AstraMetadataStoreChangeListener<T> listener) {
     this.removedListener.increment();
 
+    if (!shouldCache) {
+      throw new UnsupportedOperationException("Caching is disabled");
+    }
+
     if (listener == null) {
       LOG.warn("Attempted to remove null listener, ignoring");
       return;
@@ -763,14 +778,21 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
               T node = serializer.fromJsonStr(json);
               cache.put(node.getName(), node);
             } catch (InvalidProtocolBufferException e) {
-              LOG.error("Failed to deserialize node from key: {}", kv.getKey(), e);
+              throw new InternalMetadataStoreException(
+                  "Failed to deserialize node from key: " + kv.getKey(), e);
             }
           }
         }
 
         LOG.info("Initialized cache with {} nodes", cache.size());
+      } catch (InterruptedException e) {
+        new RuntimeHalterImpl().handleFatal(e);
+      } catch (ExecutionException | TimeoutException e) {
+        new RuntimeHalterImpl()
+            .handleFatal(new TimeoutException("Timed out waiting for Etcd cache to initialize"));
       } catch (Exception e) {
         LOG.error("Failed to initialize cache", e);
+        new RuntimeHalterImpl().handleFatal(e);
       }
     }
   }
