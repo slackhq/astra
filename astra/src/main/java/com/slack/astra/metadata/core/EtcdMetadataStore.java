@@ -143,7 +143,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     ClientBuilder clientBuilder = Client.builder();
 
     // Configure endpoints
-    if (config.getEndpointsList() != null && !config.getEndpointsList().isEmpty()) {
+    if (!config.getEndpointsList().isEmpty()) {
       clientBuilder.endpoints(config.getEndpointsList().toArray(new String[0]));
     }
 
@@ -288,7 +288,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   leases.put(metadataNode.getName(), leaseId);
 
                   // Create a put option that associates the key with the lease
-                  PutOption putOption = PutOption.newBuilder().withLeaseId(leaseId).build();
+                  PutOption putOption = PutOption.builder().withLeaseId(leaseId).build();
 
                   return kvClient
                       .put(key, value, putOption)
@@ -357,7 +357,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 throw new InternalMetadataStoreException("Node not found: " + path);
               }
 
-              KeyValue kv = getResponse.getKvs().get(0);
+              KeyValue kv = getResponse.getKvs().getFirst();
               try {
                 String json = kv.getValue().toString(StandardCharsets.UTF_8);
                 T node = serializer.fromJsonStr(json);
@@ -602,7 +602,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // Add a trailing slash to the folder to make sure we only list entries directly under this
     // folder
     ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-    GetOption getOption = GetOption.newBuilder().withPrefix(prefix).build();
+    GetOption getOption = GetOption.builder().withPrefix(prefix).build();
 
     return kvClient
         .get(prefix, getOption)
@@ -670,7 +670,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // Add a trailing slash to the folder to make sure we only watch entries directly under this
     // folder
     ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-    WatchOption watchOption = WatchOption.newBuilder().withPrefix(prefix).build();
+    WatchOption watchOption = WatchOption.builder().withPrefix(prefix).build();
 
     // Create a watcher for this listener
     Watcher watcher =
@@ -691,7 +691,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                       T node = serializer.fromJsonStr(json);
 
                       // Update cache if enabled
-                      if (shouldCache && cache != null) {
+                      if (cache != null) {
                         cache.put(path, node);
                       }
 
@@ -762,7 +762,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
         // Get only nodes from this store folder
         ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-        GetOption getOption = GetOption.newBuilder().withPrefix(prefix).build();
+        GetOption getOption = GetOption.builder().withPrefix(prefix).build();
 
         GetResponse getResponse =
             kvClient.get(prefix, getOption).get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);

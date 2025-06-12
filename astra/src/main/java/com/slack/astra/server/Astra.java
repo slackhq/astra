@@ -153,7 +153,7 @@ public class Astra {
       curatorFramework =
           CuratorBuilder.build(prometheusMeterRegistry, metadataStoreConfig.getZookeeperConfig());
       LOG.info("Initialized ZooKeeper client with mode {}", mode);
-    } else if (mode != MetadataStoreMode.ETCD_EXCLUSIVE) {
+    } else if (mode != MetadataStoreMode.ETCD_CREATES) {
       LOG.warn("ZooKeeper is not enabled but mode {} requires it", mode);
     }
 
@@ -164,9 +164,7 @@ public class Astra {
       LOG.info("Initialized etcd client with mode {}", mode);
       // The actual client is created by the EtcdMetadataStore class
       // We leave etcdClient as null here and use config in the stores
-    } else if (mode == MetadataStoreMode.ETCD_EXCLUSIVE
-        || mode == MetadataStoreMode.BOTH_READ_ETCD_WRITE
-        || mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE) {
+    } else if (mode == MetadataStoreMode.ETCD_CREATES) {
       LOG.warn("Etcd is not enabled but mode {} requires it", mode);
     }
 

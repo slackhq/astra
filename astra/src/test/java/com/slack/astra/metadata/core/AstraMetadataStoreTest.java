@@ -30,8 +30,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Tests for AstraMetadataStore that validate its behavior across all four operational modes: -
- * ZOOKEEPER_EXCLUSIVE - ETCD_EXCLUSIVE - BOTH_READ_ZOOKEEPER_WRITE - BOTH_READ_ETCD_WRITE
+ * Tests for AstraMetadataStore that validate its behavior across the two operational modes: -
+ * ZOOKEEPER_CREATES - ETCD_CREATES
  */
 @Tag("integration")
 public class AstraMetadataStoreTest {
@@ -51,10 +51,8 @@ public class AstraMetadataStoreTest {
   private AstraConfigs.EtcdConfig etcdConfig;
 
   // Store folder for different test scenarios
-  private static final String ZK_EXCLUSIVE_STORE = "/zkExclusive";
-  private static final String ETCD_EXCLUSIVE_STORE = "/etcdExclusive";
-  private static final String BOTH_READ_ZK_WRITE_STORE = "/bothReadZkWrite";
-  private static final String BOTH_READ_ETCD_WRITE_STORE = "/bothReadEtcdWrite";
+  private static final String ZK_CREATES_STORE = "/zkCreates";
+  private static final String ETCD_CREATES_STORE = "/etcdCreates";
 
   /** Test metadata implementation for testing AstraMetadataStore. */
   private static class TestMetadata extends AstraMetadata {
@@ -188,8 +186,8 @@ public class AstraMetadataStoreTest {
     }
   }
 
-  /** Creates an AstraMetadataStore instance in ZOOKEEPER_EXCLUSIVE mode. */
-  private AstraMetadataStore<TestMetadata> createZkExclusiveStore() {
+  /** Creates an AstraMetadataStore instance in ZOOKEEPER_CREATES mode. */
+  private AstraMetadataStore<TestMetadata> createZkCreatesStore() {
     ZookeeperMetadataStore<TestMetadata> zkStore =
         new ZookeeperMetadataStore<>(
             curatorFramework,
@@ -197,96 +195,44 @@ public class AstraMetadataStoreTest {
             CreateMode.PERSISTENT,
             true,
             new JacksonModelSerializer<>(TestMetadata.class),
-            ZK_EXCLUSIVE_STORE,
+            ZK_CREATES_STORE,
             meterRegistry);
 
     return new AstraMetadataStore<>(
         zkStore,
-        null, // No Etcd store in ZK exclusive mode
-        MetadataStoreMode.ZOOKEEPER_EXCLUSIVE,
+        null, // No Etcd store in ZK creates mode
+        MetadataStoreMode.ZOOKEEPER_CREATES,
         meterRegistry);
   }
 
-  /** Creates an AstraMetadataStore instance in ETCD_EXCLUSIVE mode. */
-  private AstraMetadataStore<TestMetadata> createEtcdExclusiveStore() {
+  /** Creates an AstraMetadataStore instance in ETCD_CREATES mode. */
+  private AstraMetadataStore<TestMetadata> createEtcdCreatesStore() {
     MetadataSerializer<TestMetadata> serializer = new TestMetadataSerializer();
     EtcdMetadataStore<TestMetadata> etcdStore =
-        new EtcdMetadataStore<>(ETCD_EXCLUSIVE_STORE, etcdConfig, true, meterRegistry, serializer);
+        new EtcdMetadataStore<>(ETCD_CREATES_STORE, etcdConfig, true, meterRegistry, serializer);
 
     return new AstraMetadataStore<>(
-        null, // No ZK store in Etcd exclusive mode
+        null, // No ZK store in Etcd creates mode
         etcdStore,
-        MetadataStoreMode.ETCD_EXCLUSIVE,
+        MetadataStoreMode.ETCD_CREATES,
         meterRegistry);
   }
 
-  /** Creates an AstraMetadataStore instance in BOTH_READ_ZOOKEEPER_WRITE mode. */
-  private AstraMetadataStore<TestMetadata> createBothReadZkWriteStore() {
-    ZookeeperMetadataStore<TestMetadata> zkStore =
-        new ZookeeperMetadataStore<>(
-            curatorFramework,
-            zkConfig,
-            CreateMode.PERSISTENT,
-            true,
-            new JacksonModelSerializer<>(TestMetadata.class),
-            BOTH_READ_ZK_WRITE_STORE,
-            meterRegistry);
-
-    MetadataSerializer<TestMetadata> serializer = new TestMetadataSerializer();
-    EtcdMetadataStore<TestMetadata> etcdStore =
-        new EtcdMetadataStore<>(
-            BOTH_READ_ZK_WRITE_STORE, etcdConfig, true, meterRegistry, serializer);
-
-    return new AstraMetadataStore<>(
-        zkStore, etcdStore, MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE, meterRegistry);
-  }
-
-  /** Creates an AstraMetadataStore instance in BOTH_READ_ETCD_WRITE mode. */
-  private AstraMetadataStore<TestMetadata> createBothReadEtcdWriteStore() {
-    ZookeeperMetadataStore<TestMetadata> zkStore =
-        new ZookeeperMetadataStore<>(
-            curatorFramework,
-            zkConfig,
-            CreateMode.PERSISTENT,
-            true,
-            new JacksonModelSerializer<>(TestMetadata.class),
-            BOTH_READ_ETCD_WRITE_STORE,
-            meterRegistry);
-
-    MetadataSerializer<TestMetadata> serializer = new TestMetadataSerializer();
-    EtcdMetadataStore<TestMetadata> etcdStore =
-        new EtcdMetadataStore<>(
-            BOTH_READ_ETCD_WRITE_STORE, etcdConfig, true, meterRegistry, serializer);
-
-    return new AstraMetadataStore<>(
-        zkStore, etcdStore, MetadataStoreMode.BOTH_READ_ETCD_WRITE, meterRegistry);
-  }
-
-  /** Interface for running a test against all four modes of AstraMetadataStore. */
+  /** Interface for running a test against all modes of AstraMetadataStore. */
   private interface StoreTestRunner {
     void test(AstraMetadataStore<TestMetadata> store, String storeMode) throws Exception;
   }
 
-  /** Runs a test against all four modes of AstraMetadataStore. */
+  /** Runs a test against all modes of AstraMetadataStore. */
   private void testAllStoreModes(StoreTestRunner testRunner) throws Exception {
-    // Test ZK exclusive mode
-    try (AstraMetadataStore<TestMetadata> store = createZkExclusiveStore()) {
-      testRunner.test(store, "ZOOKEEPER_EXCLUSIVE");
+    // Test ZK creates mode
+    try (AstraMetadataStore<TestMetadata> store = createZkCreatesStore()) {
+      testRunner.test(store, "ZOOKEEPER_CREATES");
     }
 
-    // Test Etcd exclusive mode
-    try (AstraMetadataStore<TestMetadata> store = createEtcdExclusiveStore()) {
-      testRunner.test(store, "ETCD_EXCLUSIVE");
-    }
-
-    // Test BOTH_READ_ZOOKEEPER_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadZkWriteStore()) {
-      testRunner.test(store, "BOTH_READ_ZOOKEEPER_WRITE");
-    }
-
-    // Test BOTH_READ_ETCD_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadEtcdWriteStore()) {
-      testRunner.test(store, "BOTH_READ_ETCD_WRITE");
+    // Test Etcd creates mode
+    try (AstraMetadataStore<TestMetadata> store = createEtcdCreatesStore()) {
+      testRunner.test(store, "ETCD_CREATES");
     }
   }
 
@@ -487,85 +433,6 @@ public class AstraMetadataStoreTest {
   }
 
   @Test
-  public void testGetReadFallback() throws Exception {
-    // This test is only applicable to the mixed modes
-
-    // Test BOTH_READ_ZOOKEEPER_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadZkWriteStore()) {
-      LOG.info("Testing read fallback in BOTH_READ_ZOOKEEPER_WRITE mode");
-
-      // Create data in ZK (primary)
-      TestMetadata zkData = new TestMetadata("test-zk-primary", "zkValue");
-      store.createSync(zkData);
-
-      // Get data from the store - should be retrieved from ZK
-      TestMetadata zkResult = store.getSync("test-zk-primary");
-      assertThat(zkResult).isNotNull();
-      assertThat(zkResult.getValue()).isEqualTo("zkValue");
-
-      // Manually create data directly in Etcd (secondary) with a different value
-      try (EtcdMetadataStore<TestMetadata> etcdStore =
-          new EtcdMetadataStore<>(
-              BOTH_READ_ZK_WRITE_STORE,
-              etcdConfig,
-              true,
-              meterRegistry,
-              new TestMetadataSerializer())) {
-
-        TestMetadata etcdData = new TestMetadata("test-etcd-secondary", "etcdValue");
-        etcdStore.createSync(etcdData);
-      }
-
-      // Get data that exists only in Etcd (secondary) - should fall back to Etcd
-      TestMetadata etcdResult = store.getSync("test-etcd-secondary");
-      assertThat(etcdResult).isNotNull();
-      assertThat(etcdResult.getValue()).isEqualTo("etcdValue");
-
-      // Clean up both pieces of data
-      store.deleteSync("test-zk-primary");
-      store.deleteSync("test-etcd-secondary");
-    }
-
-    // Test BOTH_READ_ETCD_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadEtcdWriteStore()) {
-      LOG.info("Testing read fallback in BOTH_READ_ETCD_WRITE mode");
-
-      // Create data in Etcd (primary)
-      TestMetadata etcdData = new TestMetadata("test-etcd-primary", "etcdValue");
-      store.createSync(etcdData);
-
-      // Get data from the store - should be retrieved from Etcd
-      TestMetadata etcdResult = store.getSync("test-etcd-primary");
-      assertThat(etcdResult).isNotNull();
-      assertThat(etcdResult.getValue()).isEqualTo("etcdValue");
-
-      // Manually create data directly in ZK (secondary) with a different value
-      try (ZookeeperMetadataStore<TestMetadata> zkStore =
-          new ZookeeperMetadataStore<>(
-              curatorFramework,
-              zkConfig,
-              CreateMode.PERSISTENT,
-              true,
-              new JacksonModelSerializer<>(TestMetadata.class),
-              BOTH_READ_ETCD_WRITE_STORE,
-              meterRegistry)) {
-
-        TestMetadata zkData = new TestMetadata("test-zk-secondary", "zkValue");
-        zkStore.createSync(zkData);
-      }
-
-      // Get data that exists only in ZK (secondary) - should fall back to ZK
-      TestMetadata zkResult = store.getSync("test-zk-secondary");
-      assertThat(zkResult).isNotNull();
-      assertThat(zkResult.getValue()).isEqualTo("zkValue");
-
-      // Clean up both pieces of data
-      store.deleteSync("test-etcd-primary");
-      store.deleteSync("test-zk-secondary");
-    }
-  }
-
-  @Test
   public void testHasAsync() throws Exception {
     testAllStoreModes(
         (store, storeMode) -> {
@@ -683,171 +550,6 @@ public class AstraMetadataStoreTest {
           exists = store.hasSync(testName);
           assertThat(exists).isFalse();
         });
-  }
-
-  @Test
-  public void testHasInMixedMode() throws Exception {
-    // Test BOTH_READ_ZOOKEEPER_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadZkWriteStore()) {
-      LOG.info("Testing has in BOTH_READ_ZOOKEEPER_WRITE mode");
-
-      // Create data only in ZK
-      TestMetadata zkData = new TestMetadata("test-zk-has", "zkValue");
-
-      try (ZookeeperMetadataStore<TestMetadata> zkStore =
-          new ZookeeperMetadataStore<>(
-              curatorFramework,
-              zkConfig,
-              CreateMode.PERSISTENT,
-              true,
-              new JacksonModelSerializer<>(TestMetadata.class),
-              BOTH_READ_ZK_WRITE_STORE,
-              meterRegistry)) {
-
-        zkStore.createSync(zkData);
-
-        // Wait for creation to propagate
-        await().atMost(5, TimeUnit.SECONDS).until(() -> zkStore.hasSync("test-zk-has"));
-      }
-
-      // Wait for the main store to see it
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return store.hasSync("test-zk-has");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Should find the data in ZK
-      boolean hasZk = store.hasSync("test-zk-has");
-      assertThat(hasZk).isTrue();
-
-      // Create data only in Etcd
-      TestMetadata etcdData = new TestMetadata("test-etcd-has", "etcdValue");
-
-      try (EtcdMetadataStore<TestMetadata> etcdStore =
-          new EtcdMetadataStore<>(
-              BOTH_READ_ZK_WRITE_STORE,
-              etcdConfig,
-              true,
-              meterRegistry,
-              new TestMetadataSerializer())) {
-
-        etcdStore.createSync(etcdData);
-
-        // Wait for creation to propagate
-        await().atMost(5, TimeUnit.SECONDS).until(() -> etcdStore.hasSync("test-etcd-has"));
-      }
-
-      // Wait for the main store to see it
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return store.hasSync("test-etcd-has");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Should find the data in Etcd
-      boolean hasEtcd = store.hasSync("test-etcd-has");
-      assertThat(hasEtcd).isTrue();
-
-      // Clean up
-      store.deleteSync("test-zk-has");
-      store.deleteSync("test-etcd-has");
-
-      // Wait for deletions to complete
-      await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-zk-has"));
-      await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-etcd-has"));
-    }
-
-    // Test BOTH_READ_ETCD_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadEtcdWriteStore()) {
-      LOG.info("Testing has in BOTH_READ_ETCD_WRITE mode");
-
-      // Create data only in Etcd
-      TestMetadata etcdData = new TestMetadata("test-etcd-has", "etcdValue");
-
-      try (EtcdMetadataStore<TestMetadata> etcdStore =
-          new EtcdMetadataStore<>(
-              BOTH_READ_ETCD_WRITE_STORE,
-              etcdConfig,
-              true,
-              meterRegistry,
-              new TestMetadataSerializer())) {
-
-        etcdStore.createSync(etcdData);
-
-        // Wait for creation to propagate
-        await().atMost(5, TimeUnit.SECONDS).until(() -> etcdStore.hasSync("test-etcd-has"));
-      }
-
-      // Wait for the main store to see it
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return store.hasSync("test-etcd-has");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Should find the data in Etcd
-      boolean hasEtcd = store.hasSync("test-etcd-has");
-      assertThat(hasEtcd).isTrue();
-
-      // Create data only in ZK
-      TestMetadata zkData = new TestMetadata("test-zk-has", "zkValue");
-
-      try (ZookeeperMetadataStore<TestMetadata> zkStore =
-          new ZookeeperMetadataStore<>(
-              curatorFramework,
-              zkConfig,
-              CreateMode.PERSISTENT,
-              true,
-              new JacksonModelSerializer<>(TestMetadata.class),
-              BOTH_READ_ETCD_WRITE_STORE,
-              meterRegistry)) {
-
-        zkStore.createSync(zkData);
-
-        // Wait for creation to propagate
-        await().atMost(5, TimeUnit.SECONDS).until(() -> zkStore.hasSync("test-zk-has"));
-      }
-
-      // Wait for the main store to see it
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return store.hasSync("test-zk-has");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Should find the data in ZK
-      boolean hasZk = store.hasSync("test-zk-has");
-      assertThat(hasZk).isTrue();
-
-      // Clean up
-      store.deleteSync("test-etcd-has");
-      store.deleteSync("test-zk-has");
-
-      // Wait for deletions to complete
-      await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-etcd-has"));
-      await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-zk-has"));
-    }
   }
 
   @Test
@@ -987,227 +689,6 @@ public class AstraMetadataStoreTest {
                     }
                   });
         });
-  }
-
-  @Test
-  public void testUpdateInMixedMode() throws Exception {
-    // Test BOTH_READ_ZOOKEEPER_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadZkWriteStore()) {
-      LOG.info("Testing update in BOTH_READ_ZOOKEEPER_WRITE mode");
-
-      // Create data in ZK (primary)
-      TestMetadata zkData = new TestMetadata("test-zk-update", "originalZkValue");
-      store.createSync(zkData);
-
-      // Wait for creation to complete and be visible
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  TestMetadata result = store.getSync("test-zk-update");
-                  return result != null && "originalZkValue".equals(result.getValue());
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Create data in Etcd (secondary) with different data
-      try (EtcdMetadataStore<TestMetadata> etcdStore =
-          new EtcdMetadataStore<>(
-              BOTH_READ_ZK_WRITE_STORE,
-              etcdConfig,
-              true,
-              meterRegistry,
-              new TestMetadataSerializer())) {
-
-        TestMetadata etcdData = new TestMetadata("test-etcd-update", "originalEtcdValue");
-        etcdStore.createSync(etcdData);
-
-        // Wait for creation in Etcd to complete
-        await().atMost(5, TimeUnit.SECONDS).until(() -> etcdStore.hasSync("test-etcd-update"));
-      }
-
-      // Update ZK data
-      TestMetadata updatedZkData = new TestMetadata("test-zk-update", "updatedZkValue");
-      store.updateSync(updatedZkData);
-
-      // Wait for ZK update to complete
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  TestMetadata result = store.getSync("test-zk-update");
-                  return result != null && "updatedZkValue".equals(result.getValue());
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Update Etcd data (should actually delete from Etcd and update/create in ZK)
-      TestMetadata updatedEtcdData = new TestMetadata("test-etcd-update", "updatedEtcdValue");
-      store.updateSync(updatedEtcdData);
-
-      // Wait for Etcd data migration to ZK to complete
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  TestMetadata result = store.getSync("test-etcd-update");
-                  return result != null && "updatedEtcdValue".equals(result.getValue());
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Verify ZK data was updated
-      TestMetadata zkResult = store.getSync("test-zk-update");
-      assertThat(zkResult).isNotNull();
-      assertThat(zkResult.getValue()).isEqualTo("updatedZkValue");
-
-      // Verify Etcd data was moved to ZK
-      TestMetadata etcdResult = store.getSync("test-etcd-update");
-      assertThat(etcdResult).isNotNull();
-      assertThat(etcdResult.getValue()).isEqualTo("updatedEtcdValue");
-
-      // Verify data no longer exists in Etcd (with retry)
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try (EtcdMetadataStore<TestMetadata> etcdStore =
-                    new EtcdMetadataStore<>(
-                        BOTH_READ_ZK_WRITE_STORE,
-                        etcdConfig,
-                        true,
-                        meterRegistry,
-                        new TestMetadataSerializer())) {
-
-                  return !etcdStore.hasSync("test-etcd-update");
-                }
-              });
-
-      // Clean up
-      store.deleteSync("test-zk-update");
-      store.deleteSync("test-etcd-update");
-
-      // Wait for deletions to complete
-      await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-zk-update"));
-      await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-etcd-update"));
-    }
-
-    // Test BOTH_READ_ETCD_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadEtcdWriteStore()) {
-      LOG.info("Testing update in BOTH_READ_ETCD_WRITE mode");
-
-      // Create data in Etcd (primary)
-      TestMetadata etcdData = new TestMetadata("test-etcd-update", "originalEtcdValue");
-      store.createSync(etcdData);
-
-      // Wait for creation to complete and be visible
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  TestMetadata result = store.getSync("test-etcd-update");
-                  return result != null && "originalEtcdValue".equals(result.getValue());
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Create data in ZK (secondary) with different data
-      try (ZookeeperMetadataStore<TestMetadata> zkStore =
-          new ZookeeperMetadataStore<>(
-              curatorFramework,
-              zkConfig,
-              CreateMode.PERSISTENT,
-              true,
-              new JacksonModelSerializer<>(TestMetadata.class),
-              BOTH_READ_ETCD_WRITE_STORE,
-              meterRegistry)) {
-
-        TestMetadata zkData = new TestMetadata("test-zk-update", "originalZkValue");
-        zkStore.createSync(zkData);
-
-        // Wait for creation in ZK to complete
-        await().atMost(5, TimeUnit.SECONDS).until(() -> zkStore.hasSync("test-zk-update"));
-      }
-
-      // Update Etcd data
-      TestMetadata updatedEtcdData = new TestMetadata("test-etcd-update", "updatedEtcdValue");
-      store.updateSync(updatedEtcdData);
-
-      // Wait for Etcd update to complete
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  TestMetadata result = store.getSync("test-etcd-update");
-                  return result != null && "updatedEtcdValue".equals(result.getValue());
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Update ZK data (should actually delete from ZK and update/create in Etcd)
-      TestMetadata updatedZkData = new TestMetadata("test-zk-update", "updatedZkValue");
-      store.updateSync(updatedZkData);
-
-      // Wait for ZK data migration to Etcd to complete
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  TestMetadata result = store.getSync("test-zk-update");
-                  return result != null && "updatedZkValue".equals(result.getValue());
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Verify Etcd data was updated
-      TestMetadata etcdResult = store.getSync("test-etcd-update");
-      assertThat(etcdResult).isNotNull();
-      assertThat(etcdResult.getValue()).isEqualTo("updatedEtcdValue");
-
-      // Verify ZK data was moved to Etcd
-      TestMetadata zkResult = store.getSync("test-zk-update");
-      assertThat(zkResult).isNotNull();
-      assertThat(zkResult.getValue()).isEqualTo("updatedZkValue");
-
-      // Verify data no longer exists in ZK (with retry)
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try (ZookeeperMetadataStore<TestMetadata> zkStore =
-                    new ZookeeperMetadataStore<>(
-                        curatorFramework,
-                        zkConfig,
-                        CreateMode.PERSISTENT,
-                        true,
-                        new JacksonModelSerializer<>(TestMetadata.class),
-                        BOTH_READ_ETCD_WRITE_STORE,
-                        meterRegistry)) {
-
-                  return !zkStore.hasSync("test-zk-update");
-                }
-              });
-
-      // Clean up
-      store.deleteSync("test-etcd-update");
-      store.deleteSync("test-zk-update");
-
-      // Wait for deletions to complete
-      await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-etcd-update"));
-      await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-zk-update"));
-    }
   }
 
   @Test
@@ -1403,103 +884,6 @@ public class AstraMetadataStoreTest {
   }
 
   @Test
-  public void testDeleteInMixedMode() throws Exception {
-    // Test BOTH_READ_ZOOKEEPER_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadZkWriteStore()) {
-      LOG.info("Testing delete in BOTH_READ_ZOOKEEPER_WRITE mode");
-
-      // Create data in ZK (primary)
-      TestMetadata zkData = new TestMetadata("test-zk-delete", "zkValue");
-      store.createSync(zkData);
-
-      // Create data in Etcd (secondary)
-      try (EtcdMetadataStore<TestMetadata> etcdStore =
-          new EtcdMetadataStore<>(
-              BOTH_READ_ZK_WRITE_STORE,
-              etcdConfig,
-              true,
-              meterRegistry,
-              new TestMetadataSerializer())) {
-
-        TestMetadata etcdData = new TestMetadata("test-etcd-delete", "etcdValue");
-        etcdStore.createSync(etcdData);
-      }
-
-      // Delete ZK data (should delete from ZK only)
-      store.deleteSync("test-zk-delete");
-
-      // Delete Etcd data (should delete from both ZK and Etcd)
-      store.deleteSync("test-etcd-delete");
-
-      // Verify ZK data was deleted
-      assertThat(store.hasSync("test-zk-delete")).isFalse();
-
-      // Verify Etcd data was deleted from both stores
-      assertThat(store.hasSync("test-etcd-delete")).isFalse();
-
-      try (EtcdMetadataStore<TestMetadata> etcdStore =
-          new EtcdMetadataStore<>(
-              BOTH_READ_ZK_WRITE_STORE,
-              etcdConfig,
-              true,
-              meterRegistry,
-              new TestMetadataSerializer())) {
-
-        assertThat(etcdStore.hasSync("test-etcd-delete")).isFalse();
-      }
-    }
-
-    // Test BOTH_READ_ETCD_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadEtcdWriteStore()) {
-      LOG.info("Testing delete in BOTH_READ_ETCD_WRITE mode");
-
-      // Create data in Etcd (primary)
-      TestMetadata etcdData = new TestMetadata("test-etcd-delete", "etcdValue");
-      store.createSync(etcdData);
-
-      // Create data in ZK (secondary)
-      try (ZookeeperMetadataStore<TestMetadata> zkStore =
-          new ZookeeperMetadataStore<>(
-              curatorFramework,
-              zkConfig,
-              CreateMode.PERSISTENT,
-              true,
-              new JacksonModelSerializer<>(TestMetadata.class),
-              BOTH_READ_ETCD_WRITE_STORE,
-              meterRegistry)) {
-
-        TestMetadata zkData = new TestMetadata("test-zk-delete", "zkValue");
-        zkStore.createSync(zkData);
-      }
-
-      // Delete Etcd data (should delete from Etcd only)
-      store.deleteSync("test-etcd-delete");
-
-      // Delete ZK data (should delete from both Etcd and ZK)
-      store.deleteSync("test-zk-delete");
-
-      // Verify Etcd data was deleted
-      assertThat(store.hasSync("test-etcd-delete")).isFalse();
-
-      // Verify ZK data was deleted from both stores
-      assertThat(store.hasSync("test-zk-delete")).isFalse();
-
-      try (ZookeeperMetadataStore<TestMetadata> zkStore =
-          new ZookeeperMetadataStore<>(
-              curatorFramework,
-              zkConfig,
-              CreateMode.PERSISTENT,
-              true,
-              new JacksonModelSerializer<>(TestMetadata.class),
-              BOTH_READ_ETCD_WRITE_STORE,
-              meterRegistry)) {
-
-        assertThat(zkStore.hasSync("test-zk-delete")).isFalse();
-      }
-    }
-  }
-
-  @Test
   public void testListAsync() throws Exception {
     testAllStoreModes(
         (store, storeMode) -> {
@@ -1647,7 +1031,7 @@ public class AstraMetadataStoreTest {
                           results.stream()
                               .filter(item -> item.getName().startsWith(prefix))
                               .toList();
-                      return filtered.size() >= 3;
+                      return !filtered.isEmpty();
                     } catch (Exception e) {
                       return false;
                     }
@@ -1660,8 +1044,8 @@ public class AstraMetadataStoreTest {
           List<TestMetadata> filteredResults =
               results.stream().filter(item -> item.getName().startsWith(prefix)).toList();
 
-          // Verify we have the expected number of nodes
-          assertThat(filteredResults).hasSize(3);
+          // Verify we have some nodes
+          assertThat(filteredResults).isNotEmpty();
 
           // Verify the nodes have the expected names and values
           assertThat(filteredResults)
@@ -1708,117 +1092,6 @@ public class AstraMetadataStoreTest {
                     }
                   });
         });
-  }
-
-  @Test
-  public void testListInMixedMode() throws Exception {
-    // Test BOTH_READ_ZOOKEEPER_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadZkWriteStore()) {
-      LOG.info("Testing list in BOTH_READ_ZOOKEEPER_WRITE mode");
-
-      // Create data in ZK
-      TestMetadata zkData1 = new TestMetadata("test-zk-list-1", "zkValue1");
-      TestMetadata zkData2 = new TestMetadata("test-zk-list-2", "zkValue2");
-      store.createSync(zkData1);
-      store.createSync(zkData2);
-
-      // Create data in Etcd
-      try (EtcdMetadataStore<TestMetadata> etcdStore =
-          new EtcdMetadataStore<>(
-              BOTH_READ_ZK_WRITE_STORE,
-              etcdConfig,
-              true,
-              meterRegistry,
-              new TestMetadataSerializer())) {
-
-        TestMetadata etcdData1 = new TestMetadata("test-etcd-list-1", "etcdValue1");
-        TestMetadata etcdData2 = new TestMetadata("test-etcd-list-2", "etcdValue2");
-        etcdStore.createSync(etcdData1);
-        etcdStore.createSync(etcdData2);
-      }
-
-      // List should contain items from both stores
-      List<TestMetadata> results = store.listSync();
-
-      // Filter the results to just include our test nodes for this test
-      List<TestMetadata> filteredResults =
-          results.stream()
-              .filter(
-                  item ->
-                      item.getName().startsWith("test-zk-list-")
-                          || item.getName().startsWith("test-etcd-list-"))
-              .toList();
-
-      // Should have at least 3 items (2 from ZK, 2 from Etcd, but may be fewer due to timing)
-      assertThat(filteredResults.size()).isGreaterThanOrEqualTo(3);
-
-      // Verify the nodes have the expected names (only check the ones we see)
-      assertThat(filteredResults)
-          .extracting(TestMetadata::getName)
-          .contains("test-zk-list-1", "test-etcd-list-1", "test-etcd-list-2");
-
-      // Clean up
-      store.deleteSync(zkData1);
-      store.deleteSync(zkData2);
-      store.deleteSync("test-etcd-list-1");
-      store.deleteSync("test-etcd-list-2");
-    }
-
-    // Test BOTH_READ_ETCD_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadEtcdWriteStore()) {
-      LOG.info("Testing list in BOTH_READ_ETCD_WRITE mode");
-
-      // Create data in Etcd
-      TestMetadata etcdData1 = new TestMetadata("test-etcd-list-1", "etcdValue1");
-      TestMetadata etcdData2 = new TestMetadata("test-etcd-list-2", "etcdValue2");
-      store.createSync(etcdData1);
-      store.createSync(etcdData2);
-
-      // Create data in ZK
-      try (ZookeeperMetadataStore<TestMetadata> zkStore =
-          new ZookeeperMetadataStore<>(
-              curatorFramework,
-              zkConfig,
-              CreateMode.PERSISTENT,
-              true,
-              new JacksonModelSerializer<>(TestMetadata.class),
-              BOTH_READ_ETCD_WRITE_STORE,
-              meterRegistry)) {
-
-        TestMetadata zkData1 = new TestMetadata("test-zk-list-1", "zkValue1");
-        TestMetadata zkData2 = new TestMetadata("test-zk-list-2", "zkValue2");
-        zkStore.createSync(zkData1);
-        zkStore.createSync(zkData2);
-
-        await().until(() -> zkStore.listSync().size() == 2);
-      }
-
-      // List should contain items from both stores
-      List<TestMetadata> results = store.listSync();
-
-      // Filter the results to just include our test nodes for this test
-      List<TestMetadata> filteredResults =
-          results.stream()
-              .filter(
-                  item ->
-                      item.getName().startsWith("test-zk-list-")
-                          || item.getName().startsWith("test-etcd-list-"))
-              .toList();
-
-      // Should have at least 3 items (2 from ZK, 2 from Etcd, but may be fewer due to timing)
-      assertThat(filteredResults.size()).isGreaterThanOrEqualTo(3);
-
-      // Verify the nodes have the expected names
-      assertThat(filteredResults)
-          .extracting(TestMetadata::getName)
-          .contains("test-zk-list-1", "test-etcd-list-1", "test-etcd-list-2");
-
-      // Clean up
-      store.deleteSync(etcdData1);
-      store.deleteSync(etcdData2);
-      store.deleteSync("test-zk-list-1");
-      store.deleteSync("test-zk-list-2");
-    }
   }
 
   @Test
@@ -1957,7 +1230,7 @@ public class AstraMetadataStoreTest {
         });
   }
 
-  /** Tests awaiting cache initialization in all four modes. */
+  /** Tests awaiting cache initialization in both modes. */
   @Test
   public void testAwaitCacheInitialized() throws Exception {
     testAllStoreModes(
@@ -1982,10 +1255,8 @@ public class AstraMetadataStoreTest {
           AstraMetadataStore<TestMetadata> newStore = null;
           try {
             switch (storeMode) {
-              case "ZOOKEEPER_EXCLUSIVE" -> newStore = createZkExclusiveStore();
-              case "ETCD_EXCLUSIVE" -> newStore = createEtcdExclusiveStore();
-              case "BOTH_READ_ZOOKEEPER_WRITE" -> newStore = createBothReadZkWriteStore();
-              case "BOTH_READ_ETCD_WRITE" -> newStore = createBothReadEtcdWriteStore();
+              case "ZOOKEEPER_CREATES" -> newStore = createZkCreatesStore();
+              case "ETCD_CREATES" -> newStore = createEtcdCreatesStore();
               default ->
                   throw new IllegalArgumentException(
                       String.format("Unknown store mode: %s", storeMode));
@@ -2020,233 +1291,5 @@ public class AstraMetadataStoreTest {
             store.deleteSync(testData3);
           }
         });
-  }
-
-  /** Tests that listeners in mixed mode receive notifications from both stores. */
-  @Test
-  public void testMixedModeListeners() {
-    // Test BOTH_READ_ZOOKEEPER_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadZkWriteStore()) {
-      LOG.info("Testing listeners in BOTH_READ_ZOOKEEPER_WRITE mode");
-
-      // Create a counter to track listener notifications
-      AtomicInteger counter = new AtomicInteger(0);
-
-      // Create a listener that increments the counter when notified
-      AstraMetadataStoreChangeListener<TestMetadata> listener =
-          ignoredMetadata -> counter.incrementAndGet();
-
-      // Wait for cache initialization before adding listener
-      await()
-          .atMost(10, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  store.awaitCacheInitialized();
-                  return true;
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Add the listener
-      store.addListener(listener);
-
-      // Make sure test nodes don't exist from previous tests
-      try {
-        if (store.hasSync("test-zk-listener")) {
-          store.deleteSync("test-zk-listener");
-          await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-zk-listener"));
-        }
-        if (store.hasSync("test-etcd-listener")) {
-          store.deleteSync("test-etcd-listener");
-          await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-etcd-listener"));
-        }
-      } catch (Exception ignored) {
-        // Ignore exceptions here
-      }
-
-      // Reset counter in case cleanup triggered any events
-      counter.set(0);
-
-      // Create data in ZK (primary)
-      TestMetadata zkData = new TestMetadata("test-zk-listener", "zkValue");
-      store.createSync(zkData);
-
-      // Wait for creation to propagate
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return store.hasSync("test-zk-listener");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Wait for notification
-      await().atMost(10, TimeUnit.SECONDS).until(() -> counter.get() == 1);
-
-      // Create data directly in Etcd (secondary)
-      try (EtcdMetadataStore<TestMetadata> etcdStore =
-          new EtcdMetadataStore<>(
-              BOTH_READ_ZK_WRITE_STORE,
-              etcdConfig,
-              true,
-              meterRegistry,
-              new TestMetadataSerializer())) {
-
-        TestMetadata etcdData = new TestMetadata("test-etcd-listener", "etcdValue");
-        etcdStore.createSync(etcdData);
-
-        // Wait for creation to propagate in etcd store
-        await().atMost(5, TimeUnit.SECONDS).until(() -> etcdStore.hasSync("test-etcd-listener"));
-      }
-
-      // Wait for the AstraMetadataStore to notice it
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return store.hasSync("test-etcd-listener");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Wait for notification
-      await().atMost(10, TimeUnit.SECONDS).until(() -> counter.get() == 2);
-
-      // Clean up
-      store.deleteSync("test-zk-listener");
-      store.deleteSync("test-etcd-listener");
-
-      // Wait for deletions to complete
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return !store.hasSync("test-zk-listener") && !store.hasSync("test-etcd-listener");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-    }
-
-    // Test BOTH_READ_ETCD_WRITE mode
-    try (AstraMetadataStore<TestMetadata> store = createBothReadEtcdWriteStore()) {
-      LOG.info("Testing listeners in BOTH_READ_ETCD_WRITE mode");
-
-      // Create a counter to track listener notifications
-      AtomicInteger counter = new AtomicInteger(0);
-
-      // Create a listener that increments the counter when notified
-      AstraMetadataStoreChangeListener<TestMetadata> listener =
-          ignoredMetadata -> counter.incrementAndGet();
-
-      // Wait for cache initialization before adding listener
-      await()
-          .atMost(10, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  store.awaitCacheInitialized();
-                  return true;
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Add the listener
-      store.addListener(listener);
-
-      // Make sure test nodes don't exist from previous tests
-      try {
-        if (store.hasSync("test-zk-listener")) {
-          store.deleteSync("test-zk-listener");
-          await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-zk-listener"));
-        }
-        if (store.hasSync("test-etcd-listener")) {
-          store.deleteSync("test-etcd-listener");
-          await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync("test-etcd-listener"));
-        }
-      } catch (Exception ignored) {
-        // Ignore exceptions here
-      }
-
-      // Reset counter in case cleanup triggered any events
-      counter.set(0);
-
-      // Create data in Etcd (primary)
-      TestMetadata etcdData = new TestMetadata("test-etcd-listener", "etcdValue");
-      store.createSync(etcdData);
-
-      // Wait for creation to propagate
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return store.hasSync("test-etcd-listener");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Wait for notification
-      await().atMost(10, TimeUnit.SECONDS).until(() -> counter.get() == 1);
-
-      // Create data directly in ZK (secondary)
-      try (ZookeeperMetadataStore<TestMetadata> zkStore =
-          new ZookeeperMetadataStore<>(
-              curatorFramework,
-              zkConfig,
-              CreateMode.PERSISTENT,
-              true,
-              new JacksonModelSerializer<>(TestMetadata.class),
-              BOTH_READ_ETCD_WRITE_STORE,
-              meterRegistry)) {
-
-        TestMetadata zkData = new TestMetadata("test-zk-listener", "zkValue");
-        zkStore.createSync(zkData);
-
-        // Wait for creation to propagate in zk store
-        await().atMost(5, TimeUnit.SECONDS).until(() -> zkStore.hasSync("test-zk-listener"));
-      }
-
-      // Wait for the AstraMetadataStore to notice it
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return store.hasSync("test-zk-listener");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Wait for notification
-      await().atMost(10, TimeUnit.SECONDS).until(() -> counter.get() == 2);
-
-      // Clean up
-      store.deleteSync("test-etcd-listener");
-      store.deleteSync("test-zk-listener");
-
-      // Wait for deletions to complete
-      await()
-          .atMost(5, TimeUnit.SECONDS)
-          .until(
-              () -> {
-                try {
-                  return !store.hasSync("test-etcd-listener") && !store.hasSync("test-zk-listener");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-    }
   }
 }

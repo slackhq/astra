@@ -53,7 +53,7 @@ queryConfig:
   managerConnectString: ${ASTRA_MANAGER_CONNECTION_STRING:-localhost:8083}
 
 metadataStoreConfig:
-  mode: ${ASTRA_METADATA_MODE:-ZOOKEEPER_EXCLUSIVE}
+  mode: ${ASTRA_METADATA_MODE:-ZOOKEEPER_CREATES}
   zookeeperConfig:
     enabled: ${ASTRA_ZK_ENABLED:-true}
     zkConnectString: ${ASTRA_ZK_CONNECTION_STRING:-localhost:2181}
