@@ -143,14 +143,59 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     </ul>
    */
   public CompletionStage<T> getAsync(String path) {
-    switch (mode) {
-      case ZOOKEEPER_CREATES:
-        return zkStore.getAsync(path);
-      case ETCD_CREATES:
-        return etcdStore.getAsync(path);
-      default:
-        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
-    }
+    return switch (mode) {
+      case ZOOKEEPER_CREATES ->
+          // Try ZK first, fall back to Etcd if not found
+          zkStore
+              .getAsync(path)
+              .exceptionally(
+                  throwable -> {
+                    if (etcdStore != null) {
+                      // If the node doesn't exist in ZK, try Etcd
+                      if (throwable instanceof InternalMetadataStoreException) {
+                        LOG.debug("Node not found in ZK, trying Etcd: {}", path);
+                        try {
+                          return etcdStore.getSync(path);
+                        } catch (Exception e) {
+                          // If it also fails in Etcd, throw the original exception
+                          throw (RuntimeException) throwable;
+                        }
+                      } else {
+                        // For other types of errors, rethrow
+                        throw (RuntimeException) throwable;
+                      }
+                    } else {
+                      // No etcd store, rethrow the original exception
+                      throw (RuntimeException) throwable;
+                    }
+                  });
+      case ETCD_CREATES ->
+          // Try Etcd first, fall back to ZK if not found
+          etcdStore
+              .getAsync(path)
+              .exceptionally(
+                  throwable -> {
+                    if (zkStore != null) {
+                      // If the node doesn't exist in Etcd, try ZK
+                      if (throwable instanceof InternalMetadataStoreException) {
+                        LOG.debug("Node not found in Etcd, trying ZK: {}", path);
+                        try {
+                          return zkStore.getSync(path);
+                        } catch (Exception e) {
+                          // If it also fails in ZK, throw the original exception
+                          throw (RuntimeException) throwable;
+                        }
+                      } else {
+                        // For other types of errors, rethrow
+                        throw (RuntimeException) throwable;
+                      }
+                    } else {
+                      // No ZK store, rethrow the original exception
+                      throw (RuntimeException) throwable;
+                    }
+                  });
+      default -> throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    };
   }
 
   /**
@@ -167,11 +212,38 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     is not found in either store after attempted fallback reads
    */
   public T getSync(String path) {
-    return switch (mode) {
-      case ZOOKEEPER_CREATES -> zkStore.getSync(path);
-      case ETCD_CREATES -> etcdStore.getSync(path);
-      default -> throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
-    };
+    switch (mode) {
+      case ZOOKEEPER_CREATES:
+        // Try ZK first, fall back to Etcd if not found
+        try {
+          return zkStore.getSync(path);
+        } catch (InternalMetadataStoreException e) {
+          // If the node doesn't exist in ZK, try Etcd
+          if (etcdStore != null) {
+            LOG.debug("Node not found in ZK, trying Etcd: {}", path);
+            return etcdStore.getSync(path);
+          } else {
+            // No etcd store, rethrow the original exception
+            throw e;
+          }
+        }
+      case ETCD_CREATES:
+        // Try Etcd first, fall back to ZK if not found
+        try {
+          return etcdStore.getSync(path);
+        } catch (InternalMetadataStoreException e) {
+          // If the node doesn't exist in Etcd, try ZK
+          if (zkStore != null) {
+            LOG.debug("Node not found in Etcd, trying ZK: {}", path);
+            return zkStore.getSync(path);
+          } else {
+            // No ZK store, rethrow the original exception
+            throw e;
+          }
+        }
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
   }
 
   /**

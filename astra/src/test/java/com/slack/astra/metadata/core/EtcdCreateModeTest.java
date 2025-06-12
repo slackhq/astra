@@ -205,14 +205,8 @@ public class EtcdCreateModeTest {
     try (EtcdMetadataStore<TestMetadata> newStore =
         new EtcdMetadataStore<>("/test-ephemeral", etcdConfig, true, meterRegistry, serializer)) {
 
-      try {
-        newStore.getSync(nodeName);
-        // If we reach here, the node still exists which is a failure
-        assertThat(false).isTrue(); // This will fail
-      } catch (RuntimeException e) {
-        // Expected exception as the node should be gone
-        assertThat(e.getMessage()).contains("Failed to get node");
-      }
+      // After TTL expiration, the node should no longer exist
+      assertThat(newStore.hasSync(nodeName)).isFalse();
     }
   }
 }

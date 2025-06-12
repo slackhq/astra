@@ -432,6 +432,15 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     }
   }
 
+  /**
+   * Gets or creates a metadata store for a partition. If the partition exists in the store map, the
+   * existing instance is returned. If not, a new instance is created and stored in the map.
+   *
+   * @param partition The partition identifier
+   * @return The metadata store for the specified partition
+   * @throws InternalMetadataStoreException if partition filters are used and the partition is not
+   *     in the filter list
+   */
   private EtcdMetadataStore<T> getOrCreateMetadataStore(String partition) {
     if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
       LOG.error(
@@ -442,6 +451,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           "Partitioning metadata store using filters that does not include provided partition");
     }
 
+    // Create a new store for this partition or return existing one
     return metadataStoreMap.computeIfAbsent(
         partition,
         (p1) -> {
@@ -480,6 +490,20 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       }
     }
     throw new InternalMetadataStoreException("Error finding node at path " + path);
+  }
+
+  /**
+   * Checks if this store contains a metadata store for the specified partition.
+   *
+   * @param partition The partition identifier to check
+   * @return true if the partition exists in this store, false otherwise
+   */
+  public boolean hasPartition(String partition) {
+    // First check if partition filter allows this partition
+    if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
+      return false;
+    }
+    return metadataStoreMap.containsKey(partition);
   }
 
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {

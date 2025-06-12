@@ -274,7 +274,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   if (shouldCache) {
                     cache.put(metadataNode.getName(), metadataNode);
                   }
-                  return metadataNode.getName();
+                  // Return full path to match ZookeeperMetadataStore behavior
+                  return storeFolder + "/" + metadataNode.getName();
                 });
       } else {
         // For ephemeral nodes, create a lease and attach it to the key
@@ -304,7 +305,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                             if (shouldCache) {
                               cache.put(metadataNode.getName(), metadataNode);
                             }
-                            return metadataNode.getName();
+                            // Return full path to match ZookeeperMetadataStore behavior
+                            return storeFolder + "/" + metadataNode.getName();
                           });
                 });
       }
