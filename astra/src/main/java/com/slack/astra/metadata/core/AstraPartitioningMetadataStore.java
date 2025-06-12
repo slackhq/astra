@@ -589,12 +589,16 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       case ZOOKEEPER_CREATES:
         // Delete from ZK and also try to delete from Etcd
         CompletionStage<Void> zkDeleteResult = zkStore.deleteAsync(metadataNode);
-        etcdStore.deleteAsync(metadataNode); // don't await this operation
+        if (etcdStore != null) {
+          etcdStore.deleteAsync(metadataNode); // don't await this operation
+        }
         return zkDeleteResult;
       case ETCD_CREATES:
         // Delete from Etcd and also try to delete from ZK
         CompletionStage<Void> etcdDeleteResult = etcdStore.deleteAsync(metadataNode);
-        zkStore.deleteAsync(metadataNode); // don't await this operation
+        if (zkStore != null) {
+          zkStore.deleteAsync(metadataNode); // don't await this operation
+        }
         return etcdDeleteResult;
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
@@ -626,19 +630,23 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       case ZOOKEEPER_CREATES:
         // Delete from ZK and also try to delete from Etcd
         zkStore.deleteSync(metadataNode);
-        try {
-          etcdStore.deleteSync(metadataNode);
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
+        if (etcdStore != null) {
+          try {
+            etcdStore.deleteSync(metadataNode);
+          } catch (Exception ignored) {
+            // Ignore errors from secondary store
+          }
         }
         break;
       case ETCD_CREATES:
         // Delete from Etcd and also try to delete from ZK
         etcdStore.deleteSync(metadataNode);
-        try {
-          zkStore.deleteSync(metadataNode);
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
+        if (zkStore != null) {
+          try {
+            zkStore.deleteSync(metadataNode);
+          } catch (Exception ignored) {
+            // Ignore errors from secondary store
+          }
         }
         break;
       default:
