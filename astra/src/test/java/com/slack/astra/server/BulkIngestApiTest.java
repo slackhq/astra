@@ -108,8 +108,14 @@ public class BulkIngestApiTest {
             .setDatasetRateLimitPeriodSecs(15)
             .build();
 
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(zkConfig)
+            .build();
+
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
             INDEX_NAME,
@@ -122,7 +128,7 @@ public class BulkIngestApiTest {
     datasetMetadataStore.createSync(datasetMetadata);
 
     preprocessorMetadataStore =
-        new PreprocessorMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+        new PreprocessorMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
 
     datasetRateLimitingService =
         new DatasetRateLimitingService(
@@ -213,9 +219,9 @@ public class BulkIngestApiTest {
 
     String request1 =
         """
-                { "index": {"_index": "testindex", "_id": "1"} }
-                { "field1" : "value1" }
-                """;
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1" }
+            """;
     // use the way we calculate the throughput in the rate limiter to get the exact bytes
     Map<String, List<Trace.Span>> docs =
         BulkApiRequestParser.parseRequest(
@@ -263,11 +269,11 @@ public class BulkIngestApiTest {
     // test with multiple indexes
     String request2 =
         """
-                { "index": {"_index": "testindex1", "_id": "1"} }
-                { "field1" : "value1" }
-                { "index": {"_index": "testindex2", "_id": "1"} }
-                { "field1" : "value1" }
-                """;
+            { "index": {"_index": "testindex1", "_id": "1"} }
+            { "field1" : "value1" }
+            { "index": {"_index": "testindex2", "_id": "1"} }
+            { "field1" : "value1" }
+            """;
     response = bulkApi.addDocument(request2).aggregate().join();
     assertThat(response.status().isSuccess()).isEqualTo(false);
     assertThat(response.status().code()).isEqualTo(INTERNAL_SERVER_ERROR.code());
@@ -314,11 +320,11 @@ public class BulkIngestApiTest {
 
     String request1 =
         """
-                    { "index": {"_index": "testindex", "_id": "1"} }
-                    { "field1" : "value1" },
-                    { "index": {"_index": "testindex", "_id": "2"} }
-                    { "field1" : "value2" }
-                    """;
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1" },
+            { "index": {"_index": "testindex", "_id": "2"} }
+            { "field1" : "value2" }
+            """;
     updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
@@ -369,11 +375,11 @@ public class BulkIngestApiTest {
 
     String request1 =
         """
-                        { "index": {"_index": "testindex", "_id": "1"} }
-                        { "field1" : "value1" },
-                        { "index": {"_index": "testindex", "_id": "2"} }
-                        { "field1" : "value2" }
-                        """;
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1" },
+            { "index": {"_index": "testindex", "_id": "2"} }
+            { "field1" : "value2" }
+            """;
     updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();

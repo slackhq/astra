@@ -460,17 +460,22 @@ public class LuceneIndexStoreImplTest {
 
       // setup ZK and redaction metadata store for field redaction testing
       TestingServer testingServer = new TestingServer();
-      AstraConfigs.ZookeeperConfig zkConfig =
-          AstraConfigs.ZookeeperConfig.newBuilder()
-              .setZkConnectString(testingServer.getConnectString())
-              .setZkPathPrefix("test")
-              .setZkSessionTimeoutMs(1000)
-              .setZkConnectionTimeoutMs(1000)
-              .setSleepBetweenRetriesMs(1000)
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+          AstraConfigs.MetadataStoreConfig.newBuilder()
+              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+              .setZookeeperConfig(
+                  AstraConfigs.ZookeeperConfig.newBuilder()
+                      .setZkConnectString(testingServer.getConnectString())
+                      .setZkPathPrefix("test")
+                      .setZkSessionTimeoutMs(1000)
+                      .setZkConnectionTimeoutMs(1000)
+                      .setSleepBetweenRetriesMs(1000)
+                      .build())
               .build();
 
       MeterRegistry meterRegistry = new SimpleMeterRegistry();
-      AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+      AsyncCuratorFramework curatorFramework =
+          CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
 
       String redactionName = "testRedaction";
       String fieldName = "stringproperty";
@@ -478,7 +483,8 @@ public class LuceneIndexStoreImplTest {
       long end = Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli();
 
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+          new FieldRedactionMetadataStore(
+              curatorFramework, metadataStoreConfig, meterRegistry, true);
       fieldRedactionMetadataStore.createSync(
           new FieldRedactionMetadata(redactionName, fieldName, start, end));
       await()

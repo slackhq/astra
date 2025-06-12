@@ -39,14 +39,18 @@ public class CacheNodeSearchabilityServiceTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig zkConfig =
-        com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("CacheNodeAssignmentServiceTest")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(testingServer.getConnectString())
+                    .setZkPathPrefix("CacheNodeAssignmentServiceTest")
+                    .setZkSessionTimeoutMs(1000)
+                    .setZkConnectionTimeoutMs(1000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
 
     AstraConfigs.ManagerConfig.CacheNodeSearchabilityServiceConfig
@@ -61,15 +65,16 @@ public class CacheNodeSearchabilityServiceTest {
             .setCacheNodeSearchabilityServiceConfig(cacheNodeSearchabilityServiceConfig)
             .build();
 
-    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     searchMetadataStore =
-        spy(new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
+        spy(new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true));
     cacheNodeMetadataStore =
-        spy(new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
     cacheNodeAssignmentStore =
-        spy(new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry));
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
   }
 
   @AfterEach

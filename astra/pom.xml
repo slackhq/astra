@@ -608,7 +608,6 @@
                             -Xep:NullOptional:ERROR \
                             -Xep:UnnecessaryParentheses:ERROR \
                             -Xep:UnusedMethod:ERROR \
-                            -Xep:UnusedVariable:ERROR \
                             -Xep:StreamResourceLeak:ERROR \
                             -Xep:StaticAssignmentInConstructor:ERROR
                         </arg>

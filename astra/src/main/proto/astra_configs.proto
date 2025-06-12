@@ -52,8 +52,16 @@ message KafkaConfig {
   map<string, string> additional_props = 8;
 }
 
+enum MetadataStoreMode {
+  ZOOKEEPER_EXCLUSIVE = 0;
+  ETCD_EXCLUSIVE = 1;
+  BOTH_READ_ZOOKEEPER_WRITE = 2;
+  BOTH_READ_ETCD_WRITE = 3;
+}
+
 message MetadataStoreConfig {
   ZookeeperConfig zookeeper_config = 1;
+  MetadataStoreMode mode = 3;
 }
 
 // Configuration for Zookeeper metadata store.

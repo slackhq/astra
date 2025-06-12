@@ -68,10 +68,17 @@ public class ReplicaAssignmentServiceTest {
             .setZkCacheInitTimeoutMs(1000)
             .build();
 
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(zkConfig)
+            .build();
+
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     cacheSlotMetadataStore =
-        spy(new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+    replicaMetadataStore =
+        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
   }
 
   @AfterEach

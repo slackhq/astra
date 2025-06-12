@@ -28,16 +28,23 @@ public class FieldRedactionMetadataStoreTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    AstraConfigs.ZookeeperConfig zkConfig =
-        AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("Test")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(500)
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(testingServer.getConnectString())
+                    .setZkPathPrefix("Test")
+                    .setZkSessionTimeoutMs(1000)
+                    .setZkConnectionTimeoutMs(1000)
+                    .setSleepBetweenRetriesMs(500)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
-    this.curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    store = new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    this.curatorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
+    store =
+        new FieldRedactionMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
   }
 
   @AfterEach

@@ -90,10 +90,19 @@ public class RecoveryChunkImplTest {
               .setSleepBetweenRetriesMs(1000)
               .setZkCacheInitTimeoutMs(1000)
               .build();
+
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+          AstraConfigs.MetadataStoreConfig.newBuilder()
+              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+              .setZookeeperConfig(zkConfig)
+              .build();
+
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, false);
+      snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, registry);
+      searchMetadataStore =
+          new SearchMetadataStore(curatorFramework, metadataStoreConfig, registry, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -452,10 +461,19 @@ public class RecoveryChunkImplTest {
               .setSleepBetweenRetriesMs(1000)
               .setZkCacheInitTimeoutMs(1000)
               .build();
+
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+          AstraConfigs.MetadataStoreConfig.newBuilder()
+              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+              .setZookeeperConfig(zkConfig)
+              .build();
+
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, false);
+      snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, registry);
+      searchMetadataStore =
+          new SearchMetadataStore(curatorFramework, metadataStoreConfig, registry, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -536,12 +554,20 @@ public class RecoveryChunkImplTest {
               .setZkCacheInitTimeoutMs(1000)
               .build();
 
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+          AstraConfigs.MetadataStoreConfig.newBuilder()
+              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+              .setZookeeperConfig(zkConfig)
+              .build();
+
       registry = new SimpleMeterRegistry();
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, true);
+      snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, registry);
+      searchMetadataStore =
+          new SearchMetadataStore(curatorFramework, metadataStoreConfig, registry, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(

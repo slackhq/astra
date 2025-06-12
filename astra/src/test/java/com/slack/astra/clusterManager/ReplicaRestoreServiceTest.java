@@ -45,14 +45,18 @@ public class ReplicaRestoreServiceTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig zkConfig =
-        com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("ReplicaRestoreServiceTest")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(testingServer.getConnectString())
+                    .setZkPathPrefix("ReplicaRestoreServiceTest")
+                    .setZkSessionTimeoutMs(1000)
+                    .setZkConnectionTimeoutMs(1000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
 
     AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
@@ -69,8 +73,10 @@ public class ReplicaRestoreServiceTest {
             .setReplicaRestoreServiceConfig(replicaRecreationServiceConfig)
             .build();
 
-    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
+    replicaMetadataStore =
+        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
   }
 
   @AfterEach

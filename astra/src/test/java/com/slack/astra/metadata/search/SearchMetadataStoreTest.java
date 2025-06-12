@@ -19,7 +19,7 @@ public class SearchMetadataStoreTest {
   private SimpleMeterRegistry meterRegistry;
   private TestingServer testingServer;
   private AsyncCuratorFramework curatorFramework;
-  private AstraConfigs.ZookeeperConfig zkConfig;
+  private AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private SearchMetadataStore store;
 
   @BeforeEach
@@ -27,16 +27,21 @@ public class SearchMetadataStoreTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    zkConfig =
-        AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("Test")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(500)
-            .setZkCacheInitTimeoutMs(1000)
+    metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(testingServer.getConnectString())
+                    .setZkPathPrefix("Test")
+                    .setZkSessionTimeoutMs(1000)
+                    .setZkConnectionTimeoutMs(1000)
+                    .setSleepBetweenRetriesMs(500)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
-    this.curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    this.curatorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
   }
 
   @AfterEach
@@ -49,7 +54,7 @@ public class SearchMetadataStoreTest {
 
   @Test
   public void testSearchMetadataStoreUpdateSearchability() throws Exception {
-    store = new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    store = new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
     SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot", "http", false);
     assertThat(searchMetadata.isSearchable()).isFalse();
     store.createSync(searchMetadata);
@@ -62,7 +67,7 @@ public class SearchMetadataStoreTest {
 
   @Test
   public void testSearchMetadataStoreIsNotUpdatable() throws Exception {
-    store = new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+    store = new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
     SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot", "http");
     Throwable exAsync = catchThrowable(() -> store.updateAsync(searchMetadata));
     assertThat(exAsync).isInstanceOf(UnsupportedOperationException.class);

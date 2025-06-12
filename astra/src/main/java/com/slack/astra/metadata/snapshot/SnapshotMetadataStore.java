@@ -1,6 +1,7 @@
 package com.slack.astra.metadata.snapshot;
 
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
+import com.slack.astra.metadata.core.ZookeeperPartitioningMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -13,15 +14,19 @@ public class SnapshotMetadataStore extends AstraPartitioningMetadataStore<Snapsh
 
   public SnapshotMetadataStore(
       AsyncCuratorFramework curatorFramework,
-      AstraConfigs.ZookeeperConfig zkConfig,
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry)
       throws Exception {
     super(
-        curatorFramework,
-        zkConfig,
-        meterRegistry,
-        CreateMode.PERSISTENT,
-        new SnapshotMetadataSerializer().toModelSerializer(),
-        SNAPSHOT_METADATA_STORE_ZK_PATH);
+        new ZookeeperPartitioningMetadataStore<>(
+            curatorFramework,
+            metadataStoreConfig.getZookeeperConfig(),
+            meterRegistry,
+            CreateMode.PERSISTENT,
+            new SnapshotMetadataSerializer().toModelSerializer(),
+            SNAPSHOT_METADATA_STORE_ZK_PATH),
+        null, // Not using etcdStore for now
+        metadataStoreConfig.getMode(),
+        meterRegistry);
   }
 }

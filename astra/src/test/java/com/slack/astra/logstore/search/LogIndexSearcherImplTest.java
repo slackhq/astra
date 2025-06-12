@@ -84,18 +84,24 @@ public class LogIndexSearcherImplTest {
 
       testingServer = new TestingServer();
       meterRegistry = new SimpleMeterRegistry();
-      AstraConfigs.ZookeeperConfig zkConfig =
-          AstraConfigs.ZookeeperConfig.newBuilder()
-              .setZkConnectString(testingServer.getConnectString())
-              .setZkPathPrefix("test")
-              .setZkSessionTimeoutMs(Integer.MAX_VALUE)
-              .setZkConnectionTimeoutMs(Integer.MAX_VALUE)
-              .setSleepBetweenRetriesMs(1000)
-              .setZkCacheInitTimeoutMs(1000)
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+          AstraConfigs.MetadataStoreConfig.newBuilder()
+              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+              .setZookeeperConfig(
+                  AstraConfigs.ZookeeperConfig.newBuilder()
+                      .setZkConnectString(testingServer.getConnectString())
+                      .setZkPathPrefix("test")
+                      .setZkSessionTimeoutMs(Integer.MAX_VALUE)
+                      .setZkConnectionTimeoutMs(Integer.MAX_VALUE)
+                      .setSleepBetweenRetriesMs(1000)
+                      .setZkCacheInitTimeoutMs(1000)
+                      .build())
               .build();
-      curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+      curatorFramework =
+          CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
       fieldRedactionMetadataStore =
-          new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+          new FieldRedactionMetadataStore(
+              curatorFramework, metadataStoreConfig, meterRegistry, true);
 
       redactionUpdateServiceConfig =
           AstraConfigs.RedactionUpdateServiceConfig.newBuilder()

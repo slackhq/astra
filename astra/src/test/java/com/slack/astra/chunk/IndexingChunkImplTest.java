@@ -100,24 +100,28 @@ public class IndexingChunkImplTest {
       Tracing.newBuilder().build();
 
       testingServer = new TestingServer();
-      AstraConfigs.ZookeeperConfig zkConfig =
-          AstraConfigs.ZookeeperConfig.newBuilder()
-              .setZkConnectString(testingServer.getConnectString())
-              .setZkPathPrefix("shouldHandleChunkLivecycle")
-              .setZkSessionTimeoutMs(1000)
-              .setZkConnectionTimeoutMs(1000)
-              .setSleepBetweenRetriesMs(1000)
-              .setZkCacheInitTimeoutMs(1000)
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+          AstraConfigs.MetadataStoreConfig.newBuilder()
+              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+              .setZookeeperConfig(
+                  AstraConfigs.ZookeeperConfig.newBuilder()
+                      .setZkConnectString(testingServer.getConnectString())
+                      .setZkPathPrefix("shouldHandleChunkLivecycle")
+                      .setZkSessionTimeoutMs(1000)
+                      .setZkConnectionTimeoutMs(1000)
+                      .setSleepBetweenRetriesMs(1000)
+                      .setZkCacheInitTimeoutMs(1000)
+                      .build())
               .build();
 
       registry = new SimpleMeterRegistry();
 
-      curatorFramework = CuratorBuilder.build(registry, zkConfig);
+      curatorFramework = CuratorBuilder.build(registry, metadataStoreConfig.getZookeeperConfig());
 
       SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
+          new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, registry);
       SearchMetadataStore searchMetadataStore =
-          new SearchMetadataStore(curatorFramework, zkConfig, registry, true);
+          new SearchMetadataStore(curatorFramework, metadataStoreConfig, registry, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -453,24 +457,28 @@ public class IndexingChunkImplTest {
       Tracing.newBuilder().build();
 
       testingServer = new TestingServer();
-      AstraConfigs.ZookeeperConfig zkConfig =
-          AstraConfigs.ZookeeperConfig.newBuilder()
-              .setZkConnectString(testingServer.getConnectString())
-              .setZkPathPrefix("shouldHandleChunkLivecycle")
-              .setZkSessionTimeoutMs(1000)
-              .setZkConnectionTimeoutMs(1000)
-              .setSleepBetweenRetriesMs(1000)
-              .setZkCacheInitTimeoutMs(1000)
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+          AstraConfigs.MetadataStoreConfig.newBuilder()
+              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+              .setZookeeperConfig(
+                  AstraConfigs.ZookeeperConfig.newBuilder()
+                      .setZkConnectString(testingServer.getConnectString())
+                      .setZkPathPrefix("shouldHandleChunkLivecycle")
+                      .setZkSessionTimeoutMs(1000)
+                      .setZkConnectionTimeoutMs(1000)
+                      .setSleepBetweenRetriesMs(1000)
+                      .setZkCacheInitTimeoutMs(1000)
+                      .build())
               .build();
 
       registry = new SimpleMeterRegistry();
 
-      curatorFramework = CuratorBuilder.build(registry, zkConfig);
+      curatorFramework = CuratorBuilder.build(registry, metadataStoreConfig.getZookeeperConfig());
 
       SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
+          new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, registry);
       SearchMetadataStore searchMetadataStore =
-          new SearchMetadataStore(curatorFramework, zkConfig, registry, true);
+          new SearchMetadataStore(curatorFramework, metadataStoreConfig, registry, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -540,22 +548,28 @@ public class IndexingChunkImplTest {
     public void setUp() throws Exception {
       Tracing.newBuilder().build();
       testingServer = new TestingServer();
-      AstraConfigs.ZookeeperConfig zkConfig =
-          AstraConfigs.ZookeeperConfig.newBuilder()
-              .setZkConnectString(testingServer.getConnectString())
-              .setZkPathPrefix("shouldHandleChunkLivecycle")
-              .setZkSessionTimeoutMs(1000)
-              .setZkConnectionTimeoutMs(1000)
-              .setSleepBetweenRetriesMs(1000)
-              .setZkCacheInitTimeoutMs(1000)
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+          AstraConfigs.MetadataStoreConfig.newBuilder()
+              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+              .setZookeeperConfig(
+                  AstraConfigs.ZookeeperConfig.newBuilder()
+                      .setZkConnectString(testingServer.getConnectString())
+                      .setZkPathPrefix("shouldHandleChunkLivecycle")
+                      .setZkSessionTimeoutMs(1000)
+                      .setZkConnectionTimeoutMs(1000)
+                      .setSleepBetweenRetriesMs(1000)
+                      .setZkCacheInitTimeoutMs(1000)
+                      .build())
               .build();
 
       registry = new SimpleMeterRegistry();
 
-      curatorFramework = CuratorBuilder.build(registry, zkConfig);
+      curatorFramework = CuratorBuilder.build(registry, metadataStoreConfig.getZookeeperConfig());
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, registry);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, registry, true);
+      snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, registry);
+      searchMetadataStore =
+          new SearchMetadataStore(curatorFramework, metadataStoreConfig, registry, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(

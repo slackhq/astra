@@ -49,6 +49,7 @@ public class ReplicaCreationServiceTest {
 
   private AsyncCuratorFramework curatorFramework;
   private AstraConfigs.ZookeeperConfig zkConfig;
+  private AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private SnapshotMetadataStore snapshotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
 
@@ -69,9 +70,16 @@ public class ReplicaCreationServiceTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+
+    metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(zkConfig)
+            .build();
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+    replicaMetadataStore =
+        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
   }
 
   @AfterEach
@@ -87,9 +95,9 @@ public class ReplicaCreationServiceTest {
   @Test
   public void shouldDoNothingIfReplicasAlreadyExist() throws Exception {
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry);
+        new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
 
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(

@@ -1,6 +1,7 @@
 package com.slack.astra.metadata.replica;
 
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
+import com.slack.astra.metadata.core.ZookeeperPartitioningMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -11,15 +12,19 @@ public class ReplicaMetadataStore extends AstraPartitioningMetadataStore<Replica
 
   public ReplicaMetadataStore(
       AsyncCuratorFramework curatorFramework,
-      AstraConfigs.ZookeeperConfig zkConfig,
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry)
       throws Exception {
     super(
-        curatorFramework,
-        zkConfig,
-        meterRegistry,
-        CreateMode.PERSISTENT,
-        new ReplicaMetadataSerializer().toModelSerializer(),
-        REPLICA_STORE_ZK_PATH);
+        new ZookeeperPartitioningMetadataStore<>(
+            curatorFramework,
+            metadataStoreConfig.getZookeeperConfig(),
+            meterRegistry,
+            CreateMode.PERSISTENT,
+            new ReplicaMetadataSerializer().toModelSerializer(),
+            REPLICA_STORE_ZK_PATH),
+        null, // Not using etcdStore for now
+        metadataStoreConfig.getMode(),
+        meterRegistry);
   }
 }

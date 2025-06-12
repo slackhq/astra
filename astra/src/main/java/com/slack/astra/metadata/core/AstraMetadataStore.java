@@ -1,331 +1,800 @@
 package com.slack.astra.metadata.core;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.slack.astra.proto.config.AstraConfigs;
-import com.slack.astra.util.RuntimeHalterImpl;
-import io.micrometer.core.instrument.Counter;
+import com.slack.astra.proto.config.AstraConfigs.MetadataStoreMode;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import org.apache.curator.x.async.AsyncCuratorFramework;
-import org.apache.curator.x.async.api.CreateOption;
-import org.apache.curator.x.async.modeled.ModelSerializer;
-import org.apache.curator.x.async.modeled.ModelSpec;
-import org.apache.curator.x.async.modeled.ModeledFramework;
-import org.apache.curator.x.async.modeled.ZPath;
-import org.apache.curator.x.async.modeled.cached.CachedModeledFramework;
-import org.apache.curator.x.async.modeled.cached.ModeledCacheListener;
-import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.data.Stat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * AstraMetadataStore is a class which provides consistent ZK apis for all the metadata store class.
+ * AstraMetadataStore is a bridge implementation that takes both ZookeeperMetadataStore and
+ * EtcdMetadataStore implementations. It will route operations to one or both of these
+ * implementations depending on the configured mode in MetadataStoreConfig.
  *
- * <p>Every method provides an async and a sync API. In general, use the async API you are
- * performing batch operations and a sync if you are performing a synchronous operation on a node.
+ * <p>This class is intended to be a bridge for migrating from Zookeeper to Etcd by supporting
+ * different modes of operation: - ZOOKEEPER_EXCLUSIVE: All operations go to Zookeeper only -
+ * ETCD_EXCLUSIVE: All operations go to Etcd only - BOTH_READ_ZOOKEEPER_WRITE: In this migration
+ * mode: - Creates go to ZK only - Updates delete from Etcd and create in ZK - Deletes apply to both
+ * stores - Get tries ZK first, then falls back to Etcd - Has returns true if either store has the
+ * item - List combines results from both stores - BOTH_READ_ETCD_WRITE: In this migration mode: -
+ * Creates go to Etcd only - Updates delete from ZK and create in Etcd - Deletes apply to both
+ * stores - Get tries Etcd first, then falls back to ZK - Has returns true if either store has the
+ * item - List combines results from both stores
+ *
+ * <p>If either zkStore or etcdStore is null, the mode configuration will be overridden and
+ * operations will be routed only to the non-null store, regardless of the specified mode.
  */
 public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
-  protected final String storeFolder;
+  private static final Logger LOG = LoggerFactory.getLogger(AstraMetadataStore.class);
 
-  private final ZPath zPath;
-
-  private final CountDownLatch cacheInitialized = new CountDownLatch(1);
-
-  protected final ModeledFramework<T> modeledClient;
-
-  private final CachedModeledFramework<T> cachedModeledFramework;
-
-  private final Map<AstraMetadataStoreChangeListener<T>, ModeledCacheListener<T>> listenerMap =
-      new ConcurrentHashMap<>();
-
-  private final ExecutorService cacheInitializedService;
-  private final ModeledCacheListener<T> initializedListener = getCacheInitializedListener();
-
-  private final AstraConfigs.ZookeeperConfig zkConfig;
+  protected final ZookeeperMetadataStore<T> zkStore;
+  private final EtcdMetadataStore<T> etcdStore;
+  private final MetadataStoreMode mode;
 
   private final MeterRegistry meterRegistry;
 
-  private final String ASTRA_ZK_CREATE_CALL = "astra_zk_create_call";
-  private final String ASTRA_ZK_HAS_CALL = "astra_zk_has_call";
-  private final String ASTRA_ZK_DELETE_CALL = "astra_zk_delete_call";
-  private final String ASTRA_ZK_LIST_CALL = "astra_zk_list_call";
-  private final String ASTRA_ZK_GET_CALL = "astra_zk_get_call";
-  private final String ASTRA_ZK_UPDATE_CALL = "astra_zk_update_call";
-  private final String ASTRA_ZK_ADDED_LISTENER = "astra_zk_added_listener";
-  private final String ASTRA_ZK_REMOVED_LISTENER = "astra_zk_removed_listener";
-  private final String ASTRA_ZK_CACHE_INIT_HANDLER_FIRED = "astra_zk_cache_init_handler_fired";
+  // Tracks listeners registered, so we can properly register/unregister from both stores
+  private final Map<AstraMetadataStoreChangeListener<T>, DualStoreChangeListener<T>> listenerMap =
+      new ConcurrentHashMap<>();
 
-  private final Counter createCall;
-  private final Counter hasCall;
-  private final Counter deleteCall;
-  private final Counter listCall;
-  private final Counter getCall;
-  private final Counter updateCall;
-  private final Counter addedListener;
-  private final Counter removedListener;
-  private final Counter cacheInitializationHandlerFired;
-
+  /**
+   * Constructor for AstraMetadataStore.
+   *
+   * @param zkStore the ZookeeperMetadataStore implementation, may be null
+   * @param etcdStore the EtcdMetadataStore implementation, may be null
+   * @param mode the operation mode (overridden if either store is null)
+   * @param meterRegistry the metrics registry
+   */
   public AstraMetadataStore(
-      AsyncCuratorFramework curator,
-      AstraConfigs.ZookeeperConfig zkConfig,
-      CreateMode createMode,
-      boolean shouldCache,
-      ModelSerializer<T> modelSerializer,
-      String storeFolder,
+      ZookeeperMetadataStore<T> zkStore,
+      EtcdMetadataStore<T> etcdStore,
+      MetadataStoreMode mode,
       MeterRegistry meterRegistry) {
 
-    this.storeFolder = storeFolder;
-    this.zPath = ZPath.parseWithIds(String.format("%s/{name}", storeFolder));
-    this.zkConfig = zkConfig;
-    this.meterRegistry = meterRegistry;
-    String store = "/" + storeFolder.split("/")[1];
+    this.zkStore = zkStore;
+    this.etcdStore = etcdStore;
 
-    this.createCall = this.meterRegistry.counter(ASTRA_ZK_CREATE_CALL, "store", store);
-    this.deleteCall = this.meterRegistry.counter(ASTRA_ZK_DELETE_CALL, "store", store);
-    this.listCall = this.meterRegistry.counter(ASTRA_ZK_LIST_CALL, "store", store);
-    this.getCall = this.meterRegistry.counter(ASTRA_ZK_GET_CALL, "store", store);
-    this.hasCall = this.meterRegistry.counter(ASTRA_ZK_HAS_CALL, "store", store);
-    this.updateCall = this.meterRegistry.counter(ASTRA_ZK_UPDATE_CALL, "store", store);
-    this.addedListener = this.meterRegistry.counter(ASTRA_ZK_ADDED_LISTENER, "store", store);
-    this.removedListener = this.meterRegistry.counter(ASTRA_ZK_REMOVED_LISTENER, "store", store);
-    this.cacheInitializationHandlerFired =
-        this.meterRegistry.counter(ASTRA_ZK_CACHE_INIT_HANDLER_FIRED, "store", store);
-
-    ModelSpec<T> modelSpec =
-        ModelSpec.builder(modelSerializer)
-            .withPath(zPath)
-            .withCreateOptions(
-                Set.of(CreateOption.createParentsIfNeeded, CreateOption.createParentsAsContainers))
-            .withCreateMode(createMode)
-            .build();
-    modeledClient = ModeledFramework.wrap(curator, modelSpec);
-
-    if (shouldCache) {
-      cacheInitializedService =
-          Executors.newSingleThreadExecutor(
-              new ThreadFactoryBuilder().setNameFormat("cache-initialized-service-%d").build());
-      cachedModeledFramework = modeledClient.cached();
-      cachedModeledFramework.listenable().addListener(initializedListener, cacheInitializedService);
-      cachedModeledFramework.start();
+    // Override mode if one of the stores is null
+    if (zkStore == null && etcdStore != null) {
+      this.mode = MetadataStoreMode.ETCD_EXCLUSIVE;
+      LOG.info("ZK store is null, overriding mode to ETCD_EXCLUSIVE regardless of configured mode");
+    } else if (etcdStore == null && zkStore != null) {
+      this.mode = MetadataStoreMode.ZOOKEEPER_EXCLUSIVE;
+      LOG.info(
+          "Etcd store is null, overriding mode to ZOOKEEPER_EXCLUSIVE regardless of configured mode");
+    } else if (etcdStore == null && zkStore == null) {
+      throw new IllegalArgumentException("Both zkStore and etcdStore cannot be null");
     } else {
-      cachedModeledFramework = null;
-      cacheInitializedService = null;
+      this.mode = mode;
+      LOG.info("Using metadata store mode {}", mode);
     }
+
+    this.meterRegistry = meterRegistry;
   }
 
+  /**
+   * Creates a new metadata node.
+   *
+   * @param metadataNode the node to create
+   * @return a CompletionStage that completes when the operation is done
+   */
   public CompletionStage<String> createAsync(T metadataNode) {
-    // by passing the version 0, this will throw if we attempt to create and it already exists
-    return modeledClient.set(metadataNode, 0);
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.createAsync(metadataNode);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.createAsync(metadataNode);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // In migration to ZK mode, writes only go to ZK
+        return zkStore.createAsync(metadataNode);
+      case BOTH_READ_ETCD_WRITE:
+        // In migration to Etcd mode, writes only go to Etcd
+        return etcdStore.createAsync(metadataNode);
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
   }
 
+  /**
+   * Synchronously creates a new metadata node.
+   *
+   * @param metadataNode the node to create
+   */
   public void createSync(T metadataNode) {
-    try {
-      this.createCall.increment();
-
-      createAsync(metadataNode)
-          .toCompletableFuture()
-          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error creating node " + metadataNode, e);
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        zkStore.createSync(metadataNode);
+        break;
+      case ETCD_EXCLUSIVE:
+        etcdStore.createSync(metadataNode);
+        break;
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // In migration to ZK mode, writes only go to ZK
+        zkStore.createSync(metadataNode);
+        break;
+      case BOTH_READ_ETCD_WRITE:
+        // In migration to Etcd mode, writes only go to Etcd
+        etcdStore.createSync(metadataNode);
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
     }
   }
 
+  /**
+   * Gets a metadata node asynchronously.
+   *
+   * @param path the path to the node
+   * @return a CompletionStage that completes with the node
+   */
   public CompletionStage<T> getAsync(String path) {
-    if (cachedModeledFramework != null) {
-      return cachedModeledFramework.withPath(zPath.resolved(path)).readThrough();
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.getAsync(path);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.getAsync(path);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // Try ZK first, fall back to Etcd if not found
+        return zkStore
+            .getAsync(path)
+            .exceptionally(ex -> null)
+            .thenCompose(
+                result -> {
+                  if (result != null) {
+                    return CompletableFuture.completedFuture(result);
+                  }
+                  // Not found in ZK, try Etcd
+                  return etcdStore.getAsync(path);
+                });
+      case BOTH_READ_ETCD_WRITE:
+        // Try Etcd first, fall back to ZK if not found
+        return etcdStore
+            .getAsync(path)
+            .exceptionally(ex -> null)
+            .thenCompose(
+                result -> {
+                  if (result != null) {
+                    return CompletableFuture.completedFuture(result);
+                  }
+                  // Not found in Etcd, try ZK
+                  return zkStore.getAsync(path);
+                });
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
     }
-
-    return modeledClient.withPath(zPath.resolved(path)).read();
   }
 
+  /**
+   * Gets a metadata node synchronously.
+   *
+   * @param path the path to the node
+   * @return the node
+   */
   public T getSync(String path) {
-    try {
-      this.getCall.increment();
-
-      return getAsync(path)
-          .toCompletableFuture()
-          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
-    }
-  }
-
-  public CompletionStage<Stat> hasAsync(String path) {
-    if (cachedModeledFramework != null) {
-      awaitCacheInitialized();
-      return cachedModeledFramework.withPath(zPath.resolved(path)).checkExists();
-    }
-    return modeledClient.withPath(zPath.resolved(path)).checkExists();
-  }
-
-  public boolean hasSync(String path) {
-    try {
-      this.hasCall.increment();
-
-      return hasAsync(path)
-              .toCompletableFuture()
-              .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
-          != null;
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
-    }
-  }
-
-  public CompletionStage<Stat> updateAsync(T metadataNode) {
-    return modeledClient.update(metadataNode);
-  }
-
-  public void updateSync(T metadataNode) {
-    try {
-
-      this.updateCall.increment();
-
-      updateAsync(metadataNode)
-          .toCompletableFuture()
-          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
-    }
-  }
-
-  public CompletionStage<Void> deleteAsync(String path) {
-    return modeledClient.withPath(zPath.resolved(path)).delete();
-  }
-
-  public void deleteSync(String path) {
-    try {
-      this.deleteCall.increment();
-
-      deleteAsync(path)
-          .toCompletableFuture()
-          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-    } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error deleting node under at path: " + path, e);
-    }
-  }
-
-  public CompletionStage<Void> deleteAsync(T metadataNode) {
-    return modeledClient.withPath(zPath.resolved(metadataNode)).delete();
-  }
-
-  public void deleteSync(T metadataNode) {
-    try {
-      this.deleteCall.increment();
-
-      deleteAsync(metadataNode)
-          .toCompletableFuture()
-          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-    } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new InternalMetadataStoreException(
-          "Error deleting node under at path: " + metadataNode.name, e);
-    }
-  }
-
-  public CompletionStage<List<T>> listAsync() {
-    if (cachedModeledFramework == null) {
-      throw new UnsupportedOperationException("Caching is disabled");
-    }
-
-    awaitCacheInitialized();
-    return cachedModeledFramework.list();
-  }
-
-  public List<T> listSync() {
-    try {
-      this.listCall.increment();
-
-      return listAsync()
-          .toCompletableFuture()
-          .get(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error getting cached nodes", e);
-    }
-  }
-
-  public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
-    if (cachedModeledFramework == null) {
-      throw new UnsupportedOperationException("Caching is disabled");
-    }
-
-    this.addedListener.increment();
-
-    // this mapping exists because the remove is by reference, and the listener is a different
-    // object type
-    ModeledCacheListener<T> modeledCacheListener =
-        (type, path, stat, model) -> {
-          // We do not expect the model to ever be null for an event on a metadata node
-          if (model != null) {
-            watcher.onMetadataStoreChanged(model);
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.getSync(path);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.getSync(path);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // Try ZK first, fall back to Etcd if not found
+        try {
+          T result = zkStore.getSync(path);
+          if (result != null) {
+            return result;
           }
-        };
-    cachedModeledFramework.listenable().addListener(modeledCacheListener);
-    listenerMap.put(watcher, modeledCacheListener);
+        } catch (Exception ignored) {
+          // Fall through to try Etcd
+        }
+        // Not found in ZK or ZK threw exception, try Etcd
+        return etcdStore.getSync(path);
+
+      case BOTH_READ_ETCD_WRITE:
+        // Try Etcd first, fall back to ZK if not found
+        try {
+          T result = etcdStore.getSync(path);
+          if (result != null) {
+            return result;
+          }
+        } catch (Exception ignored) {
+          // Fall through to try ZK
+        }
+        // Not found in Etcd or Etcd threw exception, try ZK
+        return zkStore.getSync(path);
+
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
   }
 
+  /**
+   * Checks if a node exists asynchronously.
+   *
+   * @param path the path to check
+   * @return a CompletionStage that completes with true if the node exists, false otherwise
+   */
+  public CompletionStage<Boolean> hasAsync(String path) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.hasAsync(path);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.hasAsync(path);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
+        // Try both stores, return true if either has the item
+        CompletionStage<Boolean> primaryHas =
+            mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
+                ? zkStore.hasAsync(path) // ZK is primary
+                : etcdStore.hasAsync(path); // Etcd is primary
+
+        return primaryHas
+            .exceptionally(ex -> false)
+            .thenCompose(
+                primaryExists -> {
+                  if (primaryExists) {
+                    return CompletableFuture.completedFuture(true);
+                  }
+                  // Not found in primary, check secondary
+                  CompletionStage<Boolean> secondaryHas =
+                      mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
+                          ? etcdStore.hasAsync(path)
+                          : zkStore.hasAsync(path);
+                  return secondaryHas;
+                });
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Checks if a node exists synchronously.
+   *
+   * @param path the path to check
+   * @return true if the node exists, false otherwise
+   */
+  public boolean hasSync(String path) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.hasSync(path);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.hasSync(path);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
+        // Return true if it exists in either store
+        boolean primaryResult = false;
+        boolean secondaryResult = false;
+
+        // Check primary store
+        try {
+          primaryResult =
+              mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
+                  ? zkStore.hasSync(path)
+                  : etcdStore.hasSync(path);
+
+          if (primaryResult) {
+            return true; // Short-circuit if found in primary
+          }
+        } catch (Exception ignored) {
+        }
+
+        // Check secondary store
+        try {
+          secondaryResult =
+              mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
+                  ? etcdStore.hasSync(path)
+                  : zkStore.hasSync(path);
+        } catch (Exception ignored) {
+        }
+
+        return secondaryResult;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Updates a node asynchronously.
+   *
+   * @param metadataNode the node to update
+   * @return a CompletionStage that completes with the node version when the operation is done
+   */
+  public CompletionStage<String> updateAsync(T metadataNode) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.updateAsync(metadataNode);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.updateAsync(metadataNode);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // Delete from Etcd and create in ZK
+        // Try to delete from Etcd first (don't wait)
+        etcdStore.deleteAsync(metadataNode);
+        // Then check-and-update in ZK (this is the operation we wait for)
+        return checkAndUpdateAsync(zkStore, metadataNode);
+      case BOTH_READ_ETCD_WRITE:
+        // Delete from ZK and create in Etcd
+        // Try to delete from ZK first (don't wait)
+        zkStore.deleteAsync(metadataNode);
+        // Then check-and-update in Etcd (this is the operation we wait for)
+        return checkAndUpdateAsync(etcdStore, metadataNode);
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it in ZooKeeper.
+   *
+   * @param store the ZK store to use
+   * @param metadataNode the node to update or create
+   * @return a CompletionStage that completes with the version info when the operation is done
+   */
+  private CompletionStage<String> checkAndUpdateAsync(
+      ZookeeperMetadataStore<T> store, T metadataNode) {
+    return store
+        .hasAsync(metadataNode.name)
+        .thenCompose(
+            exists -> {
+              if (exists) {
+                // Node exists, update it
+                return store.updateAsync(metadataNode);
+              } else {
+                // Node doesn't exist, create it
+                return store
+                    .createAsync(metadataNode)
+                    .thenApply(
+                        path -> {
+                          // Return empty version since create doesn't return one
+                          // but update interface requires one
+                          return "";
+                        });
+              }
+            });
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it in Etcd.
+   *
+   * @param store the Etcd store to use
+   * @param metadataNode the node to update or create
+   * @return a CompletionStage that completes with the version info when the operation is done
+   */
+  private CompletionStage<String> checkAndUpdateAsync(EtcdMetadataStore<T> store, T metadataNode) {
+    return store
+        .hasAsync(metadataNode.name)
+        .thenCompose(
+            exists -> {
+              if (exists) {
+                // Node exists, update it
+                return store.updateAsync(metadataNode);
+              } else {
+                // Node doesn't exist, create it
+                return store
+                    .createAsync(metadataNode)
+                    .thenApply(
+                        path -> {
+                          // Return empty version since create doesn't return one
+                          // but update interface requires one
+                          return "";
+                        });
+              }
+            });
+  }
+
+  /**
+   * Updates a node synchronously.
+   *
+   * @param metadataNode the node to update
+   */
+  public void updateSync(T metadataNode) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        zkStore.updateSync(metadataNode);
+        break;
+      case ETCD_EXCLUSIVE:
+        etcdStore.updateSync(metadataNode);
+        break;
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // Delete from Etcd and create in ZK
+        try {
+          // Try to delete from Etcd first
+          etcdStore.deleteSync(metadataNode);
+        } catch (Exception ignored) {
+        }
+        // Then check-and-update in ZK
+        checkAndUpdateSync(zkStore, metadataNode);
+        break;
+      case BOTH_READ_ETCD_WRITE:
+        // Delete from ZK and create in Etcd
+        try {
+          // Try to delete from ZK first
+          zkStore.deleteSync(metadataNode);
+        } catch (Exception ignored) {
+        }
+        // Then check-and-update in Etcd
+        checkAndUpdateSync(etcdStore, metadataNode);
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it synchronously in ZooKeeper.
+   *
+   * @param store the ZK store to use
+   * @param metadataNode the node to update or create
+   */
+  private void checkAndUpdateSync(ZookeeperMetadataStore<T> store, T metadataNode) {
+    boolean exists = store.hasSync(metadataNode.name);
+    if (exists) {
+      // Node exists, update it
+      store.updateSync(metadataNode);
+    } else {
+      // Node doesn't exist, create it
+      store.createSync(metadataNode);
+    }
+  }
+
+  /**
+   * Checks if a node exists and then either updates or creates it synchronously in Etcd.
+   *
+   * @param store the Etcd store to use
+   * @param metadataNode the node to update or create
+   */
+  private void checkAndUpdateSync(EtcdMetadataStore<T> store, T metadataNode) {
+    boolean exists = store.hasSync(metadataNode.name);
+    if (exists) {
+      // Node exists, update it
+      store.updateSync(metadataNode);
+    } else {
+      // Node doesn't exist, create it
+      store.createSync(metadataNode);
+    }
+  }
+
+  /**
+   * Deletes a node asynchronously.
+   *
+   * @param path the path to delete
+   * @return a CompletionStage that completes when the operation is done
+   */
+  public CompletionStage<Void> deleteAsync(String path) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.deleteAsync(path);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.deleteAsync(path);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // Delete from ZK and also try to delete from Etcd
+        CompletionStage<Void> zkResult = zkStore.deleteAsync(path);
+        etcdStore.deleteAsync(path); // don't await this operation
+        return zkResult;
+      case BOTH_READ_ETCD_WRITE:
+        // Delete from Etcd and also try to delete from ZK
+        CompletionStage<Void> etcdResult = etcdStore.deleteAsync(path);
+        zkStore.deleteAsync(path); // don't await this operation
+        return etcdResult;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Deletes a node synchronously.
+   *
+   * @param path the path to delete
+   */
+  public void deleteSync(String path) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        zkStore.deleteSync(path);
+        break;
+      case ETCD_EXCLUSIVE:
+        etcdStore.deleteSync(path);
+        break;
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        zkStore.deleteSync(path);
+        try {
+          etcdStore.deleteSync(path);
+        } catch (Exception ignored) {
+        }
+        break;
+      case BOTH_READ_ETCD_WRITE:
+        etcdStore.deleteSync(path);
+        try {
+          zkStore.deleteSync(path);
+        } catch (Exception ignored) {
+        }
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Deletes a node asynchronously.
+   *
+   * @param metadataNode the node to delete
+   * @return a CompletionStage that completes when the operation is done
+   */
+  public CompletionStage<Void> deleteAsync(T metadataNode) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.deleteAsync(metadataNode);
+      case ETCD_EXCLUSIVE:
+        return etcdStore.deleteAsync(metadataNode);
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        // Delete from ZK and also try to delete from Etcd
+        CompletionStage<Void> zkResult = zkStore.deleteAsync(metadataNode);
+        etcdStore.deleteAsync(metadataNode); // don't await this operation
+        return zkResult;
+      case BOTH_READ_ETCD_WRITE:
+        // Delete from Etcd and also try to delete from ZK
+        CompletionStage<Void> etcdResult = etcdStore.deleteAsync(metadataNode);
+        zkStore.deleteAsync(metadataNode); // don't await this operation
+        return etcdResult;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Deletes a node synchronously.
+   *
+   * @param metadataNode the node to delete
+   */
+  public void deleteSync(T metadataNode) {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        zkStore.deleteSync(metadataNode);
+        break;
+      case ETCD_EXCLUSIVE:
+        etcdStore.deleteSync(metadataNode);
+        break;
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        zkStore.deleteSync(metadataNode);
+        try {
+          etcdStore.deleteSync(metadataNode);
+        } catch (Exception ignored) {
+        }
+        break;
+      case BOTH_READ_ETCD_WRITE:
+        etcdStore.deleteSync(metadataNode);
+        try {
+          zkStore.deleteSync(metadataNode);
+        } catch (Exception ignored) {
+        }
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Lists all nodes asynchronously.
+   *
+   * @return a CompletionStage that completes with the list of nodes
+   */
+  public CompletionStage<List<T>> listAsync() {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.listAsync();
+      case ETCD_EXCLUSIVE:
+        return etcdStore.listAsync();
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
+        // Combine results from both stores
+        CompletionStage<List<T>> primaryList =
+            mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
+                ? zkStore.listAsync()
+                : etcdStore.listAsync();
+        CompletionStage<List<T>> secondaryList =
+            mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
+                ? etcdStore.listAsync()
+                : zkStore.listAsync();
+
+        return primaryList
+            .exceptionally(ex -> List.of())
+            .thenCombine(
+                secondaryList.exceptionally(ex -> List.of()),
+                (list1, list2) -> {
+                  // Combine both lists, using name as identifier
+                  Map<String, T> combinedMap = new ConcurrentHashMap<>();
+
+                  // Add items from primary store first
+                  for (T item : list1) {
+                    combinedMap.put(item.name, item);
+                  }
+
+                  // Add items from secondary store if not already present
+                  for (T item : list2) {
+                    combinedMap.putIfAbsent(item.name, item);
+                  }
+
+                  return new ArrayList<>(combinedMap.values());
+                });
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Lists all nodes synchronously.
+   *
+   * @return the list of nodes
+   */
+  public List<T> listSync() {
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        return zkStore.listSync();
+      case ETCD_EXCLUSIVE:
+        return etcdStore.listSync();
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
+        // Combine results from both stores
+        List<T> primaryList;
+        List<T> secondaryList;
+
+        try {
+          primaryList =
+              mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
+                  ? zkStore.listSync()
+                  : etcdStore.listSync();
+        } catch (Exception e) {
+          primaryList = List.of();
+        }
+
+        try {
+          secondaryList =
+              mode == MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE
+                  ? etcdStore.listSync()
+                  : zkStore.listSync();
+        } catch (Exception e) {
+          secondaryList = List.of();
+        }
+
+        // Combine both lists, using name as identifier
+        Map<String, T> combinedMap = new ConcurrentHashMap<>();
+
+        // Add items from primary store first
+        for (T item : primaryList) {
+          combinedMap.put(item.name, item);
+        }
+
+        // Add items from secondary store if not already present
+        for (T item : secondaryList) {
+          combinedMap.putIfAbsent(item.name, item);
+        }
+
+        return new ArrayList<>(combinedMap.values());
+
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Adds a listener for metadata changes.
+   *
+   * @param watcher the listener to add
+   */
+  public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
+    // Create a wrapper that will forward events
+    DualStoreChangeListener<T> dualListener = new DualStoreChangeListener<>(watcher);
+    listenerMap.put(watcher, dualListener);
+
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        zkStore.addListener(dualListener);
+        break;
+      case ETCD_EXCLUSIVE:
+        etcdStore.addListener(dualListener);
+        break;
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
+        // In dual modes, we need to listen to both stores
+        zkStore.addListener(dualListener);
+        etcdStore.addListener(dualListener);
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Removes a listener for metadata changes.
+   *
+   * @param watcher the listener to remove
+   */
   public void removeListener(AstraMetadataStoreChangeListener<T> watcher) {
-    if (cachedModeledFramework == null) {
-      throw new UnsupportedOperationException("Caching is disabled");
+    DualStoreChangeListener<T> dualListener = listenerMap.remove(watcher);
+    if (dualListener == null) {
+      return;
     }
-    this.removedListener.increment();
-    cachedModeledFramework.listenable().removeListener(listenerMap.remove(watcher));
+
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        zkStore.removeListener(dualListener);
+        break;
+      case ETCD_EXCLUSIVE:
+        etcdStore.removeListener(dualListener);
+        break;
+      case BOTH_READ_ZOOKEEPER_WRITE:
+      case BOTH_READ_ETCD_WRITE:
+        // In dual modes, we need to remove from both stores
+        zkStore.removeListener(dualListener);
+        etcdStore.removeListener(dualListener);
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
   }
 
+  /** Waits for the cache to be initialized. */
   public void awaitCacheInitialized() {
-    try {
-      if (!cacheInitialized.await(zkConfig.getZkCacheInitTimeoutMs(), TimeUnit.MILLISECONDS)) {
-        // in the event we deadlock, go ahead and time this out at 30s and restart the pod
-        new RuntimeHalterImpl()
-            .handleFatal(
-                new TimeoutException("Timed out waiting for Zookeeper cache to initialize"));
-      }
-    } catch (InterruptedException e) {
-      new RuntimeHalterImpl().handleFatal(e);
+    switch (mode) {
+      case ZOOKEEPER_EXCLUSIVE:
+        zkStore.awaitCacheInitialized();
+        break;
+      case ETCD_EXCLUSIVE:
+        etcdStore.awaitCacheInitialized();
+        break;
+      case BOTH_READ_ZOOKEEPER_WRITE:
+        zkStore.awaitCacheInitialized();
+        // We don't wait for Etcd in this mode since ZK is primary
+        break;
+      case BOTH_READ_ETCD_WRITE:
+        etcdStore.awaitCacheInitialized();
+        // We don't wait for ZK in this mode since Etcd is primary
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
     }
-  }
-
-  private ModeledCacheListener<T> getCacheInitializedListener() {
-    return new ModeledCacheListener<T>() {
-      @Override
-      public void accept(Type type, ZPath path, Stat stat, T model) {
-        // no-op
-      }
-
-      @Override
-      public void initialized() {
-        ModeledCacheListener.super.initialized();
-        cacheInitialized.countDown();
-        if (cacheInitializationHandlerFired != null) {
-          cacheInitializationHandlerFired.increment();
-        }
-
-        // after it's initialized, we no longer need the listener or executor
-        if (cachedModeledFramework != null) {
-          cachedModeledFramework.listenable().removeListener(initializedListener);
-        }
-        if (cacheInitializedService != null) {
-          cacheInitializedService.shutdown();
-        }
-      }
-    };
   }
 
   @Override
   public void close() {
-    if (cachedModeledFramework != null) {
-      listenerMap.forEach(
-          (_, tModeledCacheListener) ->
-              cachedModeledFramework.listenable().removeListener(tModeledCacheListener));
-      cachedModeledFramework.close();
+    // Always try to close both stores regardless of mode
+    try {
+      if (zkStore != null) {
+        zkStore.close();
+      }
+    } catch (Exception e) {
+      LOG.warn("Failed to close ZK metadata store", e);
+    }
+
+    try {
+      if (etcdStore != null) {
+        etcdStore.close();
+      }
+    } catch (Exception e) {
+      LOG.warn("Failed to close Etcd metadata store", e);
+    }
+  }
+
+  /**
+   * Helper class that wraps a user-provided listener and forwards events. This is used to track
+   * listeners across both stores, and to ensure that each event is only delivered once to the user
+   * listener.
+   */
+  private static class DualStoreChangeListener<T extends AstraMetadata>
+      implements AstraMetadataStoreChangeListener<T> {
+
+    private final AstraMetadataStoreChangeListener<T> delegate;
+
+    DualStoreChangeListener(AstraMetadataStoreChangeListener<T> delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public void onMetadataStoreChanged(T model) {
+      delegate.onMetadataStoreChanged(model);
     }
   }
 }

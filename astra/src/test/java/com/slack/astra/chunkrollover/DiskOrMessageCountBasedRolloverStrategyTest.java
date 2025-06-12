@@ -72,7 +72,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private BlobStore blobStore;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
-  private AstraConfigs.ZookeeperConfig zkConfig;
+  private AstraConfigs.MetadataStoreConfig metadataStoreConfig;
 
   private static long MAX_BYTES_PER_CHUNK = 12000;
 
@@ -96,17 +96,22 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     localZkServer = new TestingServer();
     localZkServer.start();
 
-    zkConfig =
-        AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(localZkServer.getConnectString())
-            .setZkPathPrefix(ZK_PATH_PREFIX)
-            .setZkSessionTimeoutMs(15000)
-            .setZkConnectionTimeoutMs(1500)
-            .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+    metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(localZkServer.getConnectString())
+                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkSessionTimeoutMs(15000)
+                    .setZkConnectionTimeoutMs(1500)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
 
-    curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
+    curatorFramework =
+        CuratorBuilder.build(metricsRegistry, metadataStoreConfig.getZookeeperConfig());
   }
 
   @AfterEach
@@ -143,7 +148,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             curatorFramework,
             searchContext,
             AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100),
-            zkConfig);
+            metadataStoreConfig);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 

@@ -113,10 +113,17 @@ public class RecoveryChunkManagerTest {
             .setZkCacheInitTimeoutMs(1000)
             .build();
 
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(zkConfig)
+            .build();
+
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
     searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry);
+        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
+    snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
   }
 
   @AfterEach

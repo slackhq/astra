@@ -7,6 +7,7 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.proto.config.AstraConfigs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -35,19 +36,24 @@ public class DatasetPartitionMetadataTest {
     testZKServer = new TestingServer();
 
     // Metadata store
-    com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig zkConfig =
-        com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testZKServer.getConnectString())
-            .setZkPathPrefix("datasetPartitionMetadataTest")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(testZKServer.getConnectString())
+                    .setZkPathPrefix("datasetPartitionMetadataTest")
+                    .setZkSessionTimeoutMs(1000)
+                    .setZkConnectionTimeoutMs(1000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
 
-    this.curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
+    this.curatorFramework =
+        CuratorBuilder.build(metricsRegistry, metadataStoreConfig.getZookeeperConfig());
     this.datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, zkConfig, metricsRegistry, true);
+        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, true);
   }
 
   @AfterEach

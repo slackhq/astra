@@ -3,6 +3,7 @@ package com.slack.astra.metadata.cache;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
+import com.slack.astra.metadata.core.ZookeeperPartitioningMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -19,16 +20,20 @@ public class CacheSlotMetadataStore extends AstraPartitioningMetadataStore<Cache
    */
   public CacheSlotMetadataStore(
       AsyncCuratorFramework curatorFramework,
-      AstraConfigs.ZookeeperConfig zkConfig,
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry)
       throws Exception {
     super(
-        curatorFramework,
-        zkConfig,
-        meterRegistry,
-        CreateMode.EPHEMERAL,
-        new CacheSlotMetadataSerializer().toModelSerializer(),
-        CACHE_SLOT_ZK_PATH);
+        new ZookeeperPartitioningMetadataStore<>(
+            curatorFramework,
+            metadataStoreConfig.getZookeeperConfig(),
+            meterRegistry,
+            CreateMode.EPHEMERAL,
+            new CacheSlotMetadataSerializer().toModelSerializer(),
+            CACHE_SLOT_ZK_PATH),
+        null, // Not using etcdStore for now
+        metadataStoreConfig.getMode(),
+        meterRegistry);
   }
 
   /** Update the cache slot state, if the slot is not FREE. */

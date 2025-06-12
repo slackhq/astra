@@ -85,14 +85,20 @@ public class AstraDistributedQueryServiceTest {
             .setZkCacheInitTimeoutMs(1000)
             .build();
 
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(zkConfig)
+            .build();
+
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
 
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry));
+        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry));
     searchMetadataStore =
-        spy(new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, true));
+        spy(new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, true));
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, zkConfig, metricsRegistry, true);
+        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, true);
 
     indexer1SearchContext = new SearchContext("indexer_host1", 10000);
     indexer2SearchContext = new SearchContext("indexer_host2", 10001);

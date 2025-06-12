@@ -29,7 +29,10 @@ public abstract class AstraMetadata implements NodeName {
     return name.hashCode();
   }
 
+  @Deprecated
   @Override
+  // deprecated, part of the original ZK NodeName implementation
+  // Will be removed along with implement NodeName once ZK is removed
   public String nodeName() {
     return name;
   }

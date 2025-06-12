@@ -6,14 +6,12 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -35,12 +33,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
-import org.apache.curator.x.async.AsyncStage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,10 +80,17 @@ public class SnapshotDeletionServiceTest {
             .setZkCacheInitTimeoutMs(1000)
             .build();
 
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(zkConfig)
+            .build();
+
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+    replicaMetadataStore =
+        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
 
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
     blobStore = spy(new BlobStore(s3AsyncClient, S3_TEST_BUCKET));
@@ -531,10 +534,13 @@ public class SnapshotDeletionServiceTest {
         new SnapshotDeletionService(
             replicaMetadataStore, snapshotMetadataStore, blobStore, managerConfig, meterRegistry);
 
-    AsyncStage asyncStage = mock(AsyncStage.class);
-    when(asyncStage.toCompletableFuture())
-        .thenReturn(CompletableFuture.failedFuture(new Exception()));
-    doReturn(asyncStage).when(snapshotMetadataStore).deleteAsync(any(SnapshotMetadata.class));
+    // Mock the deleteSync method to throw an exception
+    doAnswer(
+            invocation -> {
+              throw new RuntimeException("Test exception from ZK delete");
+            })
+        .when(snapshotMetadataStore)
+        .deleteSync(any());
     assertThat(blobStore.listFiles(chunkId)).isNotEmpty();
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
@@ -655,19 +661,14 @@ public class SnapshotDeletionServiceTest {
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
 
-    AsyncStage asyncStage = mock(AsyncStage.class);
-    when(asyncStage.toCompletableFuture())
-        .thenReturn(
-            CompletableFuture.runAsync(
-                () -> {
-                  try {
-                    Thread.sleep(30 * 1000);
-                  } catch (InterruptedException ignored) {
-                  }
-                },
-                timeoutServiceExecutor));
-
-    doReturn(asyncStage).when(snapshotMetadataStore).deleteAsync(any(SnapshotMetadata.class));
+    // Create a mock that simulates a timeout by sleeping longer than the timeout setting
+    doAnswer(
+            invocation -> {
+              Thread.sleep(3000); // Sleep 3 seconds (longer than the futuresListTimeoutSecs = 2)
+              return null; // This won't be reached due to the timeout
+            })
+        .when(snapshotMetadataStore)
+        .deleteSync(any());
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
@@ -684,7 +685,8 @@ public class SnapshotDeletionServiceTest {
             MetricsUtil.getTimerCount(SnapshotDeletionService.SNAPSHOT_DELETE_TIMER, meterRegistry))
         .isEqualTo(1);
 
-    doCallRealMethod().when(snapshotMetadataStore).deleteAsync(any(SnapshotMetadata.class));
+    // Reset the mock to succeed on the retry attempt
+    doCallRealMethod().when(snapshotMetadataStore).deleteSync(any());
 
     int deletesRetry = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletesRetry).isEqualTo(1);

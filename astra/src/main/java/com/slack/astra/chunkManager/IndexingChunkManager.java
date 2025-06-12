@@ -65,7 +65,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private final AsyncCuratorFramework curatorFramework;
   private final SearchContext searchContext;
   private final AstraConfigs.IndexerConfig indexerConfig;
-  private final AstraConfigs.ZookeeperConfig zkConfig;
+  private final AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private ReadWriteChunk<T> activeChunk;
 
   private final MeterRegistry meterRegistry;
@@ -122,7 +122,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       AsyncCuratorFramework curatorFramework,
       SearchContext searchContext,
       AstraConfigs.IndexerConfig indexerConfig,
-      AstraConfigs.ZookeeperConfig zkConfig) {
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig) {
 
     ensureNonNullString(dataDirectory, "The data directory shouldn't be empty");
     this.dataDirectory = new File(dataDirectory);
@@ -140,7 +140,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     this.curatorFramework = curatorFramework;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
-    this.zkConfig = zkConfig;
+    this.metadataStoreConfig = metadataStoreConfig;
 
     stopIngestion = true;
     activeChunk = null;
@@ -387,8 +387,10 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   protected void startUp() throws Exception {
     LOG.info("Starting indexing chunk manager");
 
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, zkConfig, meterRegistry, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry);
+    searchMetadataStore =
+        new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, false);
+    snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
 
     stopIngestion = false;
   }
@@ -447,7 +449,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       MeterRegistry meterRegistry,
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.IndexerConfig indexerConfig,
-      AstraConfigs.ZookeeperConfig zkConfig,
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       BlobStore blobStore,
       AstraConfigs.S3Config s3Config) {
 
@@ -464,6 +466,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
         curatorFramework,
         SearchContext.fromConfig(indexerConfig.getServerConfig()),
         indexerConfig,
-        zkConfig);
+        metadataStoreConfig);
   }
 }

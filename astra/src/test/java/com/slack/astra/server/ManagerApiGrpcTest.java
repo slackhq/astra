@@ -70,24 +70,32 @@ public class ManagerApiGrpcTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    AstraConfigs.ZookeeperConfig zkConfig =
-        AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("ManagerApiGrpcTest")
-            .setZkSessionTimeoutMs(30000)
-            .setZkConnectionTimeoutMs(30000)
-            .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(testingServer.getConnectString())
+                    .setZkPathPrefix("ManagerApiGrpcTest")
+                    .setZkSessionTimeoutMs(30000)
+                    .setZkConnectionTimeoutMs(30000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
 
-    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     datasetMetadataStore =
-        spy(new DatasetMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
+        spy(new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true));
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+    replicaMetadataStore =
+        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
     fieldRedactionMetadataStore =
-        spy(new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
+        spy(
+            new FieldRedactionMetadataStore(
+                curatorFramework, metadataStoreConfig, meterRegistry, true));
 
     AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()

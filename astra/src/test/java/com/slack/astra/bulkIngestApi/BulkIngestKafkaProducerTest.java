@@ -70,6 +70,13 @@ class BulkIngestKafkaProducerTest {
             .setSleepBetweenRetriesMs(1000)
             .setZkCacheInitTimeoutMs(1000)
             .build();
+
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(zkConfig)
+            .build();
+
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
     kafkaServer = new TestKafkaServer();
@@ -94,7 +101,7 @@ class BulkIngestKafkaProducerTest {
             .build();
 
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
             INDEX_NAME,

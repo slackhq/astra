@@ -118,7 +118,7 @@ public class IndexingChunkManagerTest {
   private BlobStore blobStore;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
-  private AstraConfigs.ZookeeperConfig zkConfig;
+  private AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
 
@@ -133,20 +133,26 @@ public class IndexingChunkManagerTest {
     localZkServer = new TestingServer();
     localZkServer.start();
 
-    zkConfig =
-        AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(localZkServer.getConnectString())
-            .setZkPathPrefix(ZK_PATH_PREFIX)
-            .setZkSessionTimeoutMs(15000)
-            .setZkConnectionTimeoutMs(1500)
-            .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+    metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(localZkServer.getConnectString())
+                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkSessionTimeoutMs(15000)
+                    .setZkConnectionTimeoutMs(1500)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
 
-    curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry);
+    curatorFramework =
+        CuratorBuilder.build(metricsRegistry, metadataStoreConfig.getZookeeperConfig());
+    snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
     searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, false);
+        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
   }
 
   @AfterEach
@@ -178,7 +184,7 @@ public class IndexingChunkManagerTest {
             curatorFramework,
             searchContext,
             AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100),
-            zkConfig);
+            metadataStoreConfig);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
@@ -201,7 +207,7 @@ public class IndexingChunkManagerTest {
             curatorFramework,
             searchContext,
             indexerConfig,
-            zkConfig);
+            metadataStoreConfig);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
@@ -1271,9 +1277,9 @@ public class IndexingChunkManagerTest {
 
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, false);
+        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry);
+        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
@@ -1325,9 +1331,9 @@ public class IndexingChunkManagerTest {
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     // All ephemeral data is ZK is deleted and no data or metadata is persisted.
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, zkConfig, metricsRegistry, false);
+        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, zkConfig, metricsRegistry);
+        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     searchMetadataStore.close();

@@ -208,6 +208,8 @@ public class AstraConfigTest {
     assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
+    assertThat(metadataStoreConfig.getMode())
+        .isEqualTo(AstraConfigs.MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE);
 
     final AstraConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final AstraConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
@@ -374,6 +376,8 @@ public class AstraConfigTest {
     assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
+    assertThat(metadataStoreConfig.getMode())
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE);
 
     final AstraConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final AstraConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
@@ -768,5 +772,86 @@ public class AstraConfigTest {
             + "    serverAddress: localhost\n";
     assertThatIllegalArgumentException()
         .isThrownBy(() -> AstraConfig.fromYamlConfig(yamlCfgString1));
+  }
+
+  @Test
+  public void testMetadataStoreModeConfig()
+      throws InvalidProtocolBufferException, JsonProcessingException {
+    // We need to include proper server configs to pass validation
+    String baseConfig =
+        "indexerConfig:\n"
+            + "  defaultQueryTimeoutMs: 2000\n"
+            + "  serverConfig:\n"
+            + "    requestTimeoutMs: 3000\n"
+            + "    serverPort: 8080\n"
+            + "    serverAddress: localhost\n";
+
+    // Test YAML config with ZOOKEEPER_EXCLUSIVE mode (default value)
+    String yamlConfig =
+        "nodeRoles: [INDEX]\n"
+            + baseConfig
+            + "metadataStoreConfig:\n"
+            + "  zookeeperConfig:\n"
+            + "    zkConnectString: localhost:2181\n";
+    AstraConfigs.AstraConfig config = AstraConfig.fromYamlConfig(yamlConfig);
+    assertThat(config.getMetadataStoreConfig().getMode())
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE);
+
+    // Test YAML config with explicitly set ZOOKEEPER_EXCLUSIVE mode
+    yamlConfig =
+        "nodeRoles: [INDEX]\n"
+            + baseConfig
+            + "metadataStoreConfig:\n"
+            + "  mode: ZOOKEEPER_EXCLUSIVE\n"
+            + "  zookeeperConfig:\n"
+            + "    zkConnectString: localhost:2181\n";
+    config = AstraConfig.fromYamlConfig(yamlConfig);
+    assertThat(config.getMetadataStoreConfig().getMode())
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE);
+
+    // Test YAML config with ETCD_EXCLUSIVE mode
+    yamlConfig =
+        "nodeRoles: [INDEX]\n"
+            + baseConfig
+            + "metadataStoreConfig:\n"
+            + "  mode: ETCD_EXCLUSIVE\n"
+            + "  zookeeperConfig:\n"
+            + "    zkConnectString: localhost:2181\n";
+    config = AstraConfig.fromYamlConfig(yamlConfig);
+    assertThat(config.getMetadataStoreConfig().getMode())
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_EXCLUSIVE);
+
+    // Test YAML config with BOTH_READ_ZOOKEEPER_WRITE mode
+    yamlConfig =
+        "nodeRoles: [INDEX]\n"
+            + baseConfig
+            + "metadataStoreConfig:\n"
+            + "  mode: BOTH_READ_ZOOKEEPER_WRITE\n"
+            + "  zookeeperConfig:\n"
+            + "    zkConnectString: localhost:2181\n";
+    config = AstraConfig.fromYamlConfig(yamlConfig);
+    assertThat(config.getMetadataStoreConfig().getMode())
+        .isEqualTo(AstraConfigs.MetadataStoreMode.BOTH_READ_ZOOKEEPER_WRITE);
+
+    // Test YAML config with BOTH_READ_ETCD_WRITE mode
+    yamlConfig =
+        "nodeRoles: [INDEX]\n"
+            + baseConfig
+            + "metadataStoreConfig:\n"
+            + "  mode: BOTH_READ_ETCD_WRITE\n"
+            + "  zookeeperConfig:\n"
+            + "    zkConnectString: localhost:2181\n";
+    config = AstraConfig.fromYamlConfig(yamlConfig);
+    assertThat(config.getMetadataStoreConfig().getMode())
+        .isEqualTo(AstraConfigs.MetadataStoreMode.BOTH_READ_ETCD_WRITE);
+
+    // Test JSON config with different modes
+    String jsonConfig =
+        "{\"nodeRoles\": [\"INDEX\"], "
+            + "\"indexerConfig\": {\"defaultQueryTimeoutMs\": 2000, \"serverConfig\": {\"requestTimeoutMs\": 3000, \"serverPort\": 8080, \"serverAddress\": \"localhost\"}}, "
+            + "\"metadataStoreConfig\": {\"mode\": \"BOTH_READ_ETCD_WRITE\"}}";
+    config = AstraConfig.fromJsonConfig(jsonConfig);
+    assertThat(config.getMetadataStoreConfig().getMode())
+        .isEqualTo(AstraConfigs.MetadataStoreMode.BOTH_READ_ETCD_WRITE);
   }
 }

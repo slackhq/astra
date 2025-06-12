@@ -118,20 +118,25 @@ public class AstraTest {
     // We side load a service metadata entry telling it to create an entry with the partitions that
     // we use in test
     meterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
-    AstraConfigs.ZookeeperConfig zkConfig =
-        AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(zkServer.getConnectString())
-            .setZkPathPrefix(ZK_PATH_PREFIX)
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(zkServer.getConnectString())
+                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkSessionTimeoutMs(1000)
+                    .setZkConnectionTimeoutMs(1000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
-    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
     fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, zkConfig, meterRegistry, true);
+        new FieldRedactionMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
     final DatasetPartitionMetadata partition =
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);

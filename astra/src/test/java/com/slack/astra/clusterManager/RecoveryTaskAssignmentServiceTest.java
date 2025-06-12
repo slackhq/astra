@@ -63,11 +63,21 @@ public class RecoveryTaskAssignmentServiceTest {
             .setZkCacheInitTimeoutMs(1000)
             .build();
 
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(zkConfig)
+            .build();
+
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     recoveryTaskMetadataStore =
-        spy(new RecoveryTaskMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
+        spy(
+            new RecoveryTaskMetadataStore(
+                curatorFramework, metadataStoreConfig, meterRegistry, true));
     recoveryNodeMetadataStore =
-        spy(new RecoveryNodeMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
+        spy(
+            new RecoveryNodeMetadataStore(
+                curatorFramework, metadataStoreConfig, meterRegistry, true));
   }
 
   @AfterEach

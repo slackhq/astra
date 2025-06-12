@@ -53,16 +53,21 @@ public class ChunkManagerUtil<T> {
       AstraConfigs.IndexerConfig indexerConfig)
       throws Exception {
     TestingServer zkServer = new TestingServer();
-    AstraConfigs.ZookeeperConfig zkConfig =
-        AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(zkServer.getConnectString())
-            .setZkPathPrefix(ZK_PATH_PREFIX)
-            .setZkSessionTimeoutMs(30000)
-            .setZkConnectionTimeoutMs(30000)
-            .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(zkServer.getConnectString())
+                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkSessionTimeoutMs(30000)
+                    .setZkConnectionTimeoutMs(30000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
-    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    AsyncCuratorFramework curatorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
 
     return new ChunkManagerUtil<>(
         s3MockExtension,
@@ -74,7 +79,7 @@ public class ChunkManagerUtil<T> {
         new SearchContext(TEST_HOST, TEST_PORT),
         curatorFramework,
         indexerConfig,
-        zkConfig);
+        metadataStoreConfig);
   }
 
   public ChunkManagerUtil(
@@ -87,7 +92,7 @@ public class ChunkManagerUtil<T> {
       SearchContext searchContext,
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.IndexerConfig indexerConfig,
-      AstraConfigs.ZookeeperConfig zkConfig)
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig)
       throws Exception {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
@@ -115,7 +120,7 @@ public class ChunkManagerUtil<T> {
             curatorFramework,
             searchContext,
             indexerConfig,
-            zkConfig);
+            metadataStoreConfig);
   }
 
   public void close() throws IOException, TimeoutException {

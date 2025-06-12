@@ -55,29 +55,35 @@ class ClusterHpaMetricServiceTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    AstraConfigs.ZookeeperConfig zkConfig =
-        AstraConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("ClusterHpaMetricServiceTest")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+    AstraConfigs.MetadataStoreConfig metadataStoreConfig =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setZkConnectString(testingServer.getConnectString())
+                    .setZkPathPrefix("ClusterHpaMetricServiceTest")
+                    .setZkSessionTimeoutMs(1000)
+                    .setZkConnectionTimeoutMs(1000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
             .build();
 
-    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
 
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, zkConfig, meterRegistry));
+    replicaMetadataStore =
+        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
     cacheSlotMetadataStore =
-        spy(new CacheSlotMetadataStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
     cacheNodeAssignmentStore =
-        spy(new CacheNodeAssignmentStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry));
     cacheNodeMetadataStore =
-        spy(new CacheNodeMetadataStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, zkConfig, meterRegistry));
+        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
     hpaMetricMetadataStore =
-        spy(new HpaMetricMetadataStore(curatorFramework, zkConfig, meterRegistry, true));
+        spy(new HpaMetricMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true));
   }
 
   @AfterEach
