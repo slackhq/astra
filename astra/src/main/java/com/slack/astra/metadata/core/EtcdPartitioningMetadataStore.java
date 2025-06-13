@@ -469,7 +469,8 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                   createMode,
                   etcdConfig.getEphemeralNodeTtlSeconds() > 0
                       ? etcdConfig.getEphemeralNodeTtlSeconds()
-                      : EtcdCreateMode.DEFAULT_EPHEMERAL_TTL_SECONDS);
+                      : EtcdCreateMode.DEFAULT_EPHEMERAL_TTL_SECONDS,
+                  etcdClient);
           listenerMap.forEach((_, listener) -> newStore.addListener(listener));
 
           return newStore;

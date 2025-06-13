@@ -17,6 +17,10 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.MetricsUtil;
 import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -46,6 +50,9 @@ class BulkIngestKafkaProducerTest {
   private static AstraConfigs.PreprocessorConfig preprocessorConfig;
   private static DatasetMetadataStore datasetMetadataStore;
   private static TestingServer zkServer;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
+
   private static TestKafkaServer kafkaServer;
 
   private BulkIngestKafkaProducer bulkIngestKafkaProducer;
@@ -61,6 +68,30 @@ class BulkIngestKafkaProducerTest {
     meterRegistry = new SimpleMeterRegistry();
 
     zkServer = new TestingServer();
+
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
@@ -73,8 +104,29 @@ class BulkIngestKafkaProducerTest {
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
             .setZookeeperConfig(zkConfig)
+            .setEtcdConfig(etcdConfig)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
@@ -101,7 +153,8 @@ class BulkIngestKafkaProducerTest {
             .build();
 
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new DatasetMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
             INDEX_NAME,

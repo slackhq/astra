@@ -15,6 +15,10 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -43,6 +47,8 @@ public class ChunkManagerUtil<T> {
   public final IndexingChunkManager<T> chunkManager;
   private final TestingServer zkServer;
   private final AsyncCuratorFramework curatorFramework;
+  private final EtcdCluster etcdCluster;
+  private final Client etcdClient;
 
   public static ChunkManagerUtil<LogMessage> makeChunkManagerUtil(
       S3MockExtension s3MockExtension,
@@ -53,9 +59,52 @@ public class ChunkManagerUtil<T> {
       AstraConfigs.IndexerConfig indexerConfig)
       throws Exception {
     TestingServer zkServer = new TestingServer();
+    EtcdCluster etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    Client etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(zkServer.getConnectString())
@@ -65,6 +114,7 @@ public class ChunkManagerUtil<T> {
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
     AsyncCuratorFramework curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
@@ -79,7 +129,9 @@ public class ChunkManagerUtil<T> {
         new SearchContext(TEST_HOST, TEST_PORT),
         curatorFramework,
         indexerConfig,
-        metadataStoreConfig);
+        metadataStoreConfig,
+        etcdCluster,
+        etcdClient);
   }
 
   public ChunkManagerUtil(
@@ -92,10 +144,13 @@ public class ChunkManagerUtil<T> {
       SearchContext searchContext,
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.IndexerConfig indexerConfig,
-      AstraConfigs.MetadataStoreConfig metadataStoreConfig)
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
+      EtcdCluster etcdCluster,
+      Client etcdClient)
       throws Exception {
 
-    tempFolder = Files.createTempDir(); // TODO: don't use beta func.
+    tempFolder =
+        Files.createTempDir(); // TODO: replace with java.nio.file.Files.createTempDirectory
     s3AsyncClient = S3TestUtils.createS3CrtClient(s3MockExtension.getServiceEndpoint());
     BlobStore blobStore = new BlobStore(s3AsyncClient, s3Bucket);
 
@@ -109,6 +164,9 @@ public class ChunkManagerUtil<T> {
 
     this.curatorFramework = curatorFramework;
 
+    this.etcdCluster = etcdCluster;
+    this.etcdClient = etcdClient;
+
     chunkManager =
         new IndexingChunkManager<>(
             "testData",
@@ -118,6 +176,7 @@ public class ChunkManagerUtil<T> {
             blobStore,
             MoreExecutors.newDirectExecutorService(),
             curatorFramework,
+            etcdClient,
             searchContext,
             indexerConfig,
             metadataStoreConfig);
@@ -129,6 +188,9 @@ public class ChunkManagerUtil<T> {
     s3AsyncClient.close();
     curatorFramework.unwrap().close();
     zkServer.close();
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
     FileUtils.deleteDirectory(tempFolder);
   }
 

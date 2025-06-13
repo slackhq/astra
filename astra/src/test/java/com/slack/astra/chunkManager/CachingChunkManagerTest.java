@@ -33,6 +33,10 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.SpanUtil;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -62,6 +66,8 @@ public class CachingChunkManagerTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
   private BlobStore blobStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -82,6 +88,16 @@ public class CachingChunkManagerTest {
   public void startup() throws Exception {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
 
     S3AsyncClient s3AsyncClient =
         S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
@@ -96,6 +112,9 @@ public class CachingChunkManagerTest {
     }
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
+    }
+    if (etcdClient != null) {
+      etcdClient.close();
     }
     testingServer.close();
     meterRegistry.close();
@@ -142,16 +161,50 @@ public class CachingChunkManagerTest {
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
             .setZookeeperConfig(zkConfig)
+            .setEtcdConfig(etcdConfig)
             .build();
 
     CachingChunkManager<LogMessage> cachingChunkManager =
         new CachingChunkManager<>(
             meterRegistry,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
@@ -168,9 +221,10 @@ public class CachingChunkManagerTest {
 
   private CacheNodeAssignment initAssignment(String snapshotId) throws Exception {
     cacheNodeAssignmentStore =
-        new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeAssignmentStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     snapshotMetadataStore.createSync(new SnapshotMetadata(snapshotId, 1, 1, 0, "abcd", 29));
     CacheNodeAssignment newAssignment =
         new CacheNodeAssignment(
@@ -284,7 +338,8 @@ public class CachingChunkManagerTest {
 
     cachingChunkManager = initChunkManager();
     CacheNodeMetadataStore cacheNodeMetadataStore =
-        new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
     List<CacheNodeMetadata> cacheNodeMetadatas = cacheNodeMetadataStore.listSync();
     assertThat(cachingChunkManager.getChunkList().size()).isEqualTo(0);

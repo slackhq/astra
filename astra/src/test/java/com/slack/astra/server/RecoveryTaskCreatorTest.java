@@ -28,6 +28,10 @@ import com.slack.astra.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
@@ -56,6 +60,8 @@ public class RecoveryTaskCreatorTest {
   private RecoveryTaskMetadataStore recoveryTaskStore;
   private AstraConfigs.IndexerConfig indexerConfig;
   private static final String partitionId = "1";
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void startup() throws Exception {
@@ -63,9 +69,40 @@ public class RecoveryTaskCreatorTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -89,11 +126,13 @@ public class RecoveryTaskCreatorTest {
     curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new SnapshotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     recoveryTaskStore =
         spy(
             new RecoveryTaskMetadataStore(
-                curatorFramework, metadataStoreConfig, meterRegistry, true));
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true));
   }
 
   @AfterEach
@@ -109,6 +148,9 @@ public class RecoveryTaskCreatorTest {
     }
     if (testingServer != null) {
       testingServer.close();
+    }
+    if (etcdClient != null) {
+      etcdClient.close();
     }
     if (meterRegistry != null) {
       meterRegistry.close();

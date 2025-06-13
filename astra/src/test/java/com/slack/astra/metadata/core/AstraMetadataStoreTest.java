@@ -7,10 +7,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.config.AstraConfigs.MetadataStoreMode;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.ClientBuilder;
 import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -49,6 +53,7 @@ public class AstraMetadataStoreTest {
 
   // Etcd components
   private AstraConfigs.EtcdConfig etcdConfig;
+  private Client etcdClient;
 
   // Store folder for different test scenarios
   private static final String ZK_CREATES_STORE = "/zkCreates";
@@ -171,6 +176,21 @@ public class AstraMetadataStoreTest {
             .setNamespace("test")
             .setEphemeralNodeTtlSeconds(60)
             .build();
+
+    // Create etcd client
+    ClientBuilder clientBuilder =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream()
+                    .map(Object::toString)
+                    .toArray(String[]::new));
+
+    // Set namespace if provided
+    if (!etcdConfig.getNamespace().isEmpty()) {
+      clientBuilder.namespace(ByteSequence.from(etcdConfig.getNamespace(), StandardCharsets.UTF_8));
+    }
+
+    etcdClient = clientBuilder.build();
   }
 
   @AfterEach
@@ -178,6 +198,11 @@ public class AstraMetadataStoreTest {
     // Close curator framework
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
+    }
+
+    // Close etcd client
+    if (etcdClient != null) {
+      etcdClient.close();
     }
 
     // Close meter registry
@@ -209,7 +234,8 @@ public class AstraMetadataStoreTest {
   private AstraMetadataStore<TestMetadata> createEtcdCreatesStore() {
     MetadataSerializer<TestMetadata> serializer = new TestMetadataSerializer();
     EtcdMetadataStore<TestMetadata> etcdStore =
-        new EtcdMetadataStore<>(ETCD_CREATES_STORE, etcdConfig, true, meterRegistry, serializer);
+        new EtcdMetadataStore<>(
+            ETCD_CREATES_STORE, etcdConfig, true, meterRegistry, serializer, etcdClient);
 
     return new AstraMetadataStore<>(
         null, // No ZK store in Etcd creates mode

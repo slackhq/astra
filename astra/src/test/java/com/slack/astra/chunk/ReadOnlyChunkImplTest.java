@@ -42,6 +42,10 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.util.QueryBuilderUtil;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -73,6 +77,8 @@ public class ReadOnlyChunkImplTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
   private BlobStore blobStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -87,6 +93,16 @@ public class ReadOnlyChunkImplTest {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
 
     S3AsyncClient s3AsyncClient =
         S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
@@ -95,6 +111,7 @@ public class ReadOnlyChunkImplTest {
 
   @AfterEach
   public void shutdown() throws IOException {
+    etcdClient.close();
     testingServer.close();
     meterRegistry.close();
   }
@@ -102,9 +119,42 @@ public class ReadOnlyChunkImplTest {
   @Test
   public void shouldHandleChunkLivecycle() throws Exception {
     AstraConfigs.AstraConfig AstraConfig = makeCacheConfig();
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .setEtcdConfig(etcdConfig)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -119,17 +169,21 @@ public class ReadOnlyChunkImplTest {
     AsyncCuratorFramework curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new ReplicaMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheSlotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     CacheNodeAssignmentStore cacheNodeAssignmentStore =
-        new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeAssignmentStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     CacheNodeMetadataStore cacheNodeMetadataStore =
-        new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "boo";
@@ -265,9 +319,42 @@ public class ReadOnlyChunkImplTest {
   @Test
   public void shouldHandleMissingS3Assets() throws Exception {
     AstraConfigs.AstraConfig AstraConfig = makeCacheConfig();
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .setEtcdConfig(etcdConfig)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -282,15 +369,18 @@ public class ReadOnlyChunkImplTest {
     AsyncCuratorFramework curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new ReplicaMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheSlotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     CacheNodeMetadataStore cacheNodeMetadataStore =
-        new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -346,9 +436,42 @@ public class ReadOnlyChunkImplTest {
   @Test
   public void shouldHandleMissingZkData() throws Exception {
     AstraConfigs.AstraConfig AstraConfig = makeCacheConfig();
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .setEtcdConfig(etcdConfig)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -363,15 +486,18 @@ public class ReadOnlyChunkImplTest {
     AsyncCuratorFramework curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new ReplicaMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheSlotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     CacheNodeMetadataStore cacheNodeMetadataStore =
-        new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -427,9 +553,42 @@ public class ReadOnlyChunkImplTest {
   @Test
   public void closeShouldCleanupLiveChunkCorrectly() throws Exception {
     AstraConfigs.AstraConfig AstraConfig = makeCacheConfig();
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .setEtcdConfig(etcdConfig)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -444,17 +603,21 @@ public class ReadOnlyChunkImplTest {
     AsyncCuratorFramework curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new ReplicaMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheSlotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     CacheNodeMetadataStore cacheNodeMetadataStore =
-        new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     CacheNodeAssignmentStore cacheNodeAssignmentStore =
-        new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeAssignmentStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -554,9 +717,42 @@ public class ReadOnlyChunkImplTest {
   @Test
   public void shouldHandleDynamicChunkSizeLifecycle() throws Exception {
     AstraConfigs.AstraConfig AstraConfig = makeCacheConfig();
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .setEtcdConfig(etcdConfig)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -571,17 +767,21 @@ public class ReadOnlyChunkImplTest {
     AsyncCuratorFramework curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new ReplicaMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheSlotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     CacheNodeAssignmentStore cacheNodeAssignmentStore =
-        new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeAssignmentStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     CacheNodeMetadataStore cacheNodeMetadataStore =
-        new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
     String replicaId = "foo";
     String snapshotId = "boo";
@@ -699,7 +899,7 @@ public class ReadOnlyChunkImplTest {
       long sizeInBytesOnDisk)
       throws Exception {
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     snapshotMetadataStore.createSync(
         new SnapshotMetadata(
             snapshotId,
@@ -717,7 +917,7 @@ public class ReadOnlyChunkImplTest {
       String snapshotId)
       throws Exception {
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new ReplicaMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     replicaMetadataStore.createSync(
         new ReplicaMetadata(
             replicaId,

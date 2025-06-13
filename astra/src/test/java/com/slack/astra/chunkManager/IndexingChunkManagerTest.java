@@ -65,6 +65,10 @@ import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -121,6 +125,8 @@ public class IndexingChunkManagerTest {
   private AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -133,9 +139,52 @@ public class IndexingChunkManagerTest {
     localZkServer = new TestingServer();
     localZkServer.start();
 
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
     metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .setEtcdConfig(
+                AstraConfigs.EtcdConfig.newBuilder()
+                    .addAllEndpoints(
+                        etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+                    .setConnectionTimeoutMs(5000)
+                    .setKeepaliveTimeoutMs(3000)
+                    .setMaxRetries(3)
+                    .setRetryDelayMs(100)
+                    .setNamespace("test")
+                    .setEnabled(true)
+                    .setEphemeralNodeTtlSeconds(60)
+                    .build())
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(localZkServer.getConnectString())
@@ -150,13 +199,17 @@ public class IndexingChunkManagerTest {
     curatorFramework =
         CuratorBuilder.build(metricsRegistry, metadataStoreConfig.getZookeeperConfig());
     snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
+        new SnapshotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry);
     searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, false);
   }
 
   @AfterEach
   public void tearDown() throws TimeoutException, IOException {
+    if (etcdClient != null) etcdClient.close();
+    if (etcdCluster != null) etcdCluster.close();
     metricsRegistry.close();
     if (chunkManager != null) {
       chunkManager.stopAsync();
@@ -182,6 +235,7 @@ public class IndexingChunkManagerTest {
             blobStore,
             listeningExecutorService,
             curatorFramework,
+            etcdClient,
             searchContext,
             AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100),
             metadataStoreConfig);
@@ -205,6 +259,7 @@ public class IndexingChunkManagerTest {
             blobStore,
             listeningExecutorService,
             curatorFramework,
+            etcdClient,
             searchContext,
             indexerConfig,
             metadataStoreConfig);
@@ -1277,9 +1332,11 @@ public class IndexingChunkManagerTest {
 
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
+        new SnapshotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
@@ -1331,9 +1388,11 @@ public class IndexingChunkManagerTest {
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     // All ephemeral data is ZK is deleted and no data or metadata is persisted.
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
+        new SnapshotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     searchMetadataStore.close();

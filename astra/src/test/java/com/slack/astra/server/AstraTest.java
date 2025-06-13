@@ -27,6 +27,10 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.TestKafkaServer;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.io.IOException;
@@ -66,6 +70,8 @@ public class AstraTest {
   private FieldRedactionMetadataStore fieldRedactionMetadataStore;
   private AsyncCuratorFramework curatorFramework;
   private PrometheusMeterRegistry meterRegistry;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   private static String getHealthCheckResponse(String url) {
     try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
@@ -115,12 +121,55 @@ public class AstraTest {
     kafkaServer = new TestKafkaServer();
     s3Client = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
 
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     // We side load a service metadata entry telling it to create an entry with the partitions that
     // we use in test
     meterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(zkServer.getConnectString())
@@ -134,9 +183,11 @@ public class AstraTest {
     curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new DatasetMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new FieldRedactionMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     final DatasetPartitionMetadata partition =
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
@@ -167,6 +218,9 @@ public class AstraTest {
     }
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
+    }
+    if (etcdClient != null) {
+      etcdClient.close();
     }
     if (zkServer != null) {
       zkServer.close();

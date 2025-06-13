@@ -29,6 +29,10 @@ import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.astra.util.JsonUtil;
 import com.slack.astra.util.TestingZKServer;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -60,6 +64,8 @@ public class BulkIngestApiTest {
   private static TestingServer zkServer;
   private static TestKafkaServer kafkaServer;
   private BulkIngestApi bulkApi;
+  private static EtcdCluster etcdCluster;
+  private static Client etcdClient;
 
   private BulkIngestKafkaProducer bulkIngestKafkaProducer;
   private DatasetRateLimitingService datasetRateLimitingService;
@@ -74,6 +80,29 @@ public class BulkIngestApiTest {
     meterRegistry = new SimpleMeterRegistry();
 
     zkServer = TestingZKServer.createTestingServer();
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
@@ -110,12 +139,33 @@ public class BulkIngestApiTest {
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
             .setZookeeperConfig(zkConfig)
             .build();
 
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new DatasetMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
             INDEX_NAME,
@@ -128,7 +178,8 @@ public class BulkIngestApiTest {
     datasetMetadataStore.createSync(datasetMetadata);
 
     preprocessorMetadataStore =
-        new PreprocessorMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new PreprocessorMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
 
     datasetRateLimitingService =
         new DatasetRateLimitingService(
@@ -182,6 +233,9 @@ public class BulkIngestApiTest {
       bulkIngestKafkaProducer.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     kafkaServer.close();
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
     curatorFramework.unwrap().close();
     zkServer.close();
     meterRegistry.close();

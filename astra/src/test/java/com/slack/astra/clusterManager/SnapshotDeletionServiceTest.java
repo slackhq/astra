@@ -24,6 +24,10 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.MetricsUtil;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -63,12 +67,25 @@ public class SnapshotDeletionServiceTest {
   private ReplicaMetadataStore replicaMetadataStore;
   private S3AsyncClient s3AsyncClient;
   private BlobStore blobStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
 
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
@@ -82,15 +99,39 @@ public class SnapshotDeletionServiceTest {
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
             .setZookeeperConfig(zkConfig)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new SnapshotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     replicaMetadataStore =
-        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new ReplicaMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
 
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
     blobStore = spy(new BlobStore(s3AsyncClient, S3_TEST_BUCKET));
@@ -102,6 +143,10 @@ public class SnapshotDeletionServiceTest {
     replicaMetadataStore.close();
     curatorFramework.unwrap().close();
     s3AsyncClient.close();
+
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
 
     testingServer.close();
     meterRegistry.close();

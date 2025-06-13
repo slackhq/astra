@@ -1,9 +1,12 @@
 package com.slack.astra.metadata.search;
 
 import com.slack.astra.metadata.core.AstraMetadataStore;
+import com.slack.astra.metadata.core.EtcdCreateMode;
+import com.slack.astra.metadata.core.EtcdMetadataStore;
 import com.slack.astra.metadata.core.InternalMetadataStoreException;
 import com.slack.astra.metadata.core.ZookeeperMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -13,25 +16,38 @@ import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
 
 public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
-  public static final String SEARCH_METADATA_STORE_ZK_PATH = "/search";
+  public static final String SEARCH_METADATA_STORE_PATH = "/search";
   private final AstraConfigs.MetadataStoreConfig metadataStoreConfig;
 
   public SearchMetadataStore(
       AsyncCuratorFramework curatorFramework,
+      Client etcdClient,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry,
       boolean shouldCache) {
     super(
-        new ZookeeperMetadataStore<>(
-            curatorFramework,
-            metadataStoreConfig.getZookeeperConfig(),
-            CreateMode.EPHEMERAL,
-            shouldCache,
-            new SearchMetadataSerializer().toModelSerializer(),
-            SEARCH_METADATA_STORE_ZK_PATH,
-            meterRegistry),
-        null, // Not using etcdStore for now
-        metadataStoreConfig.getMode(),
+        curatorFramework != null
+            ? new ZookeeperMetadataStore<>(
+                curatorFramework,
+                metadataStoreConfig.getZookeeperConfig(),
+                CreateMode.EPHEMERAL,
+                shouldCache,
+                new SearchMetadataSerializer().toModelSerializer(),
+                SEARCH_METADATA_STORE_PATH,
+                meterRegistry)
+            : null,
+        etcdClient != null
+            ? new EtcdMetadataStore<>(
+                SEARCH_METADATA_STORE_PATH,
+                metadataStoreConfig.getEtcdConfig(),
+                shouldCache,
+                meterRegistry,
+                new SearchMetadataSerializer(),
+                EtcdCreateMode.EPHEMERAL,
+                etcdClient)
+            : null,
+        metadataStoreConfig.getStoreModesOrDefault(
+            "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
         meterRegistry);
     this.metadataStoreConfig = metadataStoreConfig;
   }
@@ -46,7 +62,9 @@ public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
           .get(
               metadataStoreConfig.hasZookeeperConfig()
                   ? metadataStoreConfig.getZookeeperConfig().getZkConnectionTimeoutMs()
-                  : 1000,
+                  : metadataStoreConfig.hasEtcdConfig()
+                      ? metadataStoreConfig.getEtcdConfig().getConnectionTimeoutMs()
+                      : 1000,
               TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error updating node: " + oldSearchMetadata, e);

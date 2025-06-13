@@ -37,6 +37,10 @@ import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -77,6 +81,8 @@ public class LogIndexSearcherImplTest {
     private AsyncCuratorFramework curatorFramework;
     private AstraConfigs.RedactionUpdateServiceConfig redactionUpdateServiceConfig;
     private RedactionUpdateService redactionUpdateService;
+    private static EtcdCluster etcdCluster;
+    private Client etcdClient;
 
     @BeforeEach
     public void setup() throws Exception {
@@ -84,9 +90,46 @@ public class LogIndexSearcherImplTest {
 
       testingServer = new TestingServer();
       meterRegistry = new SimpleMeterRegistry();
+
+      etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+      etcdCluster.start();
+
+      // Create etcd client
+      etcdClient =
+          Client.builder()
+              .endpoints(
+                  etcdCluster.clientEndpoints().stream()
+                      .map(Object::toString)
+                      .toArray(String[]::new))
+              .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+              .build();
+
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
-              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes(
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
               .setZookeeperConfig(
                   AstraConfigs.ZookeeperConfig.newBuilder()
                       .setZkConnectString(testingServer.getConnectString())
@@ -96,12 +139,24 @@ public class LogIndexSearcherImplTest {
                       .setSleepBetweenRetriesMs(1000)
                       .setZkCacheInitTimeoutMs(1000)
                       .build())
+              .setEtcdConfig(
+                  AstraConfigs.EtcdConfig.newBuilder()
+                      .addAllEndpoints(
+                          etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+                      .setConnectionTimeoutMs(5000)
+                      .setKeepaliveTimeoutMs(3000)
+                      .setMaxRetries(3)
+                      .setRetryDelayMs(100)
+                      .setNamespace("test")
+                      .setEnabled(true)
+                      .setEphemeralNodeTtlSeconds(60)
+                      .build())
               .build();
       curatorFramework =
           CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
       fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(
-              curatorFramework, metadataStoreConfig, meterRegistry, true);
+              curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
 
       redactionUpdateServiceConfig =
           AstraConfigs.RedactionUpdateServiceConfig.newBuilder()
@@ -123,6 +178,9 @@ public class LogIndexSearcherImplTest {
       if (redactionUpdateService != null) {
         redactionUpdateService.stopAsync();
         redactionUpdateService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      }
+      if (etcdClient != null) {
+        etcdClient.close();
       }
     }
 

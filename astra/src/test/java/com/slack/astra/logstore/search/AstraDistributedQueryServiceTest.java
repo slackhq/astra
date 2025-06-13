@@ -32,6 +32,10 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.proto.service.AstraServiceGrpc;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -60,6 +64,8 @@ public class AstraDistributedQueryServiceTest {
   private DatasetMetadataStore datasetMetadataStore;
 
   private TestingServer testZKServer;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
   private SearchContext indexer1SearchContext;
   private SearchContext indexer2SearchContext;
   private SearchContext cache1SearchContext;
@@ -74,6 +80,16 @@ public class AstraDistributedQueryServiceTest {
     metricsRegistry = new SimpleMeterRegistry();
     testZKServer = new TestingServer();
 
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
     // Metadata store
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
@@ -87,18 +103,55 @@ public class AstraDistributedQueryServiceTest {
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
             .setZookeeperConfig(zkConfig)
+            .setEtcdConfig(
+                AstraConfigs.EtcdConfig.newBuilder()
+                    .addAllEndpoints(
+                        etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+                    .setConnectionTimeoutMs(5000)
+                    .setKeepaliveTimeoutMs(3000)
+                    .setMaxRetries(3)
+                    .setRetryDelayMs(100)
+                    .setNamespace("test")
+                    .setEnabled(true)
+                    .setEphemeralNodeTtlSeconds(60)
+                    .build())
             .build();
 
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
 
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry));
+        spy(
+            new SnapshotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry));
     searchMetadataStore =
-        spy(new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, true));
+        spy(
+            new SearchMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, true));
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, true);
+        new DatasetMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, true);
 
     indexer1SearchContext = new SearchContext("indexer_host1", 10000);
     indexer2SearchContext = new SearchContext("indexer_host2", 10001);
@@ -116,6 +169,9 @@ public class AstraDistributedQueryServiceTest {
     curatorFramework.unwrap().close();
     metricsRegistry.close();
     testZKServer.close();
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
   }
 
   private SearchMetadata registerTestSearchMetadata(

@@ -32,6 +32,7 @@ import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.CloseableLifecycleManager;
 import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.core.EtcdClientBuilder;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
 import com.slack.astra.metadata.hpa.HpaMetricMetadataStore;
@@ -43,7 +44,6 @@ import com.slack.astra.metadata.schema.SchemaUtil;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
-import com.slack.astra.proto.config.AstraConfigs.MetadataStoreMode;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.recovery.RecoveryService;
@@ -145,33 +145,28 @@ public class Astra {
 
     // Initialize metadata storage clients based on configuration mode
     AstraConfigs.MetadataStoreConfig metadataStoreConfig = astraConfig.getMetadataStoreConfig();
-    MetadataStoreMode mode = metadataStoreConfig.getMode();
 
     // Initialize ZooKeeper client if enabled
     if (metadataStoreConfig.hasZookeeperConfig()
         && metadataStoreConfig.getZookeeperConfig().getEnabled()) {
       curatorFramework =
           CuratorBuilder.build(prometheusMeterRegistry, metadataStoreConfig.getZookeeperConfig());
-      LOG.info("Initialized ZooKeeper client with mode {}", mode);
-    } else if (mode != MetadataStoreMode.ETCD_CREATES) {
-      LOG.warn("ZooKeeper is not enabled but mode {} requires it", mode);
+      LOG.info("Initialized ZooKeeper client");
     }
 
     // Initialize etcd client if enabled
     if (metadataStoreConfig.hasEtcdConfig() && metadataStoreConfig.getEtcdConfig().getEnabled()) {
       // We don't create a full EtcdMetadataStore here, just the raw client
       // that will be used by specific metadata stores
-      LOG.info("Initialized etcd client with mode {}", mode);
-      // The actual client is created by the EtcdMetadataStore class
-      // We leave etcdClient as null here and use config in the stores
-    } else if (mode == MetadataStoreMode.ETCD_CREATES) {
-      LOG.warn("Etcd is not enabled but mode {} requires it", mode);
+      etcdClient =
+          EtcdClientBuilder.build(prometheusMeterRegistry, metadataStoreConfig.getEtcdConfig());
+      LOG.info("Initialized etcd client");
     }
 
     BlobStore blobStore = new BlobStore(s3Client, astraConfig.getS3Config().getS3Bucket());
 
     Set<Service> services =
-        getServices(curatorFramework, astraConfig, blobStore, prometheusMeterRegistry);
+        getServices(curatorFramework, etcdClient, astraConfig, blobStore, prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
 
@@ -180,6 +175,7 @@ public class Astra {
 
   private static Set<Service> getServices(
       AsyncCuratorFramework curatorFramework,
+      Client etcdClient,
       AstraConfigs.AstraConfig astraConfig,
       BlobStore blobStore,
       PrometheusMeterRegistry meterRegistry)
@@ -193,6 +189,7 @@ public class Astra {
           IndexingChunkManager.fromConfig(
               meterRegistry,
               curatorFramework,
+              etcdClient,
               astraConfig.getIndexerConfig(),
               astraConfig.getMetadataStoreConfig(),
               blobStore,
@@ -203,6 +200,7 @@ public class Astra {
           new AstraIndexer(
               chunkManager,
               curatorFramework,
+              etcdClient,
               astraConfig.getMetadataStoreConfig(),
               astraConfig.getIndexerConfig(),
               astraConfig.getIndexerConfig().getKafkaConfig(),
@@ -219,7 +217,11 @@ public class Astra {
 
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
       RedactionUpdateService redactionUpdateService =
           new RedactionUpdateService(
               fieldRedactionMetadataStore, astraConfig.getRedactionUpdateServiceConfig());
@@ -237,13 +239,21 @@ public class Astra {
     if (roles.contains(AstraConfigs.NodeRole.QUERY)) {
       SearchMetadataStore searchMetadataStore =
           new SearchMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
       SnapshotMetadataStore snapshotMetadataStore =
           new SnapshotMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry);
+              curatorFramework, etcdClient, astraConfig.getMetadataStoreConfig(), meterRegistry);
       DatasetMetadataStore datasetMetadataStore =
           new DatasetMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
 
       services.add(
           new CloseableLifecycleManager(
@@ -280,6 +290,7 @@ public class Astra {
           CachingChunkManager.fromConfig(
               meterRegistry,
               curatorFramework,
+              etcdClient,
               astraConfig.getMetadataStoreConfig(),
               astraConfig.getS3Config(),
               astraConfig.getCacheConfig(),
@@ -288,10 +299,18 @@ public class Astra {
 
       HpaMetricMetadataStore hpaMetricMetadataStore =
           new HpaMetricMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
 
       services.add(
           new CloseableLifecycleManager(
@@ -327,28 +346,48 @@ public class Astra {
 
       ReplicaMetadataStore replicaMetadataStore =
           new ReplicaMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry);
+              curatorFramework, etcdClient, astraConfig.getMetadataStoreConfig(), meterRegistry);
       SnapshotMetadataStore snapshotMetadataStore =
           new SnapshotMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry);
+              curatorFramework, etcdClient, astraConfig.getMetadataStoreConfig(), meterRegistry);
       RecoveryTaskMetadataStore recoveryTaskMetadataStore =
           new RecoveryTaskMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
       RecoveryNodeMetadataStore recoveryNodeMetadataStore =
           new RecoveryNodeMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
       CacheSlotMetadataStore cacheSlotMetadataStore =
           new CacheSlotMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry);
+              curatorFramework, etcdClient, astraConfig.getMetadataStoreConfig(), meterRegistry);
       DatasetMetadataStore datasetMetadataStore =
           new DatasetMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
       HpaMetricMetadataStore hpaMetricMetadataStore =
           new HpaMetricMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
 
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs());
@@ -408,10 +447,10 @@ public class Astra {
 
       CacheNodeMetadataStore cacheNodeMetadataStore =
           new CacheNodeMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry);
+              curatorFramework, etcdClient, astraConfig.getMetadataStoreConfig(), meterRegistry);
       CacheNodeAssignmentStore cacheNodeAssignmentStore =
           new CacheNodeAssignmentStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry);
+              curatorFramework, etcdClient, astraConfig.getMetadataStoreConfig(), meterRegistry);
 
       ClusterHpaMetricService clusterHpaMetricService =
           new ClusterHpaMetricService(
@@ -462,7 +501,11 @@ public class Astra {
 
       SearchMetadataStore searchMetadataStore =
           new SearchMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
       CacheNodeSearchabilityService cacheNodeSearchabilityService =
           new CacheNodeSearchabilityService(
               meterRegistry,
@@ -489,18 +532,26 @@ public class Astra {
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(astraConfig, curatorFramework, meterRegistry, blobStore);
+          new RecoveryService(astraConfig, curatorFramework, etcdClient, meterRegistry, blobStore);
       services.add(recoveryService);
     }
 
     if (roles.contains(AstraConfigs.NodeRole.PREPROCESSOR)) {
       DatasetMetadataStore datasetMetadataStore =
           new DatasetMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
 
       PreprocessorMetadataStore preprocessorMetadataStore =
           new PreprocessorMetadataStore(
-              curatorFramework, astraConfig.getMetadataStoreConfig(), meterRegistry, true);
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
 
       final AstraConfigs.PreprocessorConfig preprocessorConfig =
           astraConfig.getPreprocessorConfig();

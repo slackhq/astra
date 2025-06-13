@@ -8,6 +8,10 @@ import static org.awaitility.Awaitility.await;
 import brave.Tracing;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -27,6 +31,8 @@ public class DatasetPartitionMetadataTest {
   private AsyncCuratorFramework curatorFramework;
   private DatasetMetadataStore datasetMetadataStore;
   private TestingServer testZKServer;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -35,10 +41,53 @@ public class DatasetPartitionMetadataTest {
     metricsRegistry = new SimpleMeterRegistry();
     testZKServer = new TestingServer();
 
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
     // Metadata store
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes(
+                "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .setEtcdConfig(
+                AstraConfigs.EtcdConfig.newBuilder()
+                    .addAllEndpoints(
+                        etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+                    .setConnectionTimeoutMs(5000)
+                    .setKeepaliveTimeoutMs(3000)
+                    .setMaxRetries(3)
+                    .setRetryDelayMs(100)
+                    .setNamespace("test")
+                    .setEnabled(true)
+                    .setEphemeralNodeTtlSeconds(60)
+                    .build())
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testZKServer.getConnectString())
@@ -53,11 +102,14 @@ public class DatasetPartitionMetadataTest {
     this.curatorFramework =
         CuratorBuilder.build(metricsRegistry, metadataStoreConfig.getZookeeperConfig());
     this.datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, true);
+        new DatasetMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, true);
   }
 
   @AfterEach
   public void tearDown() throws Exception {
+    if (etcdClient != null) etcdClient.close();
+    if (etcdCluster != null) etcdCluster.close();
     datasetMetadataStore.close();
     curatorFramework.unwrap().close();
     testZKServer.close();
