@@ -159,7 +159,10 @@ public class RecoveryServiceTest {
         AstraConfigs.NodeRole.RECOVERY,
         10000,
         9003,
-        100);
+        100,
+        etcdCluster != null
+            ? etcdCluster.clientEndpoints().stream().map(Object::toString).toList()
+            : null);
   }
 
   @Test

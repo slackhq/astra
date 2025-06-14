@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +39,20 @@ import org.slf4j.LoggerFactory;
  * performing batch operations and a sync if you are performing a synchronous operation on a node.
  */
 public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
+  /**
+   * Single thread executor for handling watch events asynchronously to avoid deadlocks while
+   * maintaining event ordering. Using a single thread ensures events are processed in the same
+   * order they were received, which is important for consistency.
+   */
+  private static final ExecutorService WATCH_EVENT_EXECUTOR =
+      Executors.newSingleThreadExecutor(
+          r -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("etcd-watch-event-processor");
+            return t;
+          });
+
   /** Tracks leases used for ephemeral nodes. Maps key name to lease ID. */
   private final ConcurrentHashMap<String, Long> leases = new ConcurrentHashMap<>();
 
@@ -232,62 +247,88 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   public CompletionStage<String> createAsync(T metadataNode) {
     this.createCall.increment();
 
+    // Validate node name
+    String nodeName = metadataNode.getName();
+    if (nodeName == null || nodeName.isEmpty() || "/".equals(nodeName) || ".".equals(nodeName)) {
+      CompletableFuture<String> future = new CompletableFuture<>();
+      future.completeExceptionally(
+          new InternalMetadataStoreException("Invalid node name: " + nodeName));
+      return future;
+    }
+
     try {
-      ByteSequence key = pathToKey(metadataNode.getName());
+      ByteSequence key = pathToKey(nodeName);
       ByteSequence value =
           ByteSequence.from(serializer.toJsonStr(metadataNode), StandardCharsets.UTF_8);
 
-      if (createMode == EtcdCreateMode.PERSISTENT) {
-        // For persistent nodes, just do a regular put
-        return etcdClient
-            .getKVClient()
-            .put(key, value)
-            .thenApply(
-                putResponse -> {
-                  // Update cache if enabled
-                  if (shouldCache) {
-                    cache.put(metadataNode.getName(), metadataNode);
-                  }
-                  // Return just the name (not the full path) to match ZookeeperMetadataStore
-                  // behavior
-                  return metadataNode.getName();
-                });
-      } else {
-        // For ephemeral nodes, create a lease and attach it to the key
-        return etcdClient
-            .getLeaseClient()
-            .grant(ephemeralTtlSeconds)
-            .thenCompose(
-                leaseGrantResponse -> {
-                  long leaseId = leaseGrantResponse.getID();
+      // First check if the node already exists
+      return etcdClient
+          .getKVClient()
+          .get(key)
+          .thenCompose(
+              getResponse -> {
+                if (!getResponse.getKvs().isEmpty()) {
+                  // Node exists, throw exception to match ZK behavior
+                  CompletableFuture<String> future = new CompletableFuture<>();
+                  future.completeExceptionally(
+                      new InternalMetadataStoreException(
+                          "Node already exists: " + metadataNode.getName()));
+                  return future;
+                }
 
-                  // Store the lease ID for future refreshes
-                  leases.put(metadataNode.getName(), leaseId);
-
-                  // Create a put option that associates the key with the lease
-                  PutOption putOption = PutOption.builder().withLeaseId(leaseId).build();
-
+                if (createMode == EtcdCreateMode.PERSISTENT) {
+                  // For persistent nodes, just do a regular put
                   return etcdClient
                       .getKVClient()
-                      .put(key, value, putOption)
+                      .put(key, value)
                       .thenApply(
                           putResponse -> {
-                            LOG.debug(
-                                "Created ephemeral node {} with lease ID {}, TTL {} seconds",
-                                metadataNode.getName(),
-                                leaseId,
-                                ephemeralTtlSeconds);
-
                             // Update cache if enabled
                             if (shouldCache) {
                               cache.put(metadataNode.getName(), metadataNode);
                             }
                             // Return just the name (not the full path) to match
-                            // ZookeeperMetadataStore behavior
+                            // ZookeeperMetadataStore
+                            // behavior
                             return metadataNode.getName();
                           });
-                });
-      }
+                } else {
+                  // For ephemeral nodes, create a lease and attach it to the key
+                  return etcdClient
+                      .getLeaseClient()
+                      .grant(ephemeralTtlSeconds)
+                      .thenCompose(
+                          leaseGrantResponse -> {
+                            long leaseId = leaseGrantResponse.getID();
+
+                            // Store the lease ID for future refreshes
+                            leases.put(metadataNode.getName(), leaseId);
+
+                            // Create a put option that associates the key with the lease
+                            PutOption putOption = PutOption.builder().withLeaseId(leaseId).build();
+
+                            return etcdClient
+                                .getKVClient()
+                                .put(key, value, putOption)
+                                .thenApply(
+                                    putResponse -> {
+                                      LOG.debug(
+                                          "Created ephemeral node {} with lease ID {}, TTL {} seconds",
+                                          metadataNode.getName(),
+                                          leaseId,
+                                          ephemeralTtlSeconds);
+
+                                      // Update cache if enabled
+                                      if (shouldCache) {
+                                        cache.put(metadataNode.getName(), metadataNode);
+                                      }
+                                      // Return just the name (not the full path) to match
+                                      // ZookeeperMetadataStore behavior
+                                      return metadataNode.getName();
+                                    });
+                          });
+                }
+              });
     } catch (InvalidProtocolBufferException e) {
       CompletableFuture<String> future = new CompletableFuture<>();
       future.completeExceptionally(
@@ -636,6 +677,47 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   /**
+   * Lists all nodes synchronously without relying on the cache. This is primarily for testing and
+   * should not be used in production code.
+   *
+   * @return The list of all nodes directly from etcd
+   * @throws InternalMetadataStoreException if there's an error fetching data from etcd
+   */
+  public List<T> listSyncUncached() {
+    this.listCall.increment();
+
+    try {
+      // Add a trailing slash to the folder to make sure we only list entries directly under this
+      // folder
+      ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
+      GetOption getOption = GetOption.builder().withPrefix(prefix).build();
+
+      GetResponse getResponse =
+          etcdClient
+              .getKVClient()
+              .get(prefix, getOption)
+              .get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+      List<T> nodes = new ArrayList<>();
+
+      for (KeyValue kv : getResponse.getKvs()) {
+        try {
+          String json = kv.getValue().toString(StandardCharsets.UTF_8);
+          T node = serializer.fromJsonStr(json);
+          nodes.add(node);
+        } catch (InvalidProtocolBufferException e) {
+          LOG.error("Failed to deserialize node from key: {}", kv.getKey(), e);
+        }
+      }
+
+      return nodes;
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Failed to list nodes uncached", e);
+      throw new InternalMetadataStoreException("Error listing nodes directly from etcd", e);
+    }
+  }
+
+  /**
    * Adds a listener for metadata changes.
    *
    * @param listener The listener to add
@@ -665,46 +747,52 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 prefix,
                 watchOption,
                 response -> {
-                  for (WatchEvent event : response.getEvents()) {
-                    try {
-                      // Extract the path from the key
-                      String path = keyToName(event.getKeyValue().getKey());
+                  // Process watch events on a separate thread to avoid deadlocks
+                  // This is critical when watch handlers need to make synchronous metadata
+                  // operations
+                  WATCH_EVENT_EXECUTOR.execute(
+                      () -> {
+                        for (WatchEvent event : response.getEvents()) {
+                          try {
+                            // Extract the path from the key
+                            String path = keyToName(event.getKeyValue().getKey());
 
-                      // Handle different event types
-                      switch (event.getEventType()) {
-                        case PUT:
-                          // This could be a create or update
-                          String json =
-                              event.getKeyValue().getValue().toString(StandardCharsets.UTF_8);
-                          T node = serializer.fromJsonStr(json);
+                            // Handle different event types
+                            switch (event.getEventType()) {
+                              case PUT:
+                                // This could be a create or update
+                                String json =
+                                    event.getKeyValue().getValue().toString(StandardCharsets.UTF_8);
+                                T node = serializer.fromJsonStr(json);
 
-                          // Update cache if enabled
-                          if (cache != null) {
-                            cache.put(path, node);
-                          }
+                                // Update cache if enabled
+                                if (cache != null) {
+                                  cache.put(path, node);
+                                }
 
-                          // Notify listener of changes only for create/update
-                          listener.onMetadataStoreChanged(node);
-                          break;
+                                // Notify listener of changes only for create/update
+                                listener.onMetadataStoreChanged(node);
+                                break;
 
-                        case DELETE:
-                          // Remove from cache if enabled
-                          if (shouldCache && cache != null) {
-                            T deletedNode = cache.remove(path);
-                            // We can only notify if we have the node in cache
-                            if (deletedNode != null) {
-                              listener.onMetadataStoreChanged(deletedNode);
+                              case DELETE:
+                                // Remove from cache if enabled
+                                if (shouldCache && cache != null) {
+                                  T deletedNode = cache.remove(path);
+                                  // We can only notify if we have the node in cache
+                                  if (deletedNode != null) {
+                                    listener.onMetadataStoreChanged(deletedNode);
+                                  }
+                                }
+                                break;
+
+                              default:
+                                LOG.warn("Unknown event type: {}", event.getEventType());
                             }
+                          } catch (Exception e) {
+                            LOG.error("Error processing watch event", e);
                           }
-                          break;
-
-                        default:
-                          LOG.warn("Unknown event type: {}", event.getEventType());
-                      }
-                    } catch (Exception e) {
-                      LOG.error("Error processing watch event", e);
-                    }
-                  }
+                        }
+                      });
                 });
 
     // Store the watcher so we can close it later
@@ -836,6 +924,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       }
     }
 
-    // DO NOT close the etc clients, as they were passed in
+    // Note: We intentionally don't shut down the WATCH_EVENT_EXECUTOR here as it's static and
+    // shared
+    // across all instances. If we shut it down for one instance, it would affect all other
+    // instances.
+    // The executor will be cleaned up by the JVM during shutdown.
+
+    // DO NOT close the etcd clients, as they were passed in
   }
 }

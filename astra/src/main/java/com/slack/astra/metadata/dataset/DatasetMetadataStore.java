@@ -42,7 +42,7 @@ public class DatasetMetadataStore extends AstraMetadataStore<DatasetMetadata> {
                 etcdClient)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 }

@@ -433,6 +433,93 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   /**
+   * Lists all nodes across all partitions synchronously, bypassing the cache. This is intended for
+   * testing only and is not recommended for production use due to potentially high resource usage
+   * when many partitions exist.
+   *
+   * @return The list of all nodes directly from etcd, bypassing cache
+   * @throws InternalMetadataStoreException if there's an error fetching data from etcd
+   */
+  public List<T> listSyncUncached() {
+    List<T> result = new ArrayList<>();
+
+    // We need to get all the partition keys first
+    Set<String> partitions = getPartitionsFromEtcd();
+
+    // For each partition, get uncached data directly
+    for (String partition : partitions) {
+      try {
+        // Get or create the store for this partition
+        EtcdMetadataStore<T> store = getOrCreateMetadataStore(partition);
+
+        // Get uncached data from this store
+        List<T> partitionItems = store.listSyncUncached();
+
+        // Add to combined result
+        result.addAll(partitionItems);
+      } catch (Exception e) {
+        LOG.warn("Error listing uncached nodes from partition {}: {}", partition, e.getMessage());
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Gets all available partitions directly from etcd. This method bypasses the cache and makes a
+   * direct request to etcd to get partition information.
+   *
+   * @return A set of partition identifiers
+   * @throws InternalMetadataStoreException if there's an error fetching data from etcd
+   */
+  private Set<String> getPartitionsFromEtcd() {
+    try {
+      // Get all keys with the store prefix
+      ByteSequence prefix =
+          ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
+      io.etcd.jetcd.options.GetOption getOption =
+          io.etcd.jetcd.options.GetOption.builder().isPrefix(true).build();
+
+      // Execute the query synchronously
+      io.etcd.jetcd.kv.GetResponse getResponse =
+          etcdClient
+              .getKVClient()
+              .get(prefix, getOption)
+              .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
+
+      // Extract partition names from the keys
+      Set<String> partitions = new java.util.HashSet<>();
+      for (io.etcd.jetcd.KeyValue kv : getResponse.getKvs()) {
+        String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
+        if (keyStr.startsWith(String.format("%s/", storeFolder))) {
+          String remaining = keyStr.substring(String.format("%s/", storeFolder).length());
+          int slashIdx = remaining.indexOf('/');
+          String partition = slashIdx > 0 ? remaining.substring(0, slashIdx) : remaining;
+
+          // Only add if it's not empty and matches our filters
+          if (!partition.isEmpty()
+              && (partitionFilters.isEmpty() || partitionFilters.contains(partition))) {
+            partitions.add(partition);
+          }
+        }
+      }
+
+      return partitions;
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error fetching partitions from etcd", e);
+    }
+  }
+
+  /**
+   * Gets or creates a metadata store for a partition. If the partition exists in the store map, the
+   * existing instance is returned. If not, a new instance is created and stored in the map.
+   *
+   * @param partition The partition identifier
+   * @return The metadata store for the specified partition
+   * @throws InternalMetadataStoreException if partition filters are used and the partition is not
+   *     in the filter list
+   */
+  /**
    * Gets or creates a metadata store for a partition. If the partition exists in the store map, the
    * existing instance is returned. If not, a new instance is created and stored in the map.
    *

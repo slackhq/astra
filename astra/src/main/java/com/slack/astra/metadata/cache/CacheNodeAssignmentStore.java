@@ -42,7 +42,7 @@ public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<Cac
                 CACHE_NODE_ASSIGNMENT_STORE_PATH)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 
@@ -74,7 +74,7 @@ public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<Cac
                 CACHE_NODE_ASSIGNMENT_STORE_PATH)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 

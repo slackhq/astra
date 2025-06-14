@@ -122,30 +122,23 @@ public class IndexingChunkImplTest {
 
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setEtcdConfig(
                   AstraConfigs.EtcdConfig.newBuilder()
                       .addAllEndpoints(
@@ -205,11 +198,11 @@ public class IndexingChunkImplTest {
 
     @AfterEach
     public void tearDown() throws IOException, TimeoutException {
-      if (etcdClient != null) etcdClient.close();
-      if (etcdCluster != null) etcdCluster.close();
       if (closeChunk) chunk.close();
 
       curatorFramework.unwrap().close();
+      if (etcdClient != null) etcdClient.close();
+      if (etcdCluster != null) etcdCluster.close();
       testingServer.close();
       registry.close();
     }
@@ -533,30 +526,23 @@ public class IndexingChunkImplTest {
 
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setZookeeperConfig(
                   AstraConfigs.ZookeeperConfig.newBuilder()
                       .setZkConnectString(testingServer.getConnectString())
@@ -565,6 +551,18 @@ public class IndexingChunkImplTest {
                       .setZkConnectionTimeoutMs(1000)
                       .setSleepBetweenRetriesMs(1000)
                       .setZkCacheInitTimeoutMs(1000)
+                      .build())
+              .setEtcdConfig(
+                  AstraConfigs.EtcdConfig.newBuilder()
+                      .addAllEndpoints(
+                          etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+                      .setConnectionTimeoutMs(5000)
+                      .setKeepaliveTimeoutMs(3000)
+                      .setMaxRetries(3)
+                      .setRetryDelayMs(100)
+                      .setNamespace("test")
+                      .setEnabled(true)
+                      .setEphemeralNodeTtlSeconds(60)
                       .build())
               .build();
 
@@ -606,6 +604,8 @@ public class IndexingChunkImplTest {
       if (closeChunk) chunk.close();
 
       curatorFramework.unwrap().close();
+      etcdClient.close();
+      etcdCluster.close();
       testingServer.close();
       registry.close();
     }
@@ -664,30 +664,23 @@ public class IndexingChunkImplTest {
 
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setEtcdConfig(
                   AstraConfigs.EtcdConfig.newBuilder()
                       .addAllEndpoints(
@@ -751,12 +744,12 @@ public class IndexingChunkImplTest {
 
     @AfterEach
     public void tearDown() throws IOException, TimeoutException {
-      if (etcdClient != null) etcdClient.close();
-      if (etcdCluster != null) etcdCluster.close();
       if (closeChunk) chunk.close();
       searchMetadataStore.close();
       snapshotMetadataStore.close();
       curatorFramework.unwrap().close();
+      etcdClient.close();
+      etcdCluster.close();
       testingServer.close();
       registry.close();
     }

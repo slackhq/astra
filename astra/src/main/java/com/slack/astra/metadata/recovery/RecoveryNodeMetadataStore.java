@@ -45,7 +45,7 @@ public class RecoveryNodeMetadataStore extends AstraMetadataStore<RecoveryNodeMe
                 etcdClient)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 
@@ -83,7 +83,7 @@ public class RecoveryNodeMetadataStore extends AstraMetadataStore<RecoveryNodeMe
                 etcdClient)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 }

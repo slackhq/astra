@@ -45,7 +45,7 @@ public class PreprocessorMetadataStore extends AstraMetadataStore<PreprocessorMe
                 etcdClient)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 }

@@ -47,7 +47,7 @@ public class CacheSlotMetadataStore extends AstraPartitioningMetadataStore<Cache
                 CACHE_SLOT_PATH)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 

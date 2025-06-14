@@ -125,30 +125,23 @@ public class RecoveryChunkImplTest {
 
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setZookeeperConfig(zkConfig)
               .setEtcdConfig(etcdConfig)
               .build();
@@ -555,30 +548,23 @@ public class RecoveryChunkImplTest {
 
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setZookeeperConfig(zkConfig)
               .setEtcdConfig(etcdConfig)
               .build();
@@ -707,30 +693,23 @@ public class RecoveryChunkImplTest {
 
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .putStoreModes(
-                  "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
-              .putStoreModes(
-                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setZookeeperConfig(zkConfig)
               .setEtcdConfig(etcdConfig)
               .build();

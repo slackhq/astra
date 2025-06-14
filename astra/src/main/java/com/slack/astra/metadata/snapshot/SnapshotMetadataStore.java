@@ -41,7 +41,7 @@ public class SnapshotMetadataStore extends AstraPartitioningMetadataStore<Snapsh
                 SNAPSHOT_METADATA_STORE_PATH)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 }

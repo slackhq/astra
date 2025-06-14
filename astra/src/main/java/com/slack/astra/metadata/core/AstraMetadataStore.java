@@ -34,8 +34,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(AstraMetadataStore.class);
 
   protected final ZookeeperMetadataStore<T> zkStore;
-  private final EtcdMetadataStore<T> etcdStore;
-  private final MetadataStoreMode mode;
+  protected final EtcdMetadataStore<T> etcdStore;
+  protected final MetadataStoreMode mode;
 
   private final MeterRegistry meterRegistry;
 

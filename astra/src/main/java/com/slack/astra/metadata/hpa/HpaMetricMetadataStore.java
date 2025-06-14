@@ -41,7 +41,7 @@ public class HpaMetricMetadataStore extends AstraMetadataStore<HpaMetricMetadata
                 etcdClient)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 }

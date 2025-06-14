@@ -42,7 +42,7 @@ public class RecoveryTaskMetadataStore extends AstraMetadataStore<RecoveryTaskMe
                 etcdClient)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 }

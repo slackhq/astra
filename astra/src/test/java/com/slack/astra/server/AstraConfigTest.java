@@ -212,11 +212,11 @@ public class AstraConfigTest {
 
     // Check individual store modes
     assertThat(metadataStoreConfig.getStoreModesMap().get("DatasetMetadataStore"))
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
     assertThat(metadataStoreConfig.getStoreModesMap().get("SnapshotMetadataStore"))
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
     assertThat(metadataStoreConfig.getStoreModesMap().get("CacheNodeAssignmentStore"))
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
 
     final AstraConfigs.EtcdConfig etcdConfig = metadataStoreConfig.getEtcdConfig();
     assertThat(etcdConfig.getEnabled()).isTrue();
@@ -397,11 +397,11 @@ public class AstraConfigTest {
 
     // Check individual store modes
     assertThat(metadataStoreConfig.getStoreModesMap().get("DatasetMetadataStore"))
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
     assertThat(metadataStoreConfig.getStoreModesMap().get("SnapshotMetadataStore"))
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
     assertThat(metadataStoreConfig.getStoreModesMap().get("CacheNodeAssignmentStore"))
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
 
     final AstraConfigs.EtcdConfig etcdConfig = metadataStoreConfig.getEtcdConfig();
     assertThat(etcdConfig.getEnabled()).isFalse();

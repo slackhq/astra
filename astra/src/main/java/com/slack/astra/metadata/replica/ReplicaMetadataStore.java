@@ -39,7 +39,7 @@ public class ReplicaMetadataStore extends AstraPartitioningMetadataStore<Replica
                 REPLICA_STORE_PATH)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 }

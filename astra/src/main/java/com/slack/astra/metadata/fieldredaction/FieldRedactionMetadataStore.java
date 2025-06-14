@@ -41,7 +41,7 @@ public class FieldRedactionMetadataStore extends AstraMetadataStore<FieldRedacti
                 etcdClient)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 }

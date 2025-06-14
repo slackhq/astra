@@ -53,16 +53,16 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private final AstraMetadataStoreChangeListener<CacheNodeAssignment>
       cacheNodeAssignmentChangeListener = this::onAssignmentHandler;
   private final long capacityBytes;
-  private ReplicaMetadataStore replicaMetadataStore;
-  private SnapshotMetadataStore snapshotMetadataStore;
-  private SearchMetadataStore searchMetadataStore;
-  private CacheSlotMetadataStore cacheSlotMetadataStore;
+  protected ReplicaMetadataStore replicaMetadataStore;
+  protected SnapshotMetadataStore snapshotMetadataStore;
+  protected SearchMetadataStore searchMetadataStore;
+  protected CacheSlotMetadataStore cacheSlotMetadataStore;
   private Client etcdClient;
 
   // for flag "astra.ng.dynamicChunkSizes"
   private final String cacheNodeId;
-  private CacheNodeAssignmentStore cacheNodeAssignmentStore;
-  private CacheNodeMetadataStore cacheNodeMetadataStore;
+  protected CacheNodeAssignmentStore cacheNodeAssignmentStore;
+  protected CacheNodeMetadataStore cacheNodeMetadataStore;
 
   private final ExecutorService executorService =
       Executors.newCachedThreadPool(

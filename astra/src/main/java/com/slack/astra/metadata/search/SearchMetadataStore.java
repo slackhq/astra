@@ -47,7 +47,7 @@ public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
                 etcdClient)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
     this.metadataStoreConfig = metadataStoreConfig;
   }

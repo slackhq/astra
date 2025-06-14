@@ -40,7 +40,7 @@ public class CacheNodeMetadataStore extends AstraMetadataStore<CacheNodeMetadata
                 etcdClient)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
-            "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES),
+            "CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
   }
 }
