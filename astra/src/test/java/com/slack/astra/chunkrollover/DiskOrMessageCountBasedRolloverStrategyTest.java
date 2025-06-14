@@ -30,6 +30,10 @@ import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -71,6 +75,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private static final String ZK_PATH_PREFIX = "testZK";
   private BlobStore blobStore;
   private TestingServer localZkServer;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
   private AsyncCuratorFramework curatorFramework;
   private AstraConfigs.MetadataStoreConfig metadataStoreConfig;
 
@@ -96,9 +102,44 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     localZkServer = new TestingServer();
     localZkServer.start();
 
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(localZkServer.getConnectString())
@@ -108,6 +149,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
 
     curatorFramework =
@@ -124,11 +166,17 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
     }
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
     if (s3AsyncClient != null) {
       s3AsyncClient.close();
     }
     if (localZkServer != null) {
       localZkServer.stop();
+    }
+    if (etcdCluster != null) {
+      etcdCluster.close();
     }
   }
 
@@ -146,6 +194,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             blobStore,
             listeningExecutorService,
             curatorFramework,
+            etcdClient,
             searchContext,
             AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100),
             metadataStoreConfig);

@@ -33,6 +33,10 @@ import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -73,6 +77,8 @@ public class RecoveryChunkImplTest {
     private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
+    private EtcdCluster etcdCluster;
+    private Client etcdClient;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -80,6 +86,32 @@ public class RecoveryChunkImplTest {
 
       testingServer = new TestingServer();
       registry = new SimpleMeterRegistry();
+
+      etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+      etcdCluster.start();
+
+      // Create etcd client
+      etcdClient =
+          Client.builder()
+              .endpoints(
+                  etcdCluster.clientEndpoints().stream()
+                      .map(Object::toString)
+                      .toArray(String[]::new))
+              .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+              .build();
+
+      AstraConfigs.EtcdConfig etcdConfig =
+          AstraConfigs.EtcdConfig.newBuilder()
+              .addAllEndpoints(
+                  etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+              .setConnectionTimeoutMs(5000)
+              .setKeepaliveTimeoutMs(3000)
+              .setMaxRetries(3)
+              .setRetryDelayMs(100)
+              .setNamespace("test")
+              .setEnabled(true)
+              .setEphemeralNodeTtlSeconds(60)
+              .build();
 
       AstraConfigs.ZookeeperConfig zkConfig =
           AstraConfigs.ZookeeperConfig.newBuilder()
@@ -93,16 +125,34 @@ public class RecoveryChunkImplTest {
 
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
-              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setZookeeperConfig(zkConfig)
+              .setEtcdConfig(etcdConfig)
               .build();
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
       snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, registry);
+          new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, registry);
       searchMetadataStore =
-          new SearchMetadataStore(curatorFramework, metadataStoreConfig, registry, false);
+          new SearchMetadataStore(
+              curatorFramework, etcdClient, metadataStoreConfig, registry, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -134,6 +184,12 @@ public class RecoveryChunkImplTest {
 
       searchMetadataStore.close();
       snapshotMetadataStore.close();
+      if (etcdClient != null) {
+        etcdClient.close();
+      }
+      if (etcdCluster != null) {
+        etcdCluster.close();
+      }
       curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
@@ -444,6 +500,8 @@ public class RecoveryChunkImplTest {
     private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
+    private EtcdCluster etcdCluster;
+    private Client etcdClient;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -451,6 +509,32 @@ public class RecoveryChunkImplTest {
 
       testingServer = new TestingServer();
       registry = new SimpleMeterRegistry();
+
+      etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+      etcdCluster.start();
+
+      // Create etcd client
+      etcdClient =
+          Client.builder()
+              .endpoints(
+                  etcdCluster.clientEndpoints().stream()
+                      .map(Object::toString)
+                      .toArray(String[]::new))
+              .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+              .build();
+
+      AstraConfigs.EtcdConfig etcdConfig =
+          AstraConfigs.EtcdConfig.newBuilder()
+              .addAllEndpoints(
+                  etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+              .setConnectionTimeoutMs(5000)
+              .setKeepaliveTimeoutMs(3000)
+              .setMaxRetries(3)
+              .setRetryDelayMs(100)
+              .setNamespace("test")
+              .setEnabled(true)
+              .setEphemeralNodeTtlSeconds(60)
+              .build();
 
       AstraConfigs.ZookeeperConfig zkConfig =
           AstraConfigs.ZookeeperConfig.newBuilder()
@@ -464,16 +548,34 @@ public class RecoveryChunkImplTest {
 
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
-              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setZookeeperConfig(zkConfig)
+              .setEtcdConfig(etcdConfig)
               .build();
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
       snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, registry);
+          new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, registry);
       searchMetadataStore =
-          new SearchMetadataStore(curatorFramework, metadataStoreConfig, registry, false);
+          new SearchMetadataStore(
+              curatorFramework, etcdClient, metadataStoreConfig, registry, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -504,6 +606,12 @@ public class RecoveryChunkImplTest {
 
       searchMetadataStore.close();
       snapshotMetadataStore.close();
+      if (etcdClient != null) {
+        etcdClient.close();
+      }
+      if (etcdCluster != null) {
+        etcdCluster.close();
+      }
       curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
@@ -539,11 +647,40 @@ public class RecoveryChunkImplTest {
     private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
+    private EtcdCluster etcdCluster;
+    private Client etcdClient;
 
     @BeforeEach
     public void setUp() throws Exception {
       Tracing.newBuilder().build();
       testingServer = new TestingServer();
+
+      etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+      etcdCluster.start();
+
+      // Create etcd client
+      etcdClient =
+          Client.builder()
+              .endpoints(
+                  etcdCluster.clientEndpoints().stream()
+                      .map(Object::toString)
+                      .toArray(String[]::new))
+              .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+              .build();
+
+      AstraConfigs.EtcdConfig etcdConfig =
+          AstraConfigs.EtcdConfig.newBuilder()
+              .addAllEndpoints(
+                  etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+              .setConnectionTimeoutMs(5000)
+              .setKeepaliveTimeoutMs(3000)
+              .setMaxRetries(3)
+              .setRetryDelayMs(100)
+              .setNamespace("test")
+              .setEnabled(true)
+              .setEphemeralNodeTtlSeconds(60)
+              .build();
+
       AstraConfigs.ZookeeperConfig zkConfig =
           AstraConfigs.ZookeeperConfig.newBuilder()
               .setZkConnectString(testingServer.getConnectString())
@@ -556,8 +693,25 @@ public class RecoveryChunkImplTest {
 
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
-              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setZookeeperConfig(zkConfig)
+              .setEtcdConfig(etcdConfig)
               .build();
 
       registry = new SimpleMeterRegistry();
@@ -565,9 +719,10 @@ public class RecoveryChunkImplTest {
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
       snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, registry);
+          new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, registry);
       searchMetadataStore =
-          new SearchMetadataStore(curatorFramework, metadataStoreConfig, registry, true);
+          new SearchMetadataStore(
+              curatorFramework, etcdClient, metadataStoreConfig, registry, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -597,6 +752,12 @@ public class RecoveryChunkImplTest {
       if (chunk != null) chunk.close();
       searchMetadataStore.close();
       snapshotMetadataStore.close();
+      if (etcdClient != null) {
+        etcdClient.close();
+      }
+      if (etcdCluster != null) {
+        etcdCluster.close();
+      }
       curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();

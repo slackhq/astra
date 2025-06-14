@@ -60,7 +60,6 @@
     "managerConnectString": "localhost:8083"
   },
   "metadataStoreConfig": {
-    "mode": "BOTH_READ_ZOOKEEPER_WRITE",
     "zookeeperConfig": {
       "enabled": true,
       "zkConnectString": "1.2.3.4:9092",
@@ -78,6 +77,20 @@
       "retryDelayMs": 100,
       "maxRetries": 3,
       "ephemeralNodeTtlSeconds": 60
+    },
+    "storeModes": {
+      "DatasetMetadataStore": "ETCD_CREATES",
+      "SnapshotMetadataStore": "ETCD_CREATES",
+      "ReplicaMetadataStore": "ETCD_CREATES",
+      "HpaMetricMetadataStore": "ETCD_CREATES",
+      "SearchMetadataStore": "ETCD_CREATES",
+      "CacheSlotMetadataStore": "ETCD_CREATES",
+      "CacheNodeMetadataStore": "ETCD_CREATES",
+      "CacheNodeAssignmentStore": "ETCD_CREATES",
+      "FieldRedactionMetadataStore": "ETCD_CREATES",
+      "PreprocessorMetadataStore": "ETCD_CREATES",
+      "RecoveryNodeMetadataStore": "ETCD_CREATES",
+      "RecoveryTaskMetadataStore": "ETCD_CREATES"
     }
   },
   "cacheConfig": {

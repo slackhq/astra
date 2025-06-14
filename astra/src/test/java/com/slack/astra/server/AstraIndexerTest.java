@@ -39,6 +39,10 @@ import com.slack.astra.testlib.ChunkManagerUtil;
 import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.astra.writer.kafka.AstraKafkaConsumer;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
@@ -85,6 +89,8 @@ public class AstraIndexerTest {
   private SnapshotMetadataStore snapshotMetadataStore;
   private RecoveryTaskMetadataStore recoveryTaskStore;
   private SearchMetadataStore searchMetadataStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -93,10 +99,45 @@ public class AstraIndexerTest {
     metricsRegistry = new SimpleMeterRegistry();
 
     testZKServer = new TestingServer();
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
     // Metadata store
     metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testZKServer.getConnectString())
@@ -106,6 +147,7 @@ public class AstraIndexerTest {
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
 
     curatorFramework =
@@ -122,19 +164,25 @@ public class AstraIndexerTest {
             new SearchContext(TEST_HOST, TEST_PORT),
             curatorFramework,
             indexerConfig,
-            metadataStoreConfig);
+            metadataStoreConfig,
+            etcdCluster,
+            etcdClient);
 
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry));
+        spy(
+            new SnapshotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry));
     recoveryTaskStore =
         spy(
             new RecoveryTaskMetadataStore(
-                curatorFramework, metadataStoreConfig, metricsRegistry, false));
+                curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, false));
     searchMetadataStore =
-        spy(new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false));
+        spy(
+            new SearchMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, false));
 
     kafkaServer = new TestKafkaServer();
   }
@@ -168,6 +216,9 @@ public class AstraIndexerTest {
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
     }
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
     if (testZKServer != null) {
       testZKServer.close();
     }
@@ -185,6 +236,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
@@ -223,6 +275,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
@@ -270,6 +323,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
@@ -306,6 +360,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
@@ -355,6 +410,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
@@ -406,6 +462,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             makeIndexerConfig(50),
             getKafkaConfig(),
@@ -465,6 +522,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             makeIndexerConfig(50),
             getKafkaConfig(),
@@ -528,6 +586,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),
@@ -576,7 +635,9 @@ public class AstraIndexerTest {
             new SearchContext(TEST_HOST, TEST_PORT),
             curatorFramework,
             makeIndexerConfig(),
-            metadataStoreConfig);
+            metadataStoreConfig,
+            etcdCluster,
+            etcdClient);
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -584,6 +645,7 @@ public class AstraIndexerTest {
         new AstraIndexer(
             chunkManagerUtil.chunkManager,
             curatorFramework,
+            etcdClient,
             metadataStoreConfig,
             makeIndexerConfig(1000),
             getKafkaConfig(),

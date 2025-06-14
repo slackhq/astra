@@ -28,8 +28,8 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private static final Logger LOG = LoggerFactory.getLogger(AstraPartitioningMetadataStore.class);
 
   protected final ZookeeperPartitioningMetadataStore<T> zkStore;
-  private final EtcdPartitioningMetadataStore<T> etcdStore;
-  private final MetadataStoreMode mode;
+  protected final EtcdPartitioningMetadataStore<T> etcdStore;
+  protected final MetadataStoreMode mode;
   private final MeterRegistry meterRegistry;
 
   // Tracks listeners registered, so we can properly register/unregister from both stores

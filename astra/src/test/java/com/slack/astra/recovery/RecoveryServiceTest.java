@@ -39,6 +39,10 @@ import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.astra.writer.kafka.AstraKafkaConsumer;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.Etcd;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -85,6 +89,8 @@ public class RecoveryServiceTest {
   private S3AsyncClient s3AsyncClient;
   private RecoveryService recoveryService;
   private AsyncCuratorFramework curatorFramework;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -94,6 +100,17 @@ public class RecoveryServiceTest {
     zkServer = new TestingServer();
     s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
     blobStore = new BlobStore(s3AsyncClient, TEST_S3_BUCKET);
+
+    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
+    etcdCluster.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
   }
 
   @AfterEach
@@ -117,6 +134,9 @@ public class RecoveryServiceTest {
     if (s3AsyncClient != null) {
       s3AsyncClient.close();
     }
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -139,7 +159,10 @@ public class RecoveryServiceTest {
         AstraConfigs.NodeRole.RECOVERY,
         10000,
         9003,
-        100);
+        100,
+        etcdCluster != null
+            ? etcdCluster.clientEndpoints().stream().map(Object::toString).toList()
+            : null);
   }
 
   @Test
@@ -149,7 +172,8 @@ public class RecoveryServiceTest {
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobStore);
+    recoveryService =
+        new RecoveryService(astraCfg, curatorFramework, etcdClient, meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -159,7 +183,7 @@ public class RecoveryServiceTest {
 
     SnapshotMetadataStore snapshotMetadataStore =
         new SnapshotMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
     // Start recovery
     RecoveryTaskMetadata recoveryTask =
@@ -231,12 +255,13 @@ public class RecoveryServiceTest {
 
     SnapshotMetadataStore snapshotMetadataStore =
         new SnapshotMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, blobStore);
+        new RecoveryService(
+            astraCfg, curatorFramework, etcdClient, components.meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
     long startOffset = 1;
@@ -315,12 +340,13 @@ public class RecoveryServiceTest {
 
     SnapshotMetadataStore snapshotMetadataStore =
         new SnapshotMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(astraCfg, curatorFramework, components.meterRegistry, blobStore);
+        new RecoveryService(
+            astraCfg, curatorFramework, etcdClient, components.meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -357,7 +383,11 @@ public class RecoveryServiceTest {
     // Start recovery service
     recoveryService =
         new RecoveryService(
-            astraCfg, curatorFramework, meterRegistry, new BlobStore(s3AsyncClient, fakeS3Bucket));
+            astraCfg,
+            curatorFramework,
+            etcdClient,
+            meterRegistry,
+            new BlobStore(s3AsyncClient, fakeS3Bucket));
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -371,7 +401,7 @@ public class RecoveryServiceTest {
         .isNotEqualTo(fakeS3Bucket);
     SnapshotMetadataStore snapshotMetadataStore =
         new SnapshotMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     // Start recovery
@@ -398,7 +428,8 @@ public class RecoveryServiceTest {
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobStore);
+    recoveryService =
+        new RecoveryService(astraCfg, curatorFramework, etcdClient, meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -410,14 +441,14 @@ public class RecoveryServiceTest {
     assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
     SnapshotMetadataStore snapshotMetadataStore =
         new SnapshotMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
     // Create a recovery task
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
     assertThat(AstraMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size()).isZero();
     RecoveryTaskMetadata recoveryTask =
         new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
@@ -430,7 +461,7 @@ public class RecoveryServiceTest {
     // Assign the recovery task to node.
     RecoveryNodeMetadataStore recoveryNodeMetadataStore =
         new RecoveryNodeMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
     List<RecoveryNodeMetadata> recoveryNodes =
         AstraMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore);
     assertThat(recoveryNodes.size()).isEqualTo(1);
@@ -485,7 +516,11 @@ public class RecoveryServiceTest {
     // Start recovery service
     recoveryService =
         new RecoveryService(
-            astraCfg, curatorFramework, meterRegistry, new BlobStore(s3AsyncClient, fakeS3Bucket));
+            astraCfg,
+            curatorFramework,
+            etcdClient,
+            meterRegistry,
+            new BlobStore(s3AsyncClient, fakeS3Bucket));
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -498,14 +533,14 @@ public class RecoveryServiceTest {
     assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
     SnapshotMetadataStore snapshotMetadataStore =
         new SnapshotMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
     // Create a recovery task
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
     assertThat(AstraMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size()).isZero();
     RecoveryTaskMetadata recoveryTask =
         new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
@@ -518,7 +553,7 @@ public class RecoveryServiceTest {
     // Assign the recovery task to node.
     RecoveryNodeMetadataStore recoveryNodeMetadataStore =
         new RecoveryNodeMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
     List<RecoveryNodeMetadata> recoveryNodes =
         AstraMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore);
     assertThat(recoveryNodes.size()).isEqualTo(1);
@@ -664,14 +699,15 @@ public class RecoveryServiceTest {
         CuratorBuilder.build(meterRegistry, astraCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(astraCfg, curatorFramework, meterRegistry, blobStore);
+    recoveryService =
+        new RecoveryService(astraCfg, curatorFramework, etcdClient, meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     // Create a recovery task
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
     assertThat(AstraMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size()).isZero();
     RecoveryTaskMetadata recoveryTask =
         new RecoveryTaskMetadata("testRecoveryTask", "0", 0, 0, Instant.now().toEpochMilli());
@@ -684,7 +720,7 @@ public class RecoveryServiceTest {
     // Assign the recovery task to node.
     RecoveryNodeMetadataStore recoveryNodeMetadataStore =
         new RecoveryNodeMetadataStore(
-            curatorFramework, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
+            curatorFramework, etcdClient, astraCfg.getMetadataStoreConfig(), meterRegistry, false);
     List<RecoveryNodeMetadata> recoveryNodes =
         AstraMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore);
     assertThat(recoveryNodes.size()).isEqualTo(1);

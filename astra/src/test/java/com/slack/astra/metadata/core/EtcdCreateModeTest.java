@@ -3,10 +3,13 @@ package com.slack.astra.metadata.core;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.astra.proto.config.AstraConfigs;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.ClientBuilder;
 import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
@@ -117,6 +120,24 @@ public class EtcdCreateModeTest {
     meterRegistry.close();
   }
 
+  /** Helper method to create an etcd client for tests. */
+  private Client createEtcdClient(AstraConfigs.EtcdConfig config) {
+    ClientBuilder clientBuilder =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream()
+                    .map(Object::toString)
+                    .toArray(String[]::new));
+
+    // Set namespace if provided
+    if (!config.getNamespace().isEmpty()) {
+      clientBuilder.namespace(
+          io.etcd.jetcd.ByteSequence.from(config.getNamespace(), StandardCharsets.UTF_8));
+    }
+
+    return clientBuilder.build();
+  }
+
   @Test
   public void testPersistentNode() throws ExecutionException, InterruptedException {
     AstraConfigs.EtcdConfig etcdConfig =
@@ -130,9 +151,13 @@ public class EtcdCreateModeTest {
             .setEphemeralNodeTtlSeconds(60)
             .build();
 
+    // Create a client for the store
+    Client etcdClient = createEtcdClient(etcdConfig);
+
     // Create a store with persistent nodes (default)
     try (EtcdMetadataStore<TestMetadata> persistentStore =
-        new EtcdMetadataStore<>("/test-persistent", etcdConfig, true, meterRegistry, serializer)) {
+        new EtcdMetadataStore<>(
+            "/test-persistent", etcdConfig, true, meterRegistry, serializer, etcdClient)) {
 
       // Create a node
       TestMetadata testData = new TestMetadata("persistent1", "This node should persist");
@@ -146,8 +171,10 @@ public class EtcdCreateModeTest {
     }
 
     // Create a new store instance and verify the node still exists
+    Client newClient = createEtcdClient(etcdConfig);
     try (EtcdMetadataStore<TestMetadata> newStore =
-        new EtcdMetadataStore<>("/test-persistent", etcdConfig, true, meterRegistry, serializer)) {
+        new EtcdMetadataStore<>(
+            "/test-persistent", etcdConfig, true, meterRegistry, serializer, newClient)) {
 
       TestMetadata result = newStore.getSync("persistent1");
       assertThat(result).isNotNull();
@@ -175,6 +202,9 @@ public class EtcdCreateModeTest {
     // Create ephemeral node that should disappear after the store is closed
     String nodeName = "ephemeral1";
 
+    // Create a client for ephemeral store
+    Client ephemeralClient = createEtcdClient(etcdConfig);
+
     try (EtcdMetadataStore<TestMetadata> ephemeralStore =
         new EtcdMetadataStore<>(
             "/test-ephemeral",
@@ -183,7 +213,8 @@ public class EtcdCreateModeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.EPHEMERAL,
-            shortTtlSeconds)) {
+            shortTtlSeconds,
+            ephemeralClient)) {
 
       // Create a node
       TestMetadata testData = new TestMetadata(nodeName, "This node should disappear");
@@ -202,8 +233,10 @@ public class EtcdCreateModeTest {
     TimeUnit.SECONDS.sleep(shortTtlSeconds + 1);
 
     // Create a new store instance and verify the node no longer exists
+    Client verifyClient = createEtcdClient(etcdConfig);
     try (EtcdMetadataStore<TestMetadata> newStore =
-        new EtcdMetadataStore<>("/test-ephemeral", etcdConfig, true, meterRegistry, serializer)) {
+        new EtcdMetadataStore<>(
+            "/test-ephemeral", etcdConfig, true, meterRegistry, serializer, verifyClient)) {
 
       // After TTL expiration, the node should no longer exist
       assertThat(newStore.hasSync(nodeName)).isFalse();
