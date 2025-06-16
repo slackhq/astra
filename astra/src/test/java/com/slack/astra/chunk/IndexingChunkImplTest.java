@@ -15,6 +15,8 @@ import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.MAX_
 import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -39,6 +41,7 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -48,6 +51,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Stream;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.apache.curator.test.TestingServer;
@@ -58,6 +62,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -721,6 +726,69 @@ public class IndexingChunkImplTest {
       assertThat(schemaFieldsInSchema)
           .withFailMessage("Schema should not exceed 1500 fields but had %s", dynamicFieldsInSchema)
           .isLessThanOrEqualTo(100);
+    }
+
+    @Test
+    public void testSnapshotFailsOnBadUpload() throws Exception {
+      // Setup
+      List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 10, 1, Instant.now());
+      int offset = 1;
+      for (Trace.Span m : messages) {
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset++);
+      }
+
+      chunk.preSnapshot();
+      assertThat(chunk.isReadOnly()).isTrue();
+
+      // Create S3 bucket and BlobStore
+      String bucket = "test-bucket-bad-upload";
+      S3AsyncClient s3Client =
+          S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
+      s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
+
+      // Spy the real blobstore
+      BlobStore realBlobStore = new BlobStore(s3Client, bucket);
+      BlobStore spyBlobStore = org.mockito.Mockito.spy(realBlobStore);
+
+      // Override upload to simulate skipping schema.json and injecting write.lock
+      doAnswer(
+              invocation -> {
+                String chunkId = invocation.getArgument(0);
+                Path dirPath = invocation.getArgument(1);
+
+                // Upload all files except schema.json
+                try (Stream<Path> stream = Files.list(dirPath)) {
+                  stream
+                      .filter(path -> !path.getFileName().toString().equals(SCHEMA_FILE_NAME))
+                      .forEach(
+                          path -> {
+                            try {
+                              s3Client
+                                  .putObject(
+                                      b -> b.bucket(bucket).key(chunkId + "/" + path.getFileName()),
+                                      AsyncRequestBody.fromBytes(Files.readAllBytes(path)))
+                                  .get();
+                            } catch (Exception e) {
+                              throw new RuntimeException(e);
+                            }
+                          });
+                }
+
+                // Inject a write.lock file. It doesn't matter what the content is.
+                s3Client
+                    .putObject(
+                        b -> b.bucket(bucket).key(chunkId + "/write.lock"),
+                        AsyncRequestBody.fromBytes("junk".getBytes()))
+                    .get();
+
+                return null;
+              })
+          .when(spyBlobStore)
+          .upload(any(), any());
+
+      // Run snapshot — should fail due to missing schema.json
+      boolean result = chunk.snapshotToS3(spyBlobStore);
+      assertThat(result).isFalse();
     }
 
     @SuppressWarnings("OptionalGetWithoutIsPresent")

@@ -33,6 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -411,8 +412,19 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
       blobStore.download(snapshotMetadata.snapshotId, dataDirectory);
       try (Stream<Path> fileList = Files.list(dataDirectory)) {
-        if (fileList.findAny().isEmpty()) {
+        long numFilesLocal = fileList.count();
+        if (numFilesLocal == 0) {
           throw new IOException("No files found on blob storage, released slot for re-assignment");
+        }
+
+        List<String> filesInS3 = blobStore.listFiles(snapshotMetadata.snapshotId);
+        if (numFilesLocal != filesInS3.size()) {
+          String errorString =
+              String.format(
+                  "Mismatch in number of files in S3 (%s) and local directory (%s) for snapshot %s",
+                  filesInS3.size(), numFilesLocal, snapshotMetadata.toString());
+          LOG.error(errorString);
+          throw new IOException(errorString);
         }
       }
 

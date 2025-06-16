@@ -240,6 +240,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       filesToUpload.add(schemaFile.getName());
       indexCommit = logStore.getIndexCommit();
       filesToUpload.addAll(indexCommit.getFileNames());
+      int numFilesToUpload = filesToUpload.size();
 
       // Upload files
       logger.info("{} active files in {} in index", filesToUpload.size(), dirPath);
@@ -250,10 +251,33 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       }
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
+
+      // blobstore.upload uploads everything in the directory, including write.lock if it exists.
       blobStore.upload(chunkInfo.chunkId, dirPath);
 
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);
+
+      List<String> filesUploaded = blobStore.listFiles(chunkInfo.chunkId);
+      filesUploaded.removeIf(file -> file.endsWith("write.lock"));
+
+      // check here that all files are uploaded
+      if (filesUploaded.size() != numFilesToUpload) {
+        filesToUpload.sort(String::compareTo);
+        filesUploaded.sort(String::compareTo);
+        logger.error(
+            "Not all files were uploaded to S3. Expected {}, but got {}.\nFiles to upload: {}\nFiles uploaded: {}",
+            numFilesToUpload,
+            filesUploaded.size(),
+            filesToUpload,
+            filesUploaded);
+        return false;
+      }
+      // and schema file exists in s3
+      if (!filesUploaded.contains(chunkInfo.chunkId + "/" + SCHEMA_FILE_NAME)) {
+        logger.error("Schema file was not uploaded to S3: {}", SCHEMA_FILE_NAME);
+        return false;
+      }
       logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;
     } catch (Exception e) {
