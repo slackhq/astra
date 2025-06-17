@@ -29,10 +29,10 @@ import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.service.murron.trace.Trace;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -72,7 +72,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
 
   private SimpleMeterRegistry metricsRegistry;
   private S3AsyncClient s3AsyncClient;
-  private static final String ZK_PATH_PREFIX = "testZK";
+  private static final String METADATA_PATH_PREFIX = "testMetadata";
   private BlobStore blobStore;
   private TestingServer localZkServer;
   private static EtcdCluster etcdCluster;
@@ -102,15 +102,15 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     localZkServer = new TestingServer();
     localZkServer.start();
 
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
 
     // Create etcd client
     etcdClient =
         Client.builder()
             .endpoints(
                 etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .namespace(
+                ByteSequence.from(METADATA_PATH_PREFIX, java.nio.charset.StandardCharsets.UTF_8))
             .build();
 
     AstraConfigs.EtcdConfig etcdConfig =
@@ -120,7 +120,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             .setKeepaliveTimeoutMs(3000)
             .setMaxRetries(3)
             .setRetryDelayMs(100)
-            .setNamespace("test")
+            .setNamespace(METADATA_PATH_PREFIX)
             .setEnabled(true)
             .setEphemeralNodeTtlSeconds(60)
             .build();
@@ -143,7 +143,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(localZkServer.getConnectString())
-                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkPathPrefix(METADATA_PATH_PREFIX)
                     .setZkSessionTimeoutMs(15000)
                     .setZkConnectionTimeoutMs(1500)
                     .setSleepBetweenRetriesMs(1000)
@@ -174,9 +174,6 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     }
     if (localZkServer != null) {
       localZkServer.stop();
-    }
-    if (etcdCluster != null) {
-      etcdCluster.close();
     }
   }
 

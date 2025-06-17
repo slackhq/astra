@@ -13,7 +13,6 @@ import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHist
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
@@ -36,12 +35,12 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.ChunkManagerUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.astra.writer.kafka.AstraKafkaConsumer;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -99,16 +98,19 @@ public class AstraIndexerTest {
     metricsRegistry = new SimpleMeterRegistry();
 
     testZKServer = new TestingServer();
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
 
     // Create etcd client
     etcdClient =
-        Client.builder()
-            .endpoints(
-                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
-            .build();
+        spy(
+            Client.builder()
+                .endpoints(
+                    etcdCluster.clientEndpoints().stream()
+                        .map(Object::toString)
+                        .toArray(String[]::new))
+                .namespace(
+                    ByteSequence.from("indexerTest", java.nio.charset.StandardCharsets.UTF_8))
+                .build());
 
     AstraConfigs.EtcdConfig etcdConfig =
         AstraConfigs.EtcdConfig.newBuilder()
@@ -117,7 +119,7 @@ public class AstraIndexerTest {
             .setKeepaliveTimeoutMs(3000)
             .setMaxRetries(3)
             .setRetryDelayMs(100)
-            .setNamespace("test")
+            .setNamespace("indexerTest")
             .setEnabled(true)
             .setEphemeralNodeTtlSeconds(60)
             .build();
@@ -219,6 +221,7 @@ public class AstraIndexerTest {
     if (etcdClient != null) {
       etcdClient.close();
     }
+
     if (testZKServer != null) {
       testZKServer.close();
     }
@@ -316,7 +319,8 @@ public class AstraIndexerTest {
         .containsOnly(livePartition1, livePartition0);
 
     // Throw exception on initialization
-    doThrow(new RuntimeException()).when(curatorFramework).with(any(), any(), any(), any());
+    // doThrow(new RuntimeException()).when(curatorFramework).with(any(), any(), any(), any());
+    doThrow(new RuntimeException()).when(etcdClient).getKVClient();
 
     // Empty consumer offset since there is no prior consumer.
     astraIndexer =
@@ -551,7 +555,6 @@ public class AstraIndexerTest {
     // Shutting down is idempotent. So, doing it twice shouldn't throw an error.
     astraIndexer.shutDown();
     astraIndexer.shutDown();
-    astraIndexer = null;
   }
 
   @Test

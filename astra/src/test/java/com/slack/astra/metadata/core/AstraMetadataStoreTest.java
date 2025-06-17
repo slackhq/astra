@@ -7,10 +7,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.config.AstraConfigs.MetadataStoreMode;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.ClientBuilder;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -122,8 +122,7 @@ public class AstraMetadataStoreTest {
 
     // Start embedded Etcd cluster
     LOG.info("Starting embedded Etcd cluster");
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
     LOG.info(
         "Embedded Etcd cluster started with endpoints: {}",
         String.join(", ", etcdCluster.clientEndpoints().stream().map(Object::toString).toList()));
@@ -141,7 +140,7 @@ public class AstraMetadataStoreTest {
     // Stop embedded Etcd cluster
     if (etcdCluster != null) {
       LOG.info("Stopping embedded Etcd cluster");
-      etcdCluster.close();
+
       LOG.info("Embedded Etcd cluster stopped");
     }
   }
@@ -173,7 +172,7 @@ public class AstraMetadataStoreTest {
             .setKeepaliveTimeoutMs(3000)
             .setMaxRetries(3)
             .setRetryDelayMs(100)
-            .setNamespace("test")
+            .setNamespace("AstraMetadataStoreTest")
             .setEphemeralNodeTtlSeconds(60)
             .build();
 

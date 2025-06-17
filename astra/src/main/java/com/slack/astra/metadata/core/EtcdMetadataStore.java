@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -78,6 +79,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
   private final MeterRegistry meterRegistry;
+
+  private final CountDownLatch cacheInitialized = new CountDownLatch(1);
+
+  // Thread reference to the virtual thread used for cache initialization
+  private volatile Thread cacheInitThread = null;
 
   private final String ASTRA_ETCD_CREATE_CALL = "astra_etcd_create_call";
   private final String ASTRA_ETCD_HAS_CALL = "astra_etcd_has_call";
@@ -140,6 +146,15 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.createMode = createMode;
     this.ephemeralTtlSeconds = ephemeralTtlSeconds;
 
+    this.createCall = this.meterRegistry.counter(ASTRA_ETCD_CREATE_CALL, "store", store);
+    this.deleteCall = this.meterRegistry.counter(ASTRA_ETCD_DELETE_CALL, "store", store);
+    this.listCall = this.meterRegistry.counter(ASTRA_ETCD_LIST_CALL, "store", store);
+    this.getCall = this.meterRegistry.counter(ASTRA_ETCD_GET_CALL, "store", store);
+    this.hasCall = this.meterRegistry.counter(ASTRA_ETCD_HAS_CALL, "store", store);
+    this.updateCall = this.meterRegistry.counter(ASTRA_ETCD_UPDATE_CALL, "store", store);
+    this.addedListener = this.meterRegistry.counter(ASTRA_ETCD_ADDED_LISTENER, "store", store);
+    this.removedListener = this.meterRegistry.counter(ASTRA_ETCD_REMOVED_LISTENER, "store", store);
+
     if (etcClient == null) {
       throw new IllegalArgumentException("External etcd client must be provided");
     }
@@ -177,17 +192,19 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // Initialize cache if needed
     if (shouldCache) {
       LOG.info("Cache enabled for etcd store: {}", storeFolder);
-      // Initial population of cache will happen on first access or via awaitCacheInitialized
-    }
 
-    this.createCall = this.meterRegistry.counter(ASTRA_ETCD_CREATE_CALL, "store", store);
-    this.deleteCall = this.meterRegistry.counter(ASTRA_ETCD_DELETE_CALL, "store", store);
-    this.listCall = this.meterRegistry.counter(ASTRA_ETCD_LIST_CALL, "store", store);
-    this.getCall = this.meterRegistry.counter(ASTRA_ETCD_GET_CALL, "store", store);
-    this.hasCall = this.meterRegistry.counter(ASTRA_ETCD_HAS_CALL, "store", store);
-    this.updateCall = this.meterRegistry.counter(ASTRA_ETCD_UPDATE_CALL, "store", store);
-    this.addedListener = this.meterRegistry.counter(ASTRA_ETCD_ADDED_LISTENER, "store", store);
-    this.removedListener = this.meterRegistry.counter(ASTRA_ETCD_REMOVED_LISTENER, "store", store);
+      // Create and register a default listener to keep the cache in sync with etcd changes
+      // This ensures that even without explicit listeners, the cache stays updated across JVMs
+      addListener(node -> LOG.trace("Default watcher updated cache for node: {}", node.getName()));
+
+      // Populate cache during initialization
+      cacheInitThread =
+          Thread.ofVirtual()
+              .name("etcd-cache-init-" + storeFolder)
+              .start(this::populateInitialCache);
+
+      LOG.info("Default cache watcher started for store: {}", storeFolder);
+    }
   }
 
   /** Constructor with specific create mode that accepts an external etcd client instance. */
@@ -245,6 +262,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @return A CompletionStage that completes with the path of the created node
    */
   public CompletionStage<String> createAsync(T metadataNode) {
+    LOG.debug("Creating metadata node: {} in store: {}", metadataNode, storeFolder);
     this.createCall.increment();
 
     // Validate node name
@@ -364,6 +382,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   public CompletionStage<T> getAsync(String path) {
     this.getCall.increment();
 
+    awaitCacheInitialized();
+
     // Check cache first if enabled
     if (shouldCache && cache.containsKey(path)) {
       return CompletableFuture.completedFuture(cache.get(path));
@@ -405,6 +425,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   public T getSync(String path) {
     this.getCall.increment();
 
+    awaitCacheInitialized();
+
     // Check cache first if enabled
     if (shouldCache && cache.containsKey(path)) {
       return cache.get(path);
@@ -436,6 +458,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   public CompletionStage<Boolean> hasAsync(String path) {
     this.hasCall.increment();
 
+    awaitCacheInitialized();
+
     // Check cache first if enabled
     if (shouldCache && cache.containsKey(path)) {
       return CompletableFuture.completedFuture(true);
@@ -464,6 +488,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public boolean hasSync(String path) {
     this.hasCall.increment();
+
+    awaitCacheInitialized();
 
     // Check cache first if enabled
     if (shouldCache && cache.containsKey(path)) {
@@ -616,10 +642,13 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @return A CompletionStage that completes with the list of all nodes
    */
   public CompletionStage<List<T>> listAsync() {
+    LOG.debug("Listing async nodes under at path {}, shouldCache: {}", storeFolder, shouldCache);
     this.listCall.increment();
 
-    // First check if everything is in cache
-    if (shouldCache && cache != null && !cache.isEmpty()) {
+    awaitCacheInitialized();
+
+    // First ensure the cache is initialized and then use it if enabled
+    if (shouldCache && cache != null) {
       List<T> cachedNodes = new ArrayList<>(cache.values());
       return CompletableFuture.completedFuture(cachedNodes);
     }
@@ -643,7 +672,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   nodes.add(node);
 
                   // Update cache if enabled
-                  if (shouldCache && cache != null) {
+                  if (shouldCache) {
                     cache.put(node.getName(), node);
                   }
                 } catch (InvalidProtocolBufferException e) {
@@ -661,10 +690,13 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @return The list of all nodes
    */
   public List<T> listSync() {
+    LOG.debug("Listing sync nodes under at path {}, shouldCache: {}", storeFolder, shouldCache);
     this.listCall.increment();
 
-    // First check if everything is in cache
-    if (shouldCache && cache != null && !cache.isEmpty()) {
+    awaitCacheInitialized();
+
+    // First ensure the cache is initialized and then use it if enabled
+    if (shouldCache) {
       return new ArrayList<>(cache.values());
     }
 
@@ -734,9 +766,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return;
     }
 
-    // Add a trailing slash to the folder to make sure we only watch entries directly under this
-    // folder
-    ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
+    // Watch the exact node path itself as well as any children
+    ByteSequence prefix = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
     WatchOption watchOption = WatchOption.builder().withPrefix(prefix).build();
 
     // Create a watcher for this listener
@@ -776,7 +807,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
                               case DELETE:
                                 // Remove from cache if enabled
-                                if (shouldCache && cache != null) {
+                                if (cache != null) {
                                   T deletedNode = cache.remove(path);
                                   // We can only notify if we have the node in cache
                                   if (deletedNode != null) {
@@ -827,53 +858,95 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   /**
-   * Waits for the cache to be initialized. This implementation populates the cache if it's enabled.
+   * Waits for the cache to be initialized. This method only needs to be called once as the cache is
+   * populated during construction.
    */
   public void awaitCacheInitialized() {
-    if (shouldCache && cache != null) {
-      // Populate cache by listing all nodes directly under this store folder
-      try {
-        // Clear the cache first, to avoid accumulating data from previous tests
-        cache.clear();
-
-        // Get only nodes from this store folder
-        ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-        GetOption getOption = GetOption.builder().withPrefix(prefix).build();
-
-        GetResponse getResponse =
-            etcdClient
-                .getKVClient()
-                .get(prefix, getOption)
-                .get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-        // Filter for only direct children of the store folder
-        for (KeyValue kv : getResponse.getKvs()) {
-          String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
-          // Only include direct children of the store folder
-          if (keyStr.startsWith(storeFolder + "/")
-              && !keyStr.substring((storeFolder + "/").length()).contains("/")) {
-            try {
-              String json = kv.getValue().toString(StandardCharsets.UTF_8);
-              T node = serializer.fromJsonStr(json);
-              cache.put(node.getName(), node);
-            } catch (InvalidProtocolBufferException e) {
-              throw new InternalMetadataStoreException(
-                  "Failed to deserialize node from key: " + kv.getKey(), e);
-            }
+    try {
+      if (shouldCache) {
+        if (!cacheInitialized.await(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+          // If we're not interrupted but timed out, this is a fatal condition
+          // In the case where close() was called, it would interrupt the thread before this times
+          // out
+          if (!Thread.currentThread().isInterrupted()) {
+            LOG.error("Timed out waiting for Etcd cache to initialize for store {}", storeFolder);
+            new RuntimeHalterImpl()
+                .handleFatal(
+                    new TimeoutException("Timed out waiting for Etcd cache to initialize"));
+          } else {
+            LOG.warn("Cache initialization wait interrupted for store {}", storeFolder);
           }
         }
-
-        LOG.info("Initialized cache with {} nodes", cache.size());
-      } catch (InterruptedException e) {
-        new RuntimeHalterImpl().handleFatal(e);
-      } catch (ExecutionException | TimeoutException e) {
-        new RuntimeHalterImpl()
-            .handleFatal(new TimeoutException("Timed out waiting for Etcd cache to initialize"));
-      } catch (Exception e) {
-        LOG.error("Failed to initialize cache", e);
-        new RuntimeHalterImpl().handleFatal(e);
       }
+    } catch (InterruptedException e) {
+      LOG.warn("Interrupted while waiting for cache to initialize for store {}", storeFolder, e);
+      Thread.currentThread().interrupt(); // Preserve interrupt status
     }
+  }
+
+  /** Populates the cache with all nodes from etcd. This is called once during initialization. */
+  private void populateInitialCache() {
+    try {
+      LOG.debug("Populating cache for store {}", storeFolder);
+      // Get only nodes from this store folder
+      ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
+      GetOption getOption = GetOption.builder().withPrefix(prefix).build();
+
+      GetResponse getResponse =
+          etcdClient
+              .getKVClient()
+              .get(prefix, getOption)
+              .get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+      // Filter for only direct children of the store folder
+      for (KeyValue kv : getResponse.getKvs()) {
+        // Check for interruption on each iteration
+        if (Thread.currentThread().isInterrupted()) {
+          LOG.info(
+              "Cache initialization for store {} was interrupted, exiting gracefully", storeFolder);
+          // If interrupted during close, mark as initialized to avoid hanging
+          cacheInitialized.countDown();
+          return;
+        }
+
+        String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
+        LOG.debug("Store {} had key {}", storeFolder, keyStr);
+
+        // Only include direct children of the store folder
+        if (keyStr.startsWith(storeFolder + "/")
+            && !keyStr.substring((storeFolder + "/").length()).contains("/")) {
+          try {
+            String json = kv.getValue().toString(StandardCharsets.UTF_8);
+            T node = serializer.fromJsonStr(json);
+            cache.put(node.getName(), node);
+          } catch (InvalidProtocolBufferException e) {
+            LOG.error("Failed to deserialize node from key: {}", kv.getKey(), e);
+            // Fail the whole system if we can't deserialize a node
+            new RuntimeHalterImpl().handleFatal(e);
+          }
+        }
+      }
+
+      LOG.info("Initialized cache for store {} with {} nodes", storeFolder, cache.size());
+      // Successfully initialized the cache
+      cacheInitialized.countDown();
+
+    } catch (InterruptedException e) {
+      LOG.info(
+          "Cache initialization for store {} was interrupted, exiting gracefully", storeFolder);
+      // If interrupted during close(), mark as initialized to avoid hangs
+      cacheInitialized.countDown();
+      Thread.currentThread().interrupt(); // Preserve interrupt status
+    } catch (ExecutionException | TimeoutException e) {
+      LOG.error("Error initializing cache for store {}: {}", storeFolder, e.getMessage());
+      new RuntimeHalterImpl()
+          .handleFatal(new TimeoutException("Timed out waiting for Etcd cache to initialize"));
+    } catch (Exception e) {
+      LOG.error("Failed to initialize cache for store {}", storeFolder, e);
+      new RuntimeHalterImpl().handleFatal(e);
+    }
+    // Note: No finally block that always calls countDown - we only want to mark
+    // as initialized on success or interruption, not on errors.
   }
 
   /** Refreshes all leases for ephemeral nodes to prevent them from expiring. */
@@ -913,6 +986,18 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // Close all active watchers
     watchers.values().forEach(Watcher::close);
     watchers.clear();
+
+    // Terminate the cache initialization thread if it's still running
+    if (cacheInitThread != null && cacheInitThread.isAlive()) {
+      LOG.info("Interrupting cache initialization thread");
+      cacheInitThread.interrupt();
+      // No need to wait - virtual threads are cheap to discard
+    }
+
+    // Mark cache as initialized to unblock any waiting calls to awaitCacheInitialized
+    if (cacheInitialized.getCount() > 0) {
+      cacheInitialized.countDown();
+    }
 
     // Shut down lease refresh executor if it exists
     if (leaseRefreshExecutor != null) {

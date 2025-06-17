@@ -3,7 +3,7 @@ package com.slack.astra.server;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.astra.testlib.AstraSearchUtils.searchUsingGrpcApi;
-import static com.slack.astra.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
+import static com.slack.astra.testlib.ChunkManagerUtil.METADATA_PATH_PREFIX;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,10 +26,10 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.MessageUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.testlib.TestKafkaServer;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
@@ -121,15 +121,15 @@ public class AstraTest {
     kafkaServer = new TestKafkaServer();
     s3Client = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
 
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
 
     // Create etcd client
     etcdClient =
         Client.builder()
             .endpoints(
                 etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .namespace(
+                ByteSequence.from(METADATA_PATH_PREFIX, java.nio.charset.StandardCharsets.UTF_8))
             .build();
 
     AstraConfigs.EtcdConfig etcdConfig =
@@ -139,7 +139,7 @@ public class AstraTest {
             .setKeepaliveTimeoutMs(3000)
             .setMaxRetries(3)
             .setRetryDelayMs(100)
-            .setNamespace("test")
+            .setNamespace(METADATA_PATH_PREFIX)
             .setEnabled(true)
             .setEphemeralNodeTtlSeconds(60)
             .build();
@@ -165,7 +165,7 @@ public class AstraTest {
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(zkServer.getConnectString())
-                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkPathPrefix(METADATA_PATH_PREFIX)
                     .setZkSessionTimeoutMs(1000)
                     .setZkConnectionTimeoutMs(1000)
                     .setSleepBetweenRetriesMs(1000)
@@ -215,6 +215,8 @@ public class AstraTest {
     if (etcdClient != null) {
       etcdClient.close();
     }
+    if (etcdCluster != null) {}
+
     if (zkServer != null) {
       zkServer.close();
     }
@@ -226,7 +228,7 @@ public class AstraTest {
       String kafkaTopic,
       int kafkaPartition,
       String clientName,
-      String zkPathPrefix,
+      String metadataPathPrefix,
       AstraConfigs.NodeRole nodeRole,
       int maxOffsetDelay,
       int recoveryPort) {
@@ -239,7 +241,7 @@ public class AstraTest {
         TEST_S3_BUCKET,
         queryPort,
         zkServer.getConnectString(),
-        zkPathPrefix,
+        metadataPathPrefix,
         nodeRole,
         maxOffsetDelay,
         recoveryPort,
@@ -310,7 +312,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             0,
             ASTRA_TEST_CLIENT_1,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             AstraConfigs.NodeRole.QUERY,
             1000,
             -1);
@@ -333,7 +335,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             0,
             ASTRA_TEST_CLIENT_1,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             1,
             startTime,
             indexerMeterRegistry);
@@ -474,7 +476,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             0,
             ASTRA_TEST_CLIENT_1,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             AstraConfigs.NodeRole.QUERY,
             1000,
             -1);
@@ -494,7 +496,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             0,
             ASTRA_TEST_CLIENT_1,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             1,
             startTime,
             indexer1MeterRegistry);
@@ -512,7 +514,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             1,
             ASTRA_TEST_CLIENT_2,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             2,
             startTime2,
             indexer2MeterRegistry);

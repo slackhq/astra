@@ -19,9 +19,9 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.MetricsUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -65,15 +65,16 @@ public class ReplicaCreationServiceTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
 
     // Create etcd client
     etcdClient =
         Client.builder()
             .endpoints(
                 etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .namespace(
+                ByteSequence.from(
+                    "ReplicaCreatorServiceTest", java.nio.charset.StandardCharsets.UTF_8))
             .build();
 
     AstraConfigs.EtcdConfig etcdConfig =
@@ -83,7 +84,7 @@ public class ReplicaCreationServiceTest {
             .setKeepaliveTimeoutMs(3000)
             .setMaxRetries(3)
             .setRetryDelayMs(100)
-            .setNamespace("test")
+            .setNamespace("ReplicaCreatorServiceTest")
             .setEnabled(true)
             .setEphemeralNodeTtlSeconds(60)
             .build();

@@ -31,9 +31,9 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.SpanUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -103,9 +103,6 @@ public class CachingChunkManagerTest {
     if (etcdClient != null) {
       etcdClient.close();
     }
-    if (etcdCluster != null) {
-      etcdCluster.close();
-    }
     testingServer.close();
     meterRegistry.close();
     disableDynamicChunksFlag();
@@ -151,8 +148,7 @@ public class CachingChunkManagerTest {
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
 
     // Create etcd client
     etcdClient =

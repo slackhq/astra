@@ -31,11 +31,11 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -87,8 +87,7 @@ public class RecoveryChunkImplTest {
       testingServer = new TestingServer();
       registry = new SimpleMeterRegistry();
 
-      etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-      etcdCluster.start();
+      etcdCluster = TestEtcdClusterFactory.start();
 
       // Create etcd client
       etcdClient =
@@ -97,7 +96,9 @@ public class RecoveryChunkImplTest {
                   etcdCluster.clientEndpoints().stream()
                       .map(Object::toString)
                       .toArray(String[]::new))
-              .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+              .namespace(
+                  ByteSequence.from(
+                      "shouldHandleChunkLivecycle", java.nio.charset.StandardCharsets.UTF_8))
               .build();
 
       AstraConfigs.EtcdConfig etcdConfig =
@@ -108,7 +109,7 @@ public class RecoveryChunkImplTest {
               .setKeepaliveTimeoutMs(3000)
               .setMaxRetries(3)
               .setRetryDelayMs(100)
-              .setNamespace("test")
+              .setNamespace("shouldHandleChunkLivecycle")
               .setEnabled(true)
               .setEphemeralNodeTtlSeconds(60)
               .build();
@@ -186,9 +187,6 @@ public class RecoveryChunkImplTest {
       snapshotMetadataStore.close();
       if (etcdClient != null) {
         etcdClient.close();
-      }
-      if (etcdCluster != null) {
-        etcdCluster.close();
       }
       curatorFramework.unwrap().close();
       testingServer.close();
@@ -510,8 +508,7 @@ public class RecoveryChunkImplTest {
       testingServer = new TestingServer();
       registry = new SimpleMeterRegistry();
 
-      etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-      etcdCluster.start();
+      etcdCluster = TestEtcdClusterFactory.start();
 
       // Create etcd client
       etcdClient =
@@ -520,7 +517,9 @@ public class RecoveryChunkImplTest {
                   etcdCluster.clientEndpoints().stream()
                       .map(Object::toString)
                       .toArray(String[]::new))
-              .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+              .namespace(
+                  ByteSequence.from(
+                      "shouldHandleChunkLivecycle", java.nio.charset.StandardCharsets.UTF_8))
               .build();
 
       AstraConfigs.EtcdConfig etcdConfig =
@@ -531,7 +530,7 @@ public class RecoveryChunkImplTest {
               .setKeepaliveTimeoutMs(3000)
               .setMaxRetries(3)
               .setRetryDelayMs(100)
-              .setNamespace("test")
+              .setNamespace("shouldHandleChunkLivecycle")
               .setEnabled(true)
               .setEphemeralNodeTtlSeconds(60)
               .build();
@@ -609,9 +608,6 @@ public class RecoveryChunkImplTest {
       if (etcdClient != null) {
         etcdClient.close();
       }
-      if (etcdCluster != null) {
-        etcdCluster.close();
-      }
       curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
@@ -655,8 +651,7 @@ public class RecoveryChunkImplTest {
       Tracing.newBuilder().build();
       testingServer = new TestingServer();
 
-      etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-      etcdCluster.start();
+      etcdCluster = TestEtcdClusterFactory.start();
 
       // Create etcd client
       etcdClient =
@@ -665,7 +660,9 @@ public class RecoveryChunkImplTest {
                   etcdCluster.clientEndpoints().stream()
                       .map(Object::toString)
                       .toArray(String[]::new))
-              .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+              .namespace(
+                  ByteSequence.from(
+                      "shouldHandleChunkLivecycle", java.nio.charset.StandardCharsets.UTF_8))
               .build();
 
       AstraConfigs.EtcdConfig etcdConfig =
@@ -676,7 +673,7 @@ public class RecoveryChunkImplTest {
               .setKeepaliveTimeoutMs(3000)
               .setMaxRetries(3)
               .setRetryDelayMs(100)
-              .setNamespace("test")
+              .setNamespace("shouldHandleChunkLivecycle")
               .setEnabled(true)
               .setEphemeralNodeTtlSeconds(60)
               .build();
@@ -754,9 +751,6 @@ public class RecoveryChunkImplTest {
       snapshotMetadataStore.close();
       if (etcdClient != null) {
         etcdClient.close();
-      }
-      if (etcdCluster != null) {
-        etcdCluster.close();
       }
       curatorFramework.unwrap().close();
       testingServer.close();

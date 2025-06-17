@@ -32,11 +32,11 @@ import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -466,8 +466,7 @@ public class LuceneIndexStoreImplTest {
       TestingServer testingServer = new TestingServer();
 
       // Setup etcd
-      EtcdCluster etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-      etcdCluster.start();
+      EtcdCluster etcdCluster = TestEtcdClusterFactory.start();
       Client etcdClient =
           Client.builder()
               .endpoints(
@@ -551,7 +550,6 @@ public class LuceneIndexStoreImplTest {
       curatorFramework.unwrap().close();
       testingServer.close();
       etcdClient.close();
-      etcdCluster.close();
     }
   }
 

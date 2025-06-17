@@ -14,7 +14,7 @@ public class AstraConfigUtil {
       String s3Bucket,
       int queryPort,
       String metadataZkConnectionString,
-      String metadataZkPathPrefix,
+      String metadataPathPrefix,
       AstraConfigs.NodeRole nodeRole,
       int maxOffsetDelay,
       int recoveryPort,
@@ -67,7 +67,7 @@ public class AstraConfigUtil {
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setEnabled(true)
             .setZkConnectString(metadataZkConnectionString)
-            .setZkPathPrefix(metadataZkPathPrefix)
+            .setZkPathPrefix(metadataPathPrefix)
             .setZkSessionTimeoutMs(15000)
             .setZkConnectionTimeoutMs(15000)
             .setSleepBetweenRetriesMs(1000)
@@ -82,8 +82,7 @@ public class AstraConfigUtil {
             .setKeepaliveTimeoutMs(3000)
             .setMaxRetries(3)
             .setRetryDelayMs(100)
-            .setNamespace(
-                metadataZkPathPrefix) // Use same namespace as ZK pathPrefix for consistency
+            .setNamespace(metadataPathPrefix) // Use same namespace as ZK pathPrefix for consistency
             .setEphemeralNodeTtlSeconds(60)
             .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =

@@ -25,13 +25,13 @@ import com.slack.astra.preprocessor.PreprocessorRateLimiter;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.MetricsUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.astra.util.JsonUtil;
 import com.slack.astra.util.TestingZKServer;
 import com.slack.service.murron.trace.Trace;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -80,15 +80,14 @@ public class BulkIngestApiTest {
     meterRegistry = new SimpleMeterRegistry();
 
     zkServer = TestingZKServer.createTestingServer();
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
 
     // Create etcd client
     etcdClient =
         Client.builder()
             .endpoints(
                 etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .namespace(ByteSequence.from("testMetadata", java.nio.charset.StandardCharsets.UTF_8))
             .build();
 
     AstraConfigs.EtcdConfig etcdConfig =
@@ -98,7 +97,7 @@ public class BulkIngestApiTest {
             .setKeepaliveTimeoutMs(3000)
             .setMaxRetries(3)
             .setRetryDelayMs(100)
-            .setNamespace("test")
+            .setNamespace("testMetadata")
             .setEnabled(true)
             .setEphemeralNodeTtlSeconds(60)
             .build();
@@ -106,7 +105,7 @@ public class BulkIngestApiTest {
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
-            .setZkPathPrefix("testZK")
+            .setZkPathPrefix("testMetadata")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
@@ -229,7 +228,7 @@ public class BulkIngestApiTest {
     if (etcdClient != null) {
       etcdClient.close();
     }
-    etcdCluster.close();
+
     curatorFramework.unwrap().close();
     zkServer.close();
     meterRegistry.close();

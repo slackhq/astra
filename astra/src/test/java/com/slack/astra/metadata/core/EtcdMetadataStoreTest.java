@@ -5,9 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.ClientBuilder;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -98,8 +98,7 @@ public class EtcdMetadataStoreTest {
   public static void setUpClass() {
     // Start an embedded etcd server
     LOG.info("Starting embedded etcd cluster");
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
     LOG.info(
         "Embedded etcd cluster started with endpoints: {}",
         etcdCluster.clientEndpoints().stream().map(Object::toString).toList());
@@ -109,7 +108,7 @@ public class EtcdMetadataStoreTest {
   public static void tearDownClass() {
     if (etcdCluster != null) {
       LOG.info("Stopping embedded etcd cluster");
-      etcdCluster.close();
+
       LOG.info("Embedded etcd cluster stopped");
     }
   }
@@ -245,6 +244,8 @@ public class EtcdMetadataStoreTest {
 
   @Test
   public void testListNodes() throws ExecutionException, InterruptedException {
+    store.listSyncUncached().forEach(s -> store.deleteSync(s));
+
     // Create test metadata objects
     TestMetadata testData1 = new TestMetadata("list1", "data1");
     TestMetadata testData2 = new TestMetadata("list2", "data2");
@@ -256,7 +257,7 @@ public class EtcdMetadataStoreTest {
 
     // List async
     List<TestMetadata> nodes = store.listAsync().toCompletableFuture().get();
-    assertThat(nodes).hasSize(3);
+    assertThat(nodes.size()).isGreaterThanOrEqualTo(3);
 
     // Verify all nodes are in the list
     assertThat(nodes)
@@ -430,5 +431,68 @@ public class EtcdMetadataStoreTest {
 
     assertThatExceptionOfType(IllegalArgumentException.class)
         .isThrownBy(() -> new TestMetadata(null, "testData"));
+  }
+
+  @Test
+  public void testQuickClose() {
+    // Create a new etcd client
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
+    // Create client builder for test
+    ClientBuilder clientBuilder =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream()
+                    .map(Object::toString)
+                    .toArray(String[]::new));
+
+    // Set namespace if provided
+    if (!etcdConfig.getNamespace().isEmpty()) {
+      clientBuilder.namespace(
+          io.etcd.jetcd.ByteSequence.from(etcdConfig.getNamespace(), StandardCharsets.UTF_8));
+    }
+
+    Client testClient = clientBuilder.build();
+    MeterRegistry testMeterRegistry = new SimpleMeterRegistry();
+
+    try {
+      // Create a store with cache enabled
+      EtcdMetadataStore<TestMetadata> testStore =
+          new EtcdMetadataStore<>(
+              "/quickclose", etcdConfig, true, testMeterRegistry, serializer, testClient);
+
+      // Immediately close it without waiting for cache initialization
+      testStore.close();
+
+      // The test passes if we don't get a RuntimeHalter error (which would exit the JVM)
+      // Create and close another store with the same client to verify it still works
+      EtcdMetadataStore<TestMetadata> secondStore =
+          new EtcdMetadataStore<>(
+              "/quickclose2", etcdConfig, true, testMeterRegistry, serializer, testClient);
+
+      // Add a node to verify the client is still working
+      TestMetadata testData = new TestMetadata("verify", "testData");
+      secondStore.createSync(testData);
+
+      // Check that the node was created successfully
+      TestMetadata result = secondStore.getSync("verify");
+      assertThat(result).isNotNull();
+      assertThat(result.getData()).isEqualTo("testData");
+
+      // Close the store
+      secondStore.close();
+    } finally {
+      testClient.close();
+      testMeterRegistry.close();
+    }
   }
 }

@@ -15,11 +15,11 @@ import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.MetricsUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.service.murron.trace.Trace;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -68,9 +68,7 @@ class BulkIngestKafkaProducerTest {
     meterRegistry = new SimpleMeterRegistry();
 
     zkServer = new TestingServer();
-
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
 
     // Create etcd client
     etcdClient =
@@ -95,7 +93,7 @@ class BulkIngestKafkaProducerTest {
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
-            .setZkPathPrefix("testZK")
+            .setZkPathPrefix("test")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
@@ -185,6 +183,9 @@ class BulkIngestKafkaProducerTest {
     }
     if (zkServer != null) {
       zkServer.close();
+    }
+    if (etcdClient != null) {
+      etcdClient.close();
     }
   }
 

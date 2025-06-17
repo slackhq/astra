@@ -3,9 +3,9 @@ package com.slack.astra.metadata.core;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.ClientBuilder;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -92,8 +92,7 @@ public class EtcdCreateModeTest {
   public static void setUpClass() {
     // Start an embedded etcd server
     LOG.info("Starting embedded etcd cluster");
-    etcdCluster = Etcd.builder().withClusterName("etcd-create-mode-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
     LOG.info(
         "Embedded etcd cluster started with endpoints: {}",
         etcdCluster.clientEndpoints().stream().map(Object::toString).toList());
@@ -103,7 +102,7 @@ public class EtcdCreateModeTest {
   public static void tearDownClass() {
     if (etcdCluster != null) {
       LOG.info("Stopping embedded etcd cluster");
-      etcdCluster.close();
+
       LOG.info("Embedded etcd cluster stopped");
     }
   }

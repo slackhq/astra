@@ -35,11 +35,11 @@ import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -91,8 +91,7 @@ public class LogIndexSearcherImplTest {
       testingServer = new TestingServer();
       meterRegistry = new SimpleMeterRegistry();
 
-      etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-      etcdCluster.start();
+      etcdCluster = TestEtcdClusterFactory.start();
 
       // Create etcd client
       etcdClient =

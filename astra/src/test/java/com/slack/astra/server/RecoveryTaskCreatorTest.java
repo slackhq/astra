@@ -28,9 +28,9 @@ import com.slack.astra.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -69,8 +69,7 @@ public class RecoveryTaskCreatorTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
 
     // Create etcd client
     etcdClient =
@@ -157,6 +156,7 @@ public class RecoveryTaskCreatorTest {
     if (etcdClient != null) {
       etcdClient.close();
     }
+
     if (meterRegistry != null) {
       meterRegistry.close();
     }

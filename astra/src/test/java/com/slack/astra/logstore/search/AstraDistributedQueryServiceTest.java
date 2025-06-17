@@ -32,9 +32,9 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.proto.service.AstraServiceGrpc;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -80,21 +80,21 @@ public class AstraDistributedQueryServiceTest {
     metricsRegistry = new SimpleMeterRegistry();
     testZKServer = new TestingServer();
 
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
 
     etcdClient =
         Client.builder()
             .endpoints(
                 etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .namespace(
+                ByteSequence.from("distributedQuery", java.nio.charset.StandardCharsets.UTF_8))
             .build();
 
     // Metadata store
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testZKServer.getConnectString())
-            .setZkPathPrefix("indexerTest")
+            .setZkPathPrefix("distributedQuery")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
@@ -125,7 +125,7 @@ public class AstraDistributedQueryServiceTest {
                     .setKeepaliveTimeoutMs(3000)
                     .setMaxRetries(3)
                     .setRetryDelayMs(100)
-                    .setNamespace("test")
+                    .setNamespace("distributedQuery")
                     .setEnabled(true)
                     .setEphemeralNodeTtlSeconds(60)
                     .build())

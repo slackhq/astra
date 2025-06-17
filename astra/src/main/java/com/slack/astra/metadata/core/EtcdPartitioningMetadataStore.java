@@ -5,6 +5,8 @@ import com.slack.astra.proto.config.AstraConfigs;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.Watch;
+import io.etcd.jetcd.options.GetOption;
+import io.etcd.jetcd.options.WatchOption;
 import io.etcd.jetcd.watch.WatchEvent;
 import io.etcd.jetcd.watch.WatchResponse;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -111,13 +113,18 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
     // register watchers for when partitions are added or removed
     ByteSequence storeFolderKey = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
-    watchClient.watch(storeFolderKey, watcher);
+
+    // Create watch option with prefix to watch the entire hierarchy
+    // This ensures we detect all changes under this path, including new partitions
+    WatchOption watchOption = WatchOption.builder().withPrefix(storeFolderKey).build();
+    LOG.debug("Adding watch client for folder: {} with prefix option", storeFolderKey);
+    watchClient.watch(storeFolderKey, watchOption, watcher);
 
     // Init stores for each existing partition - similar to how ZookeeperPartitioningMetadataStore
     // works
     etcdClient
         .getKVClient()
-        .get(storeFolderKey)
+        .get(storeFolderKey, GetOption.builder().isPrefix(true).build())
         .thenCompose(
             getResponse -> {
               if (getResponse.getKvs().isEmpty()) {
@@ -130,7 +137,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                     ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
                 return etcdClient
                     .getKVClient()
-                    .get(prefix, io.etcd.jetcd.options.GetOption.builder().isPrefix(true).build())
+                    .get(prefix, GetOption.builder().isPrefix(true).build())
                     .thenApply(
                         childResponse -> {
                           List<String> children = new ArrayList<>();
@@ -200,9 +207,15 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     return new Watch.Listener() {
       @Override
       public void onNext(WatchResponse watchResponse) {
+        LOG.debug(
+            "Watch event received: {} events for store {}",
+            watchResponse.getEvents().size(),
+            storeFolder);
+
         // Check for any creation or deletion of partition directories
         for (WatchEvent event : watchResponse.getEvents()) {
           String keyStr = event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
+          LOG.debug("Processing watch event: {} for key: {}", event.getEventType(), keyStr);
 
           // Only process events relevant to our partitions
           if (keyStr.startsWith(String.format("%s/", storeFolder))) {
@@ -210,6 +223,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
             String remaining = keyStr.substring(String.format("%s/", storeFolder).length());
             int slashIdx = remaining.indexOf('/');
             String partition = slashIdx > 0 ? remaining.substring(0, slashIdx) : remaining;
+            LOG.debug("Identified partition '{}' from key: {}", partition, keyStr);
 
             // If we have partition filters, skip partitions not in our filter
             if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
@@ -218,12 +232,32 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
             // Handle partition creation by creating metadata store if needed
             if (event.getEventType() == WatchEvent.EventType.PUT) {
+              LOG.debug(
+                  "PUT event detected, creating/updating metadata store for partition: {}",
+                  partition);
               getOrCreateMetadataStore(partition);
+            } else if (event.getEventType() == WatchEvent.EventType.DELETE) {
+              LOG.debug("DELETE event detected for key: {}", keyStr);
+              // We rely on the periodic refresh to clean up deleted partitions
             }
+          } else {
+            LOG.debug("Ignoring event for key outside our store folder: {}", keyStr);
           }
         }
 
-        // Refresh the partition list periodically to remove any defunct stores
+        // After processing events, scan for any new or deleted partitions
+        // This ensures we don't miss any changes due to watch timing issues
+        refreshPartitionStores();
+      }
+
+      /**
+       * Refreshes the partition stores by querying etcd for all current partitions, creating stores
+       * for new ones and removing stores for deleted ones. This ensures cross-JVM consistency when
+       * partitions are added or removed.
+       */
+      private void refreshPartitionStores() {
+        LOG.debug("Refreshing partition stores for {}", storeFolder);
+
         etcdClient
             .getKVClient()
             .get(
@@ -291,7 +325,8 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
       @Override
       public void onCompleted() {
-        LOG.debug("Etcd watch completed for {}", storeFolder);
+        LOG.warn(
+            "Etcd watch completed for {} - object {}", storeFolder, System.identityHashCode(this));
       }
     };
   }

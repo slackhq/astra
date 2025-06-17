@@ -17,7 +17,6 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -43,7 +42,7 @@ public class ChunkManagerUtil<T> {
 
   private final File tempFolder;
   public S3AsyncClient s3AsyncClient;
-  public static final String ZK_PATH_PREFIX = "testZK";
+  public static final String METADATA_PATH_PREFIX = "testMetadata";
   public final IndexingChunkManager<T> chunkManager;
   private final TestingServer zkServer;
   private final AsyncCuratorFramework curatorFramework;
@@ -59,15 +58,15 @@ public class ChunkManagerUtil<T> {
       AstraConfigs.IndexerConfig indexerConfig)
       throws Exception {
     TestingServer zkServer = new TestingServer();
-    EtcdCluster etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    EtcdCluster etcdCluster = TestEtcdClusterFactory.start();
 
     // Create etcd client
     Client etcdClient =
         Client.builder()
             .endpoints(
                 etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .namespace(
+                ByteSequence.from(METADATA_PATH_PREFIX, java.nio.charset.StandardCharsets.UTF_8))
             .build();
 
     AstraConfigs.EtcdConfig etcdConfig =
@@ -77,7 +76,7 @@ public class ChunkManagerUtil<T> {
             .setKeepaliveTimeoutMs(3000)
             .setMaxRetries(3)
             .setRetryDelayMs(100)
-            .setNamespace("test")
+            .setNamespace(METADATA_PATH_PREFIX)
             .setEnabled(true)
             .setEphemeralNodeTtlSeconds(60)
             .build();
@@ -100,7 +99,7 @@ public class ChunkManagerUtil<T> {
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(zkServer.getConnectString())
-                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkPathPrefix(METADATA_PATH_PREFIX)
                     .setZkSessionTimeoutMs(30000)
                     .setZkConnectionTimeoutMs(30000)
                     .setSleepBetweenRetriesMs(1000)
@@ -183,6 +182,7 @@ public class ChunkManagerUtil<T> {
     if (etcdClient != null) {
       etcdClient.close();
     }
+
     FileUtils.deleteDirectory(tempFolder);
   }
 
