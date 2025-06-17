@@ -210,6 +210,14 @@ public class AstraConfigTest {
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
 
+    // Check individual store modes
+    assertThat(metadataStoreConfig.getStoreModesMap().get("DatasetMetadataStore"))
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
+    assertThat(metadataStoreConfig.getStoreModesMap().get("SnapshotMetadataStore"))
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
+    assertThat(metadataStoreConfig.getStoreModesMap().get("CacheNodeAssignmentStore"))
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
+
     final AstraConfigs.EtcdConfig etcdConfig = metadataStoreConfig.getEtcdConfig();
     assertThat(etcdConfig.getEnabled()).isTrue();
     assertThat(etcdConfig.getEndpointsList()).containsExactly("http://localhost:2379");
@@ -219,9 +227,6 @@ public class AstraConfigTest {
     assertThat(etcdConfig.getRetryDelayMs()).isEqualTo(100);
     assertThat(etcdConfig.getMaxRetries()).isEqualTo(3);
     assertThat(etcdConfig.getEphemeralNodeTtlSeconds()).isEqualTo(60);
-
-    assertThat(metadataStoreConfig.getMode())
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
 
     final AstraConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final AstraConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
@@ -390,6 +395,14 @@ public class AstraConfigTest {
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
 
+    // Check individual store modes
+    assertThat(metadataStoreConfig.getStoreModesMap().get("DatasetMetadataStore"))
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
+    assertThat(metadataStoreConfig.getStoreModesMap().get("SnapshotMetadataStore"))
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
+    assertThat(metadataStoreConfig.getStoreModesMap().get("CacheNodeAssignmentStore"))
+        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
+
     final AstraConfigs.EtcdConfig etcdConfig = metadataStoreConfig.getEtcdConfig();
     assertThat(etcdConfig.getEnabled()).isFalse();
     assertThat(etcdConfig.getEndpointsList()).containsExactly("http://localhost:2379");
@@ -399,9 +412,6 @@ public class AstraConfigTest {
     assertThat(etcdConfig.getRetryDelayMs()).isEqualTo(100);
     assertThat(etcdConfig.getMaxRetries()).isEqualTo(3);
     assertThat(etcdConfig.getEphemeralNodeTtlSeconds()).isEqualTo(60);
-
-    assertThat(metadataStoreConfig.getMode())
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
 
     final AstraConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final AstraConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
@@ -796,62 +806,5 @@ public class AstraConfigTest {
             + "    serverAddress: localhost\n";
     assertThatIllegalArgumentException()
         .isThrownBy(() -> AstraConfig.fromYamlConfig(yamlCfgString1));
-  }
-
-  @Test
-  public void testMetadataStoreModeConfig()
-      throws InvalidProtocolBufferException, JsonProcessingException {
-    // We need to include proper server configs to pass validation
-    String baseConfig =
-        "indexerConfig:\n"
-            + "  defaultQueryTimeoutMs: 2000\n"
-            + "  serverConfig:\n"
-            + "    requestTimeoutMs: 3000\n"
-            + "    serverPort: 8080\n"
-            + "    serverAddress: localhost\n";
-
-    // Test YAML config with ZOOKEEPER_CREATES mode (default value)
-    String yamlConfig =
-        "nodeRoles: [INDEX]\n"
-            + baseConfig
-            + "metadataStoreConfig:\n"
-            + "  zookeeperConfig:\n"
-            + "    zkConnectString: localhost:2181\n";
-    AstraConfigs.AstraConfig config = AstraConfig.fromYamlConfig(yamlConfig);
-    assertThat(config.getMetadataStoreConfig().getMode())
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
-
-    // Test YAML config with explicitly set ZOOKEEPER_CREATES mode
-    yamlConfig =
-        "nodeRoles: [INDEX]\n"
-            + baseConfig
-            + "metadataStoreConfig:\n"
-            + "  mode: ZOOKEEPER_CREATES\n"
-            + "  zookeeperConfig:\n"
-            + "    zkConnectString: localhost:2181\n";
-    config = AstraConfig.fromYamlConfig(yamlConfig);
-    assertThat(config.getMetadataStoreConfig().getMode())
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES);
-
-    // Test YAML config with ETCD_CREATES mode
-    yamlConfig =
-        "nodeRoles: [INDEX]\n"
-            + baseConfig
-            + "metadataStoreConfig:\n"
-            + "  mode: ETCD_CREATES\n"
-            + "  zookeeperConfig:\n"
-            + "    zkConnectString: localhost:2181\n";
-    config = AstraConfig.fromYamlConfig(yamlConfig);
-    assertThat(config.getMetadataStoreConfig().getMode())
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
-
-    // Test JSON config with different modes
-    String jsonConfig =
-        "{\"nodeRoles\": [\"INDEX\"], "
-            + "\"indexerConfig\": {\"defaultQueryTimeoutMs\": 2000, \"serverConfig\": {\"requestTimeoutMs\": 3000, \"serverPort\": 8080, \"serverAddress\": \"localhost\"}}, "
-            + "\"metadataStoreConfig\": {\"mode\": \"ETCD_CREATES\"}}";
-    config = AstraConfig.fromJsonConfig(jsonConfig);
-    assertThat(config.getMetadataStoreConfig().getMode())
-        .isEqualTo(AstraConfigs.MetadataStoreMode.ETCD_CREATES);
   }
 }

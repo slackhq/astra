@@ -32,8 +32,12 @@ import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
@@ -460,9 +464,37 @@ public class LuceneIndexStoreImplTest {
 
       // setup ZK and redaction metadata store for field redaction testing
       TestingServer testingServer = new TestingServer();
+
+      // Setup etcd
+      EtcdCluster etcdCluster = TestEtcdClusterFactory.start();
+      Client etcdClient =
+          Client.builder()
+              .endpoints(
+                  etcdCluster.clientEndpoints().stream()
+                      .map(Object::toString)
+                      .toArray(String[]::new))
+              .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+              .build();
+
       AstraConfigs.MetadataStoreConfig metadataStoreConfig =
           AstraConfigs.MetadataStoreConfig.newBuilder()
-              .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+              .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+              .putStoreModes(
+                  "RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
               .setZookeeperConfig(
                   AstraConfigs.ZookeeperConfig.newBuilder()
                       .setZkConnectString(testingServer.getConnectString())
@@ -470,6 +502,18 @@ public class LuceneIndexStoreImplTest {
                       .setZkSessionTimeoutMs(1000)
                       .setZkConnectionTimeoutMs(1000)
                       .setSleepBetweenRetriesMs(1000)
+                      .build())
+              .setEtcdConfig(
+                  AstraConfigs.EtcdConfig.newBuilder()
+                      .addAllEndpoints(
+                          etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+                      .setConnectionTimeoutMs(5000)
+                      .setKeepaliveTimeoutMs(3000)
+                      .setMaxRetries(3)
+                      .setRetryDelayMs(100)
+                      .setNamespace("test")
+                      .setEnabled(true)
+                      .setEphemeralNodeTtlSeconds(60)
                       .build())
               .build();
 
@@ -484,7 +528,7 @@ public class LuceneIndexStoreImplTest {
 
       FieldRedactionMetadataStore fieldRedactionMetadataStore =
           new FieldRedactionMetadataStore(
-              curatorFramework, metadataStoreConfig, meterRegistry, true);
+              curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
       fieldRedactionMetadataStore.createSync(
           new FieldRedactionMetadata(redactionName, fieldName, start, end));
       await()
@@ -505,6 +549,7 @@ public class LuceneIndexStoreImplTest {
       fieldRedactionMetadataStore.close();
       curatorFramework.unwrap().close();
       testingServer.close();
+      etcdClient.close();
     }
   }
 

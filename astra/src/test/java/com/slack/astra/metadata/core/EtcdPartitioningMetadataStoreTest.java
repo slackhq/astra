@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -123,8 +123,7 @@ public class EtcdPartitioningMetadataStoreTest {
   public static void setUpClass() {
     // Start an embedded etcd server
     LOG.info("Starting embedded etcd cluster");
-    etcdCluster = Etcd.builder().withClusterName("etcd-partition-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
     LOG.info(
         "Embedded etcd cluster started with endpoints: {}",
         etcdCluster.clientEndpoints().stream().map(Object::toString).toList());
@@ -134,7 +133,7 @@ public class EtcdPartitioningMetadataStoreTest {
   public static void tearDownClass() {
     if (etcdCluster != null) {
       LOG.info("Stopping embedded etcd cluster");
-      etcdCluster.close();
+
       LOG.info("Embedded etcd cluster stopped");
     }
   }
@@ -185,16 +184,18 @@ public class EtcdPartitioningMetadataStoreTest {
   public void testCreateAndGet() throws ExecutionException, InterruptedException {
     // Create a test metadata object
     String partition = "partition1";
-    TestPartitionedMetadata testData = new TestPartitionedMetadata("test1", partition, "testData");
+    TestPartitionedMetadata testData =
+        new TestPartitionedMetadata("testCreateAndGet1", partition, "testData");
 
     // Create the node
     String path = store.createAsync(testData).toCompletableFuture().get();
-    assertThat(path).isEqualTo("test1");
+    assertThat(path).isEqualTo("testCreateAndGet1");
 
     // Get the node
-    TestPartitionedMetadata result = store.getAsync(partition, "test1").toCompletableFuture().get();
+    TestPartitionedMetadata result =
+        store.getAsync(partition, "testCreateAndGet1").toCompletableFuture().get();
     assertThat(result).isNotNull();
-    assertThat(result.getName()).isEqualTo("test1");
+    assertThat(result.getName()).isEqualTo("testCreateAndGet1");
     assertThat(result.getPartition()).isEqualTo(partition);
     assertThat(result.getData()).isEqualTo("testData");
   }
@@ -202,21 +203,24 @@ public class EtcdPartitioningMetadataStoreTest {
   @Test
   public void testFindWithoutPartition() throws ExecutionException, InterruptedException {
     // Create test metadata objects with different partitions
-    TestPartitionedMetadata testData1 = new TestPartitionedMetadata("item1", "partition1", "data1");
-    TestPartitionedMetadata testData2 = new TestPartitionedMetadata("item2", "partition2", "data2");
+    TestPartitionedMetadata testData1 =
+        new TestPartitionedMetadata("testFindWithoutPartition1", "partition1", "data1");
+    TestPartitionedMetadata testData2 =
+        new TestPartitionedMetadata("testFindWithoutPartition2", "partition2", "data2");
 
     store.createSync(testData1);
     store.createSync(testData2);
 
     // Find the items without specifying the partition
-    TestPartitionedMetadata result1 = store.findAsync("item1").toCompletableFuture().get();
+    TestPartitionedMetadata result1 =
+        store.findAsync("testFindWithoutPartition1").toCompletableFuture().get();
     assertThat(result1).isNotNull();
-    assertThat(result1.getName()).isEqualTo("item1");
+    assertThat(result1.getName()).isEqualTo("testFindWithoutPartition1");
     assertThat(result1.getPartition()).isEqualTo("partition1");
 
-    TestPartitionedMetadata result2 = store.findSync("item2");
+    TestPartitionedMetadata result2 = store.findSync("testFindWithoutPartition2");
     assertThat(result2).isNotNull();
-    assertThat(result2.getName()).isEqualTo("item2");
+    assertThat(result2.getName()).isEqualTo("testFindWithoutPartition2");
     assertThat(result2.getPartition()).isEqualTo("partition2");
   }
 
@@ -225,21 +229,21 @@ public class EtcdPartitioningMetadataStoreTest {
     // Create a test metadata object
     String partition = "partition1";
     TestPartitionedMetadata testData =
-        new TestPartitionedMetadata("test3", partition, "initialData");
+        new TestPartitionedMetadata("testUpdateNode1", partition, "initialData");
     store.createSync(testData);
 
     // Create updated version with same name and partition but different data
     TestPartitionedMetadata updatedData =
-        new TestPartitionedMetadata("test3", partition, "updatedData");
+        new TestPartitionedMetadata("testUpdateNode1", partition, "updatedData");
 
     // Update the node
     String nodeName = store.updateAsync(updatedData).toCompletableFuture().get();
-    assertThat(nodeName).isEqualTo("test3");
+    assertThat(nodeName).isEqualTo("testUpdateNode1");
 
     // Get the updated node
-    TestPartitionedMetadata result = store.getSync(partition, "test3");
+    TestPartitionedMetadata result = store.getSync(partition, "testUpdateNode1");
     assertThat(result).isNotNull();
-    assertThat(result.getName()).isEqualTo("test3");
+    assertThat(result.getName()).isEqualTo("testUpdateNode1");
     assertThat(result.getPartition()).isEqualTo(partition);
     assertThat(result.getData()).isEqualTo("updatedData");
   }
@@ -248,8 +252,10 @@ public class EtcdPartitioningMetadataStoreTest {
   public void testDeleteNode() throws ExecutionException, InterruptedException {
     // Create test metadata objects
     String partition = "partition1";
-    TestPartitionedMetadata testData1 = new TestPartitionedMetadata("delete1", partition, "data1");
-    TestPartitionedMetadata testData2 = new TestPartitionedMetadata("delete2", partition, "data2");
+    TestPartitionedMetadata testData1 =
+        new TestPartitionedMetadata("testDeleteNode1", partition, "data1");
+    TestPartitionedMetadata testData2 =
+        new TestPartitionedMetadata("testDeleteNode2", partition, "data2");
 
     store.createSync(testData1);
     store.createSync(testData2);
@@ -260,7 +266,7 @@ public class EtcdPartitioningMetadataStoreTest {
     // Verify first is deleted but second still exists
     boolean firstNodeExists = false;
     try {
-      store.getSync(partition, "delete1");
+      store.getSync(partition, "testDeleteNode1");
       firstNodeExists = true;
     } catch (RuntimeException e) {
       // Expected exception
@@ -269,7 +275,7 @@ public class EtcdPartitioningMetadataStoreTest {
     assertThat(firstNodeExists).isFalse();
 
     // Second node should still exist
-    TestPartitionedMetadata result = store.getSync(partition, "delete2");
+    TestPartitionedMetadata result = store.getSync(partition, "testDeleteNode2");
     assertThat(result).isNotNull();
 
     // Delete second node by reference
@@ -278,7 +284,7 @@ public class EtcdPartitioningMetadataStoreTest {
     // Verify second is now deleted
     boolean secondNodeExists = false;
     try {
-      store.getSync(partition, "delete2");
+      store.getSync(partition, "testDeleteNode2");
       secondNodeExists = true;
     } catch (RuntimeException e) {
       // Expected exception
@@ -289,23 +295,28 @@ public class EtcdPartitioningMetadataStoreTest {
 
   @Test
   public void testListNodes() throws ExecutionException, InterruptedException {
+    store.listSyncUncached().forEach(s -> store.deleteSync(s));
+
     // Create test metadata objects across different partitions
-    TestPartitionedMetadata testData1 = new TestPartitionedMetadata("item1", "partition1", "data1");
-    TestPartitionedMetadata testData2 = new TestPartitionedMetadata("item2", "partition1", "data2");
-    TestPartitionedMetadata testData3 = new TestPartitionedMetadata("item3", "partition2", "data3");
+    TestPartitionedMetadata testData1 =
+        new TestPartitionedMetadata("testListNodes1", "partition1", "data1");
+    TestPartitionedMetadata testData2 =
+        new TestPartitionedMetadata("testListNodes2", "partition1", "data2");
+    TestPartitionedMetadata testData3 =
+        new TestPartitionedMetadata("testListNodes3", "partition2", "data3");
 
     store.createSync(testData1);
     store.createSync(testData2);
     store.createSync(testData3);
 
     // List async
+    await().until(() -> store.listSync().size() == 3);
     List<TestPartitionedMetadata> nodes = store.listAsync().toCompletableFuture().get();
-    assertThat(nodes).hasSize(3);
 
     // Verify all nodes are in the list
     assertThat(nodes)
         .extracting(TestPartitionedMetadata::getName)
-        .containsExactlyInAnyOrder("item1", "item2", "item3");
+        .containsExactlyInAnyOrder("testListNodes1", "testListNodes2", "testListNodes3");
 
     // List sync
     nodes = store.listSync();
@@ -337,7 +348,8 @@ public class EtcdPartitioningMetadataStoreTest {
 
     // Create a node - should trigger listener
     String partition = "partition1";
-    TestPartitionedMetadata testData = new TestPartitionedMetadata("watch1", partition, "data");
+    TestPartitionedMetadata testData =
+        new TestPartitionedMetadata("testListeners1", partition, "data");
     store.createSync(testData);
 
     // Wait for notification
@@ -345,7 +357,7 @@ public class EtcdPartitioningMetadataStoreTest {
 
     // Update node - should trigger listener again
     TestPartitionedMetadata updatedData =
-        new TestPartitionedMetadata("watch1", partition, "updated");
+        new TestPartitionedMetadata("testListeners1", partition, "updated");
     store.updateSync(updatedData);
 
     // Wait for notification
@@ -357,7 +369,7 @@ public class EtcdPartitioningMetadataStoreTest {
 
     // Update node again - should not trigger listener
     TestPartitionedMetadata updatedData2 =
-        new TestPartitionedMetadata("watch1", partition, "updated again");
+        new TestPartitionedMetadata("testListeners1", partition, "updated again");
     store.updateSync(updatedData2);
 
     // Wait a bit to see if counter changes
@@ -373,17 +385,17 @@ public class EtcdPartitioningMetadataStoreTest {
 
     // Create test data across different partitions
     TestPartitionedMetadata testData1 =
-        new TestPartitionedMetadata("cache1", "partition1", "data1");
+        new TestPartitionedMetadata("testCacheInitialization1", "partition1", "data1");
     TestPartitionedMetadata testData2 =
-        new TestPartitionedMetadata("cache2", "partition2", "data2");
+        new TestPartitionedMetadata("testCacheInitialization2", "partition2", "data2");
 
     // Create the data in our store
     store.createSync(testData1);
     store.createSync(testData2);
 
     // Verify data was created
-    TestPartitionedMetadata result1 = store.getSync("partition1", "cache1");
-    TestPartitionedMetadata result2 = store.getSync("partition2", "cache2");
+    TestPartitionedMetadata result1 = store.getSync("partition1", "testCacheInitialization1");
+    TestPartitionedMetadata result2 = store.getSync("partition2", "testCacheInitialization2");
     assertThat(result1).isNotNull();
     assertThat(result2).isNotNull();
 
@@ -391,7 +403,10 @@ public class EtcdPartitioningMetadataStoreTest {
     List<TestPartitionedMetadata> items = store.listSync();
     List<TestPartitionedMetadata> filteredItems =
         items.stream()
-            .filter(item -> item.getName().equals("cache1") || item.getName().equals("cache2"))
+            .filter(
+                item ->
+                    item.getName().equals("testCacheInitialization1")
+                        || item.getName().equals("testCacheInitialization2"))
             .toList();
     assertThat(filteredItems).hasSize(2);
 
@@ -431,28 +446,33 @@ public class EtcdPartitioningMetadataStoreTest {
       newStore.awaitCacheInitialized();
 
       // Get the node to verify it exists in the new store
-      TestPartitionedMetadata verifyItem1 = newStore.getSync("partition1", "cache1");
-      TestPartitionedMetadata verifyItem2 = newStore.getSync("partition2", "cache2");
+      TestPartitionedMetadata verifyItem1 =
+          newStore.getSync("partition1", "testCacheInitialization1");
+      TestPartitionedMetadata verifyItem2 =
+          newStore.getSync("partition2", "testCacheInitialization2");
 
       assertThat(verifyItem1).isNotNull();
-      assertThat(verifyItem1.getName()).isEqualTo("cache1");
+      assertThat(verifyItem1.getName()).isEqualTo("testCacheInitialization1");
       assertThat(verifyItem1.getData()).isEqualTo("data1");
 
       assertThat(verifyItem2).isNotNull();
-      assertThat(verifyItem2.getName()).isEqualTo("cache2");
+      assertThat(verifyItem2.getName()).isEqualTo("testCacheInitialization2");
       assertThat(verifyItem2.getData()).isEqualTo("data2");
 
       // Verify we can list all the data
       List<TestPartitionedMetadata> cachedItems = newStore.listSync();
       List<TestPartitionedMetadata> testItems =
           cachedItems.stream()
-              .filter(item -> item.getName().equals("cache1") || item.getName().equals("cache2"))
+              .filter(
+                  item ->
+                      item.getName().equals("testCacheInitialization1")
+                          || item.getName().equals("testCacheInitialization2"))
               .toList();
 
       assertThat(testItems).hasSize(2);
       assertThat(testItems)
           .extracting(TestPartitionedMetadata::getName)
-          .containsExactlyInAnyOrder("cache1", "cache2");
+          .containsExactlyInAnyOrder("testCacheInitialization1", "testCacheInitialization2");
 
       // Verify partitioning is preserved
       Map<String, List<TestPartitionedMetadata>> partitionMap =

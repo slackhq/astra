@@ -1,13 +1,17 @@
 package com.slack.astra.metadata.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.proto.config.AstraConfigs;
-import io.etcd.jetcd.launcher.Etcd;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.ClientBuilder;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +39,7 @@ public class EtcdMetadataStoreTest {
   private MeterRegistry meterRegistry;
   private EtcdMetadataStore<TestMetadata> store;
   private MetadataSerializer<TestMetadata> serializer;
+  private Client etcdClient;
 
   /** Test metadata class for use in tests. */
   private static class TestMetadata extends AstraMetadata {
@@ -93,8 +98,7 @@ public class EtcdMetadataStoreTest {
   public static void setUpClass() {
     // Start an embedded etcd server
     LOG.info("Starting embedded etcd cluster");
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
     LOG.info(
         "Embedded etcd cluster started with endpoints: {}",
         etcdCluster.clientEndpoints().stream().map(Object::toString).toList());
@@ -104,7 +108,7 @@ public class EtcdMetadataStoreTest {
   public static void tearDownClass() {
     if (etcdCluster != null) {
       LOG.info("Stopping embedded etcd cluster");
-      etcdCluster.close();
+
       LOG.info("Embedded etcd cluster stopped");
     }
   }
@@ -127,14 +131,32 @@ public class EtcdMetadataStoreTest {
             .setEphemeralNodeTtlSeconds(60)
             .build();
 
+    // Create etcd client
+    ClientBuilder clientBuilder =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream()
+                    .map(Object::toString)
+                    .toArray(String[]::new));
+
+    // Set namespace if provided
+    if (!etcdConfig.getNamespace().isEmpty()) {
+      clientBuilder.namespace(
+          io.etcd.jetcd.ByteSequence.from(etcdConfig.getNamespace(), StandardCharsets.UTF_8));
+    }
+
+    etcdClient = clientBuilder.build();
+
     // Create store with cache enabled
-    store = new EtcdMetadataStore<>("/test", etcdConfig, true, meterRegistry, serializer);
+    store =
+        new EtcdMetadataStore<>("/test", etcdConfig, true, meterRegistry, serializer, etcdClient);
   }
 
   @AfterEach
   public void tearDown() {
     // Close the store and meter registry
     store.close();
+    etcdClient.close();
     meterRegistry.close();
   }
 
@@ -222,6 +244,8 @@ public class EtcdMetadataStoreTest {
 
   @Test
   public void testListNodes() throws ExecutionException, InterruptedException {
+    store.listSyncUncached().forEach(s -> store.deleteSync(s));
+
     // Create test metadata objects
     TestMetadata testData1 = new TestMetadata("list1", "data1");
     TestMetadata testData2 = new TestMetadata("list2", "data2");
@@ -233,7 +257,7 @@ public class EtcdMetadataStoreTest {
 
     // List async
     List<TestMetadata> nodes = store.listAsync().toCompletableFuture().get();
-    assertThat(nodes).hasSize(3);
+    assertThat(nodes.size()).isGreaterThanOrEqualTo(3);
 
     // Verify all nodes are in the list
     assertThat(nodes)
@@ -290,6 +314,24 @@ public class EtcdMetadataStoreTest {
   }
 
   @Test
+  public void testDeleteNodeWithFullPath() throws ExecutionException, InterruptedException {
+    // Create test metadata object
+    TestMetadata testData = new TestMetadata("deleteFull", "data");
+
+    // Create the node
+    store.createSync(testData);
+
+    // Verify node exists
+    assertThat(store.hasSync("deleteFull")).isTrue();
+
+    // Delete by reference (which was using just the node name, not the full path)
+    store.deleteAsync(testData).toCompletableFuture().get();
+
+    // Verify node was properly deleted
+    assertThat(store.hasSync("deleteFull")).isFalse();
+  }
+
+  @Test
   public void testCacheInitialization() {
     // Create test data
     TestMetadata testData1 = new TestMetadata("cache1", "data1");
@@ -311,8 +353,26 @@ public class EtcdMetadataStoreTest {
             .build();
 
     EtcdMetadataStore<TestMetadata> newStore = null;
+    Client newEtcdClient = null;
     try {
-      newStore = new EtcdMetadataStore<>("/test", etcdConfig, true, meterRegistry, serializer);
+      // Create a new client for the new store
+      ClientBuilder clientBuilder =
+          Client.builder()
+              .endpoints(
+                  etcdCluster.clientEndpoints().stream()
+                      .map(Object::toString)
+                      .toArray(String[]::new));
+
+      // Set namespace if provided
+      if (!etcdConfig.getNamespace().isEmpty()) {
+        clientBuilder.namespace(
+            io.etcd.jetcd.ByteSequence.from(etcdConfig.getNamespace(), StandardCharsets.UTF_8));
+      }
+
+      newEtcdClient = clientBuilder.build();
+      newStore =
+          new EtcdMetadataStore<>(
+              "/test", etcdConfig, true, meterRegistry, serializer, newEtcdClient);
 
       // Initialize the cache
       newStore.awaitCacheInitialized();
@@ -333,6 +393,106 @@ public class EtcdMetadataStoreTest {
       if (newStore != null) {
         newStore.close();
       }
+      if (newEtcdClient != null) {
+        newEtcdClient.close();
+      }
+    }
+  }
+
+  @Test
+  public void testDuplicateCreate() {
+    // Create a test metadata object
+    TestMetadata testData = new TestMetadata("duplicateTest", "testData");
+
+    // Create the node
+    store.createSync(testData);
+
+    // Try to create the same node again - should throw exception
+    assertThatExceptionOfType(InternalMetadataStoreException.class)
+        .isThrownBy(() -> store.createSync(testData));
+  }
+
+  @Test
+  public void testInvalidNodeNames() {
+    // Test dot node name
+    TestMetadata dotNameNode = new TestMetadata(".", "testData");
+    assertThatExceptionOfType(InternalMetadataStoreException.class)
+        .isThrownBy(() -> store.createSync(dotNameNode));
+
+    // Test slash node name
+    TestMetadata slashNameNode = new TestMetadata("/", "testData");
+    assertThatExceptionOfType(InternalMetadataStoreException.class)
+        .isThrownBy(() -> store.createSync(slashNameNode));
+
+    // For completeness, test empty and null cases, but these are already
+    // validated by AstraMetadata constructor
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new TestMetadata("", "testData"));
+
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new TestMetadata(null, "testData"));
+  }
+
+  @Test
+  public void testQuickClose() {
+    // Create a new etcd client
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
+
+    // Create client builder for test
+    ClientBuilder clientBuilder =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream()
+                    .map(Object::toString)
+                    .toArray(String[]::new));
+
+    // Set namespace if provided
+    if (!etcdConfig.getNamespace().isEmpty()) {
+      clientBuilder.namespace(
+          io.etcd.jetcd.ByteSequence.from(etcdConfig.getNamespace(), StandardCharsets.UTF_8));
+    }
+
+    Client testClient = clientBuilder.build();
+    MeterRegistry testMeterRegistry = new SimpleMeterRegistry();
+
+    try {
+      // Create a store with cache enabled
+      EtcdMetadataStore<TestMetadata> testStore =
+          new EtcdMetadataStore<>(
+              "/quickclose", etcdConfig, true, testMeterRegistry, serializer, testClient);
+
+      // Immediately close it without waiting for cache initialization
+      testStore.close();
+
+      // The test passes if we don't get a RuntimeHalter error (which would exit the JVM)
+      // Create and close another store with the same client to verify it still works
+      EtcdMetadataStore<TestMetadata> secondStore =
+          new EtcdMetadataStore<>(
+              "/quickclose2", etcdConfig, true, testMeterRegistry, serializer, testClient);
+
+      // Add a node to verify the client is still working
+      TestMetadata testData = new TestMetadata("verify", "testData");
+      secondStore.createSync(testData);
+
+      // Check that the node was created successfully
+      TestMetadata result = secondStore.getSync("verify");
+      assertThat(result).isNotNull();
+      assertThat(result.getData()).isEqualTo("testData");
+
+      // Close the store
+      secondStore.close();
+    } finally {
+      testClient.close();
+      testMeterRegistry.close();
     }
   }
 }

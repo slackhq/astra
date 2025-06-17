@@ -6,9 +6,9 @@ import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.config.AstraConfigs.MetadataStoreMode;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
-import io.etcd.jetcd.launcher.Etcd;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -159,8 +159,7 @@ public class AstraPartitioningMetadataStoreTest {
 
     // Start embedded Etcd cluster
     LOG.info("Starting embedded Etcd cluster");
-    etcdCluster = Etcd.builder().withClusterName("etcd-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
     LOG.info(
         "Embedded Etcd cluster started with endpoints: {}",
         String.join(", ", etcdCluster.clientEndpoints().stream().map(Object::toString).toList()));
@@ -178,7 +177,7 @@ public class AstraPartitioningMetadataStoreTest {
     // Stop embedded Etcd cluster
     if (etcdCluster != null) {
       LOG.info("Stopping embedded Etcd cluster");
-      etcdCluster.close();
+
       LOG.info("Embedded Etcd cluster stopped");
     }
   }
@@ -210,7 +209,7 @@ public class AstraPartitioningMetadataStoreTest {
             .setKeepaliveTimeoutMs(3000)
             .setMaxRetries(3)
             .setRetryDelayMs(100)
-            .setNamespace("test")
+            .setNamespace("AstraPartitioningMetadataStoreTest")
             .setEphemeralNodeTtlSeconds(60)
             .build();
 
@@ -223,7 +222,8 @@ public class AstraPartitioningMetadataStoreTest {
             .keepaliveTimeout(Duration.ofMillis(3000))
             .retryMaxAttempts(3)
             .retryDelay(100)
-            .namespace(ByteSequence.from("test", StandardCharsets.UTF_8))
+            .namespace(
+                ByteSequence.from("AstraPartitioningMetadataStoreTest", StandardCharsets.UTF_8))
             .build();
   }
 

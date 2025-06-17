@@ -52,6 +52,7 @@ message KafkaConfig {
   map<string, string> additional_props = 8;
 }
 
+// The operation mode for metadata stores
 enum MetadataStoreMode {
   ZOOKEEPER_CREATES = 0;
   ETCD_CREATES = 1;
@@ -60,7 +61,7 @@ enum MetadataStoreMode {
 message MetadataStoreConfig {
   ZookeeperConfig zookeeper_config = 1;
   EtcdConfig etcd_config = 2;
-  MetadataStoreMode mode = 3;
+  map<string, MetadataStoreMode> store_modes = 4;
 }
 
 // Configuration for etcd metadata store.

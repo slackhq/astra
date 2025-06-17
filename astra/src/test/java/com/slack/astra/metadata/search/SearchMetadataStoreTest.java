@@ -6,6 +6,10 @@ import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -21,15 +25,50 @@ public class SearchMetadataStoreTest {
   private AsyncCuratorFramework curatorFramework;
   private AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private SearchMetadataStore store;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setUp() throws Exception {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("Test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("Test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlSeconds(60)
+            .build();
 
     metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -39,6 +78,7 @@ public class SearchMetadataStoreTest {
                     .setSleepBetweenRetriesMs(500)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
     this.curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
@@ -48,16 +88,21 @@ public class SearchMetadataStoreTest {
   public void tearDown() throws IOException {
     if (store != null) store.close();
     curatorFramework.unwrap().close();
+    if (etcdClient != null) etcdClient.close();
+
     testingServer.close();
     meterRegistry.close();
   }
 
   @Test
   public void testSearchMetadataStoreUpdateSearchability() throws Exception {
-    store = new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+    store =
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot", "http", false);
     assertThat(searchMetadata.isSearchable()).isFalse();
     store.createSync(searchMetadata);
+    await().until(() -> store.listSync().contains(searchMetadata));
 
     store.updateSearchability(searchMetadata, true);
 
@@ -67,7 +112,9 @@ public class SearchMetadataStoreTest {
 
   @Test
   public void testSearchMetadataStoreIsNotUpdatable() throws Exception {
-    store = new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+    store =
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot", "http");
     Throwable exAsync = catchThrowable(() -> store.updateAsync(searchMetadata));
     assertThat(exAsync).isInstanceOf(UnsupportedOperationException.class);

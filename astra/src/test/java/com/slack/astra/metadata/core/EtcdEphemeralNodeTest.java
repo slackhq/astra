@@ -4,11 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.proto.config.AstraConfigs;
-import io.etcd.jetcd.launcher.Etcd;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.ClientBuilder;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +54,7 @@ public class EtcdEphemeralNodeTest {
   private MetadataSerializer<TestMetadata> serializer;
   private AstraConfigs.EtcdConfig etcdConfig;
   private static final String STORE_FOLDER = "/test-ephemeral";
+  private Client etcdClient;
 
   /** Test metadata class for use in tests. */
   private static class TestMetadata extends AstraMetadata {
@@ -109,8 +113,7 @@ public class EtcdEphemeralNodeTest {
   public static void setUpClass() {
     // Start an embedded etcd server
     LOG.info("Starting embedded etcd cluster");
-    etcdCluster = Etcd.builder().withClusterName("etcd-ephemeral-test").withNodes(1).build();
-    etcdCluster.start();
+    etcdCluster = TestEtcdClusterFactory.start();
     LOG.info(
         "Embedded etcd cluster started with endpoints: {}",
         etcdCluster.clientEndpoints().stream().map(Object::toString).toList());
@@ -120,7 +123,7 @@ public class EtcdEphemeralNodeTest {
   public static void tearDownClass() {
     if (etcdCluster != null) {
       LOG.info("Stopping embedded etcd cluster");
-      etcdCluster.close();
+
       LOG.info("Embedded etcd cluster stopped");
     }
   }
@@ -142,26 +145,68 @@ public class EtcdEphemeralNodeTest {
             .setNamespace("test")
             .setEphemeralNodeTtlSeconds(60) // Default long TTL for most tests
             .build();
+
+    // Create etcd client
+    ClientBuilder clientBuilder =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream()
+                    .map(Object::toString)
+                    .toArray(String[]::new));
+    if (!etcdConfig.getNamespace().isEmpty()) {
+      clientBuilder.namespace(
+          io.etcd.jetcd.ByteSequence.from(etcdConfig.getNamespace(), StandardCharsets.UTF_8));
+    }
+    etcdClient = clientBuilder.build();
   }
 
   @AfterEach
   public void tearDown() {
-    meterRegistry.close();
-
     // Clean up any leftover nodes in etcd
-    try (EtcdMetadataStore<TestMetadata> cleanupStore =
-        new EtcdMetadataStore<>(STORE_FOLDER, etcdConfig, false, meterRegistry, serializer)) {
-      try {
-        List<TestMetadata> nodes = cleanupStore.listSync();
-        for (TestMetadata node : nodes) {
-          cleanupStore.deleteSync(node);
+    try {
+      Client cleanupClient = createEtcdClient();
+      try (EtcdMetadataStore<TestMetadata> cleanupStore =
+          new EtcdMetadataStore<>(
+              STORE_FOLDER, etcdConfig, false, meterRegistry, serializer, cleanupClient)) {
+        try {
+          List<TestMetadata> nodes = cleanupStore.listSync();
+          for (TestMetadata node : nodes) {
+            cleanupStore.deleteSync(node);
+          }
+        } catch (Exception e) {
+          LOG.warn("Error cleaning up test nodes", e);
         }
       } catch (Exception e) {
-        LOG.warn("Error cleaning up test nodes", e);
+        LOG.warn("Error creating cleanup store", e);
+      } finally {
+        cleanupClient.close();
       }
     } catch (Exception e) {
-      LOG.warn("Error creating cleanup store", e);
+      LOG.warn("Error creating cleanup client", e);
     }
+
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
+    meterRegistry.close();
+  }
+
+  /** Helper method to create an etcd client for tests. */
+  private Client createEtcdClient() {
+    ClientBuilder clientBuilder =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream()
+                    .map(Object::toString)
+                    .toArray(String[]::new));
+
+    // Set namespace if provided
+    if (!etcdConfig.getNamespace().isEmpty()) {
+      clientBuilder.namespace(
+          io.etcd.jetcd.ByteSequence.from(etcdConfig.getNamespace(), StandardCharsets.UTF_8));
+    }
+
+    return clientBuilder.build();
   }
 
   /**
@@ -198,7 +243,8 @@ public class EtcdEphemeralNodeTest {
         MeterRegistry meterRegistry,
         MetadataSerializer<TestMetadata> serializer,
         EtcdCreateMode createMode,
-        long ephemeralTtlSeconds) {
+        long ephemeralTtlSeconds,
+        Client etcdClient) {
       super(
           storeFolder,
           config,
@@ -206,7 +252,8 @@ public class EtcdEphemeralNodeTest {
           meterRegistry,
           serializer,
           createMode,
-          ephemeralTtlSeconds);
+          ephemeralTtlSeconds,
+          etcdClient);
     }
 
     public void setShouldFailRefresh(boolean shouldFail) {
@@ -279,6 +326,10 @@ public class EtcdEphemeralNodeTest {
     final long longTtl = 6; // 6 seconds
 
     // Create different stores with different TTLs
+    Client shortTtlClient = createEtcdClient();
+    Client mediumTtlClient = createEtcdClient();
+    Client longTtlClient = createEtcdClient();
+
     try (EtcdMetadataStore<TestMetadata> shortTtlStore =
             new EtcdMetadataStore<>(
                 STORE_FOLDER,
@@ -287,7 +338,8 @@ public class EtcdEphemeralNodeTest {
                 meterRegistry,
                 serializer,
                 EtcdCreateMode.EPHEMERAL,
-                shortTtl);
+                shortTtl,
+                shortTtlClient);
         EtcdMetadataStore<TestMetadata> mediumTtlStore =
             new EtcdMetadataStore<>(
                 STORE_FOLDER,
@@ -296,7 +348,8 @@ public class EtcdEphemeralNodeTest {
                 meterRegistry,
                 serializer,
                 EtcdCreateMode.EPHEMERAL,
-                mediumTtl);
+                mediumTtl,
+                mediumTtlClient);
         EtcdMetadataStore<TestMetadata> longTtlStore =
             new EtcdMetadataStore<>(
                 STORE_FOLDER,
@@ -305,7 +358,8 @@ public class EtcdEphemeralNodeTest {
                 meterRegistry,
                 serializer,
                 EtcdCreateMode.EPHEMERAL,
-                longTtl)) {
+                longTtl,
+                longTtlClient)) {
       // Create nodes with different TTLs
       TestMetadata shortNode = new TestMetadata("short-ttl-node", "Short TTL node");
       TestMetadata mediumNode = new TestMetadata("medium-ttl-node", "Medium TTL node");
@@ -316,13 +370,15 @@ public class EtcdEphemeralNodeTest {
       longTtlStore.createSync(longNode);
 
       // Verify all nodes were created
+      Client verifyClient = createEtcdClient();
       try (EtcdMetadataStore<TestMetadata> verifyStore =
           new EtcdMetadataStore<>(
               STORE_FOLDER,
               etcdConfig,
               false, // Don't use cache for verification
               meterRegistry,
-              serializer)) {
+              serializer,
+              verifyClient)) {
 
         assertThat(verifyStore.hasSync(shortNode.getName())).isTrue();
         assertThat(verifyStore.hasSync(mediumNode.getName())).isTrue();
@@ -342,13 +398,15 @@ public class EtcdEphemeralNodeTest {
     } // Close all stores to stop lease refreshes
 
     // Create a reader store to check when nodes disappear
+    Client readerClient = createEtcdClient();
     try (EtcdMetadataStore<TestMetadata> readerStore =
         new EtcdMetadataStore<>(
             STORE_FOLDER,
             etcdConfig,
             false, // Don't use cache
             meterRegistry,
-            serializer)) {
+            serializer,
+            readerClient)) {
 
       // Check that all nodes are still there immediately after closing
       assertThat(readerStore.hasSync("short-ttl-node")).isTrue();
@@ -401,6 +459,7 @@ public class EtcdEphemeralNodeTest {
     final long shortTtl = 2; // 2 seconds
 
     // Create a store with short TTL
+    Client ephemeralClient = createEtcdClient();
     try (EtcdMetadataStore<TestMetadata> ephemeralStore =
         new EtcdMetadataStore<>(
             STORE_FOLDER,
@@ -409,7 +468,8 @@ public class EtcdEphemeralNodeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.EPHEMERAL,
-            shortTtl)) {
+            shortTtl,
+            ephemeralClient)) {
 
       // Create multiple ephemeral nodes
       TestMetadata node1 = new TestMetadata("refresh-node-1", "Refresh test node 1");
@@ -443,13 +503,15 @@ public class EtcdEphemeralNodeTest {
       TimeUnit.MILLISECONDS.sleep(shortTtl * 1000 * 5);
 
       // Create a reader store to check if nodes are still there
+      Client innerReaderClient = createEtcdClient();
       try (EtcdMetadataStore<TestMetadata> readerStore =
           new EtcdMetadataStore<>(
               STORE_FOLDER,
               etcdConfig,
               false, // Don't use cache
               meterRegistry,
-              serializer)) {
+              serializer,
+              innerReaderClient)) {
 
         // All nodes should still exist after several TTL periods
         assertThat(readerStore.hasSync(node1.getName())).isTrue();
@@ -466,8 +528,10 @@ public class EtcdEphemeralNodeTest {
 
     // The ephemeral store is now closed, so refresh should stop
     // Create a reader store and wait for the nodes to expire
+    Client outerReaderClient = createEtcdClient();
     try (EtcdMetadataStore<TestMetadata> readerStore =
-        new EtcdMetadataStore<>(STORE_FOLDER, etcdConfig, false, meterRegistry, serializer)) {
+        new EtcdMetadataStore<>(
+            STORE_FOLDER, etcdConfig, false, meterRegistry, serializer, outerReaderClient)) {
 
       // Wait slightly longer than the TTL for all nodes to expire
       await()
@@ -502,6 +566,7 @@ public class EtcdEphemeralNodeTest {
     final long shortTtl = 3; // 3 seconds
 
     // Create our custom store that can simulate lease refresh failures
+    Client failingClient = createEtcdClient();
     try (FailingLeaseRefreshStore failingStore =
         new FailingLeaseRefreshStore(
             STORE_FOLDER,
@@ -510,7 +575,8 @@ public class EtcdEphemeralNodeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.EPHEMERAL,
-            shortTtl)) {
+            shortTtl,
+            failingClient)) {
       // Create ephemeral nodes
       TestMetadata node1 = new TestMetadata("failing-refresh-1", "Node with failing refresh 1");
       TestMetadata node2 = new TestMetadata("failing-refresh-2", "Node with failing refresh 2");
@@ -597,6 +663,7 @@ public class EtcdEphemeralNodeTest {
     final long shortTtl = 10; // 10 seconds TTL for ephemeral nodes
 
     // Create a store with ephemeral nodes
+    Client ephemeralClient = createEtcdClient();
     try (EtcdMetadataStore<TestMetadata> ephemeralStore =
         new EtcdMetadataStore<>(
             STORE_FOLDER,
@@ -605,7 +672,8 @@ public class EtcdEphemeralNodeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.EPHEMERAL,
-            shortTtl)) {
+            shortTtl,
+            ephemeralClient)) {
 
       // Create thread pool for concurrent operations
       ExecutorService executorService = Executors.newFixedThreadPool(threadCount);

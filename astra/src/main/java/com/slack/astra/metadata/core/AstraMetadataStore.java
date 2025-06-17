@@ -34,14 +34,13 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(AstraMetadataStore.class);
 
   protected final ZookeeperMetadataStore<T> zkStore;
-  private final EtcdMetadataStore<T> etcdStore;
-  private final MetadataStoreMode mode;
+  protected final EtcdMetadataStore<T> etcdStore;
+  protected final MetadataStoreMode mode;
 
   private final MeterRegistry meterRegistry;
 
   // Tracks listeners registered, so we can properly register/unregister from both stores
-  private final Map<AstraMetadataStoreChangeListener<T>, DualStoreChangeListener<T>> listenerMap =
-      new ConcurrentHashMap<>();
+  private final List<AstraMetadataStoreChangeListener<T>> listeners = new ArrayList<>();
 
   /**
    * Constructor for AstraMetadataStore.
@@ -845,23 +844,24 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     notified twice. Applications should be prepared to handle duplicate notifications.
    */
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
-    // Create a wrapper that will forward events
-    DualStoreChangeListener<T> dualListener = new DualStoreChangeListener<>(watcher);
-    listenerMap.put(watcher, dualListener);
+    // Only add if not already present
+    if (!listeners.contains(watcher)) {
+      listeners.add(watcher);
 
-    switch (mode) {
-      case ZOOKEEPER_CREATES:
-      case ETCD_CREATES:
-        // In all modes, only add listeners to non-null stores
-        if (zkStore != null) {
-          zkStore.addListener(dualListener);
-        }
-        if (etcdStore != null) {
-          etcdStore.addListener(dualListener);
-        }
-        break;
-      default:
-        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+      switch (mode) {
+        case ZOOKEEPER_CREATES:
+        case ETCD_CREATES:
+          // In all modes, only add listeners to non-null stores
+          if (zkStore != null) {
+            zkStore.addListener(watcher);
+          }
+          if (etcdStore != null) {
+            etcdStore.addListener(watcher);
+          }
+          break;
+        default:
+          throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+      }
     }
   }
 
@@ -878,24 +878,21 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     <p>Note: If the listener was never added, this method will have no effect.
    */
   public void removeListener(AstraMetadataStoreChangeListener<T> watcher) {
-    DualStoreChangeListener<T> dualListener = listenerMap.remove(watcher);
-    if (dualListener == null) {
-      return;
-    }
-
-    switch (mode) {
-      case ZOOKEEPER_CREATES:
-      case ETCD_CREATES:
-        // In all modes, only remove listeners from non-null stores
-        if (zkStore != null) {
-          zkStore.removeListener(dualListener);
-        }
-        if (etcdStore != null) {
-          etcdStore.removeListener(dualListener);
-        }
-        break;
-      default:
-        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    if (listeners.remove(watcher)) {
+      switch (mode) {
+        case ZOOKEEPER_CREATES:
+        case ETCD_CREATES:
+          // In all modes, only remove listeners from non-null stores
+          if (zkStore != null) {
+            zkStore.removeListener(watcher);
+          }
+          if (etcdStore != null) {
+            etcdStore.removeListener(watcher);
+          }
+          break;
+        default:
+          throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+      }
     }
   }
 
@@ -963,23 +960,5 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     }
   }
 
-  /**
-   * Helper class that wraps a user-provided listener and forwards events. This is used to track
-   * listeners across both stores, and to ensure that each event is only delivered once to the user
-   * listener.
-   */
-  private static class DualStoreChangeListener<T extends AstraMetadata>
-      implements AstraMetadataStoreChangeListener<T> {
-
-    private final AstraMetadataStoreChangeListener<T> delegate;
-
-    DualStoreChangeListener(AstraMetadataStoreChangeListener<T> delegate) {
-      this.delegate = delegate;
-    }
-
-    @Override
-    public void onMetadataStoreChanged(T model) {
-      delegate.onMetadataStoreChanged(model);
-    }
-  }
+  // End of class
 }

@@ -48,7 +48,6 @@ tracingConfig:
     clusterName: "astra_local"
 
 metadataStoreConfig:
-  mode: ZOOKEEPER_CREATES
   zookeeperConfig:
     enabled: true
     zkConnectString: "1.2.3.4:9092"
@@ -66,6 +65,19 @@ metadataStoreConfig:
     retryDelayMs: 100
     maxRetries: 3
     ephemeralNodeTtlSeconds: 60
+  storeModes:
+    DatasetMetadataStore: ETCD_CREATES
+    SnapshotMetadataStore: ETCD_CREATES
+    ReplicaMetadataStore: ETCD_CREATES
+    HpaMetricMetadataStore: ETCD_CREATES
+    SearchMetadataStore: ETCD_CREATES
+    CacheSlotMetadataStore: ETCD_CREATES
+    CacheNodeMetadataStore: ETCD_CREATES
+    CacheNodeAssignmentStore: ETCD_CREATES
+    FieldRedactionMetadataStore: ETCD_CREATES
+    PreprocessorMetadataStore: ETCD_CREATES
+    RecoveryNodeMetadataStore: ETCD_CREATES
+    RecoveryTaskMetadataStore: v
 
 cacheConfig:
   slotsPerInstance: 10
