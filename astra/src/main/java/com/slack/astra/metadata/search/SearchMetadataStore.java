@@ -1,8 +1,9 @@
 package com.slack.astra.metadata.search;
 
-import com.slack.astra.metadata.core.AstraMetadataStore;
+import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
+import com.slack.astra.metadata.core.EtcdPartitioningMetadataStore;
 import com.slack.astra.metadata.core.InternalMetadataStoreException;
-import com.slack.astra.metadata.core.ZookeeperMetadataStore;
+import com.slack.astra.metadata.core.ZookeeperPartitioningMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.CompletionStage;
@@ -12,7 +13,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
 
-public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
+public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMetadata> {
   public static final String SEARCH_METADATA_STORE_ZK_PATH = "/search";
   private final AstraConfigs.MetadataStoreConfig metadataStoreConfig;
 
@@ -22,14 +23,13 @@ public class SearchMetadataStore extends AstraMetadataStore<SearchMetadata> {
       MeterRegistry meterRegistry,
       boolean shouldCache) {
     super(
-        new ZookeeperMetadataStore<>(
+        new ZookeeperPartitioningMetadataStore<>(
             curatorFramework,
             metadataStoreConfig.getZookeeperConfig(),
+            meterRegistry,
             CreateMode.EPHEMERAL,
-            shouldCache,
             new SearchMetadataSerializer().toModelSerializer(),
-            SEARCH_METADATA_STORE_ZK_PATH,
-            meterRegistry),
+            SEARCH_METADATA_STORE_ZK_PATH),
         null, // Not using etcdStore for now
         metadataStoreConfig.getMode(),
         meterRegistry);
