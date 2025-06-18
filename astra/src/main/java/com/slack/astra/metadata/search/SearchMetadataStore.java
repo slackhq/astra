@@ -1,21 +1,25 @@
 package com.slack.astra.metadata.search;
 
+import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
-import com.slack.astra.metadata.core.EtcdPartitioningMetadataStore;
-import com.slack.astra.metadata.core.InternalMetadataStoreException;
 import com.slack.astra.metadata.core.ZookeeperPartitioningMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMetadata> {
-  public static final String SEARCH_METADATA_STORE_ZK_PATH = "/search";
+  private static final Logger LOG = LoggerFactory.getLogger(SearchMetadataStore.class);
+
+  public static final String SEARCH_PARTITIONED_METADATA_STORE_ZK_PATH = "/partitioned_search";
   private final AstraConfigs.MetadataStoreConfig metadataStoreConfig;
+  final SearchMetadataStoreLegacy legacyStore;
 
   public SearchMetadataStore(
       AsyncCuratorFramework curatorFramework,
@@ -29,27 +33,32 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
             meterRegistry,
             CreateMode.EPHEMERAL,
             new SearchMetadataSerializer().toModelSerializer(),
-            SEARCH_METADATA_STORE_ZK_PATH),
+            SEARCH_PARTITIONED_METADATA_STORE_ZK_PATH),
         null, // Not using etcdStore for now
         metadataStoreConfig.getMode(),
         meterRegistry);
+
+    this.legacyStore =
+        new SearchMetadataStoreLegacy(
+            curatorFramework, metadataStoreConfig, meterRegistry, shouldCache);
     this.metadataStoreConfig = metadataStoreConfig;
   }
 
   // ONLY updating the `searchable` field is allowed on SearchMetadata.
   // This is needed to gate queries from hitting cache nodes until they're fully hydrated
+  // todo handle both cases
   public void updateSearchability(SearchMetadata oldSearchMetadata, boolean searchable) {
     oldSearchMetadata.setSearchable(searchable);
     try {
       super.updateAsync(oldSearchMetadata)
           .toCompletableFuture()
           .get(
-              metadataStoreConfig.hasZookeeperConfig()
-                  ? metadataStoreConfig.getZookeeperConfig().getZkConnectionTimeoutMs()
-                  : 1000,
+              metadataStoreConfig.getZookeeperConfig().getZkConnectionTimeoutMs(),
               TimeUnit.MILLISECONDS);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error updating node: " + oldSearchMetadata, e);
+    } catch (Exception e) {
+      legacyStore.updateSearchability(oldSearchMetadata, searchable);
+      // todo get rid of legacy store after transition and put this exception back
+      // throw new InternalMetadataStoreException("Error updating node: " + oldSearchMetadata, e);
     }
   }
 
@@ -61,5 +70,56 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
   @Override
   public void updateSync(SearchMetadata metadataNode) {
     throw new UnsupportedOperationException("Updates are not permitted for search metadata");
+  }
+
+  @Override
+  public void deleteSync(SearchMetadata metadataNode) {
+    try {
+      super.deleteSync(metadataNode);
+    } catch (Exception e) {
+      this.legacyStore.deleteSync(metadataNode);
+    }
+  }
+
+  @Override
+  public List<SearchMetadata> listSync() {
+    List<SearchMetadata> partitionedNodes = null;
+    List<SearchMetadata> legacyNodes = null;
+
+    try {
+      legacyNodes = legacyStore.listSync();
+    } catch (Exception e) {
+      legacyNodes = Collections.emptyList();
+    }
+    try {
+      partitionedNodes = super.listSync();
+    } catch (Exception e) {
+      partitionedNodes = Collections.emptyList();
+    }
+
+    partitionedNodes.addAll(legacyNodes);
+    return partitionedNodes;
+  }
+
+  /** Removes a listener from both stores. */
+  @Override
+  public void removeListener(AstraMetadataStoreChangeListener<SearchMetadata> listener) {
+    legacyStore.removeListener(listener);
+    super.removeListener(listener);
+  }
+
+  @Override
+  public void close() {
+    try {
+      legacyStore.close();
+    } catch (Exception e) {
+      //      LOG.error("Error closing legacy search metadata store", e);
+    }
+
+    try {
+      super.close();
+    } catch (Exception e) {
+      LOG.error("Error closing partitioned search metadata store", e);
+    }
   }
 }

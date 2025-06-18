@@ -64,7 +64,9 @@ public class SearchMetadataStoreTest {
 
     // Confirm that this eventually becomes searchable
     String partition = searchMetadata.getPartition();
-    await().atMost(5, TimeUnit.SECONDS).until(() -> store.getSync(partition, "test").isSearchable());
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() -> store.getSync(partition, "test").isSearchable());
   }
 
   @Test
@@ -77,15 +79,15 @@ public class SearchMetadataStoreTest {
     Throwable exSync = catchThrowable(() -> store.updateSync(searchMetadata));
     assertThat(exSync).isInstanceOf(UnsupportedOperationException.class);
   }
-  
+
   @Test
   public void testSearchMetadataPartitioning() {
     SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot1", "http");
     assertThat(searchMetadata.getPartition()).isEqualTo("snapshot1");
-    
+
     SearchMetadata anotherMetadata = new SearchMetadata("test2", "snapshot2", "http");
     assertThat(anotherMetadata.getPartition()).isEqualTo("snapshot2");
-    
+
     assertThat(searchMetadata).isInstanceOf(AstraPartitionedMetadata.class);
   }
 }
