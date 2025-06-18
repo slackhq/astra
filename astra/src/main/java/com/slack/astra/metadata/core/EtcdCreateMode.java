@@ -22,8 +22,8 @@ public enum EtcdCreateMode {
   public static final long DEFAULT_EPHEMERAL_TTL_SECONDS = 60;
 
   /**
-   * Default refresh interval as a fraction of the TTL. By default, we refresh at 1/4 of the TTL
+   * Default refresh interval as a fraction of the TTL. By default, we refresh at 1/3rd of the TTL
    * interval.
    */
-  public static final double DEFAULT_REFRESH_INTERVAL_FRACTION = 0.25;
+  public static final double DEFAULT_REFRESH_INTERVAL_FRACTION = 0.3;
 }

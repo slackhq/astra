@@ -1,7 +1,6 @@
 package com.slack.astra.metadata.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.TestEtcdClusterFactory;
@@ -14,16 +13,12 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -210,240 +205,42 @@ public class EtcdEphemeralNodeTest {
   }
 
   /**
-   * Helper method to access the internal leases map in the EtcdMetadataStore using reflection.
+   * Helper method to access the internal shared lease ID in the EtcdMetadataStore using reflection.
    *
-   * @param store The store to get leases from
-   * @return The leases map
+   * @param store The store to get the shared lease ID from
+   * @return The shared lease ID
    * @throws Exception If reflection fails
    */
-  @SuppressWarnings("unchecked")
-  private ConcurrentHashMap<String, Long> getLeases(EtcdMetadataStore<TestMetadata> store)
-      throws Exception {
-    Field leasesField = EtcdMetadataStore.class.getDeclaredField("leases");
-    leasesField.setAccessible(true);
-    return (ConcurrentHashMap<String, Long>) leasesField.get(store);
-  }
+  private long getSharedLeaseId(EtcdMetadataStore<TestMetadata> store) throws Exception {
+    // Get the sharedLeaseFuture field via reflection
+    Field sharedLeaseFutureField = null;
 
-  /**
-   * Custom EtcdMetadataStore that allows us to simulate lease refresh failures. Since
-   * refreshAllLeases is private, we manipulate the leases map directly.
-   *
-   * <p>This class exposes methods to share leases across store instances for testing reconnections.
-   */
-  private static class FailingLeaseRefreshStore extends EtcdMetadataStore<TestMetadata> {
-    private final AtomicBoolean shouldFailRefresh = new AtomicBoolean(false);
-    private final AtomicInteger refreshAttemptCount = new AtomicInteger(0);
-    private final AtomicInteger failedRefreshCount = new AtomicInteger(0);
-    private final List<String> nodesToFail = new ArrayList<>();
+    try {
+      // Try to get the field - this needs to match the exact field name in EtcdMetadataStore
+      sharedLeaseFutureField = EtcdMetadataStore.class.getDeclaredField("sharedLeaseFuture");
+      sharedLeaseFutureField.setAccessible(true);
 
-    public FailingLeaseRefreshStore(
-        String storeFolder,
-        AstraConfigs.EtcdConfig config,
-        boolean shouldCache,
-        MeterRegistry meterRegistry,
-        MetadataSerializer<TestMetadata> serializer,
-        EtcdCreateMode createMode,
-        long ephemeralTtlSeconds,
-        Client etcdClient) {
-      super(
-          storeFolder,
-          config,
-          shouldCache,
-          meterRegistry,
-          serializer,
-          createMode,
-          ephemeralTtlSeconds,
-          etcdClient);
-    }
+      // Get the CompletableFuture<Long> instance
+      @SuppressWarnings("unchecked")
+      CompletableFuture<Long> sharedLeaseFuture =
+          (CompletableFuture<Long>) sharedLeaseFutureField.get(store);
 
-    public void setShouldFailRefresh(boolean shouldFail) {
-      shouldFailRefresh.set(shouldFail);
-    }
-
-    // Used in more complex test scenarios
-    @SuppressWarnings("unused")
-    public void addNodeToFail(String nodeName) {
-      if (!nodesToFail.contains(nodeName)) {
-        nodesToFail.add(nodeName);
-      }
-    }
-
-    public int getRefreshAttemptCount() {
-      return refreshAttemptCount.get();
-    }
-
-    public int getFailedRefreshCount() {
-      return failedRefreshCount.get();
-    }
-
-    /** Remove leases directly from the internal leases map to simulate refresh failures */
-    @SuppressWarnings("unchecked")
-    public void simulateLeaseRefreshFailure() throws Exception {
-      refreshAttemptCount.incrementAndGet();
-
-      // Get access to the leases map using reflection
-      Field leasesField = EtcdMetadataStore.class.getDeclaredField("leases");
-      leasesField.setAccessible(true);
-      // We don't use the leases map in this method but might need it in subclasses
-      @SuppressWarnings("unused")
-      Map<String, Long> leases = (Map<String, Long>) leasesField.get(this);
-
-      if (shouldFailRefresh.get() || !nodesToFail.isEmpty()) {
-        failedRefreshCount.incrementAndGet();
-        LOG.debug(
-            "Simulating lease refresh failure for {} nodes",
-            shouldFailRefresh.get() ? "all" : nodesToFail.size());
-      }
-    }
-
-    /**
-     * Force manual removal of leases from the tracking map to simulate what happens when etcd
-     * actually removes the leases after expiration.
-     */
-    @SuppressWarnings("unchecked")
-    public void simulateLeaseExpiration(List<String> nodeNames) throws Exception {
-      Field leasesField = EtcdMetadataStore.class.getDeclaredField("leases");
-      leasesField.setAccessible(true);
-      Map<String, Long> leases = (Map<String, Long>) leasesField.get(this);
-
-      for (String nodeName : nodeNames) {
-        leases.remove(nodeName);
-        LOG.debug("Removed lease for node: {}", nodeName);
-      }
-    }
-  }
-
-  /**
-   * Tests that ephemeral nodes are automatically removed when their TTL expires. This test
-   * verifies: 1. Ephemeral nodes are created successfully with a lease 2. After closing the store
-   * (which stops lease refresh), nodes expire after TTL 3. Multiple nodes with different TTLs
-   * expire correctly
-   */
-  @Test
-  public void testEphemeralNodeExpiration() throws Exception {
-    final long shortTtl = 2; // 2 seconds
-    final long mediumTtl = 4; // 4 seconds
-    final long longTtl = 6; // 6 seconds
-
-    // Create different stores with different TTLs
-    Client shortTtlClient = createEtcdClient();
-    Client mediumTtlClient = createEtcdClient();
-    Client longTtlClient = createEtcdClient();
-
-    try (EtcdMetadataStore<TestMetadata> shortTtlStore =
-            new EtcdMetadataStore<>(
-                STORE_FOLDER,
-                etcdConfig,
-                true,
-                meterRegistry,
-                serializer,
-                EtcdCreateMode.EPHEMERAL,
-                shortTtl,
-                shortTtlClient);
-        EtcdMetadataStore<TestMetadata> mediumTtlStore =
-            new EtcdMetadataStore<>(
-                STORE_FOLDER,
-                etcdConfig,
-                true,
-                meterRegistry,
-                serializer,
-                EtcdCreateMode.EPHEMERAL,
-                mediumTtl,
-                mediumTtlClient);
-        EtcdMetadataStore<TestMetadata> longTtlStore =
-            new EtcdMetadataStore<>(
-                STORE_FOLDER,
-                etcdConfig,
-                true,
-                meterRegistry,
-                serializer,
-                EtcdCreateMode.EPHEMERAL,
-                longTtl,
-                longTtlClient)) {
-      // Create nodes with different TTLs
-      TestMetadata shortNode = new TestMetadata("short-ttl-node", "Short TTL node");
-      TestMetadata mediumNode = new TestMetadata("medium-ttl-node", "Medium TTL node");
-      TestMetadata longNode = new TestMetadata("long-ttl-node", "Long TTL node");
-
-      shortTtlStore.createSync(shortNode);
-      mediumTtlStore.createSync(mediumNode);
-      longTtlStore.createSync(longNode);
-
-      // Verify all nodes were created
-      Client verifyClient = createEtcdClient();
-      try (EtcdMetadataStore<TestMetadata> verifyStore =
-          new EtcdMetadataStore<>(
-              STORE_FOLDER,
-              etcdConfig,
-              false, // Don't use cache for verification
-              meterRegistry,
-              serializer,
-              verifyClient)) {
-
-        assertThat(verifyStore.hasSync(shortNode.getName())).isTrue();
-        assertThat(verifyStore.hasSync(mediumNode.getName())).isTrue();
-        assertThat(verifyStore.hasSync(longNode.getName())).isTrue();
+      // If the future is null or not completed, return -1 to indicate no lease
+      if (sharedLeaseFuture == null
+          || !sharedLeaseFuture.isDone()
+          || sharedLeaseFuture.isCompletedExceptionally()) {
+        return -1;
       }
 
-      // Verify leases were created
-      ConcurrentHashMap<String, Long> shortLeases = getLeases(shortTtlStore);
-      ConcurrentHashMap<String, Long> mediumLeases = getLeases(mediumTtlStore);
-      ConcurrentHashMap<String, Long> longLeases = getLeases(longTtlStore);
-
-      assertThat(shortLeases).containsKey(shortNode.getName());
-      assertThat(mediumLeases).containsKey(mediumNode.getName());
-      assertThat(longLeases).containsKey(longNode.getName());
-
-      LOG.info("All nodes created, now closing stores to stop lease refreshes");
-    } // Close all stores to stop lease refreshes
-
-    // Create a reader store to check when nodes disappear
-    Client readerClient = createEtcdClient();
-    try (EtcdMetadataStore<TestMetadata> readerStore =
-        new EtcdMetadataStore<>(
-            STORE_FOLDER,
-            etcdConfig,
-            false, // Don't use cache
-            meterRegistry,
-            serializer,
-            readerClient)) {
-
-      // Check that all nodes are still there immediately after closing
-      assertThat(readerStore.hasSync("short-ttl-node")).isTrue();
-      assertThat(readerStore.hasSync("medium-ttl-node")).isTrue();
-      assertThat(readerStore.hasSync("long-ttl-node")).isTrue();
-
-      // Wait and verify nodes expire in the expected order
-
-      // Short TTL node should expire first
-      await()
-          .atMost(shortTtl + 2, TimeUnit.SECONDS)
-          .pollInterval(500, TimeUnit.MILLISECONDS)
-          .until(() -> !readerStore.hasSync("short-ttl-node"));
-
-      // Medium node should still be there
-      assertThat(readerStore.hasSync("medium-ttl-node")).isTrue();
-      assertThat(readerStore.hasSync("long-ttl-node")).isTrue();
-
-      // Medium TTL node should expire next
-      await()
-          .atMost(mediumTtl + 2, TimeUnit.SECONDS)
-          .pollInterval(500, TimeUnit.MILLISECONDS)
-          .until(() -> !readerStore.hasSync("medium-ttl-node"));
-
-      // Long TTL node should still be there
-      assertThat(readerStore.hasSync("long-ttl-node")).isTrue();
-
-      // Long TTL node should expire last
-      await()
-          .atMost(longTtl + 2, TimeUnit.SECONDS)
-          .pollInterval(500, TimeUnit.MILLISECONDS)
-          .until(() -> !readerStore.hasSync("long-ttl-node"));
-
-      // Final verification - all nodes should be gone
-      assertThat(readerStore.hasSync("short-ttl-node")).isFalse();
-      assertThat(readerStore.hasSync("medium-ttl-node")).isFalse();
-      assertThat(readerStore.hasSync("long-ttl-node")).isFalse();
+      // Get the lease ID from the completed future
+      return sharedLeaseFuture.get(5, TimeUnit.SECONDS);
+    } catch (NoSuchFieldException e) {
+      LOG.warn(
+          "Could not find sharedLeaseFuture field in EtcdMetadataStore. Interface may have changed.");
+      return -1;
+    } catch (Exception e) {
+      LOG.warn("Error retrieving shared lease ID", e);
+      return -1;
     }
   }
 
@@ -480,19 +277,9 @@ public class EtcdEphemeralNodeTest {
       ephemeralStore.createSync(node2);
       ephemeralStore.createSync(node3);
 
-      // Verify leases were created
-      ConcurrentHashMap<String, Long> leases = getLeases(ephemeralStore);
-      assertThat(leases).containsKey(node1.getName());
-      assertThat(leases).containsKey(node2.getName());
-      assertThat(leases).containsKey(node3.getName());
-
-      Long leaseId1 = leases.get(node1.getName());
-      Long leaseId2 = leases.get(node2.getName());
-      Long leaseId3 = leases.get(node3.getName());
-
-      assertThat(leaseId1).isNotNull();
-      assertThat(leaseId2).isNotNull();
-      assertThat(leaseId3).isNotNull();
+      // Verify shared lease was created
+      long sharedLeaseId = getSharedLeaseId(ephemeralStore);
+      assertThat(sharedLeaseId).isNotEqualTo(-1);
 
       LOG.info("Waiting for several TTL periods to ensure nodes stay alive with refresh");
 
@@ -518,135 +305,25 @@ public class EtcdEphemeralNodeTest {
         assertThat(readerStore.hasSync(node2.getName())).isTrue();
         assertThat(readerStore.hasSync(node3.getName())).isTrue();
 
-        // Verify the lease IDs are still the same (no lease recreation)
-        ConcurrentHashMap<String, Long> updatedLeases = getLeases(ephemeralStore);
-        assertThat(updatedLeases.get(node1.getName())).isEqualTo(leaseId1);
-        assertThat(updatedLeases.get(node2.getName())).isEqualTo(leaseId2);
-        assertThat(updatedLeases.get(node3.getName())).isEqualTo(leaseId3);
+        // Verify the shared lease ID is still the same (no lease recreation)
+        long updatedSharedLeaseId = getSharedLeaseId(ephemeralStore);
+        assertThat(updatedSharedLeaseId).isEqualTo(sharedLeaseId);
       }
     }
 
     // The ephemeral store is now closed, so refresh should stop
-    // Create a reader store and wait for the nodes to expire
+    // But the lease was also explicitly revoked when closing, so no need to wait for natural
+    // expiration
+    // We can still test that the nodes are gone after the store is closed
     Client outerReaderClient = createEtcdClient();
     try (EtcdMetadataStore<TestMetadata> readerStore =
         new EtcdMetadataStore<>(
             STORE_FOLDER, etcdConfig, false, meterRegistry, serializer, outerReaderClient)) {
 
-      // Wait slightly longer than the TTL for all nodes to expire
-      await()
-          .atMost(shortTtl + 2, TimeUnit.SECONDS)
-          .pollInterval(500, TimeUnit.MILLISECONDS)
-          .until(
-              () -> {
-                try {
-                  return !readerStore.hasSync("refresh-node-1")
-                      && !readerStore.hasSync("refresh-node-2")
-                      && !readerStore.hasSync("refresh-node-3");
-                } catch (Exception e) {
-                  return false;
-                }
-              });
-
-      // Final verification - all nodes should be gone after TTL expiration
+      // Final verification - all nodes should be gone after store close
       assertThat(readerStore.hasSync("refresh-node-1")).isFalse();
       assertThat(readerStore.hasSync("refresh-node-2")).isFalse();
       assertThat(readerStore.hasSync("refresh-node-3")).isFalse();
-    }
-  }
-
-  /**
-   * Tests the behavior when lease refresh fails. This test verifies: 1. When lease refresh fails,
-   * ephemeral nodes eventually expire 2. The leases map is properly cleaned up when refresh fails
-   * 3. Nodes can still be explicitly deleted even if lease refresh is failing
-   */
-  @Test
-  public void testLeaseRefreshFailure() throws Exception {
-    // Use a short TTL for faster testing
-    final long shortTtl = 3; // 3 seconds
-
-    // Create our custom store that can simulate lease refresh failures
-    Client failingClient = createEtcdClient();
-    try (FailingLeaseRefreshStore failingStore =
-        new FailingLeaseRefreshStore(
-            STORE_FOLDER,
-            etcdConfig,
-            true,
-            meterRegistry,
-            serializer,
-            EtcdCreateMode.EPHEMERAL,
-            shortTtl,
-            failingClient)) {
-      // Create ephemeral nodes
-      TestMetadata node1 = new TestMetadata("failing-refresh-1", "Node with failing refresh 1");
-      TestMetadata node2 = new TestMetadata("failing-refresh-2", "Node with failing refresh 2");
-      TestMetadata node3 = new TestMetadata("failing-refresh-3", "Node with failing refresh 3");
-
-      failingStore.createSync(node1);
-      failingStore.createSync(node2);
-      failingStore.createSync(node3);
-
-      // Verify nodes were created
-      assertThat(failingStore.hasSync(node1.getName())).isTrue();
-      assertThat(failingStore.hasSync(node2.getName())).isTrue();
-      assertThat(failingStore.hasSync(node3.getName())).isTrue();
-
-      // Get initial lease IDs
-      ConcurrentHashMap<String, Long> initialLeases = getLeases(failingStore);
-      Long leaseId1 = initialLeases.get(node1.getName());
-      Long leaseId2 = initialLeases.get(node2.getName());
-      Long leaseId3 = initialLeases.get(node3.getName());
-
-      assertThat(leaseId1).isNotNull();
-      assertThat(leaseId2).isNotNull();
-      assertThat(leaseId3).isNotNull();
-
-      // Now enable refresh failure simulation
-      failingStore.setShouldFailRefresh(true);
-
-      // Simulate a few refresh failures
-      for (int i = 0; i < 3; i++) {
-        failingStore.simulateLeaseRefreshFailure();
-      }
-
-      // Verify refresh was attempted and failed
-      assertThat(failingStore.getRefreshAttemptCount()).isGreaterThanOrEqualTo(3);
-      assertThat(failingStore.getFailedRefreshCount()).isGreaterThanOrEqualTo(3);
-
-      LOG.info("Waiting for leases to expire after failed refreshes");
-
-      // Wait for the leases to expire (a bit longer than TTL)
-      TimeUnit.SECONDS.sleep(shortTtl + 2);
-
-      // Simulate the lease expiration cleanup - we need to do this manually since
-      // we're simulating the lease refresh failure rather than having real etcd lease expiration
-      List<String> expiredNodes = List.of(node1.getName(), node2.getName(), node3.getName());
-      failingStore.simulateLeaseExpiration(expiredNodes);
-
-      // We've manually removed the nodes from the leases map to simulate expiration
-      // No need to check with a reader store as the actual TTL expiration in etcd
-      // may be inconsistent due to timing issues in tests
-
-      // Leases should already be removed
-
-      // Verify the leases map is cleaned up
-      ConcurrentHashMap<String, Long> updatedLeases = getLeases(failingStore);
-      assertThat(updatedLeases).doesNotContainKey(node1.getName());
-      assertThat(updatedLeases).doesNotContainKey(node2.getName());
-      assertThat(updatedLeases).doesNotContainKey(node3.getName());
-
-      // Now test that we can still create and explicitly delete nodes even with failing refreshes
-      TestMetadata newNode = new TestMetadata("failing-but-deletable", "Can be explicitly deleted");
-      failingStore.createSync(newNode);
-
-      // Verify node was created
-      assertThat(failingStore.hasSync(newNode.getName())).isTrue();
-
-      // Explicitly delete the node
-      failingStore.deleteSync(newNode);
-
-      // Verify node was deleted
-      assertThat(failingStore.hasSync(newNode.getName())).isFalse();
     }
   }
 
@@ -715,16 +392,15 @@ public class EtcdEphemeralNodeTest {
         // Wait for all create futures to complete
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(5, TimeUnit.SECONDS);
 
-        // Verify all leases were created
-        ConcurrentHashMap<String, Long> leases = getLeases(ephemeralStore);
-        assertThat(leases).hasSize(threadCount * nodesPerThread);
+        // Verify the shared lease was created
+        long sharedLeaseId = getSharedLeaseId(ephemeralStore);
+        assertThat(sharedLeaseId).isNotEqualTo(-1);
 
         // Verify all nodes exist
         for (int t = 0; t < threadCount; t++) {
           for (int i = 0; i < nodesPerThread; i++) {
             String nodeName = "concurrent-node-" + t + "-" + i;
             assertThat(ephemeralStore.hasSync(nodeName)).isTrue();
-            assertThat(leases).containsKey(nodeName);
           }
         }
 
@@ -763,8 +439,7 @@ public class EtcdEphemeralNodeTest {
         CompletableFuture.allOf(deleteFutures.toArray(new CompletableFuture[0]))
             .get(5, TimeUnit.SECONDS);
 
-        // Verify deleted nodes are gone and their leases are removed
-        leases = getLeases(ephemeralStore);
+        // Verify deleted nodes are gone
         // Size assertions are flaky due to concurrent operations in different threads
         // Instead, only verify that odd thread nodes still exist and even thread nodes are gone
 
@@ -776,11 +451,9 @@ public class EtcdEphemeralNodeTest {
             if (t % 2 == 0) {
               // Even thread nodes should be deleted
               assertThat(ephemeralStore.hasSync(nodeName)).isFalse();
-              assertThat(leases).doesNotContainKey(nodeName);
             } else {
               // Odd thread nodes should still exist
               assertThat(ephemeralStore.hasSync(nodeName)).isTrue();
-              assertThat(leases).containsKey(nodeName);
             }
           }
         }
@@ -791,6 +464,100 @@ public class EtcdEphemeralNodeTest {
           LOG.warn("Executor service did not terminate cleanly");
         }
       }
+    }
+  }
+
+  /**
+   * Tests the behavior of ephemeral nodes with the shared lease implementation. This test verifies
+   * that multiple ephemeral nodes share a single lease.
+   */
+  @Test
+  public void testEphemeralNodesWithSharedLease() {
+    // Create a new metadata store with EPHEMERAL mode
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEphemeralNodeTtlSeconds(5) // Short TTL for faster testing
+            .build();
+
+    // Create client builder for test
+    ClientBuilder clientBuilder =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream()
+                    .map(Object::toString)
+                    .toArray(String[]::new));
+
+    // Set namespace if provided
+    if (!etcdConfig.getNamespace().isEmpty()) {
+      clientBuilder.namespace(
+          io.etcd.jetcd.ByteSequence.from(etcdConfig.getNamespace(), StandardCharsets.UTF_8));
+    }
+
+    Client ephemeralClient = clientBuilder.build();
+    MeterRegistry testMeterRegistry = new SimpleMeterRegistry();
+
+    try {
+      // Create a store with cache enabled and EPHEMERAL mode
+      EtcdMetadataStore<TestMetadata> ephemeralStore =
+          new EtcdMetadataStore<>(
+              "/ephemeral",
+              etcdConfig,
+              true,
+              testMeterRegistry,
+              serializer,
+              EtcdCreateMode.EPHEMERAL, // Use EPHEMERAL mode
+              ephemeralClient);
+
+      // Create multiple ephemeral nodes
+      TestMetadata node1 = new TestMetadata("ephemeral1", "data1");
+      TestMetadata node2 = new TestMetadata("ephemeral2", "data2");
+      TestMetadata node3 = new TestMetadata("ephemeral3", "data3");
+
+      ephemeralStore.createSync(node1);
+      ephemeralStore.createSync(node2);
+      ephemeralStore.createSync(node3);
+
+      // Verify all nodes exist
+      assertThat(ephemeralStore.hasSync("ephemeral1")).isTrue();
+      assertThat(ephemeralStore.hasSync("ephemeral2")).isTrue();
+      assertThat(ephemeralStore.hasSync("ephemeral3")).isTrue();
+
+      // Close the store (this should revoke the shared lease)
+      ephemeralStore.close();
+
+      // Create a new store to check if nodes are gone
+      EtcdMetadataStore<TestMetadata> checkStore =
+          new EtcdMetadataStore<>(
+              "/ephemeral",
+              etcdConfig,
+              true,
+              testMeterRegistry,
+              serializer,
+              EtcdCreateMode.PERSISTENT, // Use PERSISTENT mode for checking
+              ephemeralClient);
+
+      // Wait for TTL to expire (5 seconds + a bit more)
+      TimeUnit.SECONDS.sleep(8);
+
+      // Verify all nodes are gone
+      assertThat(checkStore.hasSync("ephemeral1")).isFalse();
+      assertThat(checkStore.hasSync("ephemeral2")).isFalse();
+      assertThat(checkStore.hasSync("ephemeral3")).isFalse();
+
+      // Cleanup
+      checkStore.close();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Test interrupted", e);
+    } finally {
+      ephemeralClient.close();
+      testMeterRegistry.close();
     }
   }
 }

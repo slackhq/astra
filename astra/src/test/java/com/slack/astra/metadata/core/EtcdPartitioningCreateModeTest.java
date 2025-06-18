@@ -275,11 +275,9 @@ public class EtcdPartitioningCreateModeTest {
       assertThat(result.getName()).isEqualTo(nodeName);
       assertThat(result.getPartition()).isEqualTo(partition);
       assertThat(result.getData()).isEqualTo("This node should disappear");
-
-      // Close the store, which will stop the lease refresh
     }
 
-    // Wait for the TTL to expire (plus a little extra time)
+    // Wait for the node to be cleared in etcd
     TimeUnit.SECONDS.sleep(shortTtlSeconds + 2);
 
     // Create a new store instance and verify the node no longer exists
@@ -304,18 +302,13 @@ public class EtcdPartitioningCreateModeTest {
             serializer,
             "/test-ephemeral")) {
 
-      // The node should still exist because of lease refresh
-      // In a real system, ephemeral nodes persist until the store is closed or the node is deleted
       boolean existsAfterTTL = newStore.hasSync(partition, nodeName);
-      assertThat(existsAfterTTL).isTrue();
+      assertThat(existsAfterTTL).isFalse();
     }
   }
 
   @Test
   public void testMultiplePartitionsWithEphemeralNodes() throws Exception {
-    // Use a short TTL for faster testing
-    long shortTtlSeconds = 1;
-
     AstraConfigs.EtcdConfig etcdConfig =
         AstraConfigs.EtcdConfig.newBuilder()
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
@@ -369,9 +362,6 @@ public class EtcdPartitioningCreateModeTest {
       // Close the store, which will stop the lease refresh
     }
 
-    // Wait for the TTL to expire (plus a little extra time)
-    TimeUnit.SECONDS.sleep(shortTtlSeconds + 2);
-
     // Create a new store instance and verify the nodes no longer exist
     // Build etcd client
     Client newEtcdClient =
@@ -400,9 +390,9 @@ public class EtcdPartitioningCreateModeTest {
       boolean exists2 = newStore.hasSync("partition2", "ephemeral2");
       boolean exists3 = newStore.hasSync("partition3", "ephemeral3");
 
-      assertThat(exists1).isTrue();
-      assertThat(exists2).isTrue();
-      assertThat(exists3).isTrue();
+      assertThat(exists1).isFalse();
+      assertThat(exists2).isFalse();
+      assertThat(exists3).isFalse();
     }
   }
 
@@ -511,10 +501,8 @@ public class EtcdPartitioningCreateModeTest {
       assertThat(persistentResult).isNotNull();
       assertThat(persistentResult.getData()).isEqualTo("This node should persist");
 
-      // The ephemeral node should still exist because of lease refresh
-      // In a real system, ephemeral nodes persist until the store is closed or the node is deleted
       boolean ephemeralExists = newStore.hasSync(partition, "ephemeral1");
-      assertThat(ephemeralExists).isTrue();
+      assertThat(ephemeralExists).isFalse();
     }
   }
 }
