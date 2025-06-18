@@ -69,7 +69,7 @@ metadataStoreConfig:
     keepaliveTimeoutMs: ${ASTRA_ETCD_KEEPALIVE_TIMEOUT_MS:-3000}
     retryDelayMs: ${ASTRA_ETCD_RETRY_DELAY_MS:-100}
     maxRetries: ${ASTRA_ETCD_MAX_RETRIES:-3}
-    ephemeralNodeTtlSeconds: ${ASTRA_ETCD_EPHEMERAL_NODE_TTL_SECONDS:-60}
+    ephemeralNodeTtlSeconds: ${ASTRA_ETCD_EPHEMERAL_NODE_TTL_SECONDS:-30}
   storeModes:
     DatasetMetadataStore: ${ASTRA_DATASET_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
     SnapshotMetadataStore: ${ASTRA_SNAPSHOT_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}

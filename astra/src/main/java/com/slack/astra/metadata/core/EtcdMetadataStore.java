@@ -18,7 +18,6 @@ import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,8 +53,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
             return t;
           });
 
-  /** Tracks leases used for ephemeral nodes. Maps key name to lease ID. */
-  private final ConcurrentHashMap<String, Long> leases = new ConcurrentHashMap<>();
+  /**
+   * Tracks the initialization of the shared lease. All lease operations must wait for this future
+   * to complete to ensure the lease exists before using it.
+   */
+  private volatile CompletableFuture<Long> sharedLeaseFuture = null;
 
   /** Used for refreshing ephemeral node leases. */
   private final ScheduledExecutorService leaseRefreshExecutor;
@@ -84,6 +86,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
   // Thread reference to the virtual thread used for cache initialization
   private volatile Thread cacheInitThread = null;
+  private volatile Thread leaseInitThread = null;
 
   private final String ASTRA_ETCD_CREATE_CALL = "astra_etcd_create_call";
   private final String ASTRA_ETCD_HAS_CALL = "astra_etcd_has_call";
@@ -94,6 +97,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private final String ASTRA_ETCD_ADDED_LISTENER = "astra_etcd_added_listener";
   private final String ASTRA_ETCD_REMOVED_LISTENER = "astra_etcd_removed_listener";
   private final String ASTRA_ETCD_CACHE_INIT_HANDLER_FIRED = "astra_etcd_cache_init_handler_fired";
+  private final String ASTRA_ETCD_LEASE_REFRESH_HANDLER_FIRED =
+      "astra_etcd_lease_refresh_handler_fired";
 
   private final Counter createCall;
   private final Counter hasCall;
@@ -103,6 +108,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private final Counter updateCall;
   private final Counter addedListener;
   private final Counter removedListener;
+  private final Counter cacheInitHandlerFired;
+  private final Counter leaseRefreshHandlerFired;
 
   /** Constructor that accepts an external etcd client instance with default persistent mode. */
   public EtcdMetadataStore(
@@ -154,6 +161,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.updateCall = this.meterRegistry.counter(ASTRA_ETCD_UPDATE_CALL, "store", store);
     this.addedListener = this.meterRegistry.counter(ASTRA_ETCD_ADDED_LISTENER, "store", store);
     this.removedListener = this.meterRegistry.counter(ASTRA_ETCD_REMOVED_LISTENER, "store", store);
+    this.cacheInitHandlerFired =
+        this.meterRegistry.counter(ASTRA_ETCD_CACHE_INIT_HANDLER_FIRED, "store", store);
+    this.leaseRefreshHandlerFired =
+        this.meterRegistry.counter(ASTRA_ETCD_LEASE_REFRESH_HANDLER_FIRED, "store", store);
 
     if (etcClient == null) {
       throw new IllegalArgumentException("External etcd client must be provided");
@@ -176,15 +187,58 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 return t;
               });
 
-      // Calculate the refresh interval (default to 1/4 of the TTL)
-      long refreshIntervalMs =
-          (long) (ephemeralTtlSeconds * EtcdCreateMode.DEFAULT_REFRESH_INTERVAL_FRACTION * 1000);
+      // Initialize the lease creation future
+      sharedLeaseFuture = new CompletableFuture<>();
 
-      LOG.info("Starting lease refresh thread with interval: {} ms", refreshIntervalMs);
+      // Create the lease in a separate thread to avoid blocking the event loop
+      leaseInitThread =
+          Thread.ofVirtual()
+              .name("etcd-lease-init-" + storeFolder)
+              .start(
+                  () -> {
+                    try {
+                      // Create a single shared lease for all ephemeral nodes
+                      long leaseId =
+                          etcdClient
+                              .getLeaseClient()
+                              .grant(ephemeralTtlSeconds)
+                              .get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                              .getID();
 
-      // Start the refresh task
-      leaseRefreshExecutor.scheduleAtFixedRate(
-          this::refreshAllLeases, refreshIntervalMs, refreshIntervalMs, TimeUnit.MILLISECONDS);
+                      LOG.info(
+                          "Created shared lease {} with TTL {} seconds for all ephemeral nodes",
+                          leaseId,
+                          ephemeralTtlSeconds);
+
+                      // Complete the future with the lease ID
+                      sharedLeaseFuture.complete(leaseId);
+
+                      // Calculate the refresh interval (default to 1/3 of the TTL)
+                      long refreshIntervalMs =
+                          (long)
+                              (ephemeralTtlSeconds
+                                  * EtcdCreateMode.DEFAULT_REFRESH_INTERVAL_FRACTION
+                                  * 1000);
+
+                      LOG.info(
+                          "Starting lease refresh thread with interval: {} ms", refreshIntervalMs);
+
+                      // Start the refresh task
+                      leaseRefreshExecutor.scheduleAtFixedRate(
+                          this::refreshAllLeases,
+                          refreshIntervalMs,
+                          refreshIntervalMs,
+                          TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException e) {
+                      LOG.warn("Interrupted creating lease", e);
+                      // if (!Thread.currentThread().isInterrupted()) {
+                    } catch (Exception e) {
+                      LOG.error("Failed to create shared lease for ephemeral nodes", e);
+                      sharedLeaseFuture.completeExceptionally(e);
+                      new RuntimeHalterImpl().handleFatal(e);
+                    }
+                  });
+
     } else {
       this.leaseRefreshExecutor = null;
     }
@@ -311,40 +365,33 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                             return metadataNode.getName();
                           });
                 } else {
-                  // For ephemeral nodes, create a lease and attach it to the key
-                  return etcdClient
-                      .getLeaseClient()
-                      .grant(ephemeralTtlSeconds)
-                      .thenCompose(
-                          leaseGrantResponse -> {
-                            long leaseId = leaseGrantResponse.getID();
+                  // For ephemeral nodes, wait for the shared lease to be initialized
+                  return sharedLeaseFuture.thenCompose(
+                      leaseId -> {
+                        // Create a put option that associates the key with the shared lease
+                        PutOption putOption = PutOption.builder().withLeaseId(leaseId).build();
 
-                            // Store the lease ID for future refreshes
-                            leases.put(metadataNode.getName(), leaseId);
+                        // Use the shared lease to put the key in etcd
+                        return etcdClient
+                            .getKVClient()
+                            .put(key, value, putOption)
+                            .thenApply(
+                                putResponse -> {
+                                  LOG.debug(
+                                      "Created ephemeral node {} with shared lease ID {}, TTL {} seconds",
+                                      metadataNode.getName(),
+                                      leaseId,
+                                      ephemeralTtlSeconds);
 
-                            // Create a put option that associates the key with the lease
-                            PutOption putOption = PutOption.builder().withLeaseId(leaseId).build();
-
-                            return etcdClient
-                                .getKVClient()
-                                .put(key, value, putOption)
-                                .thenApply(
-                                    putResponse -> {
-                                      LOG.debug(
-                                          "Created ephemeral node {} with lease ID {}, TTL {} seconds",
-                                          metadataNode.getName(),
-                                          leaseId,
-                                          ephemeralTtlSeconds);
-
-                                      // Update cache if enabled
-                                      if (shouldCache) {
-                                        cache.put(metadataNode.getName(), metadataNode);
-                                      }
-                                      // Return just the name (not the full path) to match
-                                      // ZookeeperMetadataStore behavior
-                                      return metadataNode.getName();
-                                    });
-                          });
+                                  // Update cache if enabled
+                                  if (shouldCache) {
+                                    cache.put(metadataNode.getName(), metadataNode);
+                                  }
+                                  // Return just the name (not the full path) to match
+                                  // ZookeeperMetadataStore behavior
+                                  return metadataNode.getName();
+                                });
+                      });
                 }
               });
     } catch (InvalidProtocolBufferException e) {
@@ -578,16 +625,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 cache.remove(path);
               }
 
-              // If this was an ephemeral node, revoke its lease
-              Long leaseId = leases.remove(path);
-              if (leaseId != null) {
-                try {
-                  etcdClient.getLeaseClient().revoke(leaseId);
-                  LOG.debug("Revoked lease {} for deleted node {}", leaseId, path);
-                } catch (Exception e) {
-                  LOG.warn("Failed to revoke lease for node {}: {}", path, e.getMessage());
-                }
-              }
+              // We don't need to take any special action for ephemeral nodes
+              // since we're using a shared lease that will be revoked on close()
             });
   }
 
@@ -929,6 +968,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
       LOG.info("Initialized cache for store {} with {} nodes", storeFolder, cache.size());
       // Successfully initialized the cache
+      this.cacheInitHandlerFired.increment();
       cacheInitialized.countDown();
 
     } catch (InterruptedException e) {
@@ -949,35 +989,32 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // as initialized on success or interruption, not on errors.
   }
 
-  /** Refreshes all leases for ephemeral nodes to prevent them from expiring. */
+  /** Refreshes the shared lease for all ephemeral nodes to prevent them from expiring. */
   private void refreshAllLeases() {
-    if (leases.isEmpty()) {
+    // First check if lease is initialized
+    if (sharedLeaseFuture == null || !sharedLeaseFuture.isDone()) {
+      LOG.debug("Skipping lease refresh - lease not yet initialized");
       return;
     }
 
-    LOG.debug("Refreshing {} leases for ephemeral nodes", leases.size());
+    sharedLeaseFuture.thenAccept(
+        sharedLeaseId -> {
+          LOG.debug("Refreshing shared lease {}", sharedLeaseId);
 
-    // Keep track of leases that failed to refresh so we can remove them
-    List<String> failedLeases = new ArrayList<>();
-
-    for (Map.Entry<String, Long> entry : leases.entrySet()) {
-      String key = entry.getKey();
-      long leaseId = entry.getValue();
-
-      try {
-        // Keep alive once to extend the TTL
-        etcdClient.getLeaseClient().keepAliveOnce(leaseId).get(5, TimeUnit.SECONDS);
-        LOG.trace("Refreshed lease {} for key {}", leaseId, key);
-      } catch (Exception e) {
-        LOG.warn("Failed to refresh lease {} for key {}: {}", leaseId, key, e.getMessage());
-        failedLeases.add(key);
-      }
-    }
-
-    // Remove failed leases from our tracking
-    for (String key : failedLeases) {
-      leases.remove(key);
-    }
+          try {
+            // Keep alive once to extend the TTL
+            etcdClient.getLeaseClient().keepAliveOnce(sharedLeaseId).get(5, TimeUnit.SECONDS);
+            LOG.trace("Successfully refreshed shared lease {}", sharedLeaseId);
+            this.leaseRefreshHandlerFired.increment();
+          } catch (InterruptedException e) {
+            LOG.warn("Interrupted while refreshing shared lease {}", sharedLeaseId, e);
+          } catch (Exception e) {
+            LOG.error("Failed to refresh shared lease {}: {}", sharedLeaseId, e.getMessage());
+            // This is a critical error since it affects all ephemeral nodes
+            // Consider reconnecting or creating a new lease
+            new RuntimeHalterImpl().handleFatal(e);
+          }
+        });
   }
 
   @Override
@@ -987,6 +1024,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     watchers.values().forEach(Watcher::close);
     watchers.clear();
 
+    // Mark cache as initialized to unblock any waiting calls to awaitCacheInitialized
+    if (cacheInitialized.getCount() > 0) {
+      cacheInitialized.countDown();
+    }
+
     // Terminate the cache initialization thread if it's still running
     if (cacheInitThread != null && cacheInitThread.isAlive()) {
       LOG.info("Interrupting cache initialization thread");
@@ -994,9 +1036,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       // No need to wait - virtual threads are cheap to discard
     }
 
-    // Mark cache as initialized to unblock any waiting calls to awaitCacheInitialized
-    if (cacheInitialized.getCount() > 0) {
-      cacheInitialized.countDown();
+    // Terminate the init thread if it's sitll running
+    if (leaseInitThread != null && leaseInitThread.isAlive()) {
+      LOG.info("Interrupting lease initialization thread");
+      leaseInitThread.interrupt();
+      // No need to wait - virtual threads are cheap to discard
     }
 
     // Shut down lease refresh executor if it exists
@@ -1006,6 +1050,23 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         leaseRefreshExecutor.awaitTermination(5, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
+      }
+
+      // Revoke the shared lease if we have one
+      if (sharedLeaseFuture != null
+          && sharedLeaseFuture.isDone()
+          && !sharedLeaseFuture.isCompletedExceptionally()) {
+        sharedLeaseFuture.thenAccept(
+            sharedLeaseId -> {
+              try {
+                LOG.info("Revoking shared lease {}", sharedLeaseId);
+                etcdClient.getLeaseClient().revoke(sharedLeaseId).get(5, TimeUnit.SECONDS);
+              } catch (Exception e) {
+                LOG.warn("Failed to revoke shared lease {}: {}", sharedLeaseId, e.getMessage());
+              } finally {
+                sharedLeaseFuture = null;
+              }
+            });
       }
     }
 

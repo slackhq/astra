@@ -1,6 +1,5 @@
 package com.slack.astra.metadata.core;
 
-import com.google.common.collect.Sets;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
@@ -16,7 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -201,7 +199,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * stored in etcd.
    *
    * <p>This method creates stores internally when they are detected in etcd storing them to the
-   * store map, and removes stores that are in the map that no longer exist in etcd.
+   * store map, and handles partition deletions only when explicitly detected.
    */
   private Watch.Listener buildWatcher() {
     return new Watch.Listener() {
@@ -230,92 +228,65 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               continue;
             }
 
-            // Handle partition creation by creating metadata store if needed
+            // Handle PUT events - create metadata store if needed
             if (event.getEventType() == WatchEvent.EventType.PUT) {
               LOG.debug(
                   "PUT event detected, creating/updating metadata store for partition: {}",
                   partition);
               getOrCreateMetadataStore(partition);
-            } else if (event.getEventType() == WatchEvent.EventType.DELETE) {
+            }
+            // Handle DELETE events
+            else if (event.getEventType() == WatchEvent.EventType.DELETE) {
               LOG.debug("DELETE event detected for key: {}", keyStr);
-              // We rely on the periodic refresh to clean up deleted partitions
+              handlePartitionDeletion(partition);
             }
           } else {
             LOG.debug("Ignoring event for key outside our store folder: {}", keyStr);
           }
         }
-
-        // After processing events, scan for any new or deleted partitions
-        // This ensures we don't miss any changes due to watch timing issues
-        refreshPartitionStores();
       }
 
       /**
-       * Refreshes the partition stores by querying etcd for all current partitions, creating stores
-       * for new ones and removing stores for deleted ones. This ensures cross-JVM consistency when
-       * partitions are added or removed.
+       * Handles deletion of a partition root path by checking if the store is empty and then
+       * removing it if appropriate.
+       *
+       * @param partition The partition identifier that was deleted
        */
-      private void refreshPartitionStores() {
-        LOG.debug("Refreshing partition stores for {}", storeFolder);
+      private void handlePartitionDeletion(String partition) {
+        if (!metadataStoreMap.containsKey(partition)) {
+          LOG.debug("Ignoring deletion of unknown partition: {}", partition);
+          return;
+        }
 
-        etcdClient
-            .getKVClient()
-            .get(
-                ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8),
-                io.etcd.jetcd.options.GetOption.builder().isPrefix(true).build())
-            .thenAcceptAsync(
-                getResponse -> {
-                  // Extract unique partition names from the key paths
-                  Set<String> existingPartitions =
-                      getResponse.getKvs().stream()
-                          .map(
-                              kv -> {
-                                String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
-                                if (keyStr.startsWith(String.format("%s/", storeFolder))) {
-                                  String remaining =
-                                      keyStr.substring(String.format("%s/", storeFolder).length());
-                                  int slashIdx = remaining.indexOf('/');
-                                  return slashIdx > 0
-                                      ? remaining.substring(0, slashIdx)
-                                      : remaining;
-                                }
-                                return null;
-                              })
-                          .filter(Objects::nonNull)
-                          .collect(Collectors.toSet());
+        // Get the store and check if it has any cached items
+        EtcdMetadataStore<T> store = metadataStoreMap.get(partition);
 
-                  // Create metadata stores for any newly discovered partitions
-                  if (partitionFilters.isEmpty()) {
-                    existingPartitions.forEach(
-                        EtcdPartitioningMetadataStore.this::getOrCreateMetadataStore);
-                  } else {
-                    existingPartitions.stream()
-                        .filter(partitionFilters::contains)
-                        .forEach(EtcdPartitioningMetadataStore.this::getOrCreateMetadataStore);
-                  }
-
-                  // Remove metadata stores that exist in memory but no longer exist in etcd
-                  Set<String> partitionsToRemove =
-                      Sets.difference(metadataStoreMap.keySet(), existingPartitions);
-                  partitionsToRemove.forEach(
-                      partition -> {
-                        int cachedSize = metadataStoreMap.get(partition).listSync().size();
-                        if (cachedSize == 0) {
-                          LOG.debug("Closing unused store for partition - {}", partition);
-                          EtcdMetadataStore<T> store = metadataStoreMap.remove(partition);
-                          store.close();
-                        } else {
-                          // This extra check is to prevent a race condition where multiple items
-                          // are being quickly added. This can result in a scenario where the
-                          // watcher is triggered, but we haven't persisted the items to etcd yet.
-                          // When this happens it results in a premature close of the local cache.
-                          LOG.warn(
-                              "Skipping metadata store close for partition {}, still has {} cached elements",
-                              partition,
-                              cachedSize);
-                        }
-                      });
-                });
+        try {
+          store
+              .listAsync()
+              .thenAccept(
+                  (items) -> {
+                    if (items.isEmpty()) {
+                      LOG.info("Closing unused store for deleted partition: {}", partition);
+                      metadataStoreMap.remove(partition);
+                      store.close();
+                    } else {
+                      // This could indicate a race condition where we have items in memory
+                      // that haven't been persisted to etcd yet, or the deletion was partial
+                      LOG.warn(
+                          "Detected deletion event on partition {}, but store still has {} cached elements. Keeping store active.",
+                          partition,
+                          items.size());
+                    }
+                  });
+        } catch (Exception e) {
+          // Safeguard against failures that could leave the store in a broken state
+          LOG.error("Error checking partition store for deletion: {}", partition, e);
+          // If we fail to check the store, it's likely in a bad state, so close it
+          // This may be aggressive but prevents resource leaks
+          metadataStoreMap.remove(partition);
+          store.close();
+        }
       }
 
       @Override
@@ -545,15 +516,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     }
   }
 
-  /**
-   * Gets or creates a metadata store for a partition. If the partition exists in the store map, the
-   * existing instance is returned. If not, a new instance is created and stored in the map.
-   *
-   * @param partition The partition identifier
-   * @return The metadata store for the specified partition
-   * @throws InternalMetadataStoreException if partition filters are used and the partition is not
-   *     in the filter list
-   */
   /**
    * Gets or creates a metadata store for a partition. If the partition exists in the store map, the
    * existing instance is returned. If not, a new instance is created and stored in the map.
