@@ -82,11 +82,11 @@ public class SearchMetadataStoreTest {
 
   @Test
   public void testSearchMetadataPartitioning() {
-    SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot1", "http");
-    assertThat(searchMetadata.getPartition()).isEqualTo("snapshot1");
+    SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot1", "test-url1");
+    assertThat(searchMetadata.getPartition()).isEqualTo("test-url1");
 
-    SearchMetadata anotherMetadata = new SearchMetadata("test2", "snapshot2", "http");
-    assertThat(anotherMetadata.getPartition()).isEqualTo("snapshot2");
+    SearchMetadata anotherMetadata = new SearchMetadata("test2", "snapshot2", "test-url2");
+    assertThat(anotherMetadata.getPartition()).isEqualTo("test-url2");
 
     assertThat(searchMetadata).isInstanceOf(AstraPartitionedMetadata.class);
   }
