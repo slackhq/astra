@@ -90,7 +90,8 @@ public class SearchMetadata extends AstraPartitionedMetadata {
 
   @Override
   public String getPartition() {
-    // Use the node url as a stable partition identifier
-    return url;
+    // strip the beginning of the url
+    Integer index = url.lastIndexOf("/");
+    return url.substring(index + 1);
   }
 }
