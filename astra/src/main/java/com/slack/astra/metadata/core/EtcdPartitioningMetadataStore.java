@@ -1,5 +1,8 @@
 package com.slack.astra.metadata.core;
 
+import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
@@ -20,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -46,6 +51,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(EtcdPartitioningMetadataStore.class);
   private final Map<String, EtcdMetadataStore<T>> metadataStoreMap = new ConcurrentHashMap<>();
+  private final ExecutorService executorService;
   // Listeners are managed through the listenerMap instead of a list
 
   protected final String storeFolder;
@@ -106,6 +112,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     this.partitionFilters = partitionFilters;
     this.etcdConfig = etcdConfig;
     this.meterRegistry = meterRegistry;
+    this.executorService =
+        Executors.newSingleThreadExecutor(
+            new ThreadFactoryBuilder()
+                .setNameFormat("etcd-watcher-" + storeFolder + "-%d")
+                .build());
 
     Watch.Listener watcher = buildWatcher();
 
@@ -123,7 +134,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     etcdClient
         .getKVClient()
         .get(storeFolderKey, GetOption.builder().isPrefix(true).build())
-        .thenCompose(
+        .thenComposeAsync(
             getResponse -> {
               if (getResponse.getKvs().isEmpty()) {
                 // This is similar to KeeperException.NoNodeException in ZK
@@ -136,7 +147,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 return etcdClient
                     .getKVClient()
                     .get(prefix, GetOption.builder().isPrefix(true).build())
-                    .thenApply(
+                    .thenApplyAsync(
                         childResponse -> {
                           List<String> children = new ArrayList<>();
                           childResponse
@@ -166,7 +177,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                         });
               }
             })
-        .thenAccept(
+        .thenAcceptAsync(
             (children) -> {
               if (partitionFilters.isEmpty()) {
                 children.forEach(this::getOrCreateMetadataStore);
@@ -205,44 +216,49 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     return new Watch.Listener() {
       @Override
       public void onNext(WatchResponse watchResponse) {
-        LOG.debug(
-            "Watch event received: {} events for store {}",
-            watchResponse.getEvents().size(),
-            storeFolder);
+        if (!executorService.isShutdown()) {
+          executorService.submit(
+              () -> {
+                LOG.debug(
+                    "Watch event received: {} events for store {}",
+                    watchResponse.getEvents().size(),
+                    storeFolder);
 
-        // Check for any creation or deletion of partition directories
-        for (WatchEvent event : watchResponse.getEvents()) {
-          String keyStr = event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
-          LOG.debug("Processing watch event: {} for key: {}", event.getEventType(), keyStr);
+                // Check for any creation or deletion of partition directories
+                for (WatchEvent event : watchResponse.getEvents()) {
+                  String keyStr = event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
+                  LOG.debug("Processing watch event: {} for key: {}", event.getEventType(), keyStr);
 
-          // Only process events relevant to our partitions
-          if (keyStr.startsWith(String.format("%s/", storeFolder))) {
-            // This is a change to a partition or its content
-            String remaining = keyStr.substring(String.format("%s/", storeFolder).length());
-            int slashIdx = remaining.indexOf('/');
-            String partition = slashIdx > 0 ? remaining.substring(0, slashIdx) : remaining;
-            LOG.debug("Identified partition '{}' from key: {}", partition, keyStr);
+                  // Only process events relevant to our partitions
+                  if (keyStr.startsWith(String.format("%s/", storeFolder))) {
+                    // This is a change to a partition or its content
+                    String remaining = keyStr.substring(String.format("%s/", storeFolder).length());
+                    int slashIdx = remaining.indexOf('/');
+                    String partition = slashIdx > 0 ? remaining.substring(0, slashIdx) : remaining;
+                    LOG.debug("Identified partition '{}' from key: {}", partition, keyStr);
 
-            // If we have partition filters, skip partitions not in our filter
-            if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
-              continue;
-            }
+                    // If we have partition filters, skip partitions not in our filter
+                    if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
+                      continue;
+                    }
 
-            // Handle PUT events - create metadata store if needed
-            if (event.getEventType() == WatchEvent.EventType.PUT) {
-              LOG.debug(
-                  "PUT event detected, creating/updating metadata store for partition: {}",
-                  partition);
-              getOrCreateMetadataStore(partition);
-            }
-            // Handle DELETE events
-            else if (event.getEventType() == WatchEvent.EventType.DELETE) {
-              LOG.debug("DELETE event detected for key: {}", keyStr);
-              handlePartitionDeletion(partition);
-            }
-          } else {
-            LOG.debug("Ignoring event for key outside our store folder: {}", keyStr);
-          }
+                    // Handle PUT events - create metadata store if needed
+                    if (event.getEventType() == WatchEvent.EventType.PUT) {
+                      LOG.debug(
+                          "PUT event detected, creating/updating metadata store for partition: {}",
+                          partition);
+                      getOrCreateMetadataStore(partition);
+                    }
+                    // Handle DELETE events
+                    else if (event.getEventType() == WatchEvent.EventType.DELETE) {
+                      LOG.debug("DELETE event detected for key: {}", keyStr);
+                      handlePartitionDeletion(partition);
+                    }
+                  } else {
+                    LOG.debug("Ignoring event for key outside our store folder: {}", keyStr);
+                  }
+                }
+              });
         }
       }
 
@@ -264,7 +280,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         try {
           store
               .listAsync()
-              .thenAccept(
+              .thenAcceptAsync(
                   (items) -> {
                     if (items.isEmpty()) {
                       LOG.info("Closing unused store for deleted partition: {}", partition);
@@ -630,10 +646,17 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         listenerMap.size(),
         metadataStoreMap.size());
 
-    // All watchers are automatically closed when the client is closed
-
     // Remove all listeners and close all stores
     new ArrayList<>(listenerMap.values()).forEach(this::removeListener);
+
+    // All watchers are automatically closed when the client is closed
+    executorService.shutdownNow();
+    try {
+      executorService.awaitTermination(DEFAULT_START_STOP_DURATION.toSeconds(), TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      LOG.warn("Interrupted while waiting for close", e);
+    }
+
     metadataStoreMap.forEach((ignored, store) -> store.close());
 
     // Clear the maps

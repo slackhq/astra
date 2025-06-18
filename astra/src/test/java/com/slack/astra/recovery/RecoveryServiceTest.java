@@ -197,6 +197,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -283,6 +285,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -370,6 +374,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -418,6 +424,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(1);
+
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -503,6 +511,10 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+
+    recoveryTaskMetadataStore.close();
+    recoveryNodeMetadataStore.close();
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -601,6 +613,10 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(1);
+
+    recoveryTaskMetadataStore.close();
+    recoveryNodeMetadataStore.close();
+    snapshotMetadataStore.close();
   }
 
   @Test
@@ -747,6 +763,9 @@ public class RecoveryServiceTest {
                 .get(0)
                 .recoveryNodeState)
         .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+
+    recoveryTaskMetadataStore.close();
+    recoveryNodeMetadataStore.close();
   }
 
   // returns startOffset or endOffset based on the supplied OffsetSpec

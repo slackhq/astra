@@ -188,6 +188,7 @@ public class RecoveryService extends AbstractIdleService {
     LOG.info("Closing the recovery service");
 
     recoveryNodeListenerMetadataStore.removeListener(recoveryNodeListener);
+    recoveryNodeListenerMetadataStore.close();
 
     recoveryNodeMetadataStore.close();
     recoveryTaskMetadataStore.close();

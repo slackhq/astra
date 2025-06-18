@@ -581,7 +581,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         handleChunkEviction(cacheSlotMetadata);
       }
       cacheSlotMetadataStore.removeListener(cacheSlotListener);
-      cacheSlotMetadataStore.close();
       LOG.debug("Closed chunk");
     }
   }
