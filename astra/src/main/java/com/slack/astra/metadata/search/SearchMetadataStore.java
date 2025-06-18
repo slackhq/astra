@@ -73,6 +73,17 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
   }
 
   @Override
+  public SearchMetadata getSync(String partition, String path) {
+    try {
+      LOG.info("GOT search metadata");
+      return super.getSync(partition, path);
+    } catch (Exception e) {
+      LOG.error("Error getting search metadata", e);
+      return legacyStore.getSync(path);
+    }
+  }
+
+  @Override
   public void deleteSync(SearchMetadata metadataNode) {
     try {
       super.deleteSync(metadataNode);

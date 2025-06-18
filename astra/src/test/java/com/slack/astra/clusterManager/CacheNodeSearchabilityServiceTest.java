@@ -175,7 +175,7 @@ public class CacheNodeSearchabilityServiceTest {
             1,
             Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE));
     searchMetadataStore.createSync(
-        new SearchMetadata("test-name", "snapshot-id", "test-url:testhostname", false));
+        new SearchMetadata("test-name", "snapshot-id", "test-url", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
             meterRegistry,
@@ -187,7 +187,7 @@ public class CacheNodeSearchabilityServiceTest {
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name");
+    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name", "test-url");
     assertThat(cacheNodeMetadata.searchable).isTrue();
     assertThat(searchMetadata.isSearchable()).isTrue();
   }
@@ -218,7 +218,7 @@ public class CacheNodeSearchabilityServiceTest {
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name");
+    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name", "test-url");
     assertThat(cacheNodeMetadata.searchable).isFalse();
     assertThat(searchMetadata.isSearchable()).isFalse();
   }
@@ -250,7 +250,7 @@ public class CacheNodeSearchabilityServiceTest {
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name");
+    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name", "test-url");
     assertThat(cacheNodeMetadata.searchable).isFalse();
     assertThat(searchMetadata.isSearchable()).isFalse();
   }
