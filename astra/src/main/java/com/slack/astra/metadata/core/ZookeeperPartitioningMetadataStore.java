@@ -370,20 +370,6 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
     throw new InternalMetadataStoreException("Error finding node at path " + path);
   }
 
-  /**
-   * Checks if this store contains a metadata store for the specified partition.
-   *
-   * @param partition The partition identifier to check
-   * @return true if the partition exists in this store, false otherwise
-   */
-  public boolean hasPartition(String partition) {
-    // First check if partition filter allows this partition
-    if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
-      return false;
-    }
-    return metadataStoreMap.containsKey(partition);
-  }
-
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
     // add this watcher to the list for new stores to add
     listeners.add(watcher);

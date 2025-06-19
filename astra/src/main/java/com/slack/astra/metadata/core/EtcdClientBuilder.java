@@ -7,7 +7,6 @@ import com.slack.astra.proto.config.AstraConfigs.EtcdConfig;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.ClientBuilder;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.slf4j.Logger;
@@ -20,11 +19,10 @@ public class EtcdClientBuilder {
   /**
    * Builds and returns an etcd client based on the provided configuration.
    *
-   * @param meterRegistry The metrics registry
    * @param etcdConfig The etcd configuration
    * @return A configured etcd client
    */
-  public static Client build(MeterRegistry meterRegistry, EtcdConfig etcdConfig) {
+  public static Client build(EtcdConfig etcdConfig) {
     ensureTrue(etcdConfig.getEnabled(), "Etcd must be enabled to build a client");
     ensureTrue(
         !etcdConfig.getEndpointsList().isEmpty(), "At least one etcd endpoint must be provided");

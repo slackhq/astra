@@ -270,7 +270,7 @@ public class EtcdPartitioningMetadataStoreTest {
       firstNodeExists = true;
     } catch (RuntimeException e) {
       // Expected exception
-      assertThat(e.getMessage()).contains("Error fetching node");
+      assertThat(e.getMessage()).contains("Node not found");
     }
     assertThat(firstNodeExists).isFalse();
 
@@ -288,7 +288,7 @@ public class EtcdPartitioningMetadataStoreTest {
       secondNodeExists = true;
     } catch (RuntimeException e) {
       // Expected exception
-      assertThat(e.getMessage()).contains("Error fetching node");
+      assertThat(e.getMessage()).contains("Node not found");
     }
     assertThat(secondNodeExists).isFalse();
   }

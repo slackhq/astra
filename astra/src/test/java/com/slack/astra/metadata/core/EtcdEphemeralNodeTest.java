@@ -212,31 +212,17 @@ public class EtcdEphemeralNodeTest {
    * @throws Exception If reflection fails
    */
   private long getSharedLeaseId(EtcdMetadataStore<TestMetadata> store) throws Exception {
-    // Get the sharedLeaseFuture field via reflection
-    Field sharedLeaseFutureField = null;
-
+    // Get the sharedLeaseId field via reflection
     try {
       // Try to get the field - this needs to match the exact field name in EtcdMetadataStore
-      sharedLeaseFutureField = EtcdMetadataStore.class.getDeclaredField("sharedLeaseFuture");
-      sharedLeaseFutureField.setAccessible(true);
+      Field sharedLeaseIdField = EtcdMetadataStore.class.getDeclaredField("sharedLeaseId");
+      sharedLeaseIdField.setAccessible(true);
 
-      // Get the CompletableFuture<Long> instance
-      @SuppressWarnings("unchecked")
-      CompletableFuture<Long> sharedLeaseFuture =
-          (CompletableFuture<Long>) sharedLeaseFutureField.get(store);
-
-      // If the future is null or not completed, return -1 to indicate no lease
-      if (sharedLeaseFuture == null
-          || !sharedLeaseFuture.isDone()
-          || sharedLeaseFuture.isCompletedExceptionally()) {
-        return -1;
-      }
-
-      // Get the lease ID from the completed future
-      return sharedLeaseFuture.get(5, TimeUnit.SECONDS);
+      // Get the volatile long value directly and return it
+      return (long) sharedLeaseIdField.get(store);
     } catch (NoSuchFieldException e) {
       LOG.warn(
-          "Could not find sharedLeaseFuture field in EtcdMetadataStore. Interface may have changed.");
+          "Could not find sharedLeaseId field in EtcdMetadataStore. Interface may have changed.");
       return -1;
     } catch (Exception e) {
       LOG.warn("Error retrieving shared lease ID", e);

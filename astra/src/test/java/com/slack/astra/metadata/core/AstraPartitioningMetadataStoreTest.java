@@ -534,13 +534,9 @@ public class AstraPartitioningMetadataStoreTest {
             store.getAsync(partition, nonExistentNodeName).toCompletableFuture().get();
             // If we got here, the get didn't throw an exception as expected
             assertThat(false).isTrue(); // This will fail the test
-          } catch (ExecutionException e) {
+          } catch (InternalMetadataStoreException | ExecutionException e) {
             // Expected behavior - the node doesn't exist
-            LOG.info("Got expected exception for getAsync: {}", e.getCause().getClass().getName());
-            // ZK may throw NoNodeException which is wrapped in InternalMetadataStoreException by
-            // etcd
-            // So we just check that some exception was thrown
-            assertThat(e.getCause()).isNotNull();
+            LOG.info("Got expected exception for getAsync: {}", e.getClass().getName());
           }
 
           try {

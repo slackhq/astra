@@ -136,9 +136,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *           exist or another error occurs
    *       <li>EtcdMetadataStore: throws InternalMetadataStoreException if the node doesn't exist or
    *           another error occurs
-   *       <li>In mixed modes, if the node is not found in the primary store, it will try the
-   *           secondary store before throwing an exception. This provides transparent fallback
-   *           reading during migration.
    *     </ul>
    */
   public CompletionStage<T> getAsync(String path) {
@@ -157,15 +154,15 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
                           return etcdStore.getSync(path);
                         } catch (Exception e) {
                           // If it also fails in Etcd, throw the original exception
-                          throw (RuntimeException) throwable;
+                          throw new RuntimeException(e);
                         }
                       } else {
                         // For other types of errors, rethrow
-                        throw (RuntimeException) throwable;
+                        throw new RuntimeException(throwable);
                       }
                     } else {
                       // No etcd store, rethrow the original exception
-                      throw (RuntimeException) throwable;
+                      throw new RuntimeException(throwable);
                     }
                   });
       case ETCD_CREATES ->
@@ -182,15 +179,15 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
                           return zkStore.getSync(path);
                         } catch (Exception e) {
                           // If it also fails in ZK, throw the original exception
-                          throw (RuntimeException) throwable;
+                          throw new RuntimeException(e);
                         }
                       } else {
                         // For other types of errors, rethrow
-                        throw (RuntimeException) throwable;
+                        throw new RuntimeException(throwable);
                       }
                     } else {
                       // No ZK store, rethrow the original exception
-                      throw (RuntimeException) throwable;
+                      throw new RuntimeException(throwable);
                     }
                   });
       default -> throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
@@ -207,8 +204,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     another error occurs
    * @throws InternalMetadataStoreException from EtcdMetadataStore if the node doesn't exist or
    *     another error occurs
-   * @throws InternalMetadataStoreException from ZookeeperMetadataStore in mixed modes when the node
-   *     is not found in either store after attempted fallback reads
    */
   public T getSync(String path) {
     switch (mode) {
@@ -250,9 +245,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *
    * @param path the path to check
    * @return a CompletionStage that completes with true if the node exists, false otherwise. In
-   *     exclusive modes, the result is based on just the active store. In mixed modes, returns true
-   *     if the node exists in either store, enabling transparent fallback reading during
-   *     migrations.
+   *     exclusive modes, the result is based on just the active store.
    *     <p>NOTE: Unlike getAsync(), this method does not throw exceptions if the node doesn't
    *     exist. It's designed to safely check existence and handle the case where the node is not
    *     found.
@@ -299,8 +292,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * Checks if a node exists synchronously.
    *
    * @param path the path to check
-   * @return true if the node exists, false otherwise. In mixed modes, returns true if the node
-   *     exists in either store, enabling transparent fallback reading during migrations.
+   * @return true if the node exists, false otherwise.
    * @throws IllegalArgumentException if the metadata store mode is invalid
    * @throws RuntimeException from ZookeeperMetadataStore or EtcdMetadataStore if a connection error
    *     or other unrecoverable error occurs. Note that the node not existing is NOT treated as an
@@ -346,13 +338,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *       <li>ZookeeperMetadataStore: returns the ZooKeeper version as a String
    *       <li>EtcdMetadataStore: returns the node name
    *     </ul>
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>BOTH_READ_ZOOKEEPER_WRITE: Deletes from Etcd and creates/updates in ZooKeeper
-   *       <li>BOTH_READ_ETCD_WRITE: Deletes from ZooKeeper and creates/updates in Etcd
-   *     </ul>
-   *     <p>This ensures that during migration, data is smoothly transitioned to the new primary
-   *     store while maintaining consistency.
+   *
    * @throws IllegalArgumentException if the metadata store mode is invalid
    */
   public CompletionStage<String> updateAsync(T metadataNode) {
@@ -395,13 +381,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws InternalMetadataStoreException from ZookeeperMetadataStore if the node doesn't exist or
    *     another error occurs
    * @throws RuntimeException from EtcdMetadataStore if serialization fails or another error occurs
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>BOTH_READ_ZOOKEEPER_WRITE: Deletes from Etcd and creates/updates in ZooKeeper
-   *       <li>BOTH_READ_ETCD_WRITE: Deletes from ZooKeeper and creates/updates in Etcd
-   *     </ul>
-   *     <p>This ensures that during migration, data is smoothly transitioned to the new primary
-   *     store while maintaining consistency.
    */
   public void updateSync(T metadataNode) {
     switch (mode) {
@@ -415,7 +394,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
             etcdStore.updateSync(metadataNode);
           }
         } catch (Exception ex) {
-          throw (RuntimeException) ex;
+          throw new RuntimeException(ex);
         }
         break;
       case ETCD_CREATES:
@@ -428,7 +407,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
             zkStore.updateSync(metadataNode);
           }
         } catch (Exception ex) {
-          throw (RuntimeException) ex;
+          throw new RuntimeException(ex);
         }
         break;
       default:
@@ -442,61 +421,77 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param path the path to delete
    * @return a CompletionStage that completes when the operation is done. In case of failure, the
    *     CompletionStage will complete exceptionally.
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>BOTH_READ_ZOOKEEPER_WRITE: Deletes from ZooKeeper (primary) and also tries to delete
-   *           from Etcd (secondary)
-   *       <li>BOTH_READ_ETCD_WRITE: Deletes from Etcd (primary) and also tries to delete from
-   *           ZooKeeper (secondary)
-   *     </ul>
-   *     <p>This ensures that during migration, data remains consistent across both stores.
-   *     <p>Note: In mixed modes, if deletion from the secondary store fails, the failure is ignored
-   *     to prevent cascading failures. The CompletionStage will still complete successfully as long
-   *     as the primary deletion succeeds.
+   * @throws IllegalStateException if the node does not exist in either store
    */
   public CompletionStage<Void> deleteAsync(String path) {
-    switch (mode) {
-      case ZOOKEEPER_CREATES:
-        // Delete from both ZK and Etcd
-        CompletionStage<Void> zkResult =
-            zkStore
-                .deleteAsync(path)
-                .exceptionally(
-                    ex -> {
-                      throw (ex instanceof RuntimeException)
-                          ? (RuntimeException) ex
-                          : new InternalMetadataStoreException(
-                              "Error deleting node at path: " + path, ex);
-                    });
+    return hasAsync(path)
+        .thenCompose(
+            exists -> {
+              if (!exists) {
+                CompletableFuture<Void> future = new CompletableFuture<>();
+                future.completeExceptionally(
+                    new IllegalStateException("Node does not exist in either store: " + path));
+                return future;
+              }
 
-        try {
-          etcdStore.deleteAsync(path); // don't await this operation
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
-        }
-        return zkResult;
-      case ETCD_CREATES:
-        // Delete from both Etcd and ZK
-        CompletionStage<Void> etcdResult =
-            etcdStore
-                .deleteAsync(path)
-                .exceptionally(
-                    ex -> {
-                      throw (ex instanceof RuntimeException)
-                          ? (RuntimeException) ex
-                          : new InternalMetadataStoreException(
-                              "Error deleting node at path: " + path, ex);
-                    });
+              // We know it exists in at least one store, now check both
+              CompletableFuture<Boolean> zkExistsFuture =
+                  zkStore != null
+                      ? zkStore.hasAsync(path).toCompletableFuture()
+                      : CompletableFuture.completedFuture(false);
 
-        try {
-          zkStore.deleteAsync(path); // don't await this operation
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
-        }
-        return etcdResult;
-      default:
-        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
-    }
+              CompletableFuture<Boolean> etcdExistsFuture =
+                  etcdStore != null
+                      ? etcdStore.hasAsync(path).toCompletableFuture()
+                      : CompletableFuture.completedFuture(false);
+
+              return CompletableFuture.allOf(zkExistsFuture, etcdExistsFuture)
+                  .thenCompose(
+                      unused -> {
+                        boolean existsInZk = zkExistsFuture.join();
+                        boolean existsInEtcd = etcdExistsFuture.join();
+
+                        // Handle case where node exists in both stores
+                        if (existsInZk && existsInEtcd) {
+                          LOG.warn(
+                              "Node exists in both ZK and Etcd stores, which should never happen: {}",
+                              path);
+                          // Delete from both stores based on current mode
+                          if (mode == MetadataStoreMode.ZOOKEEPER_CREATES) {
+                            CompletionStage<Void> zkResult = zkStore.deleteAsync(path);
+                            // Also delete from Etcd but don't wait for it
+                            if (etcdStore != null) {
+                              try {
+                                etcdStore.deleteAsync(path);
+                              } catch (Exception e) {
+                                LOG.warn(
+                                    "Failed to delete node from secondary Etcd store: {}", path, e);
+                              }
+                            }
+                            return zkResult;
+                          } else { // ETCD_CREATES
+                            CompletionStage<Void> etcdResult = etcdStore.deleteAsync(path);
+                            // Also delete from ZK but don't wait for it
+                            if (zkStore != null) {
+                              try {
+                                zkStore.deleteAsync(path);
+                              } catch (Exception e) {
+                                LOG.warn(
+                                    "Failed to delete node from secondary ZK store: {}", path, e);
+                              }
+                            }
+                            return etcdResult;
+                          }
+                        }
+
+                        // Handle case where node exists in only one store
+                        if (existsInZk) {
+                          return zkStore.deleteAsync(path);
+                        } else { // existsInEtcd
+                          return etcdStore.deleteAsync(path);
+                        }
+                      });
+            });
   }
 
   /**
@@ -504,55 +499,46 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *
    * @param path the path to delete
    * @throws IllegalArgumentException if the metadata store mode is invalid
-   * @throws InternalMetadataStoreException from ZookeeperMetadataStore if another error occurs (not
-   *     finding the node to delete is NOT considered an error)
-   * @throws InternalMetadataStoreException from EtcdMetadataStore if another error occurs (not
-   *     finding the node to delete is NOT considered an error)
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>BOTH_READ_ZOOKEEPER_WRITE: Deletes from ZooKeeper (primary) and also tries to delete
-   *           from Etcd (secondary)
-   *       <li>BOTH_READ_ETCD_WRITE: Deletes from Etcd (primary) and also tries to delete from
-   *           ZooKeeper (secondary)
-   *     </ul>
-   *     <p>This ensures that during migration, data remains consistent across both stores.
-   *     <p>Note: In mixed modes, if deletion from the secondary store fails, the failure is ignored
-   *     to prevent cascading failures.
+   * @throws InternalMetadataStoreException from ZookeeperMetadataStore or EtcdMetadataStore if
+   *     another error occurs
+   * @throws IllegalStateException if the node does not exist in either store
    */
   public void deleteSync(String path) {
-    switch (mode) {
-      case ZOOKEEPER_CREATES:
+    boolean existsInZk = zkStore != null && zkStore.hasSync(path);
+    boolean existsInEtcd = etcdStore != null && etcdStore.hasSync(path);
+
+    // Check if node exists in either store
+    if (!existsInZk && !existsInEtcd) {
+      throw new IllegalStateException("Node does not exist in either store: " + path);
+    }
+
+    // Handle case where node exists in both stores
+    if (existsInZk && existsInEtcd) {
+      LOG.warn("Node exists in both ZK and Etcd stores, which should never happen: {}", path);
+      // Delete from both stores based on current mode
+      if (mode == MetadataStoreMode.ZOOKEEPER_CREATES) {
+        zkStore.deleteSync(path); // Primary store - let exceptions bubble up
         try {
-          zkStore.deleteSync(path);
-        } catch (InternalMetadataStoreException e) {
-          // Ignore if the node doesn't exist - it might be referencing a never-created node
-          // or a node that was already deleted by a concurrent operation
-          LOG.debug("Ignoring exception when deleting path {}: {}", path, e.getMessage());
+          etcdStore.deleteSync(path); // Secondary store
+        } catch (Exception e) {
+          LOG.warn("Failed to delete node from secondary Etcd store: {}", path, e);
         }
-        // Also try to delete from Etcd
+      } else { // ETCD_CREATES
+        etcdStore.deleteSync(path); // Primary store - let exceptions bubble up
         try {
-          etcdStore.deleteSync(path);
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
+          zkStore.deleteSync(path); // Secondary store
+        } catch (Exception e) {
+          LOG.warn("Failed to delete node from secondary ZK store: {}", path, e);
         }
-        break;
-      case ETCD_CREATES:
-        try {
-          etcdStore.deleteSync(path);
-        } catch (InternalMetadataStoreException e) {
-          // Ignore if the node doesn't exist - it might be referencing a never-created node
-          // or a node that was already deleted by a concurrent operation
-          LOG.debug("Ignoring exception when deleting path {}: {}", path, e.getMessage());
-        }
-        // Also try to delete from ZK
-        try {
-          zkStore.deleteSync(path);
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
-        }
-        break;
-      default:
-        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+      }
+      return;
+    }
+
+    // Handle case where node exists in only one store
+    if (existsInZk) {
+      zkStore.deleteSync(path); // Let exceptions bubble up
+    } else { // existsInEtcd
+      etcdStore.deleteSync(path); // Let exceptions bubble up
     }
   }
 
@@ -562,59 +548,78 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param metadataNode the node to delete
    * @return a CompletionStage that completes when the operation is done. In case of failure, the
    *     CompletionStage will complete exceptionally.
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>BOTH_READ_ZOOKEEPER_WRITE: Deletes from ZooKeeper (primary) and also tries to delete
-   *           from Etcd (secondary)
-   *       <li>BOTH_READ_ETCD_WRITE: Deletes from Etcd (primary) and also tries to delete from
-   *           ZooKeeper (secondary)
-   *     </ul>
-   *     <p>This ensures that during migration, data remains consistent across both stores.
-   *     <p>Note: In mixed modes, if deletion from the secondary store fails, the failure is ignored
-   *     to prevent cascading failures. The CompletionStage will still complete successfully as long
-   *     as the primary deletion succeeds.
+   * @throws IllegalStateException if the node does not exist in either store
    */
   public CompletionStage<Void> deleteAsync(T metadataNode) {
-    switch (mode) {
-      case ZOOKEEPER_CREATES:
-        // Delete from ZK primarily and also try to delete from Etcd
-        CompletionStage<Void> zkDeleteResult =
-            zkStore
-                .deleteAsync(metadataNode)
-                .exceptionally(
-                    ex -> {
-                      throw (ex instanceof RuntimeException)
-                          ? (RuntimeException) ex
-                          : new InternalMetadataStoreException(
-                              "Error deleting node: " + metadataNode.name, ex);
-                    });
-        try {
-          etcdStore.deleteAsync(metadataNode); // don't await this operation
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
-        }
-        return zkDeleteResult;
-      case ETCD_CREATES:
-        // Delete from Etcd primarily and also try to delete from ZK
-        CompletionStage<Void> etcdDeleteResult =
-            etcdStore
-                .deleteAsync(metadataNode)
-                .exceptionally(
-                    ex -> {
-                      throw (ex instanceof RuntimeException)
-                          ? (RuntimeException) ex
-                          : new InternalMetadataStoreException(
-                              "Error deleting node: " + metadataNode.name, ex);
-                    });
-        try {
-          zkStore.deleteAsync(metadataNode); // don't await this operation
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
-        }
-        return etcdDeleteResult;
-      default:
-        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
-    }
+    String path = metadataNode.getName();
+    return hasAsync(path)
+        .thenCompose(
+            exists -> {
+              if (!exists) {
+                CompletableFuture<Void> future = new CompletableFuture<>();
+                future.completeExceptionally(
+                    new IllegalStateException("Node does not exist in either store: " + path));
+                return future;
+              }
+
+              // We know it exists in at least one store, now check both
+              CompletableFuture<Boolean> zkExistsFuture =
+                  zkStore != null
+                      ? zkStore.hasAsync(path).toCompletableFuture()
+                      : CompletableFuture.completedFuture(false);
+
+              CompletableFuture<Boolean> etcdExistsFuture =
+                  etcdStore != null
+                      ? etcdStore.hasAsync(path).toCompletableFuture()
+                      : CompletableFuture.completedFuture(false);
+
+              return CompletableFuture.allOf(zkExistsFuture, etcdExistsFuture)
+                  .thenCompose(
+                      unused -> {
+                        boolean existsInZk = zkExistsFuture.join();
+                        boolean existsInEtcd = etcdExistsFuture.join();
+
+                        // Handle case where node exists in both stores
+                        if (existsInZk && existsInEtcd) {
+                          LOG.warn(
+                              "Node exists in both ZK and Etcd stores, which should never happen: {}",
+                              path);
+                          // Delete from both stores based on current mode
+                          if (mode == MetadataStoreMode.ZOOKEEPER_CREATES) {
+                            CompletionStage<Void> zkResult = zkStore.deleteAsync(metadataNode);
+                            // Also delete from Etcd but don't wait for it
+                            if (etcdStore != null) {
+                              try {
+                                etcdStore.deleteAsync(metadataNode);
+                              } catch (Exception e) {
+                                LOG.warn(
+                                    "Failed to delete node from secondary Etcd store: {}", path, e);
+                              }
+                            }
+                            return zkResult;
+                          } else { // ETCD_CREATES
+                            CompletionStage<Void> etcdResult = etcdStore.deleteAsync(metadataNode);
+                            // Also delete from ZK but don't wait for it
+                            if (zkStore != null) {
+                              try {
+                                zkStore.deleteAsync(metadataNode);
+                              } catch (Exception e) {
+                                LOG.warn(
+                                    "Failed to delete node from secondary ZK store: {}", path, e);
+                              }
+                            }
+                            return etcdResult;
+                          }
+                        }
+
+                        // Handle case where node exists in only one store
+                        if (existsInZk) {
+                          return zkStore.deleteAsync(metadataNode);
+                        } else { // existsInEtcd
+                          return etcdStore.deleteAsync(metadataNode);
+                        }
+                      });
+            });
   }
 
   /**
@@ -622,59 +627,47 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *
    * @param metadataNode the node to delete
    * @throws IllegalArgumentException if the metadata store mode is invalid
-   * @throws InternalMetadataStoreException from ZookeeperMetadataStore if another error occurs (not
-   *     finding the node to delete is NOT considered an error)
-   * @throws InternalMetadataStoreException from EtcdMetadataStore if another error occurs (not
-   *     finding the node to delete is NOT considered an error)
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>BOTH_READ_ZOOKEEPER_WRITE: Deletes from ZooKeeper (primary) and also tries to delete
-   *           from Etcd (secondary)
-   *       <li>BOTH_READ_ETCD_WRITE: Deletes from Etcd (primary) and also tries to delete from
-   *           ZooKeeper (secondary)
-   *     </ul>
-   *     <p>This ensures that during migration, data remains consistent across both stores.
-   *     <p>Note: In mixed modes, if deletion from the secondary store fails, the failure is ignored
-   *     to prevent cascading failures.
+   * @throws InternalMetadataStoreException from ZookeeperMetadataStore or EtcdMetadataStore if
+   *     another error occurs
+   * @throws IllegalStateException if the node does not exist in either store
    */
   public void deleteSync(T metadataNode) {
-    switch (mode) {
-      case ZOOKEEPER_CREATES:
-        // Delete from ZK primarily
+    String path = metadataNode.getName();
+    boolean existsInZk = zkStore != null && zkStore.hasSync(path);
+    boolean existsInEtcd = etcdStore != null && etcdStore.hasSync(path);
+
+    // Check if node exists in either store
+    if (!existsInZk && !existsInEtcd) {
+      throw new IllegalStateException("Node does not exist in either store: " + path);
+    }
+
+    // Handle case where node exists in both stores
+    if (existsInZk && existsInEtcd) {
+      LOG.warn("Node exists in both ZK and Etcd stores, which should never happen: {}", path);
+      // Delete from both stores based on current mode
+      if (mode == MetadataStoreMode.ZOOKEEPER_CREATES) {
+        zkStore.deleteSync(metadataNode); // Primary store - let exceptions bubble up
         try {
-          zkStore.deleteSync(metadataNode);
-        } catch (InternalMetadataStoreException e) {
-          // Ignore if the node doesn't exist - it might be referencing a never-created node
-          // or a node that was already deleted by a concurrent operation
-          LOG.debug(
-              "Ignoring exception when deleting node {}: {}", metadataNode.name, e.getMessage());
+          etcdStore.deleteSync(metadataNode); // Secondary store
+        } catch (Exception e) {
+          LOG.warn("Failed to delete node from secondary Etcd store: {}", path, e);
         }
-        // Also try to delete from Etcd
+      } else { // ETCD_CREATES
+        etcdStore.deleteSync(metadataNode); // Primary store - let exceptions bubble up
         try {
-          etcdStore.deleteSync(metadataNode);
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
+          zkStore.deleteSync(metadataNode); // Secondary store
+        } catch (Exception e) {
+          LOG.warn("Failed to delete node from secondary ZK store: {}", path, e);
         }
-        break;
-      case ETCD_CREATES:
-        // Delete from Etcd primarily
-        try {
-          etcdStore.deleteSync(metadataNode);
-        } catch (InternalMetadataStoreException e) {
-          // Ignore if the node doesn't exist - it might be referencing a never-created node
-          // or a node that was already deleted by a concurrent operation
-          LOG.debug(
-              "Ignoring exception when deleting node {}: {}", metadataNode.name, e.getMessage());
-        }
-        // Also try to delete from ZK
-        try {
-          zkStore.deleteSync(metadataNode);
-        } catch (Exception ignored) {
-          // Ignore errors from secondary store
-        }
-        break;
-      default:
-        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+      }
+      return;
+    }
+
+    // Handle case where node exists in only one store
+    if (existsInZk) {
+      zkStore.deleteSync(metadataNode); // Let exceptions bubble up
+    } else { // existsInEtcd
+      etcdStore.deleteSync(metadataNode); // Let exceptions bubble up
     }
   }
 
@@ -687,11 +680,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     <ul>
    *       <li>ZookeeperMetadataStore: throws UnsupportedOperationException if caching is disabled
    *       <li>EtcdMetadataStore: returns cached results if available, otherwise fetches from Etcd
-   *     </ul>
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>In both mixed modes, results from both primary and secondary stores are combined into
-   *           a single list, with primary store items taking precedence in case of duplicate names
    *     </ul>
    */
   public CompletionStage<List<T>> listAsync() {
@@ -759,31 +747,21 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws UnsupportedOperationException from ZookeeperMetadataStore if caching is disabled
    * @throws InternalMetadataStoreException from ZookeeperMetadataStore if the list operation fails
    * @throws InternalMetadataStoreException from EtcdMetadataStore if the list operation fails
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>In both mixed modes, results from both primary and secondary stores are combined into
-   *           a single list, with primary store items taking precedence in case of duplicate names
-   *       <li>If an error occurs while retrieving from one store, the operation will continue with
-   *           the other store's results only, returning partial data instead of failing completely
-   *     </ul>
    */
   public List<T> listSync() {
     switch (mode) {
       case ZOOKEEPER_CREATES:
       case ETCD_CREATES:
         // Combine results from both stores
-        List<T> zkList;
-        List<T> etcdList;
+        List<T> zkList = List.of();
+        List<T> etcdList = List.of();
 
         if (zkStore != null) {
           try {
             zkList = zkStore.listSync();
           } catch (Exception e) {
             LOG.warn("Failed to list from ZooKeeper store: {}", e.getMessage());
-            zkList = List.of();
           }
-        } else {
-          zkList = List.of();
         }
 
         if (etcdStore != null) {
@@ -791,10 +769,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
             etcdList = etcdStore.listSync();
           } catch (Exception e) {
             LOG.warn("Failed to list from Etcd store: {}", e.getMessage());
-            etcdList = List.of();
           }
-        } else {
-          etcdList = List.of();
         }
 
         // Combine both lists, using name as identifier
@@ -835,13 +810,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param watcher the listener to add
    * @throws IllegalArgumentException if the metadata store mode is invalid
    * @throws UnsupportedOperationException from ZookeeperMetadataStore if caching is disabled
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>In both mixed modes, the listener is registered with both primary and secondary
-   *           stores, so changes in either store will trigger notifications
-   *     </ul>
-   *     <p>Note: When a node is changed in both stores in close succession, the listener might be
-   *     notified twice. Applications should be prepared to handle duplicate notifications.
    */
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
     // Only add if not already present
@@ -871,11 +839,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param watcher the listener to remove
    * @throws IllegalArgumentException if the metadata store mode is invalid
    * @throws UnsupportedOperationException from ZookeeperMetadataStore if caching is disabled
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>In both mixed modes, the listener is removed from both primary and secondary stores
-   *     </ul>
-   *     <p>Note: If the listener was never added, this method will have no effect.
    */
   public void removeListener(AstraMetadataStoreChangeListener<T> watcher) {
     if (listeners.remove(watcher)) {
@@ -902,14 +865,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws IllegalArgumentException if the metadata store mode is invalid
    * @throws RuntimeException if the cache initialization times out (applies to
    *     ZookeeperMetadataStore and EtcdMetadataStore which uses RuntimeHalterImpl)
-   *     <p>In exclusive modes, this method simply calls the corresponding store's implementation.
-   *     <p>In mixed modes, this method has special behavior:
-   *     <ul>
-   *       <li>BOTH_READ_ZOOKEEPER_WRITE: Waits only for the ZooKeeper cache to initialize (primary)
-   *       <li>BOTH_READ_ETCD_WRITE: Waits only for the Etcd cache to initialize (primary)
-   *     </ul>
-   *     <p>This ensures that the system will be functional with at least the primary data, without
-   *     waiting for the secondary store which may be less critical during migration.
    */
   public void awaitCacheInitialized() {
     switch (mode) {

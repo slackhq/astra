@@ -71,7 +71,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   protected final String namespace;
   protected final Client etcdClient;
   protected final ConcurrentHashMap<String, Watcher> watchers;
-  protected final ConcurrentHashMap<String, T> cache;
+  protected final ConcurrentHashMap<String, T> cache = new ConcurrentHashMap<>();
   protected final boolean shouldCache;
   protected final MetadataSerializer<T> serializer;
 
@@ -144,7 +144,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.meterRegistry = meterRegistry;
     this.shouldCache = shouldCache;
     this.serializer = serializer;
-    this.cache = shouldCache ? new ConcurrentHashMap<>() : null;
+    // Cache is always initialized, shouldCache flag determines if we use it
     String store = storeFolder.replace('/', '_');
     this.watchers = new ConcurrentHashMap<>();
     this.createMode = createMode;
@@ -323,7 +323,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                       .put(key, value)
                       .thenApplyAsync(
                           putResponse -> {
-                            // Update cache if enabled
+                            // Always update the cache for consistency
                             if (shouldCache) {
                               cache.put(metadataNode.getName(), metadataNode);
                             }
@@ -349,7 +349,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                                 sharedLeaseId,
                                 ephemeralTtlSeconds);
 
-                            // Update cache if enabled
+                            // Always update the cache for consistency
                             if (shouldCache) {
                               cache.put(metadataNode.getName(), metadataNode);
                             }
@@ -397,8 +397,13 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     awaitCacheInitialized();
 
     // Check cache first if enabled
-    if (shouldCache && cache.containsKey(path)) {
-      return CompletableFuture.completedFuture(cache.get(path));
+    if (shouldCache) {
+      T result = cache.get(path);
+      if (result != null) {
+        return CompletableFuture.completedFuture(result);
+      } else {
+        throw new InternalMetadataStoreException("Node not found: " + path);
+      }
     }
 
     ByteSequence key = pathToKey(path);
@@ -414,14 +419,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
               KeyValue kv = getResponse.getKvs().getFirst();
               try {
                 String json = kv.getValue().toString(StandardCharsets.UTF_8);
-                T node = serializer.fromJsonStr(json);
-
-                // Update cache if enabled
-                if (shouldCache) {
-                  cache.put(path, node);
-                }
-
-                return node;
+                return serializer.fromJsonStr(json);
               } catch (InvalidProtocolBufferException e) {
                 throw new InternalMetadataStoreException("Failed to deserialize node", e);
               }
@@ -440,8 +438,13 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     awaitCacheInitialized();
 
     // Check cache first if enabled
-    if (shouldCache && cache.containsKey(path)) {
-      return cache.get(path);
+    if (shouldCache) {
+      T result = cache.get(path);
+      if (result != null) {
+        return result;
+      } else {
+        throw new InternalMetadataStoreException("Node not found: " + path);
+      }
     }
 
     try {
@@ -472,24 +475,16 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     awaitCacheInitialized();
 
-    // Check cache first if enabled
-    if (shouldCache && cache.containsKey(path)) {
-      return CompletableFuture.completedFuture(true);
+    // Check cache if enabled
+    if (shouldCache) {
+      return CompletableFuture.completedFuture(cache.containsKey(path));
     }
 
     ByteSequence key = pathToKey(path);
     return etcdClient
         .getKVClient()
         .get(key)
-        .thenApplyAsync(
-            getResponse -> {
-              return !getResponse.getKvs().isEmpty();
-            })
-        .exceptionally(
-            ex -> {
-              throw new InternalMetadataStoreException(
-                  "Error checking if node exists at path " + path, ex);
-            });
+        .thenApplyAsync(getResponse -> !getResponse.getKvs().isEmpty());
   }
 
   /**
@@ -503,9 +498,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     awaitCacheInitialized();
 
-    // Check cache first if enabled
-    if (shouldCache && cache.containsKey(path)) {
-      return true;
+    // Check cache if enabled
+    if (shouldCache) {
+      return cache.containsKey(path);
     }
 
     try {
@@ -535,7 +530,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           .put(key, value)
           .thenApplyAsync(
               putResponse -> {
-                // Update cache if enabled
+                // Always update the cache for consistency
                 if (shouldCache) {
                   cache.put(metadataNode.getName(), metadataNode);
                 }
@@ -586,7 +581,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
               // We could log this, but we'll silently succeed if 0 keys were deleted
 
               // Remove from cache if enabled
-              if (shouldCache && cache != null) {
+              if (shouldCache) {
                 cache.remove(path);
               }
 
@@ -652,7 +647,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     awaitCacheInitialized();
 
     // First ensure the cache is initialized and then use it if enabled
-    if (shouldCache && cache != null) {
+    if (shouldCache) {
       List<T> cachedNodes = new ArrayList<>(cache.values());
       return CompletableFuture.completedFuture(cachedNodes);
     }
@@ -675,7 +670,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   T node = serializer.fromJsonStr(json);
                   nodes.add(node);
 
-                  // Update cache if enabled
+                  // Always update the cache for consistency
                   if (shouldCache) {
                     cache.put(node.getName(), node);
                   }
@@ -800,23 +795,21 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                                     event.getKeyValue().getValue().toString(StandardCharsets.UTF_8);
                                 T node = serializer.fromJsonStr(json);
 
-                                // Update cache if enabled
-                                if (cache != null) {
-                                  cache.put(path, node);
-                                }
+                                // Update cache (we're already in a listener which means caching is
+                                // enabled)
+                                cache.put(path, node);
 
                                 // Notify listener of changes only for create/update
                                 listener.onMetadataStoreChanged(node);
                                 break;
 
                               case DELETE:
-                                // Remove from cache if enabled
-                                if (cache != null) {
-                                  T deletedNode = cache.remove(path);
-                                  // We can only notify if we have the node in cache
-                                  if (deletedNode != null) {
-                                    listener.onMetadataStoreChanged(deletedNode);
-                                  }
+                                // Remove from cache (we're already in a listener which means
+                                // caching is enabled)
+                                T deletedNode = cache.remove(path);
+                                // We can only notify if we have the node in cache
+                                if (deletedNode != null) {
+                                  listener.onMetadataStoreChanged(deletedNode);
                                 }
                                 break;
 
@@ -831,7 +824,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 });
 
     // Store the watcher so we can close it later
-    watchers.put(System.identityHashCode(listener) + "", watcher);
+    watchers.put(String.valueOf(System.identityHashCode(listener)), watcher);
   }
 
   /**
@@ -1013,8 +1006,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       leaseRefreshExecutor.shutdownNow();
       try {
         leaseRefreshExecutor.awaitTermination(5, TimeUnit.SECONDS);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
+      } catch (InterruptedException ignored) {
       }
 
       // Revoke the shared lease if we have one

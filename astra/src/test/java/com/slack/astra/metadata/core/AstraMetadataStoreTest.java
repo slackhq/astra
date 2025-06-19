@@ -436,12 +436,9 @@ public class AstraMetadataStoreTest {
             store.getAsync(nonExistentPath).toCompletableFuture().get();
             // If we got here, the get didn't throw an exception as expected
             assertThat(false).isTrue(); // This will fail the test
-          } catch (ExecutionException e) {
+          } catch (InternalMetadataStoreException | ExecutionException e) {
             // Expected behavior - the node doesn't exist
-            // We accept either an InternalMetadataStoreException or a
-            // KeeperException$NoNodeException
-            // as both are valid exception types depending on the implementation
-            assertThat(e.getCause().getMessage())
+            assertThat(e.getMessage())
                 .containsAnyOf("not found", "NoNode", "doesn't exist", "Error fetching node");
           }
 

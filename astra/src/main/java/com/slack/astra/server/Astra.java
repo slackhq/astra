@@ -158,8 +158,7 @@ public class Astra {
     if (metadataStoreConfig.hasEtcdConfig() && metadataStoreConfig.getEtcdConfig().getEnabled()) {
       // We don't create a full EtcdMetadataStore here, just the raw client
       // that will be used by specific metadata stores
-      etcdClient =
-          EtcdClientBuilder.build(prometheusMeterRegistry, metadataStoreConfig.getEtcdConfig());
+      etcdClient = EtcdClientBuilder.build(metadataStoreConfig.getEtcdConfig());
       LOG.info("Initialized etcd client");
     }
 
