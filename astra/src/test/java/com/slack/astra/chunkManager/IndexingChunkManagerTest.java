@@ -412,7 +412,7 @@ public class IndexingChunkManagerTest {
 
     // Check metadata registration.
 
-//    assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(1);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(1);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(1);
 
     SearchQuery searchQuery =
