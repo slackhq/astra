@@ -144,12 +144,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.meterRegistry = meterRegistry;
     this.shouldCache = shouldCache;
     this.serializer = serializer;
-    // Cache is always initialized, shouldCache flag determines if we use it
-    String store = storeFolder.replace('/', '_');
     this.watchers = new ConcurrentHashMap<>();
     this.createMode = createMode;
     this.ephemeralTtlSeconds = ephemeralTtlSeconds;
 
+    String store = "/" + storeFolder.split("/")[1];
     this.createCall = this.meterRegistry.counter(ASTRA_ETCD_CREATE_CALL, "store", store);
     this.deleteCall = this.meterRegistry.counter(ASTRA_ETCD_DELETE_CALL, "store", store);
     this.listCall = this.meterRegistry.counter(ASTRA_ETCD_LIST_CALL, "store", store);
