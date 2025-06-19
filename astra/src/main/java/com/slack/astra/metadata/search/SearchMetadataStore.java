@@ -86,7 +86,8 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
     try {
       super.deleteSync(metadataNode);
     } catch (Exception e) {
-      LOG.warn("Failed to delete search metadata: {}, falling back to legacy store", metadataNode, e);
+      LOG.warn(
+          "Failed to delete search metadata: {}, falling back to legacy store", metadataNode, e);
       this.legacyStore.deleteSync(metadataNode);
     }
   }
