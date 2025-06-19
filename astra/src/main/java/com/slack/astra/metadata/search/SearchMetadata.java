@@ -92,6 +92,9 @@ public class SearchMetadata extends AstraPartitionedMetadata {
   public String getPartition() {
     // strip the beginning of the url
     Integer index = url.lastIndexOf("/");
+    if (index == -1) {
+      return url;
+    }
     return url.substring(index + 1);
   }
 }
