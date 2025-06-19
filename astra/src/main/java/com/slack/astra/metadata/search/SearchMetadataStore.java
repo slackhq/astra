@@ -46,7 +46,6 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
 
   // ONLY updating the `searchable` field is allowed on SearchMetadata.
   // This is needed to gate queries from hitting cache nodes until they're fully hydrated
-  // todo handle both cases
   public void updateSearchability(SearchMetadata oldSearchMetadata, boolean searchable) {
     oldSearchMetadata.setSearchable(searchable);
     try {
@@ -75,10 +74,9 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
   @Override
   public SearchMetadata getSync(String partition, String path) {
     try {
-      LOG.info("GOT search metadata");
       return super.getSync(partition, path);
     } catch (Exception e) {
-      LOG.error("Error getting search metadata", e);
+      LOG.warn("Failed to get search metadata, falling back to legacy store", e);
       return legacyStore.getSync(path);
     }
   }
@@ -88,6 +86,7 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
     try {
       super.deleteSync(metadataNode);
     } catch (Exception e) {
+      LOG.warn("Failed to delete search metadata: {}, falling back to legacy store", metadataNode, e);
       this.legacyStore.deleteSync(metadataNode);
     }
   }
@@ -100,6 +99,7 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
     try {
       legacyNodes = legacyStore.listSync();
     } catch (Exception e) {
+      LOG.warn("Failed to get list search metadata, falling back to legacy store", e);
       legacyNodes = Collections.emptyList();
     }
     try {
@@ -124,7 +124,7 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
     try {
       legacyStore.close();
     } catch (Exception e) {
-      //      LOG.error("Error closing legacy search metadata store", e);
+      LOG.error("Error closing legacy search metadata store", e);
     }
 
     try {
