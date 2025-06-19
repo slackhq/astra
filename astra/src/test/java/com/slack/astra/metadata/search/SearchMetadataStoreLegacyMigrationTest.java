@@ -18,8 +18,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for SearchMetadataStore that verify proper interaction with the legacy
- * SearchMetadataStoreLegacy. These tests create data in the legacy searchMetadataStore and verify it can be
- * accessed from the new searchMetadataStore, and vice versa.
+ * SearchMetadataStoreLegacy. These tests create data in the legacy searchMetadataStore and verify
+ * it can be accessed from the new searchMetadataStore, and vice versa.
  */
 public class SearchMetadataStoreLegacyMigrationTest {
   private SimpleMeterRegistry meterRegistry;
@@ -55,8 +55,10 @@ public class SearchMetadataStoreLegacyMigrationTest {
     this.legacyStore =
         new SearchMetadataStoreLegacy(curatorFramework, metadataStoreConfig, meterRegistry, true);
 
-    // By default, we create the new searchMetadataStore which internally creates its own legacyStore instance
-    // For some tests, we might want to create the new searchMetadataStore after creating data in our legacyStore
+    // By default, we create the new searchMetadataStore which internally creates its own
+    // legacyStore instance
+    // For some tests, we might want to create the new searchMetadataStore after creating data in
+    // our legacyStore
     // instance
     createNewStore();
   }
@@ -93,9 +95,11 @@ public class SearchMetadataStoreLegacyMigrationTest {
     createNewStore();
 
     // Try to access the data from the new searchMetadataStore
-    // The new searchMetadataStore should fall back to the legacy searchMetadataStore when getSync fails to find it in the
+    // The new searchMetadataStore should fall back to the legacy searchMetadataStore when getSync
+    // fails to find it in the
     // partitioned searchMetadataStore
-    SearchMetadata retrievedMetadata = searchMetadataStore.getSync(legacyMetadata.getPartition(), "testLegacy");
+    SearchMetadata retrievedMetadata =
+        searchMetadataStore.getSync(legacyMetadata.getPartition(), "testLegacy");
 
     // Verify the data was correctly retrieved
     assertThat(retrievedMetadata).isNotNull();
@@ -116,8 +120,10 @@ public class SearchMetadataStoreLegacyMigrationTest {
     Throwable thrown = catchThrowable(() -> legacyStore.getSync("testNew"));
     assertThat(thrown).isInstanceOf(RuntimeException.class);
 
-    // But when accessing via the new searchMetadataStore, it should find it in the partitioned searchMetadataStore
-    SearchMetadata retrievedMetadata = searchMetadataStore.getSync(newMetadata.getPartition(), "testNew");
+    // But when accessing via the new searchMetadataStore, it should find it in the partitioned
+    // searchMetadataStore
+    SearchMetadata retrievedMetadata =
+        searchMetadataStore.getSync(newMetadata.getPartition(), "testNew");
     assertThat(retrievedMetadata).isNotNull();
     assertThat(retrievedMetadata.name).isEqualTo("testNew");
     assertThat(retrievedMetadata.snapshotName).isEqualTo("testSnapshotNew");
@@ -133,7 +139,8 @@ public class SearchMetadataStoreLegacyMigrationTest {
     searchMetadataStore.createSync(newMetadata);
 
     // Verify initial state
-    SearchMetadata initialMetadata = searchMetadataStore.getSync(newMetadata.getPartition(), "testSearchability");
+    SearchMetadata initialMetadata =
+        searchMetadataStore.getSync(newMetadata.getPartition(), "testSearchability");
     assertThat(initialMetadata.isSearchable()).isFalse();
 
     // Update the searchability
@@ -150,7 +157,8 @@ public class SearchMetadataStoreLegacyMigrationTest {
               return updated != null && updated.isSearchable();
             });
 
-    SearchMetadata updatedMetadata = searchMetadataStore.getSync(newMetadata.getPartition(), "testSearchability");
+    SearchMetadata updatedMetadata =
+        searchMetadataStore.getSync(newMetadata.getPartition(), "testSearchability");
     assertThat(updatedMetadata.isSearchable()).isTrue();
   }
 
@@ -174,7 +182,8 @@ public class SearchMetadataStoreLegacyMigrationTest {
     searchMetadataStore.updateSearchability(retrievedMetadata, false);
 
     // Verify the change in the legacy searchMetadataStore
-    // (Since the new searchMetadataStore will try to update its partitioned searchMetadataStore first and fail, it should fall
+    // (Since the new searchMetadataStore will try to update its partitioned searchMetadataStore
+    // first and fail, it should fall
     // back to legacy)
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -200,14 +209,16 @@ public class SearchMetadataStoreLegacyMigrationTest {
     searchMetadataStore.createSync(newMetadata); // In the partitioned searchMetadataStore
 
     // Verify data exists in the new searchMetadataStore
-    assertThat(searchMetadataStore.getSync(newMetadata.getPartition(), "testDeleteBoth")).isNotNull();
+    assertThat(searchMetadataStore.getSync(newMetadata.getPartition(), "testDeleteBoth"))
+        .isNotNull();
 
     // Delete using the new searchMetadataStore
     searchMetadataStore.deleteSync(newMetadata);
 
     // Verify the item is deleted and throws an exception when trying to access it
     Throwable thrown =
-        catchThrowable(() -> searchMetadataStore.getSync(newMetadata.getPartition(), "testDeleteBoth"));
+        catchThrowable(
+            () -> searchMetadataStore.getSync(newMetadata.getPartition(), "testDeleteBoth"));
     assertThat(thrown).isInstanceOf(RuntimeException.class);
   }
 
@@ -236,7 +247,9 @@ public class SearchMetadataStoreLegacyMigrationTest {
     // And also not available through the new searchMetadataStore
     Throwable newStoreThrown =
         catchThrowable(
-            () -> searchMetadataStore.getSync(legacyOnlyMetadata.getPartition(), "testLegacyDeletion"));
+            () ->
+                searchMetadataStore.getSync(
+                    legacyOnlyMetadata.getPartition(), "testLegacyDeletion"));
     assertThat(newStoreThrown).isInstanceOf(RuntimeException.class);
   }
 
@@ -285,7 +298,8 @@ public class SearchMetadataStoreLegacyMigrationTest {
         new SearchMetadata("duplicateItem", "newSnapshot", "http://new.com", false);
     searchMetadataStore.createSync(newMetadata);
 
-    // Test that listSync returns combined results, with new searchMetadataStore data taking precedence
+    // Test that listSync returns combined results, with new searchMetadataStore data taking
+    // precedence
     List<SearchMetadata> combinedList = searchMetadataStore.listSync();
 
     // Should contain items from both stores, but only one instance of the duplicate item
