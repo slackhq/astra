@@ -112,7 +112,7 @@ public class ReplicaAssignmentServiceTest {
                     .setRetryDelayMs(100)
                     .setNamespace("ReplicaAssignmentServiceTest")
                     .setEnabled(true)
-                    .setEphemeralNodeTtlSeconds(60)
+                    .setEphemeralNodeTtlSeconds(3)
                     .build())
             .build();
 

@@ -127,7 +127,7 @@ public class AstraDistributedQueryServiceTest {
                     .setRetryDelayMs(100)
                     .setNamespace("distributedQuery")
                     .setEnabled(true)
-                    .setEphemeralNodeTtlSeconds(60)
+                    .setEphemeralNodeTtlSeconds(3)
                     .build())
             .build();
 

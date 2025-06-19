@@ -79,7 +79,7 @@ public class DatasetPartitionMetadataTest {
                     .setRetryDelayMs(100)
                     .setNamespace("datasetPartitionMetadataTest")
                     .setEnabled(true)
-                    .setEphemeralNodeTtlSeconds(60)
+                    .setEphemeralNodeTtlSeconds(3)
                     .build())
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()

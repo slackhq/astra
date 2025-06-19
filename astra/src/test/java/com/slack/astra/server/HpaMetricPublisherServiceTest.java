@@ -59,7 +59,7 @@ class HpaMetricPublisherServiceTest {
             .setRetryDelayMs(100)
             .setNamespace("HpaMetricPublisherServiceTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.ZookeeperConfig zkConfig =

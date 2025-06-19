@@ -111,7 +111,7 @@ public class RecoveryChunkImplTest {
               .setRetryDelayMs(100)
               .setNamespace("shouldHandleChunkLivecycle")
               .setEnabled(true)
-              .setEphemeralNodeTtlSeconds(60)
+              .setEphemeralNodeTtlSeconds(3)
               .build();
 
       AstraConfigs.ZookeeperConfig zkConfig =
@@ -532,7 +532,7 @@ public class RecoveryChunkImplTest {
               .setRetryDelayMs(100)
               .setNamespace("shouldHandleChunkLivecycle")
               .setEnabled(true)
-              .setEphemeralNodeTtlSeconds(60)
+              .setEphemeralNodeTtlSeconds(3)
               .build();
 
       AstraConfigs.ZookeeperConfig zkConfig =
@@ -675,7 +675,7 @@ public class RecoveryChunkImplTest {
               .setRetryDelayMs(100)
               .setNamespace("shouldHandleChunkLivecycle")
               .setEnabled(true)
-              .setEphemeralNodeTtlSeconds(60)
+              .setEphemeralNodeTtlSeconds(3)
               .build();
 
       AstraConfigs.ZookeeperConfig zkConfig =

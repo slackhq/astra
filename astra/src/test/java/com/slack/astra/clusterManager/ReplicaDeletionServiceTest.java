@@ -82,7 +82,7 @@ public class ReplicaDeletionServiceTest {
             .setRetryDelayMs(100)
             .setNamespace("ReplicaDeletionServiceTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =

@@ -155,7 +155,7 @@ public class RecoveryChunkManagerTest {
                     .setRetryDelayMs(100)
                     .setNamespace(METADATA_PATH_PREFIX)
                     .setEnabled(true)
-                    .setEphemeralNodeTtlSeconds(60)
+                    .setEphemeralNodeTtlSeconds(3)
                     .build())
             .setZookeeperConfig(zkConfig)
             .build();

@@ -95,7 +95,7 @@ public class ManagerApiGrpcTest {
             .setRetryDelayMs(100)
             .setNamespace("ManagerApiGrpcTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =

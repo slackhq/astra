@@ -153,7 +153,7 @@ public class EtcdPartitioningCreateModeTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     String partition = "partition1";
@@ -237,7 +237,7 @@ public class EtcdPartitioningCreateModeTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create ephemeral node that should disappear after the store is closed
@@ -317,7 +317,7 @@ public class EtcdPartitioningCreateModeTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create ephemeral nodes in multiple partitions
@@ -410,7 +410,7 @@ public class EtcdPartitioningCreateModeTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // First create a persistent node

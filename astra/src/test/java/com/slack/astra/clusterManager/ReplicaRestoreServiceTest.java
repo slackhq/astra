@@ -71,7 +71,7 @@ public class ReplicaRestoreServiceTest {
             .setRetryDelayMs(100)
             .setNamespace("ReplicaRestoreServiceTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =

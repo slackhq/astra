@@ -173,7 +173,7 @@ public class AstraMetadataStoreTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("AstraMetadataStoreTest")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create etcd client

@@ -1023,7 +1023,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
             // Consider reconnecting or creating a new lease
             // TODO - this should be enabled, but the tests are in a bad spot of not properly
             // closing
-            // new RuntimeHalterImpl().handleFatal(e);
+            new RuntimeHalterImpl().handleFatal(e);
           }
         });
   }

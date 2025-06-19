@@ -147,7 +147,7 @@ public class EtcdCreateModeTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create a client for the store
@@ -195,7 +195,7 @@ public class EtcdCreateModeTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create ephemeral node that should disappear after the store is closed

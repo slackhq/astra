@@ -99,7 +99,7 @@ public class BulkIngestApiTest {
             .setRetryDelayMs(100)
             .setNamespace("testMetadata")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.ZookeeperConfig zkConfig =
@@ -229,6 +229,8 @@ public class BulkIngestApiTest {
       etcdClient.close();
     }
 
+    datasetMetadataStore.close();
+    preprocessorMetadataStore.close();
     curatorFramework.unwrap().close();
     zkServer.close();
     meterRegistry.close();

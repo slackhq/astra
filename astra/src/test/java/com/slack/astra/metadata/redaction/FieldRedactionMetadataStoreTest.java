@@ -52,7 +52,7 @@ public class FieldRedactionMetadataStoreTest {
             .setRetryDelayMs(100)
             .setNamespace("Test")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =

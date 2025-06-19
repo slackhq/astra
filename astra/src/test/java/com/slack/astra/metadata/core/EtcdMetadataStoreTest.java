@@ -128,7 +128,7 @@ public class EtcdMetadataStoreTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create etcd client
@@ -349,7 +349,7 @@ public class EtcdMetadataStoreTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     EtcdMetadataStore<TestMetadata> newStore = null;
@@ -444,7 +444,7 @@ public class EtcdMetadataStoreTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create client builder for test

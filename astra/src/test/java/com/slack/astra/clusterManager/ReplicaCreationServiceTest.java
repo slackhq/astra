@@ -86,7 +86,7 @@ public class ReplicaCreationServiceTest {
             .setRetryDelayMs(100)
             .setNamespace("ReplicaCreatorServiceTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     zkConfig =

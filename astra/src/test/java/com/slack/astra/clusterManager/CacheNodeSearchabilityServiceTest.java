@@ -65,7 +65,7 @@ public class CacheNodeSearchabilityServiceTest {
             .setRetryDelayMs(100)
             .setNamespace("CacheNodeAssignmentServiceTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -131,6 +131,9 @@ public class CacheNodeSearchabilityServiceTest {
   public void tearDown() throws IOException {
     meterRegistry.close();
     testingServer.close();
+    searchMetadataStore.close();
+    cacheNodeAssignmentStore.close();
+    cacheNodeMetadataStore.close();
     snapshotMetadataStore.close();
     curatorFramework.unwrap().close();
     etcdClient.close();

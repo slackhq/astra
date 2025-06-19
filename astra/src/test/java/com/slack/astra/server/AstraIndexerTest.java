@@ -13,6 +13,7 @@ import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHist
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
@@ -121,7 +122,7 @@ public class AstraIndexerTest {
             .setRetryDelayMs(100)
             .setNamespace("indexerTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Metadata store
@@ -168,7 +169,8 @@ public class AstraIndexerTest {
             indexerConfig,
             metadataStoreConfig,
             etcdCluster,
-            etcdClient);
+            etcdClient,
+            false);
 
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -214,6 +216,9 @@ public class AstraIndexerTest {
     }
     if (recoveryTaskStore != null) {
       recoveryTaskStore.close();
+    }
+    if (searchMetadataStore != null) {
+      searchMetadataStore.close();
     }
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
@@ -335,6 +340,7 @@ public class AstraIndexerTest {
     astraIndexer.startAsync();
     await().until(() -> astraIndexer.state() == Service.State.FAILED);
     assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> astraIndexer.startUp());
+    doCallRealMethod().when(etcdClient).getKVClient();
     astraIndexer = null;
   }
 
@@ -640,7 +646,8 @@ public class AstraIndexerTest {
             makeIndexerConfig(),
             metadataStoreConfig,
             etcdCluster,
-            etcdClient);
+            etcdClient,
+            false);
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 

@@ -210,7 +210,7 @@ public class AstraPartitioningMetadataStoreTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("AstraPartitioningMetadataStoreTest")
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create etcd client

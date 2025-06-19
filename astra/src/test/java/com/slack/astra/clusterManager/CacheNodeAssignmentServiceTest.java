@@ -93,7 +93,7 @@ public class CacheNodeAssignmentServiceTest {
             .setRetryDelayMs(100)
             .setNamespace("CacheNodeAssignmentServiceTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -152,6 +152,9 @@ public class CacheNodeAssignmentServiceTest {
     meterRegistry.close();
     testingServer.close();
     cacheNodeAssignmentStore.close();
+    cacheNodeMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
     etcdClient.close();
   }

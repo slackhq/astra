@@ -88,7 +88,7 @@ public class RecoveryTaskCreatorTest {
             .setRetryDelayMs(100)
             .setNamespace("test")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =

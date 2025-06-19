@@ -46,9 +46,10 @@ public class ChunkManagerUtil<T> {
   public final IndexingChunkManager<T> chunkManager;
   private final TestingServer zkServer;
   private final AsyncCuratorFramework curatorFramework;
-  private final EtcdCluster etcdCluster;
   private final Client etcdClient;
+  private final boolean autoCloseResources;
 
+  @Deprecated() // please use the non-static version
   public static ChunkManagerUtil<LogMessage> makeChunkManagerUtil(
       S3MockExtension s3MockExtension,
       String s3Bucket,
@@ -57,6 +58,7 @@ public class ChunkManagerUtil<T> {
       long maxMessagesPerChunk,
       AstraConfigs.IndexerConfig indexerConfig)
       throws Exception {
+
     TestingServer zkServer = new TestingServer();
     EtcdCluster etcdCluster = TestEtcdClusterFactory.start();
 
@@ -78,7 +80,7 @@ public class ChunkManagerUtil<T> {
             .setRetryDelayMs(100)
             .setNamespace(METADATA_PATH_PREFIX)
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -122,7 +124,8 @@ public class ChunkManagerUtil<T> {
         indexerConfig,
         metadataStoreConfig,
         etcdCluster,
-        etcdClient);
+        etcdClient,
+        true);
   }
 
   public ChunkManagerUtil(
@@ -137,8 +140,11 @@ public class ChunkManagerUtil<T> {
       AstraConfigs.IndexerConfig indexerConfig,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       EtcdCluster etcdCluster,
-      Client etcdClient)
+      Client etcdClient,
+      boolean autoCloseResources)
       throws Exception {
+
+    this.autoCloseResources = autoCloseResources;
 
     tempFolder =
         Files.createTempDir(); // TODO: replace with java.nio.file.Files.createTempDirectory
@@ -154,8 +160,6 @@ public class ChunkManagerUtil<T> {
             meterRegistry, maxBytesPerChunk, maxMessagesPerChunk);
 
     this.curatorFramework = curatorFramework;
-
-    this.etcdCluster = etcdCluster;
     this.etcdClient = etcdClient;
 
     chunkManager =
@@ -177,10 +181,15 @@ public class ChunkManagerUtil<T> {
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     s3AsyncClient.close();
-    curatorFramework.unwrap().close();
-    zkServer.close();
-    if (etcdClient != null) {
-      etcdClient.close();
+
+    if (autoCloseResources) {
+      // This is a hack around the fact we create closable resources in a static method
+      // and then lose references to them. Th
+      curatorFramework.unwrap().close();
+      zkServer.close();
+      if (etcdClient != null) {
+        etcdClient.close();
+      }
     }
 
     FileUtils.deleteDirectory(tempFolder);

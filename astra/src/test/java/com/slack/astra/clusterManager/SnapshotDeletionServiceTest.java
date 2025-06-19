@@ -107,7 +107,7 @@ public class SnapshotDeletionServiceTest {
             .setRetryDelayMs(100)
             .setNamespace("SnapshotDeletionServiceTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =

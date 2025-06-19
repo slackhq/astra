@@ -138,7 +138,7 @@ public class EtcdEphemeralNodeTest {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(60) // Default long TTL for most tests
+            .setEphemeralNodeTtlSeconds(3) // Default long TTL for most tests
             .build();
 
     // Create etcd client

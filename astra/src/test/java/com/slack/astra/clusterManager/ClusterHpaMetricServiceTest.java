@@ -81,7 +81,7 @@ class ClusterHpaMetricServiceTest {
             .setRetryDelayMs(100)
             .setNamespace("ClusterHpaMetricServiceTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -145,6 +145,10 @@ class ClusterHpaMetricServiceTest {
     hpaMetricMetadataStore.close();
     cacheSlotMetadataStore.close();
     replicaMetadataStore.close();
+    cacheNodeAssignmentStore.close();
+    cacheNodeMetadataStore.close();
+    snapshotMetadataStore.close();
+    hpaMetricMetadataStore.close();
     curatorFramework.unwrap().close();
     etcdClient.close();
 

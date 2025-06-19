@@ -98,6 +98,8 @@ public class IndexingChunkImplTest {
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
     private AsyncCuratorFramework curatorFramework;
+    private SnapshotMetadataStore snapshotMetadataStore;
+    private SearchMetadataStore searchMetadataStore;
     private EtcdCluster etcdCluster;
     private Client etcdClient;
 
@@ -150,7 +152,7 @@ public class IndexingChunkImplTest {
                       .setRetryDelayMs(100)
                       .setNamespace("shouldHandleChunkLivecycle")
                       .setEnabled(true)
-                      .setEphemeralNodeTtlSeconds(60)
+                      .setEphemeralNodeTtlSeconds(3)
                       .build())
               .setZookeeperConfig(
                   AstraConfigs.ZookeeperConfig.newBuilder()
@@ -167,9 +169,9 @@ public class IndexingChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, metadataStoreConfig.getZookeeperConfig());
 
-      SnapshotMetadataStore snapshotMetadataStore =
+      snapshotMetadataStore =
           new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, registry);
-      SearchMetadataStore searchMetadataStore =
+      searchMetadataStore =
           new SearchMetadataStore(
               curatorFramework, etcdClient, metadataStoreConfig, registry, true);
 
@@ -201,6 +203,8 @@ public class IndexingChunkImplTest {
     public void tearDown() throws IOException, TimeoutException {
       if (closeChunk) chunk.close();
 
+      searchMetadataStore.close();
+      snapshotMetadataStore.close();
       curatorFramework.unwrap().close();
       if (etcdClient != null) etcdClient.close();
       testingServer.close();
@@ -502,6 +506,8 @@ public class IndexingChunkImplTest {
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
     private AsyncCuratorFramework curatorFramework;
+    private SearchMetadataStore searchMetadataStore;
+    private SnapshotMetadataStore snapshotMetadataStore;
     private EtcdCluster etcdCluster;
     private Client etcdClient;
 
@@ -563,7 +569,7 @@ public class IndexingChunkImplTest {
                       .setRetryDelayMs(100)
                       .setNamespace("shouldHandleChunkLivecycle")
                       .setEnabled(true)
-                      .setEphemeralNodeTtlSeconds(60)
+                      .setEphemeralNodeTtlSeconds(3)
                       .build())
               .build();
 
@@ -571,9 +577,9 @@ public class IndexingChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, metadataStoreConfig.getZookeeperConfig());
 
-      SnapshotMetadataStore snapshotMetadataStore =
+      snapshotMetadataStore =
           new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, registry);
-      SearchMetadataStore searchMetadataStore =
+      searchMetadataStore =
           new SearchMetadataStore(
               curatorFramework, etcdClient, metadataStoreConfig, registry, true);
 
@@ -604,6 +610,8 @@ public class IndexingChunkImplTest {
     public void tearDown() throws IOException, TimeoutException {
       if (closeChunk) chunk.close();
 
+      searchMetadataStore.close();
+      snapshotMetadataStore.close();
       curatorFramework.unwrap().close();
       etcdClient.close();
       testingServer.close();
@@ -692,7 +700,7 @@ public class IndexingChunkImplTest {
                       .setRetryDelayMs(100)
                       .setNamespace("shouldHandleChunkLivecycle")
                       .setEnabled(true)
-                      .setEphemeralNodeTtlSeconds(60)
+                      .setEphemeralNodeTtlSeconds(3)
                       .build())
               .setZookeeperConfig(
                   AstraConfigs.ZookeeperConfig.newBuilder()

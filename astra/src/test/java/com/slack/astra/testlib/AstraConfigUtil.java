@@ -83,7 +83,7 @@ public class AstraConfigUtil {
             .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace(metadataPathPrefix) // Use same namespace as ZK pathPrefix for consistency
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()

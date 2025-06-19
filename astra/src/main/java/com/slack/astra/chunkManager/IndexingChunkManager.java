@@ -302,7 +302,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
   private void deleteChunksOverLimit(int limit) {
     if (limit < 0) {
-      throw new IllegalArgumentException("limit can't be negative");
+      LOG.warn("Limit is negative ({}), skipping deletion of chunks", limit);
+      return;
     }
 
     final List<Chunk<T>> unsortedChunks = this.getChunkList();

@@ -175,7 +175,7 @@ public class IndexingChunkManagerTest {
                     .setRetryDelayMs(100)
                     .setNamespace(METADATA_PATH_PREFIX)
                     .setEnabled(true)
-                    .setEphemeralNodeTtlSeconds(60)
+                    .setEphemeralNodeTtlSeconds(3)
                     .build())
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
@@ -205,6 +205,8 @@ public class IndexingChunkManagerTest {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
+    snapshotMetadataStore.close();
+    searchMetadataStore.close();
     curatorFramework.unwrap().close();
     etcdClient.close();
     s3AsyncClient.close();

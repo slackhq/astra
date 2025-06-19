@@ -129,7 +129,7 @@ public class ReadOnlyChunkImplTest {
             .setRetryDelayMs(100)
             .setNamespace("shouldHandleChunkLivecycle")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -307,6 +307,12 @@ public class ReadOnlyChunkImplTest {
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(0);
 
+    cacheNodeAssignmentStore.close();
+    cacheNodeMetadataStore.close();
+    cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
   }
 
@@ -322,7 +328,7 @@ public class ReadOnlyChunkImplTest {
             .setRetryDelayMs(100)
             .setNamespace("shouldHandleMissingS3Assets")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -416,6 +422,11 @@ public class ReadOnlyChunkImplTest {
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(1);
 
+    cacheNodeMetadataStore.close();
+    cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
   }
 
@@ -431,7 +442,7 @@ public class ReadOnlyChunkImplTest {
             .setRetryDelayMs(100)
             .setNamespace("shouldHandleMissingZkData")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -525,6 +536,11 @@ public class ReadOnlyChunkImplTest {
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(1);
 
+    cacheNodeMetadataStore.close();
+    cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
   }
 
@@ -540,7 +556,7 @@ public class ReadOnlyChunkImplTest {
             .setRetryDelayMs(100)
             .setNamespace("shouldHandleChunkLivecycle")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -682,6 +698,12 @@ public class ReadOnlyChunkImplTest {
       assertThat(files.findFirst().isPresent()).isFalse();
     }
 
+    cacheNodeAssignmentStore.close();
+    cacheNodeMetadataStore.close();
+    cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
   }
 
@@ -697,7 +719,7 @@ public class ReadOnlyChunkImplTest {
             .setRetryDelayMs(100)
             .setNamespace("shouldHandleChunkLivecycle")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(60)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -836,6 +858,12 @@ public class ReadOnlyChunkImplTest {
       assertThat(files.findFirst().isPresent()).isFalse();
     }
 
+    cacheNodeAssignmentStore.close();
+    cacheNodeMetadataStore.close();
+    cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
   }
 
