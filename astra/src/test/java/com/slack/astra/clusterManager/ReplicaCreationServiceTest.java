@@ -476,10 +476,13 @@ public class ReplicaCreationServiceTest {
 
     // create a snapshot - we expect this to fire an event, and after the
     // EventAggregationSecs duration, attempt to create the replicas
+    SnapshotMetadataStore snapshotMetadataStore2 =
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
             "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a", 100);
-    snapshotMetadataStore.createSync(snapshotA);
+    snapshotMetadataStore2.createSync(snapshotA);
+    snapshotMetadataStore2.close();
 
     await().until(() -> replicaMetadataStore.listSync().size() == 2);
     assertThat(replicaMetadataStore.listSync().stream().filter(r -> r.isRestored).count()).isZero();

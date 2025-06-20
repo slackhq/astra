@@ -564,13 +564,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    cacheNodeMetadataStore.close();
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       evictChunk(getCacheNodeAssignment());
-      cacheNodeAssignmentStore.close();
-      replicaMetadataStore.close();
-      snapshotMetadataStore.close();
-      searchMetadataStore.close();
 
       LOG.debug("Closed chunk");
     } else {

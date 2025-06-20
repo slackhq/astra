@@ -1491,4 +1491,156 @@ public class AstraPartitioningMetadataStoreTest {
           }
         });
   }
+
+  @Test
+  public void testListenerWithExistingZkDataInEtcdCreatesMode() throws Exception {
+    // For this test, we'll focus only on ETCD_CREATES mode
+    String storeFolder = "/partitioned_existing_zk_data_listener";
+    LOG.info("Testing listener with existing ZK data in ETCD_CREATES mode");
+
+    // Step 1: Create data in ZK directly using ZookeeperPartitioningMetadataStore
+    ZookeeperPartitioningMetadataStore<TestPartitionedMetadata> zkStore =
+        createZkStore(storeFolder);
+    String partition = "partition-for-zk-existing";
+    String nodeName = "test-existing-zk-data";
+    TestPartitionedMetadata zkData =
+        new TestPartitionedMetadata(nodeName, partition, "initialZkValue");
+    zkStore.createSync(zkData);
+
+    // Wait for creation to complete in ZK
+    await().atMost(5, TimeUnit.SECONDS).until(() -> zkStore.hasSync(partition, nodeName));
+
+    // Step 2: Now create the AstraPartitioningMetadataStore in ETCD_CREATES mode
+    try (AstraPartitioningMetadataStore<TestPartitionedMetadata> store =
+        createEtcdCreatesStore(storeFolder)) {
+      // Step 3: Initialize the cache and wait for it to be ready
+      store.awaitCacheInitialized();
+
+      // Verify we can get the data that was originally stored in ZK via the bridge
+      // This will use the fallback mechanism to ZK
+      await().atMost(5, TimeUnit.SECONDS).until(() -> store.hasSync(partition, nodeName));
+
+      TestPartitionedMetadata retrievedData = store.getSync(partition, nodeName);
+      assertThat(retrievedData).isNotNull();
+      assertThat(retrievedData.getName()).isEqualTo(nodeName);
+      assertThat(retrievedData.getPartition()).isEqualTo(partition);
+      assertThat(retrievedData.getValue()).isEqualTo("initialZkValue");
+
+      // Step 4: Now add a listener to watch for changes to this data
+      AtomicInteger callbackCount = new AtomicInteger(0);
+      AtomicInteger updatesReceived = new AtomicInteger(0);
+
+      AstraMetadataStoreChangeListener<TestPartitionedMetadata> listener =
+          metadata -> {
+            callbackCount.incrementAndGet();
+            LOG.info("Listener received update for: {}", metadata);
+            if (metadata.getName().equals(nodeName)
+                && metadata.getPartition().equals(partition)
+                && "updatedZkValue".equals(metadata.getValue())) {
+              updatesReceived.incrementAndGet();
+            }
+          };
+
+      store.addListener(listener);
+
+      // Step 5: Update the ZK data directly and verify we get notifications
+      TestPartitionedMetadata updatedZkData =
+          new TestPartitionedMetadata(nodeName, partition, "updatedZkValue");
+      zkStore.updateSync(updatedZkData);
+
+      // Wait for the update to be detected
+      await().atMost(10, TimeUnit.SECONDS).until(() -> updatesReceived.get() > 0);
+
+      // Verify listener was called with updated data
+      assertThat(callbackCount.get()).isGreaterThanOrEqualTo(1);
+      assertThat(updatesReceived.get()).isEqualTo(1);
+
+      // Clean up
+      store.removeListener(listener);
+      store.deleteSync(updatedZkData);
+
+      // Wait for deletion to complete
+      await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync(partition, nodeName));
+    } finally {
+      zkStore.close();
+    }
+  }
+
+  @Test
+  public void testListenerWithZkUpdateInEtcdCreatesMode() throws Exception {
+    // For this test, we'll create data in the bridge store first, then update it via ZK directly
+    String storeFolder = "/partitioned_zk_update_listener";
+    LOG.info("Testing listener with ZK update in ETCD_CREATES mode");
+
+    // Step 1: Create AstraPartitioningMetadataStore in ETCD_CREATES mode
+    try (AstraPartitioningMetadataStore<TestPartitionedMetadata> store =
+        createEtcdCreatesStore(storeFolder)) {
+
+      // Step 2: Create data through the bridge store
+      String partition = "partition-for-zk-update";
+      String nodeName = "test-zk-update-data";
+      TestPartitionedMetadata initialData =
+          new TestPartitionedMetadata(nodeName, partition, "initialValue");
+
+      store.createSync(initialData);
+
+      // Wait for creation to complete
+      await().atMost(5, TimeUnit.SECONDS).until(() -> store.hasSync(partition, nodeName));
+
+      // Step 3: Set up a listener to catch updates
+      AtomicInteger listenerCallCount = new AtomicInteger(0);
+
+      AstraMetadataStoreChangeListener<TestPartitionedMetadata> listener =
+          metadata -> {
+            LOG.info("Listener triggered with metadata: {}", metadata);
+            listenerCallCount.incrementAndGet();
+          };
+
+      store.addListener(listener);
+
+      // Step 4: Get a ZK store and update the data directly in ZK
+      try (ZookeeperPartitioningMetadataStore<TestPartitionedMetadata> zkStore =
+          createZkStore(storeFolder)) {
+        // This requires that the data already exists in ZK, which it might not if using
+        // ETCD_CREATES mode
+        // So first check if it exists
+        if (zkStore.hasSync(partition, nodeName)) {
+          // Update directly in ZK
+          TestPartitionedMetadata zkUpdateData =
+              new TestPartitionedMetadata(nodeName, partition, "updatedByZkDirectly");
+          zkStore.updateSync(zkUpdateData);
+
+          // Wait for the update to be detected by the listener
+          await().atMost(10, TimeUnit.SECONDS).until(() -> listenerCallCount.get() > 0);
+
+          // Verify listener was called
+          assertThat(listenerCallCount.get()).isGreaterThanOrEqualTo(1);
+
+          // Get data through bridge and verify it reflects the ZK update
+          TestPartitionedMetadata retrievedData = store.getSync(partition, nodeName);
+          assertThat(retrievedData).isNotNull();
+          assertThat(retrievedData.getValue()).isEqualTo("updatedByZkDirectly");
+        } else {
+          // Create the data in ZK (may happen in ETCD_CREATES mode where data doesn't automatically
+          // go to ZK)
+          TestPartitionedMetadata zkCreateData =
+              new TestPartitionedMetadata(nodeName, partition, "createdInZkDirectly");
+          zkStore.createSync(zkCreateData);
+
+          // Wait for the create to be detected by the listener
+          await().atMost(10, TimeUnit.SECONDS).until(() -> listenerCallCount.get() > 0);
+
+          // Verify listener was called
+          assertThat(listenerCallCount.get()).isGreaterThanOrEqualTo(1);
+        }
+      } finally {
+        // Clean up
+        store.removeListener(listener);
+        store.deleteSync(initialData);
+
+        // Wait for deletion to complete
+        await().atMost(5, TimeUnit.SECONDS).until(() -> !store.hasSync(partition, nodeName));
+      }
+    }
+  }
 }
