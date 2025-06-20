@@ -795,7 +795,29 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     // Watch the exact node path itself as well as any children
     ByteSequence prefix = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
-    WatchOption watchOption = WatchOption.builder().withPrefix(prefix).build();
+
+    // Get the current revision before starting the watch to prevent race conditions
+    // We start watching from the next revision to ensure we capture all events
+    // that occur during and after watch setup
+    WatchOption watchOption;
+    try {
+      long currentRevision =
+          etcdClient
+              .getKVClient()
+              .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
+              .get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+              .getHeader()
+              .getRevision();
+
+      // Create watch option starting from the current revision + 1
+      // This ensures we don't miss events that occur during watch registration
+      watchOption =
+          WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Failed to get current revision for watch setup", e);
+      // Fallback to basic watch without revision
+      watchOption = WatchOption.builder().withPrefix(prefix).build();
+    }
 
     // Create a watcher for this listener
     Watcher watcher =
@@ -849,6 +871,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                           }
                         }
                       });
+                },
+                error -> {
+                  LOG.error("Failed to establish watcher for store {}", storeFolder, error);
+                  new RuntimeHalterImpl().handleFatal(error);
                 });
 
     // Store the watcher so we can close it later

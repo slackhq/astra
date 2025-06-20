@@ -123,9 +123,34 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     // register watchers for when partitions are added or removed
     ByteSequence storeFolderKey = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
 
-    // Create watch option with prefix to watch the entire hierarchy
-    // This ensures we detect all changes under this path, including new partitions
-    WatchOption watchOption = WatchOption.builder().withPrefix(storeFolderKey).build();
+    // Get the current revision before starting the watch to prevent race conditions
+    // We start watching from the next revision to ensure we capture all events
+    // that occur during and after watch setup
+    WatchOption watchOption;
+    try {
+      long currentRevision =
+          etcdClient
+              .getKVClient()
+              .get(
+                  storeFolderKey,
+                  GetOption.builder().withPrefix(storeFolderKey).withKeysOnly(true).build())
+              .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
+              .getHeader()
+              .getRevision();
+
+      // Create watch option starting from the current revision + 1
+      // This ensures we don't miss events that occur during watch registration
+      watchOption =
+          WatchOption.builder()
+              .withPrefix(storeFolderKey)
+              .withRevision(currentRevision + 1)
+              .build();
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Failed to get current revision for watch setup on store {}", storeFolder, e);
+      // Fallback to basic watch without revision
+      watchOption = WatchOption.builder().withPrefix(storeFolderKey).build();
+    }
+
     LOG.debug("Adding watch client for folder: {} with prefix option", storeFolderKey);
     watchClient.watch(storeFolderKey, watchOption, watcher);
 
