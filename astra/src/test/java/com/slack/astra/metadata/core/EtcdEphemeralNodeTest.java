@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.ClientBuilder;
+import io.etcd.jetcd.KeyValue;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -544,6 +546,189 @@ public class EtcdEphemeralNodeTest {
     } finally {
       ephemeralClient.close();
       testMeterRegistry.close();
+    }
+  }
+
+  /**
+   * Test that updating an ephemeral node preserves its lease ID. This ensures that ephemeral nodes
+   * maintain their TTL and lease association even after updates.
+   */
+  @Test
+  public void testEphemeralNodeUpdatePreservesLease() throws Exception {
+    // Create a store with ephemeral nodes
+    Client ephemeralClient = createEtcdClient();
+    try (EtcdMetadataStore<TestMetadata> ephemeralStore =
+        new EtcdMetadataStore<>(
+            STORE_FOLDER + "-lease-preserve",
+            etcdConfig,
+            true,
+            meterRegistry,
+            serializer,
+            EtcdCreateMode.EPHEMERAL,
+            10, // 10 seconds TTL
+            ephemeralClient)) {
+
+      // Create an ephemeral node
+      TestMetadata originalNode = new TestMetadata("lease-test-node", "original-data");
+      ephemeralStore.createSync(originalNode);
+
+      // Get the lease ID of the created node by accessing etcd directly
+      ByteSequence key =
+          ByteSequence.from(
+              STORE_FOLDER + "-lease-preserve/lease-test-node", StandardCharsets.UTF_8);
+      KeyValue originalKv =
+          etcdClient.getKVClient().get(key).get(5, TimeUnit.SECONDS).getKvs().getFirst();
+      long originalLeaseId = originalKv.getLease();
+
+      LOG.info("Original node has lease ID: {}", originalLeaseId);
+      assertThat(originalLeaseId).isGreaterThan(0);
+
+      // Update the node with new data
+      TestMetadata updatedNode = new TestMetadata("lease-test-node", "updated-data");
+      ephemeralStore.updateSync(updatedNode);
+
+      // Verify the data was updated
+      TestMetadata retrievedNode = ephemeralStore.getSync("lease-test-node");
+      assertThat(retrievedNode.getData()).isEqualTo("updated-data");
+
+      // Check that the lease ID is preserved
+      KeyValue updatedKv =
+          etcdClient.getKVClient().get(key).get(5, TimeUnit.SECONDS).getKvs().getFirst();
+      long updatedLeaseId = updatedKv.getLease();
+
+      LOG.info("Updated node has lease ID: {}", updatedLeaseId);
+      assertThat(updatedLeaseId).isEqualTo(originalLeaseId);
+      assertThat(updatedLeaseId).isGreaterThan(0);
+
+      LOG.info("Test passed: Lease ID {} was preserved across update", originalLeaseId);
+    }
+  }
+
+  /**
+   * Test that updating a persistent node doesn't apply a lease. This ensures that persistent nodes
+   * never get leases, even when updated in mixed-mode scenarios.
+   */
+  @Test
+  public void testPersistentNodeUpdateNoLease() throws Exception {
+    // Create a store with persistent nodes
+    Client persistentClient = createEtcdClient();
+    try (EtcdMetadataStore<TestMetadata> persistentStore =
+        new EtcdMetadataStore<>(
+            STORE_FOLDER + "-persistent",
+            etcdConfig,
+            true,
+            meterRegistry,
+            serializer,
+            EtcdCreateMode.PERSISTENT,
+            10, // TTL doesn't matter for persistent nodes
+            persistentClient)) {
+
+      // Create a persistent node
+      TestMetadata originalNode = new TestMetadata("persistent-test-node", "original-data");
+      persistentStore.createSync(originalNode);
+
+      // Get the lease ID of the created node by accessing etcd directly
+      ByteSequence key =
+          ByteSequence.from(
+              STORE_FOLDER + "-persistent/persistent-test-node", StandardCharsets.UTF_8);
+      KeyValue originalKv =
+          etcdClient.getKVClient().get(key).get(5, TimeUnit.SECONDS).getKvs().getFirst();
+      long originalLeaseId = originalKv.getLease();
+
+      LOG.info("Original persistent node has lease ID: {}", originalLeaseId);
+      assertThat(originalLeaseId).isEqualTo(0); // Persistent nodes should not have leases
+
+      // Update the node with new data
+      TestMetadata updatedNode = new TestMetadata("persistent-test-node", "updated-data");
+      persistentStore.updateSync(updatedNode);
+
+      // Verify the data was updated
+      TestMetadata retrievedNode = persistentStore.getSync("persistent-test-node");
+      assertThat(retrievedNode.getData()).isEqualTo("updated-data");
+
+      // Check that the lease ID is still 0
+      KeyValue updatedKv =
+          etcdClient.getKVClient().get(key).get(5, TimeUnit.SECONDS).getKvs().getFirst();
+      long updatedLeaseId = updatedKv.getLease();
+
+      LOG.info("Updated persistent node has lease ID: {}", updatedLeaseId);
+      assertThat(updatedLeaseId).isEqualTo(0); // Should still be 0
+
+      LOG.info("Test passed: Persistent node correctly has no lease");
+    }
+  }
+
+  /**
+   * Test that updating an ephemeral node that was created without a lease (edge case) gets assigned
+   * the shared lease. This handles scenarios where nodes might have been created before the lease
+   * system was active.
+   */
+  @Test
+  public void testEphemeralNodeUpdateAddsLeaseWhenMissing() throws Exception {
+    // First, create a persistent node using a persistent store
+    Client persistentClient = createEtcdClient();
+    try (EtcdMetadataStore<TestMetadata> persistentStore =
+        new EtcdMetadataStore<>(
+            STORE_FOLDER + "-mixed-mode",
+            etcdConfig,
+            true,
+            meterRegistry,
+            serializer,
+            EtcdCreateMode.PERSISTENT,
+            10,
+            persistentClient)) {
+
+      // Create a node without a lease (persistent mode)
+      TestMetadata originalNode = new TestMetadata("mixed-mode-node", "original-data");
+      persistentStore.createSync(originalNode);
+
+      // Verify it has no lease
+      ByteSequence key =
+          ByteSequence.from(STORE_FOLDER + "-mixed-mode/mixed-mode-node", StandardCharsets.UTF_8);
+      KeyValue originalKv =
+          etcdClient.getKVClient().get(key).get(5, TimeUnit.SECONDS).getKvs().getFirst();
+      long originalLeaseId = originalKv.getLease();
+
+      LOG.info("Node created in persistent mode has lease ID: {}", originalLeaseId);
+      assertThat(originalLeaseId).isEqualTo(0); // Should have no lease
+    }
+
+    // Now update the same node using an ephemeral store
+    Client ephemeralClient = createEtcdClient();
+    try (EtcdMetadataStore<TestMetadata> ephemeralStore =
+        new EtcdMetadataStore<>(
+            STORE_FOLDER + "-mixed-mode",
+            etcdConfig,
+            true,
+            meterRegistry,
+            serializer,
+            EtcdCreateMode.EPHEMERAL,
+            10, // 10 seconds TTL
+            ephemeralClient)) {
+
+      // Update the node (this should add the shared lease)
+      TestMetadata updatedNode = new TestMetadata("mixed-mode-node", "updated-data");
+      ephemeralStore.updateSync(updatedNode);
+
+      // Verify the data was updated
+      TestMetadata retrievedNode = ephemeralStore.getSync("mixed-mode-node");
+      assertThat(retrievedNode.getData()).isEqualTo("updated-data");
+
+      // Check that the node now has the shared lease
+      ByteSequence key =
+          ByteSequence.from(STORE_FOLDER + "-mixed-mode/mixed-mode-node", StandardCharsets.UTF_8);
+      KeyValue updatedKv =
+          etcdClient.getKVClient().get(key).get(5, TimeUnit.SECONDS).getKvs().getFirst();
+      long updatedLeaseId = updatedKv.getLease();
+
+      LOG.info("Node updated in ephemeral mode has lease ID: {}", updatedLeaseId);
+      assertThat(updatedLeaseId).isGreaterThan(0); // Should now have the shared lease
+
+      // Verify it matches the shared lease ID
+      long sharedLeaseId = getSharedLeaseId(ephemeralStore);
+      assertThat(updatedLeaseId).isEqualTo(sharedLeaseId);
+
+      LOG.info("Test passed: Node without lease got shared lease {} on update", updatedLeaseId);
     }
   }
 }

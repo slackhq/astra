@@ -196,8 +196,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       }
 
       LOG.info(
-          "Created shared lease {} with TTL {} seconds for all ephemeral nodes",
+          "Created shared lease {} (HEX: {}) with TTL {} seconds for all ephemeral nodes",
           sharedLeaseId,
+          Long.toHexString(sharedLeaseId),
           ephemeralTtlSeconds);
 
       // Calculate the refresh interval (default to 1/3 of the TTL)
@@ -524,9 +525,37 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       ByteSequence value =
           ByteSequence.from(serializer.toJsonStr(metadataNode), StandardCharsets.UTF_8);
 
+      // First get the existing key to check if it has a lease
       return etcdClient
           .getKVClient()
-          .put(key, value)
+          .get(key)
+          .thenComposeAsync(
+              getResponse -> {
+                long existingLeaseId = 0;
+
+                // Check if the key exists and has a lease
+                if (!getResponse.getKvs().isEmpty()) {
+                  KeyValue existingKv = getResponse.getKvs().getFirst();
+                  existingLeaseId = existingKv.getLease();
+                }
+
+                // Determine which lease to use for the update
+                PutOption putOption = null;
+                if (existingLeaseId > 0) {
+                  // Preserve existing lease
+                  putOption = PutOption.builder().withLeaseId(existingLeaseId).build();
+                } else if (createMode == EtcdCreateMode.EPHEMERAL && sharedLeaseId > 0) {
+                  // Apply shared lease for ephemeral nodes that don't have a lease
+                  putOption = PutOption.builder().withLeaseId(sharedLeaseId).build();
+                }
+
+                // Perform the put with appropriate lease option
+                if (putOption != null) {
+                  return etcdClient.getKVClient().put(key, value, putOption);
+                } else {
+                  return etcdClient.getKVClient().put(key, value);
+                }
+              })
           .thenApplyAsync(
               putResponse -> {
                 // Always update the cache for consistency
