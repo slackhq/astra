@@ -53,14 +53,36 @@ queryConfig:
   managerConnectString: ${ASTRA_MANAGER_CONNECTION_STRING:-localhost:8083}
 
 metadataStoreConfig:
-  mode: ${ASTRA_METADATA_MODE:-ZOOKEEPER_EXCLUSIVE}
   zookeeperConfig:
+    enabled: ${ASTRA_ZK_ENABLED:-true}
     zkConnectString: ${ASTRA_ZK_CONNECTION_STRING:-localhost:2181}
     zkPathPrefix: ${ASTRA_ZK_PATH_PREFIX:-ASTRA}
     zkSessionTimeoutMs: ${ASTRA_ZK_SESSION_TIMEOUT_MS:-5000}
     zkConnectionTimeoutMs: ${ASTRA_ZK_CONNECT_TIMEOUT_MS:-500}
     zkCacheInitTimeoutMs: ${ASTRA_ZK_CACHE_INIT_TIMEOUT_MS:-30000}
     sleepBetweenRetriesMs: ${ASTRA_ZK_SLEEP_RETRIES_MS:-100}
+  etcdConfig:
+    enabled: ${ASTRA_ETCD_ENABLED:-false}
+    endpoints: [${ASTRA_ETCD_ENDPOINTS:-http://localhost:2379}]
+    namespace: ${ASTRA_ETCD_NAMESPACE:-astra}
+    connectionTimeoutMs: ${ASTRA_ETCD_CONNECTION_TIMEOUT_MS:-5000}
+    keepaliveTimeoutMs: ${ASTRA_ETCD_KEEPALIVE_TIMEOUT_MS:-3000}
+    retryDelayMs: ${ASTRA_ETCD_RETRY_DELAY_MS:-100}
+    maxRetries: ${ASTRA_ETCD_MAX_RETRIES:-3}
+    ephemeralNodeTtlSeconds: ${ASTRA_ETCD_EPHEMERAL_NODE_TTL_SECONDS:-30}
+  storeModes:
+    DatasetMetadataStore: ${ASTRA_DATASET_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    SnapshotMetadataStore: ${ASTRA_SNAPSHOT_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    ReplicaMetadataStore: ${ASTRA_REPLICA_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    HpaMetricMetadataStore: ${ASTRA_HPA_METRIC_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    SearchMetadataStore: ${ASTRA_SEARCH_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    CacheSlotMetadataStore: ${ASTRA_CACHE_SLOT_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    CacheNodeMetadataStore: ${ASTRA_CACHE_NODE_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    CacheNodeAssignmentStore: ${ASTRA_CACHE_NODE_ASSIGNMENT_STORE_MODE:-ZOOKEEPER_CREATES}
+    FieldRedactionMetadataStore: ${ASTRA_FIELD_REDACTION_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    PreprocessorMetadataStore: ${ASTRA_PREPROCESSOR_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    RecoveryNodeMetadataStore: ${ASTRA_RECOVERY_NODE_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    RecoveryTaskMetadataStore: ${ASTRA_RECOVERY_TASK_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
 
 cacheConfig:
   slotsPerInstance: ${ASTRA_CACHE_SLOTS_PER_INSTANCE:-10}

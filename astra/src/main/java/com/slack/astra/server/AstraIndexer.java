@@ -13,6 +13,7 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.RuntimeHalterImpl;
 import com.slack.astra.writer.LogMessageWriterImpl;
 import com.slack.astra.writer.kafka.AstraKafkaConsumer;
+import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -27,6 +28,7 @@ public class AstraIndexer extends AbstractExecutionThreadService {
   private static final Logger LOG = LoggerFactory.getLogger(AstraIndexer.class);
 
   private final AsyncCuratorFramework curatorFramework;
+  private final Client etcdClient;
   private final MeterRegistry meterRegistry;
   private final AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private final AstraConfigs.IndexerConfig indexerConfig;
@@ -54,12 +56,14 @@ public class AstraIndexer extends AbstractExecutionThreadService {
   public AstraIndexer(
       IndexingChunkManager<LogMessage> chunkManager,
       AsyncCuratorFramework curatorFramework,
+      Client etcdClient,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       AstraConfigs.IndexerConfig indexerConfig,
       AstraConfigs.KafkaConfig kafkaConfig,
       MeterRegistry meterRegistry) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
     this.curatorFramework = curatorFramework;
+    this.etcdClient = etcdClient;
     this.metadataStoreConfig = metadataStoreConfig;
     this.indexerConfig = indexerConfig;
     this.kafkaConfig = kafkaConfig;
@@ -92,9 +96,10 @@ public class AstraIndexer extends AbstractExecutionThreadService {
   private long indexerPreStart() throws Exception {
     LOG.info("Starting Astra indexer pre start.");
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new RecoveryTaskMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
 
     String partitionId = kafkaConfig.getKafkaTopicPartition();
     long maxOffsetDelay = indexerConfig.getMaxOffsetDelayMessages();
