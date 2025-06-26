@@ -1,5 +1,7 @@
 package com.slack.astra.metadata.schema;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Objects;
 import com.slack.astra.metadata.core.AstraMetadata;
 import java.io.File;
@@ -24,7 +26,7 @@ public class ChunkSchema extends AstraMetadata {
   }
 
   public static ChunkSchema deserializeBytes(byte[] bytes) throws IOException {
-    return serDe.fromJsonStr(new String(bytes));
+    return serDe.fromJsonStr(new String(bytes, UTF_8));
   }
 
   public static ChunkSchema deserializeFile(Path path) throws IOException {
@@ -57,7 +59,7 @@ public class ChunkSchema extends AstraMetadata {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof ChunkSchema)) return false;
     if (!super.equals(o)) return false;
     ChunkSchema that = (ChunkSchema) o;
     return Objects.equal(fieldDefMap, that.fieldDefMap) && Objects.equal(metadata, that.metadata);

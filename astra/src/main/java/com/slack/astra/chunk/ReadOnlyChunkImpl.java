@@ -277,8 +277,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       // set chunk state
-      cacheNodeAssignmentStore.updateAssignmentState(
-          getCacheNodeAssignment(), Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
+      var unused =
+          cacheNodeAssignmentStore.updateAssignmentState(
+              getCacheNodeAssignment(), Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
       lastKnownAssignmentState = Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;
 
       // register searchmetadata

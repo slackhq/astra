@@ -101,7 +101,7 @@ public class SpanFormatter {
         }
         case BINARY -> {
           tagBuilder.setFieldType(Schema.SchemaFieldType.BINARY);
-          tagBuilder.setVBinary(ByteString.copyFrom(value.toString().getBytes()));
+          tagBuilder.setVBinary(ByteString.copyFromUtf8(value.toString()));
         }
       }
       return tagBuilder.build();

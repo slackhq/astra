@@ -81,7 +81,7 @@ public class SearchResult<T> {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof SearchResult)) return false;
 
     SearchResult<?> that = (SearchResult<?>) o;
 
