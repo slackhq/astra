@@ -19,18 +19,19 @@
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.8</protobuf.version>
         <grpc.version>1.73.0</grpc.version>
-        <micrometer.version>1.15.0</micrometer.version>
-        <armeria.version>1.27.3</armeria.version>
+        <micrometer.version>1.15.1</micrometer.version>
+        <armeria.version>1.32.5</armeria.version>
+        <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
-        <jackson.version>2.19.0</jackson.version>
-        <jackson.databind.version>2.19.0</jackson.databind.version>
+        <jackson.version>2.19.1</jackson.version>
+        <jackson.databind.version>2.19.1</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
-        <log4j.version>2.24.3</log4j.version>
-        <aws.sdk.version>2.31.59</aws.sdk.version>
+        <log4j.version>2.25.0</log4j.version>
+        <aws.sdk.version>2.31.73</aws.sdk.version>
         <error.prone.version>2.38.0</error.prone.version>
-        <junit.jupiter.version>5.13.1</junit.jupiter.version>
+        <junit.jupiter.version>5.13.2</junit.jupiter.version>
         <jetcd.version>0.8.5</jetcd.version>
     </properties>
 
@@ -94,7 +95,7 @@
         <dependency>
             <groupId>com.linecorp.armeria</groupId>
             <artifactId>armeria-brave</artifactId>
-            <version>${armeria.version}</version>
+            <version>${armeria-brave.version}</version>
         </dependency>
         <dependency>
             <groupId>io.netty.incubator</groupId>
@@ -357,7 +358,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.38.4</version>
+            <version>0.38.5</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -413,7 +414,7 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>1.13.1</version>
+            <version>1.13.2</version>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
@@ -464,7 +465,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.17.5</version>
+            <version>1.17.6</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
