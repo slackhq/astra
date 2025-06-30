@@ -606,7 +606,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         .thenAcceptAsync(
             deleteResponse -> {
               // Note: deleteResponse.getDeleted() tells us how many keys were deleted
-              // We could log this, but we'll silently succeed if 0 keys were deleted
+              if (deleteResponse.getDeleted() == 0) {
+                throw new InternalMetadataStoreException("Failed to delete node: " + path);
+              }
 
               // Remove from cache if enabled
               if (shouldCache) {

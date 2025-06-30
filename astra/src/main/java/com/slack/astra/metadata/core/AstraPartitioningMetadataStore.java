@@ -628,24 +628,50 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Delete from ZK and also try to delete from Etcd
-        zkStore.deleteSync(metadataNode);
+        Exception primaryException = null;
+        Exception secondaryException = null;
+
+        try {
+          zkStore.deleteSync(metadataNode);
+        } catch (Exception e) {
+          primaryException = e;
+        }
+
         if (etcdStore != null) {
           try {
             etcdStore.deleteSync(metadataNode);
-          } catch (Exception ignored) {
-            // Ignore errors from secondary store
+          } catch (Exception e) {
+            secondaryException = e;
           }
+        }
+
+        // Only throw if both stores had exceptions
+        if (primaryException != null && secondaryException != null) {
+          throw new RuntimeException(primaryException);
         }
         break;
       case ETCD_CREATES:
         // Delete from Etcd and also try to delete from ZK
-        etcdStore.deleteSync(metadataNode);
+        Exception etcdException = null;
+        Exception zkException = null;
+
+        try {
+          etcdStore.deleteSync(metadataNode);
+        } catch (Exception e) {
+          etcdException = e;
+        }
+
         if (zkStore != null) {
           try {
             zkStore.deleteSync(metadataNode);
-          } catch (Exception ignored) {
-            // Ignore errors from secondary store
+          } catch (Exception e) {
+            zkException = e;
           }
+        }
+
+        // Only throw if both stores had exceptions
+        if (etcdException != null && zkException != null) {
+          throw new RuntimeException(etcdException);
         }
         break;
       default:
