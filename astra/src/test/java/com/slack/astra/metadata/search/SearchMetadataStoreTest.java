@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.awaitility.Awaitility.await;
 
+import com.slack.astra.metadata.core.AstraPartitionedMetadata;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -62,7 +63,10 @@ public class SearchMetadataStoreTest {
     store.updateSearchability(searchMetadata, true);
 
     // Confirm that this eventually becomes searchable
-    await().atMost(5, TimeUnit.SECONDS).until(() -> store.getSync("test").isSearchable());
+    String partition = searchMetadata.getPartition();
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() -> store.getSync(partition, "test").isSearchable());
   }
 
   @Test
@@ -74,5 +78,16 @@ public class SearchMetadataStoreTest {
 
     Throwable exSync = catchThrowable(() -> store.updateSync(searchMetadata));
     assertThat(exSync).isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  public void testSearchMetadataPartitioning() {
+    SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot1", "test-url1");
+    assertThat(searchMetadata.getPartition()).isEqualTo("test-url1");
+
+    SearchMetadata anotherMetadata = new SearchMetadata("test2", "snapshot2", "test-url2");
+    assertThat(anotherMetadata.getPartition()).isEqualTo("test-url2");
+
+    assertThat(searchMetadata).isInstanceOf(AstraPartitionedMetadata.class);
   }
 }
