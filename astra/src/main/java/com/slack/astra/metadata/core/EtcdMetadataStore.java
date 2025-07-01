@@ -59,6 +59,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   /** Used for refreshing ephemeral node leases. */
   private final ScheduledExecutorService leaseRefreshExecutor;
 
+  /** Used for watch retry operations with delays. */
+  private final ScheduledExecutorService watchRetryExecutor;
+
   /** The create mode for this metadata store instance. */
   private final EtcdCreateMode createMode;
 
@@ -75,6 +78,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   protected final boolean shouldCache;
   protected final MetadataSerializer<T> serializer;
   private final long etcdOperationTimeoutSeconds;
+  private final int maxRetries;
+  private final long retryDelayMs;
 
   private final MeterRegistry meterRegistry;
 
@@ -153,6 +158,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       this.etcdOperationTimeoutSeconds = EtcdCreateMode.DEFAULT_EPHEMERAL_TTL_SECONDS;
     }
 
+    // Store retry configuration for watch operations
+    this.maxRetries = Math.max(0, config.getMaxRetries());
+    this.retryDelayMs = Math.max(0, config.getRetryDelayMs());
+
     String store = "/" + storeFolder.split("/")[1];
     this.createCall = this.meterRegistry.counter(ASTRA_ETCD_CREATE_CALL, "store", store);
     this.deleteCall = this.meterRegistry.counter(ASTRA_ETCD_DELETE_CALL, "store", store);
@@ -176,6 +185,17 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         storeFolder,
         createMode);
     this.etcdClient = etcClient;
+
+    // Initialize watch retry executor - scheduled cached thread pool that scales to 0
+    this.watchRetryExecutor =
+        Executors.newScheduledThreadPool(
+            0, // Use 0 core threads so it can scale down completely
+            r -> {
+              Thread t = new Thread(r);
+              t.setDaemon(true);
+              t.setName("etcd-watch-retry-" + storeFolder);
+              return t;
+            });
 
     // Initialize lease refresh executor if we're creating ephemeral nodes
     if (createMode == EtcdCreateMode.EPHEMERAL) {
@@ -793,6 +813,16 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param listener The listener to add
    */
   public void addListener(AstraMetadataStoreChangeListener<T> listener) {
+    addListener(listener, 0);
+  }
+
+  /**
+   * Internal method to add a listener with retry logic.
+   *
+   * @param listener The listener to add
+   * @param attemptNumber The current attempt number (0-based)
+   */
+  private void addListener(AstraMetadataStoreChangeListener<T> listener, int attemptNumber) {
     this.addedListener.increment();
 
     if (!shouldCache) {
@@ -825,7 +855,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       watchOption =
           WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Failed to get current revision for watch setup", e);
+      LOG.error("Failed to get current revision for watch setup on attempt {}", attemptNumber, e);
       // Fallback to basic watch without revision
       watchOption = WatchOption.builder().withPrefix(prefix).build();
     }
@@ -884,12 +914,61 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                       });
                 },
                 error -> {
-                  LOG.error("Failed to establish watcher for store {}", storeFolder, error);
-                  new RuntimeHalterImpl().handleFatal(error);
+                  // This is an enhancement to the retry logic for watchers, as there appears to be
+                  // an issue in jetcd
+                  // https://github.com/etcd-io/jetcd/issues/1352
+                  LOG.error(
+                      "Watch failed for store {} on attempt {}: {}",
+                      storeFolder,
+                      attemptNumber,
+                      error.getMessage());
+
+                  // Close the failed watcher
+                  String listenerKey = String.valueOf(System.identityHashCode(listener));
+                  Watcher existingWatcher = watchers.remove(listenerKey);
+                  if (existingWatcher != null) {
+                    try {
+                      existingWatcher.close();
+                    } catch (Exception e) {
+                      LOG.debug("Error closing failed watcher", e);
+                    }
+                  }
+
+                  // Retry if we haven't exceeded max attempts
+                  if (attemptNumber < maxRetries) {
+                    long delayMs = retryDelayMs > 0 ? retryDelayMs : 1000;
+                    LOG.info(
+                        "Retrying watch establishment for store {} in {} ms (attempt {} of {})",
+                        storeFolder,
+                        delayMs,
+                        attemptNumber + 1,
+                        maxRetries);
+
+                    // Schedule retry using the dedicated watch retry executor with delay
+                    watchRetryExecutor.schedule(
+                        () -> addListener(listener, attemptNumber + 1),
+                        delayMs,
+                        TimeUnit.MILLISECONDS);
+                  } else {
+                    LOG.error(
+                        "Failed to establish watch for store {} after {} attempts, failing fatally",
+                        storeFolder,
+                        maxRetries + 1);
+                    new RuntimeHalterImpl().handleFatal(error);
+                  }
                 });
 
     // Store the watcher so we can close it later
     watchers.put(String.valueOf(System.identityHashCode(listener)), watcher);
+
+    if (attemptNumber == 0) {
+      LOG.info("Successfully established initial watch for store {}", storeFolder);
+    } else {
+      LOG.info(
+          "Successfully re-established watch for store {} after {} retries",
+          storeFolder,
+          attemptNumber);
+    }
   }
 
   /**
@@ -1066,6 +1145,15 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       LOG.info("Interrupting lease initialization thread");
       leaseInitThread.interrupt();
       // No need to wait - virtual threads are cheap to discard
+    }
+
+    // Shut down watch retry executor
+    if (watchRetryExecutor != null) {
+      watchRetryExecutor.shutdownNow();
+      try {
+        watchRetryExecutor.awaitTermination(5, TimeUnit.SECONDS);
+      } catch (InterruptedException ignored) {
+      }
     }
 
     // Shut down lease refresh executor if it exists
