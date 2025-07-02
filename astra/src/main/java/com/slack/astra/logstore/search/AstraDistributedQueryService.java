@@ -26,12 +26,7 @@ import io.micrometer.core.instrument.Timer;
 import java.io.Closeable;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -42,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +55,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   private final MeterRegistry meterRegistry;
 
   public static final String ASTRA_ENABLE_QUERY_GATING_FLAG = "astra.enableQueryGating";
+  public static final String ASTRA_NEXT_GEN_DISTRIBUTED_QUERIES =
+      "astra.enableNextGenDistributedQueries";
 
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
@@ -257,8 +255,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   protected static Map<String, List<SearchMetadata>> getMatchingSearchMetadata(
       SearchMetadataStore searchMetadataStore, Map<String, SnapshotMetadata> snapshotsToSearch) {
     // iterate every search metadata whose snapshot needs to be searched.
-    // if there are multiple search metadata nodes then pick the most on based on
-    // pickSearchNodeToQuery
     ScopedSpan getMatchingSearchMetadataSpan =
         Tracing.currentTracer()
             .startScopedSpan("AstraDistributedQueryService.getMatchingSearchMetadata");
@@ -433,11 +429,355 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         .record(requestDuration, TimeUnit.MILLISECONDS);
   }
 
-  private List<SearchResult<LogMessage>> distributedSearch(
-      final AstraSearch.SearchRequest distribSearchReq) {
-    LOG.debug("Starting distributed search for request: {}", distribSearchReq);
+  @Override
+  public AstraSearch.SearchResult doSearch(final AstraSearch.SearchRequest request) {
+    // TODO FOR KYLE: Should this use a query param? It'd require a larger refactor, but it could
+    // allow
+    // for more fine grained control
+    boolean shouldUseNewDistributedSearch = Boolean.getBoolean(ASTRA_NEXT_GEN_DISTRIBUTED_QUERIES);
+    if (shouldUseNewDistributedSearch) {
+      return this.newDoSearch(request);
+    }
+    return this.oldDosSearch(request);
+  }
+
+  private AstraSearch.SearchResult newDoSearch(final AstraSearch.SearchRequest request) {
+    /*
+     1. Get the number of snapshots requested (M)
+     2. Get list of nodes the snapshots is on (N)
+     3. Sort the list into replicas (R)
+     4. Query X of those nodes (where X is configurable and <= N) from random replicas -- TODO FOR KYLE: Should we only query so many snapshots at once? Or only so many nodes at once?
+     5. Sort through the responses and separate those that succeeded from those that failed
+       5a. For those that failed, retry them on a different relica
+       5b. For those that succeeded, run an preaggregation on the results to reduce size in memory -- TODO FOR KYLE: Is this safe to do? I imagine it should be, but I am a bit concerned
+       5c. Keep doing this loop until done or timed out
+     6. Run the final aggregation
+     7. Return the result
+
+     TASKS:
+     * newDistributedSearch needs to be less abstract and just run the search method on the nodes/snapshots it's given
+       * Perhaps we just need a "runRequest" method? Then we can shove the schema code in there as well?
+     * newDoSearch needs to do the heavy lifting and contain the main loop (search, aggregate, repeat on remaining)
+     * Add monitoring for all of this. Particular interests are on:
+       * Success rate (i.e. all success vs all failures)
+       * Partial rate
+       * Speed
+    */
+
+    LOG.debug("Starting new distributed search for request: {}", request);
     ScopedSpan span =
-        Tracing.currentTracer().startScopedSpan("AstraDistributedQueryService.distributedSearch");
+        Tracing.currentTracer().startScopedSpan("AstraDistributedQueryService.newDoSearch");
+
+    Map<String, SnapshotMetadata> snapshotsMatchingQuery =
+        getMatchingSnapshots(
+            snapshotMetadataStore,
+            datasetMetadataStore,
+            request.getStartTimeEpochMs(),
+            request.getEndTimeEpochMs(),
+            request.getDataset());
+
+    // for each matching snapshot, we find the search metadata nodes that we can potentially query
+    Map<String, List<SearchMetadata>> snapshotToSearchMetadata =
+        getMatchingSearchMetadata(searchMetadataStore, snapshotsMatchingQuery);
+
+    // The list of snapshots we still need to query
+    List<String> remainingSnapshots = new ArrayList<>(snapshotToSearchMetadata.keySet());
+
+    // TODO FOR KYLE: MAKE THIS CONFIGURABLE ... or maybe it should just be the maxRequestSize
+    // that's configurable?
+    int maxQueueSize = 20;
+
+    // Fill the list with what snapshots are currently being processed
+    List<String> currentSnapshots = new ArrayList<>();
+    for (String snapshotName : remainingSnapshots) {
+      if (currentSnapshots.size() <= maxQueueSize) {
+        currentSnapshots.add(snapshotName);
+
+        // TODO FOR KYLE: IS THIS EFFICIENT? FEELS NOT EFFICIENT
+        remainingSnapshots.remove(snapshotName);
+      }
+    }
+
+    // The list for continuous aggregations
+    List<SearchResult<LogMessage>> partialAggregatedResult = new ArrayList<>();
+
+    // Snapshots that are FULLY failed. As in, we have either timed out the overall request, or
+    // tried all of the nodes
+    // and they all have timed out, or the request had an error in it (e.g. a parsing error)
+    List<String> failedSnapshots = new ArrayList<>();
+
+    // The list of snapshots that #MadeIt
+    List<String> successfulSnapshots = new ArrayList<>();
+
+    // Iterate through the list of currently active snapshots
+    // TODO FOR KYLE: This should also stop when we hit some kind of timeout, yeah? Like there's one
+    // timeout for all the requests to the nodes,
+    //  then there's one timeout for the query as a whole, so that we can still try to aggregate and
+    // return a partial
+    while (!currentSnapshots.isEmpty()) {
+
+      // Build up the nodes to query
+      // We need this to be Search Metadata URL -> A List Of Snapshot Names (e.g. "host.local:8888
+      // -> ["foo", "bar", "baz"]")
+      // so tha twe can batch up everything to be a single request to the given host
+      Map<String, List<String>> searchMetadataURLToSnapshotNames = new HashMap<>();
+
+      for (String snapshot : currentSnapshots) {
+        List<SearchMetadata> searchMetadataForSnapshot = snapshotToSearchMetadata.get(snapshot);
+
+        // If there are no nodes left to try, then it's a failure
+        if (searchMetadataForSnapshot.isEmpty()) {
+          // TODO FOR KYLE: Do something here?
+          System.out.println("FAILURE");
+          failedSnapshots.add(snapshot);
+          currentSnapshots.remove(snapshot);
+          continue;
+        }
+
+        // Otherwise, get the first one from the list of possibilities and try that
+        SearchMetadata nodeToQuery = searchMetadataForSnapshot.removeFirst();
+
+        // Maintain the mapping of Search Metadata URL -> A List Of Snapshot Names
+        if (searchMetadataURLToSnapshotNames.containsKey(nodeToQuery.url)) {
+          searchMetadataURLToSnapshotNames.get(nodeToQuery.url).add(snapshot);
+        } else {
+          List<String> snapshotNames = new ArrayList<>();
+          snapshotNames.add(snapshot);
+          searchMetadataURLToSnapshotNames.put(nodeToQuery.url, snapshotNames);
+        }
+
+        // Update the HashMap of Snapshot -> SearchMetadata Nodes To Query with the current state of
+        // the world
+        snapshotToSearchMetadata.put(snapshot, searchMetadataForSnapshot);
+      }
+
+      // Do the search and add all the results to the list of partial results
+      // NOTE: This returns a mapping of node URL to the result. We should be able to use the node
+      // URL key to get the snapshots we
+      // were supposed to search
+      // ALSO NOTE: There are two levels of failure here. We have failure on the node level (which
+      // is why we have the mapping here at all)
+      // and we have failure on the snapshot level (which is why we return a list of failed
+      // snapshots for every search to every node)
+      Map<String, SearchResult<LogMessage>> snapshotToResult =
+          newDistributedSearch(request, searchMetadataURLToSnapshotNames);
+
+      for (Map.Entry<String, SearchResult<LogMessage>> entry : snapshotToResult.entrySet()) {
+        String nodeURL = entry.getKey();
+        SearchResult<LogMessage> result = entry.getValue();
+
+        // This is a user error and probably shouldn't be retried (e.g. an invalid query/aggregation
+        // will fail on EVERY node)
+        if (result.equals(SearchResult.soft_error())) {
+          failedSnapshots.addAll(searchMetadataURLToSnapshotNames.get(nodeURL));
+          currentSnapshots.removeAll(searchMetadataURLToSnapshotNames.get(nodeURL));
+          // TODO FOR KYLE: IN FACT IF WE HAVE A PARSING/SCHMEA ERROR, SHOULD WE BAIL ENTIRELY AND
+          // NOT DO ANY MORE BATCHES? BASICALLY A FAIL FAST APPROACH?
+        }
+
+        // Otherwise, if this is an Astra error, retry it on a different node
+        else if (result.equals(SearchResult.error())) {
+          // Do nothing so that this is retried
+          System.out.println("We need to retry all snapshots for " + nodeURL);
+        }
+
+        // Other-otherwise, this was successful. Iterate through all the snapshots queried and mark
+        // them as successful
+        // or unsuccessful depending on the result
+        else {
+          List<String> allSnapshotsQueriedForNode = searchMetadataURLToSnapshotNames.get(nodeURL);
+
+          // These are user errors and shouldn't be retried. We need to remove them from the list of
+          // current snapshots and add them to the list of failed snapshots
+          // TODO FOR KYLE: SHOULD WE BAIL EARLY HERE?
+          for (String snapshot : result.softFailedChunkIds) {
+            failedSnapshots.add(snapshot);
+            currentSnapshots.remove(snapshot);
+            allSnapshotsQueriedForNode.remove(snapshot);
+          }
+
+          // These are Astra errors and SHOULD be retried
+          for (String snapshot : result.hardFailedChunkIds) {
+            // Do nothing so that this is retried
+            System.out.println("We need to retry " + snapshot);
+            allSnapshotsQueriedForNode.remove(snapshot);
+          }
+
+          // Everything that we queried that didn't come up as a hard or soft failure, must have
+          // succeeded. Mark it as successful, don't retry it, and add the result to the list
+          for (String snapshot : allSnapshotsQueriedForNode) {
+            successfulSnapshots.add(snapshot);
+            currentSnapshots.remove(snapshot);
+          }
+        }
+
+        // Always add the result, even if it's a failure. We still need it for aggregating and
+        // counting crap
+        partialAggregatedResult.add(result);
+      }
+
+      // Do a partial aggregation on the results from the last batch and the current ones
+      SearchResult<LogMessage> aggregatedResult =
+          ((SearchResultAggregator<LogMessage>)
+                  new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
+              .aggregate(partialAggregatedResult, false);
+
+      // TODO FOR KYLE: IS THIS EFFICIENT?
+      partialAggregatedResult.clear();
+      partialAggregatedResult.add(aggregatedResult);
+
+      // Refill the queue
+      for (String snapshotName : remainingSnapshots) {
+        if (currentSnapshots.size() <= maxQueueSize) {
+          currentSnapshots.add(snapshotName);
+
+          // TODO FOR KYLE: IS THIS EFFICIENT? FEELS NOT EFFICIENT
+          remainingSnapshots.remove(snapshotName);
+        }
+      }
+    }
+
+    SearchResult<LogMessage> finalAggregatedResult =
+        ((SearchResultAggregator<LogMessage>)
+                new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
+            .aggregate(partialAggregatedResult, true);
+
+    // TODO FOR KYLE: ADD OTHER METRICS AND STUFF HERE
+    return SearchResultUtils.toSearchResultProto(finalAggregatedResult);
+  }
+
+  private Map<String, SearchResult<LogMessage>> newDistributedSearch(
+      final AstraSearch.SearchRequest distribSearchReq,
+      Map<String, List<String>> searchMetadataURLToSnapshotNames) {
+    ScopedSpan span =
+        Tracing.currentTracer()
+            .startScopedSpan("AstraDistributedQueryService.newDistributedSearch");
+
+    span.tag("nodeQueryCount", String.valueOf(searchMetadataURLToSnapshotNames.size()));
+
+    CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
+    AtomicLong totalRequests = new AtomicLong();
+    try {
+      try (var scope = new StructuredTaskScope<SearchResult<LogMessage>>()) {
+        List<Pair<String, StructuredTaskScope.Subtask<SearchResult<LogMessage>>>> searchSubtasks =
+            searchMetadataURLToSnapshotNames.entrySet().stream()
+                .map(
+                    (searchNode) ->
+                        Pair.of(
+                            searchNode.getKey(),
+                            scope.fork(
+                                currentTraceContext.wrap(
+                                    () -> {
+                                      AstraServiceGrpc.AstraServiceFutureStub stub =
+                                          getStub(searchNode.getKey());
+
+                                      if (stub == null) {
+                                        // TODO: insert a failed result in the results object that
+                                        // we
+                                        // return from this method
+                                        return null;
+                                      }
+
+                                      AstraSearch.SearchRequest localSearchReq =
+                                          distribSearchReq.toBuilder()
+                                              .addAllChunkIds(searchNode.getValue())
+                                              .build();
+                                      SearchResult<LogMessage> temp =
+                                          SearchResultUtils.fromSearchResultProtoOrEmpty(
+                                              stub.withDeadlineAfter(
+                                                      defaultQueryTimeout.toMillis(),
+                                                      TimeUnit.MILLISECONDS)
+                                                  .withInterceptors(
+                                                      GrpcTracing.newBuilder(Tracing.current())
+                                                          .build()
+                                                          .newClientInterceptor())
+                                                  .search(localSearchReq)
+                                                  .get());
+                                      totalRequests.addAndGet(temp.totalSnapshots);
+                                      return temp;
+                                    }))))
+                .toList();
+
+        try {
+          scope.joinUntil(Instant.now().plusSeconds(defaultQueryTimeout.toSeconds()));
+        } catch (TimeoutException timeoutException) {
+          scope.shutdown();
+          scope.join();
+        }
+
+        Map<String, SearchResult<LogMessage>> nodeURLToResponse =
+            new HashMap<>(searchSubtasks.size());
+        for (Pair<String, StructuredTaskScope.Subtask<SearchResult<LogMessage>>>
+            nodeToSearchResult : searchSubtasks) {
+          String nodeURL = nodeToSearchResult.getKey();
+          StructuredTaskScope.Subtask<SearchResult<LogMessage>> searchResult =
+              nodeToSearchResult.getValue();
+
+          SearchResult<LogMessage> hardError = SearchResult.error();
+          hardError.hardFailedChunkIds.addAll(searchMetadataURLToSnapshotNames.get(nodeURL));
+
+          try {
+            if (searchResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
+              nodeURLToResponse.put(
+                  nodeURL, searchResult.get() == null ? hardError : searchResult.get());
+            } else {
+              nodeURLToResponse.put(nodeURL, hardError);
+              LOG.warn("Error fetching part of search result {}", searchResult);
+            }
+          } catch (Exception e) {
+            LOG.error("Error fetching search result", e);
+            nodeURLToResponse.put(nodeURL, hardError);
+          }
+        }
+        return nodeURLToResponse;
+      }
+    } catch (Exception e) {
+      LOG.error("Search failed with ", e);
+      span.error(e);
+      failedQueryCount.increment();
+      return List.of(SearchResult.empty());
+    } finally {
+      span.finish();
+    }
+  }
+
+  private AstraSearch.SearchResult oldDosSearch(final AstraSearch.SearchRequest request) {
+    try {
+      List<SearchResult<LogMessage>> searchResults = oldDistributedSearch(request);
+      SearchResult<LogMessage> aggregatedResult =
+          ((SearchResultAggregator<LogMessage>)
+                  new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
+              .aggregate(searchResults, true);
+
+      // We report a query with more than 0% of requested nodes, but less than 2% as a tolerable
+      // response. Anything over 2% is considered an unacceptable.
+      if (aggregatedResult.totalNodes == 0 || aggregatedResult.failedNodes == 0) {
+        distributedQueryApdexSatisfied.increment();
+      } else if (((double) aggregatedResult.failedNodes / (double) aggregatedResult.totalNodes)
+          <= 0.02) {
+        distributedQueryApdexTolerating.increment();
+      } else {
+        distributedQueryApdexFrustrated.increment();
+      }
+
+      distributedQueryTotalSnapshots.increment(aggregatedResult.totalSnapshots);
+      distributedQuerySnapshotsWithReplicas.increment(aggregatedResult.snapshotsWithReplicas);
+      if (aggregatedResult.totalSnapshots != aggregatedResult.snapshotsWithReplicas) {}
+
+      LOG.debug("aggregatedResult={}", aggregatedResult);
+      return SearchResultUtils.toSearchResultProto(aggregatedResult);
+    } catch (Exception e) {
+      LOG.error("Distributed search failed", e);
+      throw new RuntimeException(e);
+    }
+  }
+
+  private List<SearchResult<LogMessage>> oldDistributedSearch(
+      final AstraSearch.SearchRequest distribSearchReq) {
+    LOG.debug("Starting old distributed search for request: {}", distribSearchReq);
+    ScopedSpan span =
+        Tracing.currentTracer()
+            .startScopedSpan("AstraDistributedQueryService.oldDistributedSearch");
     long requestedDataHours =
         Duration.ofMillis(
                 distribSearchReq.getEndTimeEpochMs() - distribSearchReq.getStartTimeEpochMs())
@@ -541,38 +881,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         incompleteQueryCount.increment();
       }
       span.finish();
-    }
-  }
-
-  @Override
-  public AstraSearch.SearchResult doSearch(final AstraSearch.SearchRequest request) {
-    try {
-      List<SearchResult<LogMessage>> searchResults = distributedSearch(request);
-      SearchResult<LogMessage> aggregatedResult =
-          ((SearchResultAggregator<LogMessage>)
-                  new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
-              .aggregate(searchResults, true);
-
-      // We report a query with more than 0% of requested nodes, but less than 2% as a tolerable
-      // response. Anything over 2% is considered an unacceptable.
-      if (aggregatedResult.totalNodes == 0 || aggregatedResult.failedNodes == 0) {
-        distributedQueryApdexSatisfied.increment();
-      } else if (((double) aggregatedResult.failedNodes / (double) aggregatedResult.totalNodes)
-          <= 0.02) {
-        distributedQueryApdexTolerating.increment();
-      } else {
-        distributedQueryApdexFrustrated.increment();
-      }
-
-      distributedQueryTotalSnapshots.increment(aggregatedResult.totalSnapshots);
-      distributedQuerySnapshotsWithReplicas.increment(aggregatedResult.snapshotsWithReplicas);
-      if (aggregatedResult.totalSnapshots != aggregatedResult.snapshotsWithReplicas) {}
-
-      LOG.debug("aggregatedResult={}", aggregatedResult);
-      return SearchResultUtils.toSearchResultProto(aggregatedResult);
-    } catch (Exception e) {
-      LOG.error("Distributed search failed", e);
-      throw new RuntimeException(e);
     }
   }
 

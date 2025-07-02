@@ -27,6 +27,8 @@ public class SearchResult<T> {
   public final int totalNodes;
   public final int totalSnapshots;
   public final int snapshotsWithReplicas;
+  public List<String> hardFailedChunkIds;
+  public List<String> softFailedChunkIds;
 
   public final InternalAggregation internalAggregation;
 
@@ -38,6 +40,8 @@ public class SearchResult<T> {
     this.totalSnapshots = 0;
     this.snapshotsWithReplicas = 0;
     this.internalAggregation = null;
+    this.hardFailedChunkIds = new ArrayList<>();
+    this.softFailedChunkIds = new ArrayList<>();
   }
 
   // TODO: Move stats into a separate struct.
@@ -49,6 +53,28 @@ public class SearchResult<T> {
       int totalSnapshots,
       int snapshotsWithReplicas,
       InternalAggregation internalAggregation) {
+    this(
+        hits,
+        tookMicros,
+        failedNodes,
+        totalNodes,
+        totalSnapshots,
+        snapshotsWithReplicas,
+        internalAggregation,
+        new ArrayList<>(),
+        new ArrayList<>());
+  }
+
+  public SearchResult(
+      List<T> hits,
+      long tookMicros,
+      int failedNodes,
+      int totalNodes,
+      int totalSnapshots,
+      int snapshotsWithReplicas,
+      InternalAggregation internalAggregation,
+      List<String> hardFailedChunkIds,
+      List<String> softFailedChunkIds) {
     this.hits = hits;
     this.tookMicros = tookMicros;
     this.failedNodes = failedNodes;
@@ -56,6 +82,8 @@ public class SearchResult<T> {
     this.totalSnapshots = totalSnapshots;
     this.snapshotsWithReplicas = snapshotsWithReplicas;
     this.internalAggregation = internalAggregation;
+    this.hardFailedChunkIds = hardFailedChunkIds;
+    this.softFailedChunkIds = softFailedChunkIds;
   }
 
   @Override
@@ -75,6 +103,10 @@ public class SearchResult<T> {
         + snapshotsWithReplicas
         + ", internalAggregation="
         + internalAggregation
+        + ", hardFailedChunkIds="
+        + hardFailedChunkIds
+        + ", softFailedChunkIds="
+        + softFailedChunkIds
         + '}';
   }
 
@@ -91,6 +123,8 @@ public class SearchResult<T> {
     if (totalSnapshots != that.totalSnapshots) return false;
     if (snapshotsWithReplicas != that.snapshotsWithReplicas) return false;
     if (!hits.equals(that.hits)) return false;
+    if (!hardFailedChunkIds.equals(that.hardFailedChunkIds)) return false;
+    if (!softFailedChunkIds.equals(that.softFailedChunkIds)) return false;
 
     // todo - this is pending a PR to OpenSearch to address
     // https://github.com/opensearch-project/OpenSearch/pull/6357
@@ -109,7 +143,17 @@ public class SearchResult<T> {
     result = 31 * result + totalSnapshots;
     result = 31 * result + snapshotsWithReplicas;
     result = 31 * result + internalAggregation.hashCode();
+    result = 31 * result + hardFailedChunkIds.hashCode();
+    result = 31 * result + softFailedChunkIds.hashCode();
     return result;
+  }
+
+  public void setHardFailedChunkIds(List<String> hardFailedChunkIds) {
+    this.hardFailedChunkIds = hardFailedChunkIds;
+  }
+
+  public void setSoftFailedChunkIds(List<String> softFailedChunkIds) {
+    this.softFailedChunkIds = softFailedChunkIds;
   }
 
   public static SearchResult<LogMessage> empty() {
