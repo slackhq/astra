@@ -1,5 +1,7 @@
 package com.slack.astra.metadata.core;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import org.apache.curator.x.async.modeled.ModelSerializer;
@@ -28,7 +30,7 @@ public interface MetadataSerializer<T extends AstraMetadata> {
         }
 
         try {
-          return toJsonStr(model).getBytes();
+          return toJsonStr(model).getBytes(UTF_8);
         } catch (Exception e) {
           throw new IllegalArgumentException(e);
         }
@@ -41,7 +43,7 @@ public interface MetadataSerializer<T extends AstraMetadata> {
         }
 
         try {
-          return fromJsonStr(new String(bytes));
+          return fromJsonStr(new String(bytes, UTF_8));
         } catch (Exception e) {
           throw new IllegalStateException(e);
         }
