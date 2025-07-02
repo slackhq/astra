@@ -26,7 +26,12 @@ import io.micrometer.core.instrument.Timer;
 import java.io.Closeable;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -37,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -735,9 +741,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       LOG.error("Search failed with ", e);
       span.error(e);
       failedQueryCount.increment();
-      return List.of(SearchResult.empty());
-    } finally {
-      span.finish();
+      return searchMetadataURLToSnapshotNames.entrySet().stream()
+          .collect(Collectors.toMap(Map.Entry::getKey, _ -> SearchResult.error()));
     }
   }
 
