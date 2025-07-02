@@ -2,8 +2,11 @@ package com.slack.astra.metadata.search;
 
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
 import com.slack.astra.metadata.core.AstraPartitioningMetadataStore;
+import com.slack.astra.metadata.core.EtcdCreateMode;
+import com.slack.astra.metadata.core.EtcdPartitioningMetadataStore;
 import com.slack.astra.metadata.core.ZookeeperPartitioningMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collections;
 import java.util.List;
@@ -17,30 +20,42 @@ import org.slf4j.LoggerFactory;
 public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMetadata> {
   private static final Logger LOG = LoggerFactory.getLogger(SearchMetadataStore.class);
 
-  public static final String SEARCH_PARTITIONED_METADATA_STORE_ZK_PATH = "/partitioned_search";
+  public static final String SEARCH_PARTITIONED_METADATA_STORE_PATH = "/partitioned_search";
   private final AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   final SearchMetadataStoreLegacy legacyStore;
 
   public SearchMetadataStore(
       AsyncCuratorFramework curatorFramework,
+      Client etcdClient,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry,
       boolean shouldCache) {
     super(
-        new ZookeeperPartitioningMetadataStore<>(
-            curatorFramework,
-            metadataStoreConfig.getZookeeperConfig(),
-            meterRegistry,
-            CreateMode.EPHEMERAL,
-            new SearchMetadataSerializer().toModelSerializer(),
-            SEARCH_PARTITIONED_METADATA_STORE_ZK_PATH),
-        null, // Not using etcdStore for now
-        metadataStoreConfig.getMode(),
+        curatorFramework != null
+            ? new ZookeeperPartitioningMetadataStore<>(
+                curatorFramework,
+                metadataStoreConfig.getZookeeperConfig(),
+                meterRegistry,
+                CreateMode.EPHEMERAL,
+                new SearchMetadataSerializer().toModelSerializer(),
+                SEARCH_PARTITIONED_METADATA_STORE_PATH)
+            : null,
+        etcdClient != null
+            ? new EtcdPartitioningMetadataStore<>(
+                etcdClient,
+                metadataStoreConfig.getEtcdConfig(),
+                meterRegistry,
+                EtcdCreateMode.EPHEMERAL,
+                new SearchMetadataSerializer(),
+                SEARCH_PARTITIONED_METADATA_STORE_PATH)
+            : null,
+        metadataStoreConfig.getStoreModesOrDefault(
+            "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
         meterRegistry);
 
     this.legacyStore =
         new SearchMetadataStoreLegacy(
-            curatorFramework, metadataStoreConfig, meterRegistry, shouldCache);
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, shouldCache);
     this.metadataStoreConfig = metadataStoreConfig;
   }
 

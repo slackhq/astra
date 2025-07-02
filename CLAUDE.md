@@ -14,10 +14,10 @@ mvn clean install -DskipTests
 ```
 
 ### Running Tests
-```bash
-# Run all tests
-mvn test
+Do not attempt to run all tests at once - be specific, as the entire test suite can take a long time to complete.
+When running tests, these commands should be performed relative to the astra subdirectory.
 
+```bash
 # Run a specific test
 mvn test -Dtest=AstraTest
 
