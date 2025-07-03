@@ -49,7 +49,7 @@ public class ChunkManagerUtil<T> {
   private final Client etcdClient;
   private final boolean autoCloseResources;
 
-  @Deprecated() // please use the non-static version
+  @Deprecated // please use the non-static version
   public static ChunkManagerUtil<LogMessage> makeChunkManagerUtil(
       S3MockExtension s3MockExtension,
       String s3Bucket,
