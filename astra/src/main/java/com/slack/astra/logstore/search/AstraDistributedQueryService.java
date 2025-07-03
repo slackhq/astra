@@ -498,11 +498,11 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     for (String snapshotName : remainingSnapshots) {
       if (currentSnapshots.size() <= maxQueueSize) {
         currentSnapshots.add(snapshotName);
-
-        // TODO FOR KYLE: IS THIS EFFICIENT? FEELS NOT EFFICIENT
-        remainingSnapshots.remove(snapshotName);
       }
     }
+
+    // TODO FOR KYLE: IS THIS EFFICIENT? FEELS NOT EFFICIENT
+    remainingSnapshots.removeAll(currentSnapshots);
 
     // The list for continuous aggregations
     List<SearchResult<LogMessage>> partialAggregatedResult = new ArrayList<>();
@@ -637,10 +637,11 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         if (currentSnapshots.size() <= maxQueueSize) {
           currentSnapshots.add(snapshotName);
 
-          // TODO FOR KYLE: IS THIS EFFICIENT? FEELS NOT EFFICIENT
-          remainingSnapshots.remove(snapshotName);
         }
       }
+
+      // TODO FOR KYLE: IS THIS EFFICIENT? FEELS NOT EFFICIENT
+      remainingSnapshots.removeAll(currentSnapshots);
     }
 
     SearchResult<LogMessage> finalAggregatedResult =
