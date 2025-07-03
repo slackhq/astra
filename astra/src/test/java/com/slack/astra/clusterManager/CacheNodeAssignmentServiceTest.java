@@ -206,7 +206,6 @@ public class CacheNodeAssignmentServiceTest {
   public void testExpiredReplicasMarkedForEvictionLifecycle() throws TimeoutException {
     String name = "foo";
     String snapshotKey = "snapshot_%s";
-    String replicaKey = "replica_%s";
     String replicaSet = "rep1";
     String replicaId = "replica1";
     for (int i = 0; i < 3; i++) {
@@ -228,7 +227,7 @@ public class CacheNodeAssignmentServiceTest {
 
       ReplicaMetadata replicaMetadata =
           new ReplicaMetadata(
-              String.format(replicaKey, i),
+              String.format("replica_%s", i),
               String.format(snapshotKey, i),
               replicaSet,
               1L,
@@ -259,7 +258,6 @@ public class CacheNodeAssignmentServiceTest {
   public void testEvictExpiredReplicasOnly() {
     String name = "foo";
     String snapshotKey = "snapshot_%s";
-    String replicaKey = "replica_%s";
     String replicaSet = "rep1";
     String replicaId = "replica1";
     for (int i = 0; i < 6; i++) {
@@ -283,7 +281,7 @@ public class CacheNodeAssignmentServiceTest {
 
       ReplicaMetadata replicaMetadata =
           new ReplicaMetadata(
-              String.format(replicaKey, i),
+              String.format("replica_%s", i),
               String.format(snapshotKey, i),
               replicaSet,
               1L,
