@@ -29,6 +29,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -528,7 +529,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       // so tha twe can batch up everything to be a single request to the given host
       Map<String, List<String>> searchMetadataURLToSnapshotNames = new HashMap<>();
 
-      for (String snapshot : currentSnapshots) {
+      Iterator<String> currentSnapshotIterator = currentSnapshots.iterator();
+      while (currentSnapshotIterator.hasNext()) {
+        String snapshot = currentSnapshotIterator.next();
         List<SearchMetadata> searchMetadataForSnapshot = snapshotToSearchMetadata.get(snapshot);
 
         // If there are no nodes left to try, then it's a failure
@@ -536,7 +539,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
           // TODO FOR KYLE: Do something here?
           System.out.println("FAILURE");
           failedSnapshots.add(snapshot);
-          currentSnapshots.remove(snapshot);
+          currentSnapshotIterator.remove();
           continue;
         }
 
