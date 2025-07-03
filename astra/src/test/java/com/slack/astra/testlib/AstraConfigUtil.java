@@ -1,6 +1,7 @@
 package com.slack.astra.testlib;
 
 import com.slack.astra.proto.config.AstraConfigs;
+import java.util.List;
 
 public class AstraConfigUtil {
 
@@ -13,11 +14,12 @@ public class AstraConfigUtil {
       String s3Bucket,
       int queryPort,
       String metadataZkConnectionString,
-      String metadataZkPathPrefix,
+      String metadataPathPrefix,
       AstraConfigs.NodeRole nodeRole,
       int maxOffsetDelay,
       int recoveryPort,
-      int maxMessagesPerChunk) {
+      int maxMessagesPerChunk,
+      List<String> etcdEndpoints) {
     AstraConfigs.KafkaConfig kafkaConfig =
         AstraConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -63,15 +65,44 @@ public class AstraConfigUtil {
 
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
+            .setEnabled(true)
             .setZkConnectString(metadataZkConnectionString)
-            .setZkPathPrefix(metadataZkPathPrefix)
+            .setZkPathPrefix(metadataPathPrefix)
             .setZkSessionTimeoutMs(15000)
             .setZkConnectionTimeoutMs(15000)
             .setSleepBetweenRetriesMs(1000)
             .setZkCacheInitTimeoutMs(1000)
             .build();
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .setEnabled(true)
+            .addAllEndpoints(
+                etcdEndpoints != null && !etcdEndpoints.isEmpty() ? etcdEndpoints : List.of(""))
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setMaxRetries(3)
+            .setRetryDelayMs(100)
+            .setNamespace(metadataPathPrefix) // Use same namespace as ZK pathPrefix for consistency
+            .setEphemeralNodeTtlSeconds(3)
+            .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
-        AstraConfigs.MetadataStoreConfig.newBuilder().setZookeeperConfig(zkConfig).build();
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .setZookeeperConfig(zkConfig)
+            .setEtcdConfig(etcdConfig)
+            .build();
 
     AstraConfigs.QueryServiceConfig queryConfig =
         AstraConfigs.QueryServiceConfig.newBuilder()
