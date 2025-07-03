@@ -36,7 +36,11 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -1564,7 +1568,6 @@ public class AstraDistributedQueryServiceTest {
             Futures.immediateFuture(
                 AstraSearch.SearchResult.newBuilder()
                     .setHits(0, "test")
-                    .addAllChunkIds(List.of(snapshot1Name))
                     .build()));
 
     AstraSearch.SearchRequest request =

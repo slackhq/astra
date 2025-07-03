@@ -508,7 +508,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     List<SearchResult<LogMessage>> partialAggregatedResult = new ArrayList<>();
 
     // Snapshots that are FULLY failed. As in, we have either timed out the overall request, or
-    // tried all of the nodes
+    // tried all the nodes
     // and they all have timed out, or the request had an error in it (e.g. a parsing error)
     List<String> failedSnapshots = new ArrayList<>();
 
