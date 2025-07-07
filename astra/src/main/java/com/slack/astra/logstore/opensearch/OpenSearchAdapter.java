@@ -535,7 +535,7 @@ public class OpenSearchAdapter {
             new CompressedXContent(BytesReference.bytes(mapping)),
             MapperService.MergeReason.MAPPING_UPDATE);
       } catch (Exception e) {
-        LOG.error("Error doing map update errorMsg={}", e.getMessage());
+        LOG.debug("Error doing map update errorMsg={}", e.getMessage());
       }
       return true;
     }
