@@ -68,7 +68,7 @@ public class BulkIngestApi {
     // 2. The "index" is used as the span name
     CompletableFuture<HttpResponse> future = new CompletableFuture<>();
     Timer.Sample sample = Timer.start(meterRegistry);
-    future.thenRun(() -> sample.stop(bulkIngestTimer));
+    var unused = future.thenRun(() -> sample.stop(bulkIngestTimer));
 
     try {
       byte[] bulkRequestBytes = bulkRequest.getBytes(StandardCharsets.UTF_8);

@@ -1,5 +1,7 @@
 package com.slack.astra.util;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.fasterxml.jackson.core.JsonParser.Feature;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -20,7 +22,7 @@ public class JsonUtil {
   }
 
   public static <T> ByteBuffer toByteBuffer(T obj) throws JsonProcessingException {
-    return ByteBuffer.wrap(writeAsString(obj).getBytes());
+    return ByteBuffer.wrap(writeAsString(obj).getBytes(UTF_8));
   }
 
   public static <T> String writeAsString(T obj) throws JsonProcessingException {

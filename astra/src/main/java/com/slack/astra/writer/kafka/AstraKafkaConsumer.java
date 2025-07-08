@@ -124,14 +124,16 @@ public class AstraKafkaConsumer {
     for (String property : props.stringPropertyNames()) {
       Preconditions.checkArgument(
           props.getProperty(property) != null && !props.getProperty(property).isEmpty(),
-          String.format("Property %s cannot be null or empty", property));
+          "Property %s cannot be null or empty",
+          property);
     }
 
     // Check required configs.
     for (String requiredConfig : REQUIRED_CONFIGS) {
       checkNotNull(
           props.getProperty(requiredConfig),
-          String.format("Property %s is required but not provided", requiredConfig));
+          "Property %s is required but not provided",
+          requiredConfig);
     }
 
     StringBuilder propertiesBuilder = new StringBuilder("Kafka params are: ");
@@ -211,7 +213,7 @@ public class AstraKafkaConsumer {
         kafkaError = ex;
         LOG.warn(String.format("Caught unexpected exception, retry number: %d", i), ex);
         try {
-          Thread.sleep((i + 1) * 3000);
+          Thread.sleep((i + 1) * 3000L);
         } catch (InterruptedException exex) {
           LOG.warn("Caught unexpected exception during sleep.", exex);
         }

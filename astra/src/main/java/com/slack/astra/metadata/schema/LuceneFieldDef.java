@@ -24,7 +24,7 @@ public class LuceneFieldDef extends AstraMetadata {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof LuceneFieldDef)) return false;
     if (!super.equals(o)) return false;
     LuceneFieldDef that = (LuceneFieldDef) o;
     return isStored == that.isStored
