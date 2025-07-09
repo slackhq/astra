@@ -436,7 +436,8 @@ public class ElasticsearchApiServiceTest {
   public void testSearchBackendFailureReturns500() throws Exception {
     // Create a properly formatted request that will parse successfully but may fail during search
     // Use a valid request format with proper required fields
-    String postBody = "{\"index\":\"nonexistent-dataset\"}\n{\"size\":10,\"query\":{\"match_all\":{}}}";
+    String postBody =
+        "{\"index\":\"nonexistent-dataset\"}\n{\"size\":10,\"query\":{\"match_all\":{}}}";
     HttpResponse response = elasticsearchApiService.multiSearch(postBody);
 
     AggregatedHttpResponse aggregatedRes = response.aggregate().join();
@@ -451,7 +452,7 @@ public class ElasticsearchApiServiceTest {
 
     JsonNode firstResponse = jsonNode.get("responses").get(0);
     assertThat(firstResponse).isNotNull();
-    
+
     // The individual response should have some response structure - either successful or with error
     // We can't guarantee it will be a 500 since the dataset might just return empty results
     assertThat(firstResponse.has("took")).isTrue();
