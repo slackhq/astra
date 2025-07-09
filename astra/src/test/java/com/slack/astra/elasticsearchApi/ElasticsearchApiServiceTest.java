@@ -385,7 +385,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   @Test
-  public void testMalformedJsonReturns500() throws Exception {
+  public void testMalformedJsonReturns400() throws Exception {
     String postBody =
         Resources.toString(
             Resources.getResource("elasticsearchApi/invalid_json_syntax.ndjson"),
@@ -396,12 +396,12 @@ public class ElasticsearchApiServiceTest {
     String body = aggregatedRes.content(StandardCharsets.UTF_8);
     JsonNode jsonNode = new ObjectMapper().readTree(body);
 
-    assertThat(aggregatedRes.status().code()).isEqualTo(200);
-    assertThat(jsonNode.get("responses").get(0).get("status").asInt()).isEqualTo(500);
+    assertThat(aggregatedRes.status().code()).isEqualTo(400);
+    assertThat(jsonNode.get("error").asText()).contains("Invalid request format");
   }
 
   @Test
-  public void testIncompleteNdjsonReturns500() throws Exception {
+  public void testIncompleteNdjsonReturns400() throws Exception {
     String postBody =
         Resources.toString(
             Resources.getResource("elasticsearchApi/incomplete_ndjson.ndjson"),
@@ -412,12 +412,12 @@ public class ElasticsearchApiServiceTest {
     String body = aggregatedRes.content(StandardCharsets.UTF_8);
     JsonNode jsonNode = new ObjectMapper().readTree(body);
 
-    assertThat(aggregatedRes.status().code()).isEqualTo(200);
-    assertThat(jsonNode.get("responses").get(0).get("status").asInt()).isEqualTo(500);
+    assertThat(aggregatedRes.status().code()).isEqualTo(400);
+    assertThat(jsonNode.get("error").asText()).contains("Invalid request format");
   }
 
   @Test
-  public void testMissingRequiredFieldsReturns500() throws Exception {
+  public void testMissingRequiredFieldsReturns400() throws Exception {
     String postBody =
         Resources.toString(
             Resources.getResource("elasticsearchApi/missing_required_fields.ndjson"),
@@ -428,8 +428,8 @@ public class ElasticsearchApiServiceTest {
     String body = aggregatedRes.content(StandardCharsets.UTF_8);
     JsonNode jsonNode = new ObjectMapper().readTree(body);
 
-    assertThat(aggregatedRes.status().code()).isEqualTo(200);
-    assertThat(jsonNode.get("responses").get(0).get("status").asInt()).isEqualTo(500);
+    assertThat(aggregatedRes.status().code()).isEqualTo(400);
+    assertThat(jsonNode.get("error").asText()).contains("Invalid request format");
   }
 
   private void addMessagesToChunkManager(List<Trace.Span> messages) throws IOException {
