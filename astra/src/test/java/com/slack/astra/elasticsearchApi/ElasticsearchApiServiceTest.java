@@ -384,6 +384,54 @@ public class ElasticsearchApiServiceTest {
     serviceUnderTest.mapping(Optional.of("bar"), Optional.empty(), Optional.empty());
   }
 
+  @Test
+  public void testMalformedJsonReturns500() throws Exception {
+    String postBody =
+        Resources.toString(
+            Resources.getResource("elasticsearchApi/invalid_json_syntax.ndjson"),
+            Charset.defaultCharset());
+    HttpResponse response = elasticsearchApiService.multiSearch(postBody);
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+    assertThat(aggregatedRes.status().code()).isEqualTo(200);
+    assertThat(jsonNode.get("responses").get(0).get("status").asInt()).isEqualTo(500);
+  }
+
+  @Test
+  public void testIncompleteNdjsonReturns500() throws Exception {
+    String postBody =
+        Resources.toString(
+            Resources.getResource("elasticsearchApi/incomplete_ndjson.ndjson"),
+            Charset.defaultCharset());
+    HttpResponse response = elasticsearchApiService.multiSearch(postBody);
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+    assertThat(aggregatedRes.status().code()).isEqualTo(200);
+    assertThat(jsonNode.get("responses").get(0).get("status").asInt()).isEqualTo(500);
+  }
+
+  @Test
+  public void testMissingRequiredFieldsReturns500() throws Exception {
+    String postBody =
+        Resources.toString(
+            Resources.getResource("elasticsearchApi/missing_required_fields.ndjson"),
+            Charset.defaultCharset());
+    HttpResponse response = elasticsearchApiService.multiSearch(postBody);
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+    assertThat(aggregatedRes.status().code()).isEqualTo(200);
+    assertThat(jsonNode.get("responses").get(0).get("status").asInt()).isEqualTo(500);
+  }
+
   private void addMessagesToChunkManager(List<Trace.Span> messages) throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     int offset = 1;
