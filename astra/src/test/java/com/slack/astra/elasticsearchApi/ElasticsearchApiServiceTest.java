@@ -397,7 +397,7 @@ public class ElasticsearchApiServiceTest {
     JsonNode jsonNode = new ObjectMapper().readTree(body);
 
     assertThat(aggregatedRes.status().code()).isEqualTo(400);
-    assertThat(jsonNode.get("error").asText()).contains("Invalid request format");
+    assertThat(jsonNode.get("error").asText()).contains("Invalid JSON format");
   }
 
   @Test
@@ -413,7 +413,7 @@ public class ElasticsearchApiServiceTest {
     JsonNode jsonNode = new ObjectMapper().readTree(body);
 
     assertThat(aggregatedRes.status().code()).isEqualTo(400);
-    assertThat(jsonNode.get("error").asText()).contains("Invalid request format");
+    assertThat(jsonNode.get("error").asText()).contains("Invalid JSON format");
   }
 
   @Test
@@ -429,7 +429,35 @@ public class ElasticsearchApiServiceTest {
     JsonNode jsonNode = new ObjectMapper().readTree(body);
 
     assertThat(aggregatedRes.status().code()).isEqualTo(400);
-    assertThat(jsonNode.get("error").asText()).contains("Invalid request format");
+    assertThat(jsonNode.get("error").asText()).contains("Invalid request argument");
+  }
+
+  @Test
+  public void testSearchBackendFailureReturns500() throws Exception {
+    // Mock the searcher to throw an exception to simulate backend failure
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setDataset("testDataset")
+            .setQueryString("*")
+            .setStartTimeEpochMs(0)
+            .setEndTimeEpochMs(System.currentTimeMillis())
+            .setHowMany(10)
+            .build();
+
+    when(mockSearcher.doSearch(any(AstraSearch.SearchRequest.class)))
+        .thenThrow(new RuntimeException("Backend connection failed"));
+
+    String postBody = "{\"index\":\"testDataset\"}\n{\"query\":{\"match_all\":{}}}";
+    HttpResponse response = elasticsearchApiService.multiSearch(postBody);
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+    assertThat(aggregatedRes.status().code()).isEqualTo(500);
+    assertThat(jsonNode.get("responses")).isNotNull();
+    assertThat(jsonNode.get("responses").isArray()).isTrue();
+    assertThat(jsonNode.get("responses").get(0).get("error")).isNotNull();
   }
 
   private void addMessagesToChunkManager(List<Trace.Span> messages) throws IOException {

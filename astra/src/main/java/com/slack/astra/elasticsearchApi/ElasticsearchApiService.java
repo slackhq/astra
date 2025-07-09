@@ -4,6 +4,7 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.CurrentTraceContext;
 import brave.propagation.TraceContext;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -100,12 +101,21 @@ public class ElasticsearchApiService {
       List<AstraSearch.SearchRequest> searchRequests;
       try {
         searchRequests = openSearchRequest.parseHttpPostBody(postBody);
-      } catch (Exception e) {
-        LOG.error("Bad user input in multisearch request", e);
+      } catch (JsonProcessingException e) {
+        LOG.error("Invalid JSON in multisearch request", e);
         return HttpResponse.of(
             HttpStatus.BAD_REQUEST,
             MediaType.JSON_UTF_8,
-            JsonUtil.writeAsString(Map.of("error", "Invalid request format: " + e.getMessage())));
+            JsonUtil.writeAsString(
+                Map.of("error", "Invalid JSON format. Please check your input and try again.")));
+      } catch (IllegalArgumentException e) {
+        LOG.error("Invalid argument in multisearch request", e);
+        return HttpResponse.of(
+            HttpStatus.BAD_REQUEST,
+            MediaType.JSON_UTF_8,
+            JsonUtil.writeAsString(
+                Map.of(
+                    "error", "Invalid request argument. Please check your input and try again.")));
       }
 
       List<StructuredTaskScope.Subtask<EsSearchResponse>> requestSubtasks =
