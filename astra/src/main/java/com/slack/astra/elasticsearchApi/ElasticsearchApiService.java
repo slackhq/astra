@@ -97,8 +97,19 @@ public class ElasticsearchApiService {
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
     try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
+      List<AstraSearch.SearchRequest> searchRequests;
+      try {
+        searchRequests = openSearchRequest.parseHttpPostBody(postBody);
+      } catch (Exception e) {
+        LOG.error("Bad user input in multisearch request", e);
+        return HttpResponse.of(
+            HttpStatus.BAD_REQUEST,
+            MediaType.JSON_UTF_8,
+            JsonUtil.writeAsString(Map.of("error", "Invalid request format: " + e.getMessage())));
+      }
+
       List<StructuredTaskScope.Subtask<EsSearchResponse>> requestSubtasks =
-          openSearchRequest.parseHttpPostBody(postBody).stream()
+          searchRequests.stream()
               .map((request) -> scope.fork(currentTraceContext.wrap(() -> doSearch(request))))
               .toList();
 
