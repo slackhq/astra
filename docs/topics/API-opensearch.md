@@ -241,6 +241,27 @@ Definitions for the OpenSearch compatible API, queryable via the Grafana and end
                 }
             </sample>
         </response>
+        <response type="400">
+            <sample lang="JSON">
+                {
+                    "error": "Invalid request format: Unexpected character ('{' (code 123)): was expecting double-quote to start field name"
+                }
+            </sample>
+        </response>
+        <response type="500">
+            <sample lang="JSON">
+                {
+                    "took": 0,
+                    "responses":
+                    [
+                        {
+                            "took": 0,
+                            "status": 500
+                        }
+                    ]
+                }
+            </sample>
+        </response>
     </api-endpoint>
     <api-endpoint endpoint="/{indexName}/_mapping" method="GET">
         <response type="200">
