@@ -116,6 +116,21 @@ public class ElasticsearchApiService {
             JsonUtil.writeAsString(
                 Map.of(
                     "error", "Invalid request argument. Please check your input and try again.")));
+      } catch (IndexOutOfBoundsException e) {
+        LOG.error("Incomplete NDJSON in multisearch request", e);
+        return HttpResponse.of(
+            HttpStatus.BAD_REQUEST,
+            MediaType.JSON_UTF_8,
+            JsonUtil.writeAsString(
+                Map.of("error", "Invalid JSON format. Please check your input and try again.")));
+      } catch (NullPointerException e) {
+        LOG.error("Missing required fields in multisearch request", e);
+        return HttpResponse.of(
+            HttpStatus.BAD_REQUEST,
+            MediaType.JSON_UTF_8,
+            JsonUtil.writeAsString(
+                Map.of(
+                    "error", "Invalid request argument. Please check your input and try again.")));
       }
 
       List<StructuredTaskScope.Subtask<EsSearchResponse>> requestSubtasks =
