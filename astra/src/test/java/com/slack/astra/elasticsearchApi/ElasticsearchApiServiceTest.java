@@ -433,7 +433,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   @Test
-  public void testSearchBackendFailureReturns500() throws Exception {
+  public void testMultiSearchWithNonexistentDataset() throws Exception {
     // Create a properly formatted request that will parse successfully but may fail during search
     // Use a valid request format with proper required fields
     String postBody =
