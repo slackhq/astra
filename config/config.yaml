@@ -48,9 +48,11 @@ queryConfig:
   serverConfig:
     serverPort: ${ASTRA_QUERY_SERVER_PORT:-8081}
     serverAddress: ${ASTRA_QUERY_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${ASTRA_QUERY_REQUEST_TIMEOUT_MS:-5000}
-  defaultQueryTimeoutMs: ${ASTRA_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-3000}
+    requestTimeoutMs: ${ASTRA_QUERY_REQUEST_TIMEOUT_MS:-10000}
+  defaultQueryTimeoutMs: ${ASTRA_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-7000}
   managerConnectString: ${ASTRA_MANAGER_CONNECTION_STRING:-localhost:8083}
+  maxSnapshotsQueriedPerBatch: ${ASTRA_QUERY_MAX_SNAPSHOTS_QUERIED_PER_BATCH:-30}
+  perBatchQueryTimeoutMs: ${ASTRA_QUERY_PER_BATCH_QUERY_TIMEOUT_MS:-5000}
 
 metadataStoreConfig:
   zookeeperConfig:
