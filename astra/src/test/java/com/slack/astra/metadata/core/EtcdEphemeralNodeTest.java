@@ -137,10 +137,10 @@ public class EtcdEphemeralNodeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3) // Default long TTL for most tests
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     // Create etcd client
@@ -253,7 +253,6 @@ public class EtcdEphemeralNodeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.EPHEMERAL,
-            shortTtl,
             ephemeralClient)) {
 
       // Create multiple ephemeral nodes
@@ -325,7 +324,6 @@ public class EtcdEphemeralNodeTest {
   public void testConcurrentEphemeralNodeOperations() throws Exception {
     final int threadCount = 5; // Using fewer threads to avoid test flakiness
     final int nodesPerThread = 3; // Using fewer nodes per thread to speed up tests
-    final long shortTtl = 10; // 10 seconds TTL for ephemeral nodes
 
     // Create a store with ephemeral nodes
     Client ephemeralClient = createEtcdClient();
@@ -337,7 +335,6 @@ public class EtcdEphemeralNodeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.EPHEMERAL,
-            shortTtl,
             ephemeralClient)) {
 
       // Create thread pool for concurrent operations
@@ -467,10 +464,10 @@ public class EtcdEphemeralNodeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(5) // Short TTL for faster testing
+            .setEphemeralNodeTtlMs(5) // Short TTL for faster testing
             .build();
 
     // Create client builder for test
@@ -565,7 +562,6 @@ public class EtcdEphemeralNodeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.EPHEMERAL,
-            10, // 10 seconds TTL
             ephemeralClient)) {
 
       // Create an ephemeral node
@@ -620,7 +616,6 @@ public class EtcdEphemeralNodeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.PERSISTENT,
-            10, // TTL doesn't matter for persistent nodes
             persistentClient)) {
 
       // Create a persistent node
@@ -675,7 +670,6 @@ public class EtcdEphemeralNodeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.PERSISTENT,
-            10,
             persistentClient)) {
 
       // Create a node without a lease (persistent mode)
@@ -703,7 +697,6 @@ public class EtcdEphemeralNodeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.EPHEMERAL,
-            10, // 10 seconds TTL
             ephemeralClient)) {
 
       // Update the node (this should add the shared lease)

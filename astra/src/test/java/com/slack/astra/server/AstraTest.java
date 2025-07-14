@@ -137,11 +137,11 @@ public class AstraTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace(METADATA_PATH_PREFIX)
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     // We side load a service metadata entry telling it to create an entry with the partitions that

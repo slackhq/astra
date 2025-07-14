@@ -125,10 +125,10 @@ public class EtcdMetadataStoreTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     // Create etcd client
@@ -346,10 +346,10 @@ public class EtcdMetadataStoreTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     EtcdMetadataStore<TestMetadata> newStore = null;
@@ -441,10 +441,10 @@ public class EtcdMetadataStoreTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     // Create client builder for test

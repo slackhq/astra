@@ -150,10 +150,10 @@ public class EtcdPartitioningCreateModeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     String partition = "partition1";
@@ -234,10 +234,10 @@ public class EtcdPartitioningCreateModeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     // Create ephemeral node that should disappear after the store is closed
@@ -314,10 +314,10 @@ public class EtcdPartitioningCreateModeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     // Create ephemeral nodes in multiple partitions
@@ -407,10 +407,10 @@ public class EtcdPartitioningCreateModeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     // First create a persistent node

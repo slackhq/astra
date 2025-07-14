@@ -65,8 +65,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   /** The create mode for this metadata store instance. */
   private final EtcdCreateMode createMode;
 
-  /** TTL in seconds for ephemeral nodes. */
-  private final long ephemeralTtlSeconds;
+  /** TTL in milliseconds for ephemeral nodes. */
+  private final long ephemeralTtlMs;
+  private final int ephemeralMaxRetries;
 
   private static final Logger LOG = LoggerFactory.getLogger(EtcdMetadataStore.class);
 
@@ -77,8 +78,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   protected final ConcurrentHashMap<String, T> cache = new ConcurrentHashMap<>();
   protected final boolean shouldCache;
   protected final MetadataSerializer<T> serializer;
-  private final long etcdOperationTimeoutSeconds;
-  private final int maxRetries;
+  private final long etcdOperationTimeoutMs;
+  private final int etcdOperationsMaxRetries;
   private final long retryDelayMs;
 
   private final MeterRegistry meterRegistry;
@@ -127,9 +128,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         meterRegistry,
         serializer,
         EtcdCreateMode.PERSISTENT,
-        config.getEphemeralNodeTtlSeconds() > 0
-            ? config.getEphemeralNodeTtlSeconds()
-            : EtcdCreateMode.DEFAULT_EPHEMERAL_TTL_SECONDS,
         etcClient);
   }
 
@@ -141,7 +139,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       MeterRegistry meterRegistry,
       MetadataSerializer<T> serializer,
       EtcdCreateMode createMode,
-      long ephemeralTtlSeconds,
       Client etcClient) {
     this.storeFolder = storeFolder;
     this.namespace = config.getNamespace();
@@ -150,16 +147,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.serializer = serializer;
     this.watchers = new ConcurrentHashMap<>();
     this.createMode = createMode;
-    this.ephemeralTtlSeconds = ephemeralTtlSeconds;
-
-    if (config.getEphemeralNodeTtlSeconds() > 0) {
-      this.etcdOperationTimeoutSeconds = config.getEphemeralNodeTtlSeconds();
-    } else {
-      this.etcdOperationTimeoutSeconds = EtcdCreateMode.DEFAULT_EPHEMERAL_TTL_SECONDS;
-    }
+    this.ephemeralTtlMs = config.getEphemeralNodeTtlMs();
+    this.ephemeralMaxRetries = config.getEphemeralNodeMaxRetries();
+    this.etcdOperationTimeoutMs = config.getOperationsTimeoutMs();
 
     // Store retry configuration for watch operations
-    this.maxRetries = Math.max(0, config.getMaxRetries());
+    this.etcdOperationsMaxRetries = Math.max(0, config.getOperationsMaxRetries());
     this.retryDelayMs = Math.max(0, config.getRetryDelayMs());
 
     String store = "/" + storeFolder.split("/")[1];
@@ -213,22 +206,21 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         sharedLeaseId =
             etcdClient
                 .getLeaseClient()
-                .grant(ephemeralTtlSeconds)
-                .get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS)
+                .grant(ephemeralTtlMs)
+                .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
                 .getID();
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new RuntimeException(e);
       }
 
       LOG.info(
-          "Created shared lease {} (HEX: {}) with TTL {} seconds for all ephemeral nodes",
+          "Created shared lease {} (HEX: {}) with TTL {} milliseconds for all ephemeral nodes",
           sharedLeaseId,
           Long.toHexString(sharedLeaseId),
-          ephemeralTtlSeconds);
+          ephemeralTtlMs);
 
-      // Calculate the refresh interval (default to 1/3 of the TTL)
-      long refreshIntervalMs =
-          (long) (ephemeralTtlSeconds * EtcdCreateMode.DEFAULT_REFRESH_INTERVAL_FRACTION * 1000);
+      // Calculate the refresh interval
+      long refreshIntervalMs = (ephemeralTtlMs / ephemeralMaxRetries);
 
       LOG.info("Starting lease refresh thread with interval: {} ms", refreshIntervalMs);
 
@@ -252,28 +244,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
       LOG.info("Default cache watcher started for store: {}", storeFolder);
     }
-  }
-
-  /** Constructor with specific create mode that accepts an external etcd client instance. */
-  public EtcdMetadataStore(
-      String storeFolder,
-      EtcdConfig config,
-      boolean shouldCache,
-      MeterRegistry meterRegistry,
-      MetadataSerializer<T> serializer,
-      EtcdCreateMode createMode,
-      Client externalEtcdClient) {
-    this(
-        storeFolder,
-        config,
-        shouldCache,
-        meterRegistry,
-        serializer,
-        createMode,
-        config.getEphemeralNodeTtlSeconds() > 0
-            ? config.getEphemeralNodeTtlSeconds()
-            : EtcdCreateMode.DEFAULT_EPHEMERAL_TTL_SECONDS,
-        externalEtcdClient);
   }
 
   /**
@@ -369,10 +339,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                       .thenApplyAsync(
                           putResponse -> {
                             LOG.debug(
-                                "Created ephemeral node {} with shared lease ID {}, TTL {} seconds",
+                                "Created ephemeral node {} with shared lease ID {}, TTL {} milliseconds",
                                 metadataNode.getName(),
                                 sharedLeaseId,
-                                ephemeralTtlSeconds);
+                                ephemeralTtlMs);
 
                             // Always update the cache for consistency
                             if (shouldCache) {
@@ -401,9 +371,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.createCall.increment();
 
     try {
-      createAsync(metadataNode)
-          .toCompletableFuture()
-          .get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS);
+      createAsync(metadataNode).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to create node: {}", metadataNode.getName(), e);
       throw new InternalMetadataStoreException("Error creating node " + metadataNode, e);
@@ -473,9 +441,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     try {
-      return getAsync(path)
-          .toCompletableFuture()
-          .get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS);
+      return getAsync(path).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | TimeoutException e) {
       LOG.error("Failed to get node: {}", path, e);
       throw new RuntimeException("Failed to get node", e);
@@ -531,9 +497,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     try {
-      return hasAsync(path)
-          .toCompletableFuture()
-          .get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS);
+      return hasAsync(path).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to check if node exists: {}", path, e);
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
@@ -610,9 +574,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.updateCall.increment();
 
     try {
-      updateAsync(metadataNode)
-          .toCompletableFuture()
-          .get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS);
+      updateAsync(metadataNode).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to update node: {}", metadataNode.getName(), e);
       throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
@@ -658,7 +620,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.deleteCall.increment();
 
     try {
-      deleteAsync(path).toCompletableFuture().get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS);
+      deleteAsync(path).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to delete node: {}", path, e);
       throw new InternalMetadataStoreException("Error deleting node under at path: " + path, e);
@@ -684,9 +646,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.deleteCall.increment();
 
     try {
-      deleteAsync(metadataNode)
-          .toCompletableFuture()
-          .get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS);
+      deleteAsync(metadataNode).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to delete node: {}", metadataNode.getName(), e);
       throw new InternalMetadataStoreException(
@@ -759,7 +719,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     try {
-      return listAsync().toCompletableFuture().get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS);
+      return listAsync().toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to list nodes", e);
       throw new InternalMetadataStoreException("Error getting cached nodes", e);
@@ -786,7 +746,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           etcdClient
               .getKVClient()
               .get(prefix, getOption)
-              .get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS);
+              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
 
       List<T> nodes = new ArrayList<>();
 
@@ -846,7 +806,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           etcdClient
               .getKVClient()
               .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
-              .get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS)
+              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
               .getHeader()
               .getRevision();
 
@@ -935,14 +895,14 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   }
 
                   // Retry if we haven't exceeded max attempts
-                  if (attemptNumber < maxRetries) {
+                  if (attemptNumber < etcdOperationsMaxRetries) {
                     long delayMs = retryDelayMs > 0 ? retryDelayMs : 1000;
                     LOG.info(
                         "Retrying watch establishment for store {} in {} ms (attempt {} of {})",
                         storeFolder,
                         delayMs,
                         attemptNumber + 1,
-                        maxRetries);
+                        etcdOperationsMaxRetries);
 
                     // Schedule retry using the dedicated watch retry executor with delay
                     watchRetryExecutor.schedule(
@@ -953,7 +913,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                     LOG.error(
                         "Failed to establish watch for store {} after {} attempts, failing fatally",
                         storeFolder,
-                        maxRetries + 1);
+                        etcdOperationsMaxRetries + 1);
                     new RuntimeHalterImpl().handleFatal(error);
                   }
                 });
@@ -1005,7 +965,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   public void awaitCacheInitialized() {
     try {
       if (shouldCache) {
-        if (!cacheInitialized.await(etcdOperationTimeoutSeconds, TimeUnit.SECONDS)) {
+        if (!cacheInitialized.await(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)) {
           // If we're not interrupted but timed out, this is a fatal condition
           // In the case where close() was called, it would interrupt the thread before this times
           // out
@@ -1037,7 +997,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           etcdClient
               .getKVClient()
               .get(prefix, getOption)
-              .get(etcdOperationTimeoutSeconds, TimeUnit.SECONDS);
+              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
 
       // Filter for only direct children of the store folder
       for (KeyValue kv : getResponse.getKvs()) {
@@ -1106,7 +1066,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       etcdClient
           .getLeaseClient()
           .keepAliveOnce(sharedLeaseId)
-          .get(ephemeralTtlSeconds, TimeUnit.SECONDS);
+          .get(ephemeralTtlMs, TimeUnit.MILLISECONDS);
       LOG.trace("Successfully refreshed shared lease {}", sharedLeaseId);
       this.leaseRefreshHandlerFired.increment();
     } catch (InterruptedException e) {

@@ -48,11 +48,11 @@ public class SearchMetadataStoreTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("Test")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
             .build();
 
     metadataStoreConfig =
