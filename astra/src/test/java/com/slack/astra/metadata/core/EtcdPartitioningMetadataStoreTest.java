@@ -151,6 +151,7 @@ public class EtcdPartitioningMetadataStoreTest {
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
             .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace("test")
             .build();
@@ -428,6 +429,7 @@ public class EtcdPartitioningMetadataStoreTest {
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
             .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace("test")
             .build();

@@ -126,9 +126,11 @@ public class EtcdMetadataStoreTest {
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
             .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace("test")
             .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
             .build();
 
     // Create etcd client
@@ -347,9 +349,11 @@ public class EtcdMetadataStoreTest {
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
             .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace("test")
             .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
             .build();
 
     EtcdMetadataStore<TestMetadata> newStore = null;
@@ -442,9 +446,11 @@ public class EtcdMetadataStoreTest {
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
             .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace("test")
             .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
             .build();
 
     // Create client builder for test

@@ -125,9 +125,11 @@ public class EtcdCacheInvalidationTest {
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
             .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace("test")
             .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
             .build();
 
     // Create etcd clients (one for each "JVM")

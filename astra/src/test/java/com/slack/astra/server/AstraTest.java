@@ -138,10 +138,12 @@ public class AstraTest {
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
             .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace(METADATA_PATH_PREFIX)
             .setEnabled(true)
             .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
             .build();
 
     // We side load a service metadata entry telling it to create an entry with the partitions that

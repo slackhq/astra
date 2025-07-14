@@ -67,6 +67,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
   /** TTL in milliseconds for ephemeral nodes. */
   private final long ephemeralTtlMs;
+
   private final int ephemeralMaxRetries;
 
   private static final Logger LOG = LoggerFactory.getLogger(EtcdMetadataStore.class);
@@ -371,7 +372,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.createCall.increment();
 
     try {
-      createAsync(metadataNode).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+      createAsync(metadataNode)
+          .toCompletableFuture()
+          .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to create node: {}", metadataNode.getName(), e);
       throw new InternalMetadataStoreException("Error creating node " + metadataNode, e);
@@ -441,7 +444,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     try {
-      return getAsync(path).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+      return getAsync(path)
+          .toCompletableFuture()
+          .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | TimeoutException e) {
       LOG.error("Failed to get node: {}", path, e);
       throw new RuntimeException("Failed to get node", e);
@@ -497,7 +502,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     try {
-      return hasAsync(path).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+      return hasAsync(path)
+          .toCompletableFuture()
+          .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to check if node exists: {}", path, e);
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
@@ -574,7 +581,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.updateCall.increment();
 
     try {
-      updateAsync(metadataNode).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+      updateAsync(metadataNode)
+          .toCompletableFuture()
+          .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to update node: {}", metadataNode.getName(), e);
       throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
@@ -646,7 +655,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.deleteCall.increment();
 
     try {
-      deleteAsync(metadataNode).toCompletableFuture().get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+      deleteAsync(metadataNode)
+          .toCompletableFuture()
+          .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to delete node: {}", metadataNode.getName(), e);
       throw new InternalMetadataStoreException(
