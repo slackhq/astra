@@ -37,6 +37,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     int totalSnapshots = 0;
     int snapshpotReplicas = 0;
     List<InternalAggregation> internalAggregationList = new ArrayList<>();
+    List<String> hardFailedChunkIds = new ArrayList<>();
+    List<String> softFailedChunkIds = new ArrayList<>();
 
     for (SearchResult<T> searchResult : searchResults) {
       tookMicros = Math.max(tookMicros, searchResult.tookMicros);
@@ -46,6 +48,14 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       snapshpotReplicas += searchResult.snapshotsWithReplicas;
       if (searchResult.internalAggregation != null) {
         internalAggregationList.add(searchResult.internalAggregation);
+      }
+
+      if (searchResult.hardFailedChunkIds != null) {
+        hardFailedChunkIds.addAll(searchResult.hardFailedChunkIds);
+      }
+
+      if (searchResult.softFailedChunkIds != null) {
+        softFailedChunkIds.addAll(searchResult.softFailedChunkIds);
       }
     }
 
@@ -113,6 +123,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         totalNodes,
         totalSnapshots,
         snapshpotReplicas,
-        internalAggregation);
+        internalAggregation,
+        hardFailedChunkIds,
+        softFailedChunkIds);
   }
 }

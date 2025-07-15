@@ -268,7 +268,8 @@ public class Astra {
               datasetMetadataStore,
               meterRegistry,
               requestTimeout,
-              Duration.ofMillis(astraConfig.getQueryConfig().getDefaultQueryTimeoutMs()));
+              Duration.ofMillis(astraConfig.getQueryConfig().getDefaultQueryTimeoutMs()),
+              astraConfig.getQueryConfig());
       // todo - close the astraDistributedQueryService once done (depends on
       // https://github.com/slackhq/astra/pull/564)
       final int serverPort = astraConfig.getQueryConfig().getServerConfig().getServerPort();
