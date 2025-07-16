@@ -37,7 +37,6 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 /**
  * Zipkin compatible API service
  *
@@ -48,6 +47,7 @@ import org.slf4j.LoggerFactory;
  *     compatible with Zipkin</a> <a href="https://zipkin.io/zipkin-api/#/">Trace API Swagger
  *     Hub</a>
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class ZipkinService {
 
   protected static String convertLogWireMessageToZipkinSpan(List<LogWireMessage> messages)

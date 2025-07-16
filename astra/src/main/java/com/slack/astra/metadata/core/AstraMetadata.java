@@ -19,7 +19,7 @@ public abstract class AstraMetadata implements NodeName {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof AstraMetadata)) return false;
     AstraMetadata that = (AstraMetadata) o;
     return name.equals(that.name);
   }

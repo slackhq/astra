@@ -49,7 +49,7 @@ public class DatasetPartitionMetadata {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof DatasetPartitionMetadata)) return false;
     DatasetPartitionMetadata that = (DatasetPartitionMetadata) o;
     return startTimeEpochMs == that.startTimeEpochMs
         && endTimeEpochMs == that.endTimeEpochMs

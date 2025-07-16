@@ -1,5 +1,7 @@
 package com.slack.astra.logstore.search.fieldRedaction;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slack.astra.logstore.LogMessage;
@@ -70,7 +72,7 @@ class RedactionStoredFieldVisitor extends StoredFieldVisitor {
   @Override
   public void stringField(FieldInfo fieldInfo, String value) throws IOException {
     if (fieldInfo.name.equals("_source")) {
-      Map<String, Object> source = redactField(value.getBytes());
+      Map<String, Object> source = redactField(value.getBytes(UTF_8));
       delegate.stringField(fieldInfo, om.writeValueAsString(source));
     } else {
       delegate.stringField(fieldInfo, value);
