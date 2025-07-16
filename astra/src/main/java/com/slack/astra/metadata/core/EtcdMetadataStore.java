@@ -202,13 +202,16 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 return t;
               });
 
+      // Calculate the refresh interval - currently 1/3 of the TTL
+      long refreshIntervalMs = ephemeralTtlMs / 3;
+
       // Create a single shared lease for all ephemeral nodes synchronously
       try {
         sharedLeaseId =
             etcdClient
                 .getLeaseClient()
                 .grant(ephemeralTtlMs)
-                .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
+                .get(refreshIntervalMs, TimeUnit.MILLISECONDS)
                 .getID();
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new RuntimeException(e);
@@ -219,9 +222,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           sharedLeaseId,
           Long.toHexString(sharedLeaseId),
           ephemeralTtlMs);
-
-      // Calculate the refresh interval - currently 1/3 of the TTL
-      long refreshIntervalMs = ephemeralTtlMs / 3;
 
       LOG.info("Starting lease refresh thread with interval: {} ms", refreshIntervalMs);
 
@@ -924,7 +924,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                     LOG.error(
                         "Failed to establish watch for store {} after {} attempts, failing fatally",
                         storeFolder,
-                        etcdOperationsMaxRetries + 1);
+                        etcdOperationsMaxRetries);
                     new RuntimeHalterImpl().handleFatal(error);
                   }
                 });
