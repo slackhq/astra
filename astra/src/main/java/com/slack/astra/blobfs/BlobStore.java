@@ -84,6 +84,17 @@ public class BlobStore {
                 upload.failedTransfers().size()));
       }
     } catch (ExecutionException | InterruptedException e) {
+
+      // Sometimes the upload above will upload _some_ of the data before
+      // throwing an error. If that's the case, we need to clean up the data
+      // in S3
+      try {
+        this.delete(prefix);
+        LOG.info("Successfully cleaned up prefix {}.", prefix);
+      } catch (Exception _) {
+        LOG.info("Unable to cleanup prefix {}. Ignoring exception.", prefix);
+      }
+
       throw new RuntimeException(e);
     }
   }
