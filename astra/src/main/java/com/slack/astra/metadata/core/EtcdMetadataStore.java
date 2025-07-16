@@ -220,8 +220,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           Long.toHexString(sharedLeaseId),
           ephemeralTtlMs);
 
-      // Calculate the refresh interval
-      long refreshIntervalMs = (ephemeralTtlMs / ephemeralMaxRetries);
+      // Calculate the refresh interval - currently 1/3 of the TTL
+      long refreshIntervalMs = ephemeralTtlMs / 3;
 
       LOG.info("Starting lease refresh thread with interval: {} ms", refreshIntervalMs);
 
@@ -1073,22 +1073,29 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     LOG.debug("Refreshing shared lease {} for store {}", sharedLeaseId, storeFolder);
 
-    try {
-      etcdClient
-          .getLeaseClient()
-          .keepAliveOnce(sharedLeaseId)
-          .get(ephemeralTtlMs, TimeUnit.MILLISECONDS);
-      LOG.trace("Successfully refreshed shared lease {}", sharedLeaseId);
-      this.leaseRefreshHandlerFired.increment();
-    } catch (InterruptedException e) {
-      LOG.warn("Interrupted while refreshing shared lease {}", sharedLeaseId, e);
-      Thread.currentThread().interrupt(); // Preserve interrupt status
-    } catch (Exception e) {
-      LOG.error("Failed to refresh shared lease {}: {}", sharedLeaseId, e.getMessage());
-      // This is a critical error since it affects all ephemeral nodes
-      // TODO - Consider reconnecting or attempting to creating a new lease
-      // TODO - This could be retried N times up to the refresh timeout for the store
-      new RuntimeHalterImpl().handleFatal(e);
+    long retryTimeoutMs = ephemeralTtlMs / ephemeralMaxRetries;
+    int retryCounter = 0;
+    while(retryCounter <= ephemeralMaxRetries) {
+      try {
+        etcdClient
+                .getLeaseClient()
+                .keepAliveOnce(sharedLeaseId)
+                .get(retryTimeoutMs, TimeUnit.MILLISECONDS);
+        LOG.trace("Successfully refreshed shared lease {}", sharedLeaseId);
+        this.leaseRefreshHandlerFired.increment();
+        break;
+      } catch (InterruptedException e) {
+        LOG.warn("Interrupted while refreshing shared lease {}", sharedLeaseId, e);
+        Thread.currentThread().interrupt(); // Preserve interrupt status
+      } catch (Exception e) {
+        retryCounter++;
+        if (retryCounter >= ephemeralMaxRetries) {
+          LOG.error("Failed to refresh shared lease max times, fataling {}: {}", sharedLeaseId, e.getMessage());
+          // This is a critical error since it affects all ephemeral nodes
+          new RuntimeHalterImpl().handleFatal(e);
+        }
+        LOG.error("Failed to refresh shared lease, retrying {}: {}", sharedLeaseId, e.getMessage());
+      }
     }
   }
 
