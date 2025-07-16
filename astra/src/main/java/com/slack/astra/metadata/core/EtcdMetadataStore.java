@@ -1075,12 +1075,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     long retryTimeoutMs = ephemeralTtlMs / ephemeralMaxRetries;
     int retryCounter = 0;
-    while(retryCounter <= ephemeralMaxRetries) {
+    while (retryCounter <= ephemeralMaxRetries) {
       try {
         etcdClient
-                .getLeaseClient()
-                .keepAliveOnce(sharedLeaseId)
-                .get(retryTimeoutMs, TimeUnit.MILLISECONDS);
+            .getLeaseClient()
+            .keepAliveOnce(sharedLeaseId)
+            .get(retryTimeoutMs, TimeUnit.MILLISECONDS);
         LOG.trace("Successfully refreshed shared lease {}", sharedLeaseId);
         this.leaseRefreshHandlerFired.increment();
         break;
@@ -1090,7 +1090,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       } catch (Exception e) {
         retryCounter++;
         if (retryCounter >= ephemeralMaxRetries) {
-          LOG.error("Failed to refresh shared lease max times, fataling {}: {}", sharedLeaseId, e.getMessage());
+          LOG.error(
+              "Failed to refresh shared lease max times, fataling {}: {}",
+              sharedLeaseId,
+              e.getMessage());
           // This is a critical error since it affects all ephemeral nodes
           new RuntimeHalterImpl().handleFatal(e);
         }

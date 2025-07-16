@@ -494,11 +494,9 @@ public class EtcdMetadataStoreTest {
       assertThat(ephemeralStore.hasSync("ephemeral1")).isTrue();
 
       // Check that the lease refresh counter incremented (indicating successful refreshes)
-      double leaseRefreshCount = ephemeralMeterRegistry
-          .get("astra_etcd_lease_refresh_handler_fired")
-          .counter()
-          .count();
-      
+      double leaseRefreshCount =
+          ephemeralMeterRegistry.get("astra_etcd_lease_refresh_handler_fired").counter().count();
+
       // Should have fired at least once
       assertThat(leaseRefreshCount).isGreaterThanOrEqualTo(1.0);
 
@@ -516,7 +514,7 @@ public class EtcdMetadataStoreTest {
     // This test verifies that the retry logic is properly implemented
     // We can't easily test the fatal error case in a unit test since it would exit the JVM
     // But we can test the retry configuration and logic path
-    
+
     // Create a config with minimal retries and timeouts for faster testing
     AstraConfigs.EtcdConfig failureConfig =
         AstraConfigs.EtcdConfig.newBuilder()
@@ -581,7 +579,7 @@ public class EtcdMetadataStoreTest {
   @Test
   public void testEphemeralLeaseRenewalInterruption() throws Exception {
     // Test that lease renewal handles interruption properly
-    
+
     // Create a config for interruption testing
     AstraConfigs.EtcdConfig interruptConfig =
         AstraConfigs.EtcdConfig.newBuilder()
