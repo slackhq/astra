@@ -78,7 +78,7 @@
       "operationsTimeoutMs": 60000,
       "operationsMaxRetries": 3,
       "ephemeralNodeTtlMs": 60000,
-      "ephemeralNodeMaxRetries": 6
+      "ephemeralNodeMaxRetries": 3
     },
     "storeModes": {
       "DatasetMetadataStore": "ETCD_CREATES",

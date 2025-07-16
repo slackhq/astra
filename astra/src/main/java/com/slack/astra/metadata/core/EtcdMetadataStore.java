@@ -226,7 +226,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       LOG.info("Starting lease refresh thread with interval: {} ms", refreshIntervalMs);
 
       // Start the refresh task
-      leaseRefreshExecutor.scheduleAtFixedRate(
+      leaseRefreshExecutor.scheduleWithFixedDelay(
           this::refreshAllLeases, refreshIntervalMs, refreshIntervalMs, TimeUnit.MILLISECONDS);
     } else {
       leaseRefreshExecutor = null;
