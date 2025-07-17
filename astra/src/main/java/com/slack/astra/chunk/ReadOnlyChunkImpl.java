@@ -257,8 +257,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         }
 
         blobStore.download(snapshotMetadata.snapshotId, dataDirectory);
+        long fileCount = 0;
         try (Stream<Path> fileList = Files.list(dataDirectory)) {
-          if (fileList.findAny().isEmpty()) {
+          fileCount = fileList.count();
+          if (fileCount > 0) {
             throw new IOException(
                 "No files found on blob storage, released slot for re-assignment");
           }
@@ -276,7 +278,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                           new LogIndexSearcherImpl(
                                   new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
         } catch (Exception e) {
-          LOG.error("Failed to init logSearcher for chunk {}. Snapshot ID is {}. {} files are on disk at {}", chunkInfo, snapshotMetadata.snapshotId, Files.list(dataDirectory).count(), dataDirectory.toString());
+          LOG.error("Failed to init logSearcher for chunk {}. Snapshot ID is {}. {} files are on disk at {}", chunkInfo, snapshotMetadata.snapshotId, fileCount, dataDirectory.toString());
           throw e;
         }
       }
