@@ -42,8 +42,8 @@ public class EtcdClientBuilder {
     }
 
     // Configure retries
-    if (etcdConfig.getOperationsMaxRetries() > 0) {
-      clientBuilder.retryMaxAttempts(etcdConfig.getOperationsMaxRetries());
+    if (etcdConfig.getMaxRetries() > 0) {
+      clientBuilder.retryMaxAttempts(etcdConfig.getMaxRetries());
     }
 
     if (etcdConfig.getRetryDelayMs() > 0) {
@@ -64,7 +64,7 @@ public class EtcdClientBuilder {
         etcdConfig.getNamespace(),
         etcdConfig.getConnectionTimeoutMs(),
         etcdConfig.getKeepaliveTimeoutMs(),
-        etcdConfig.getOperationsMaxRetries(),
+        etcdConfig.getMaxRetries(),
         etcdConfig.getRetryDelayMs());
 
     return client;

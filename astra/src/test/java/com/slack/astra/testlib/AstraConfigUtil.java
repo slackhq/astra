@@ -80,12 +80,10 @@ public class AstraConfigUtil {
                 etcdEndpoints != null && !etcdEndpoints.isEmpty() ? etcdEndpoints : List.of(""))
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setOperationsMaxRetries(3)
-            .setOperationsTimeoutMs(3000)
+            .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace(metadataPathPrefix) // Use same namespace as ZK pathPrefix for consistency
-            .setEphemeralNodeTtlMs(3000)
-            .setEphemeralNodeMaxRetries(3)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()

@@ -75,10 +75,8 @@
       "connectionTimeoutMs": 5000,
       "keepaliveTimeoutMs": 3000,
       "retryDelayMs": 100,
-      "operationsTimeoutMs": 60000,
-      "operationsMaxRetries": 3,
-      "ephemeralNodeTtlMs": 60000,
-      "ephemeralNodeMaxRetries": 3
+      "maxRetries": 3,
+      "ephemeralNodeTtlSeconds": 60
     },
     "storeModes": {
       "DatasetMetadataStore": "ETCD_CREATES",

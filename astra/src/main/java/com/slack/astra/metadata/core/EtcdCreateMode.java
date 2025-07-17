@@ -17,4 +17,13 @@ public enum EtcdCreateMode {
    * the node will be deleted after the TTL expires.
    */
   EPHEMERAL;
+
+  /** Default TTL (in seconds) for ephemeral nodes if not explicitly specified. */
+  public static final long DEFAULT_EPHEMERAL_TTL_SECONDS = 60;
+
+  /**
+   * Default refresh interval as a fraction of the TTL. By default, we refresh at 1/3rd of the TTL
+   * interval.
+   */
+  public static final double DEFAULT_REFRESH_INTERVAL_FRACTION = 0.3;
 }

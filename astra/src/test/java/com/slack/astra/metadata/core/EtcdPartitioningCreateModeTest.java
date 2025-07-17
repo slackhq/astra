@@ -150,12 +150,10 @@ public class EtcdPartitioningCreateModeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setOperationsMaxRetries(3)
-            .setOperationsTimeoutMs(3000)
+            .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlMs(3000)
-            .setEphemeralNodeMaxRetries(3)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     String partition = "partition1";
@@ -236,12 +234,10 @@ public class EtcdPartitioningCreateModeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setOperationsMaxRetries(3)
-            .setOperationsTimeoutMs(3000)
+            .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlMs(3000)
-            .setEphemeralNodeMaxRetries(3)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create ephemeral node that should disappear after the store is closed
@@ -318,12 +314,10 @@ public class EtcdPartitioningCreateModeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setOperationsMaxRetries(3)
-            .setOperationsTimeoutMs(3000)
+            .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlMs(3000)
-            .setEphemeralNodeMaxRetries(3)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // Create ephemeral nodes in multiple partitions
@@ -413,12 +407,10 @@ public class EtcdPartitioningCreateModeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setOperationsMaxRetries(3)
-            .setOperationsTimeoutMs(3000)
+            .setMaxRetries(3)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlMs(3000)
-            .setEphemeralNodeMaxRetries(3)
+            .setEphemeralNodeTtlSeconds(3)
             .build();
 
     // First create a persistent node
