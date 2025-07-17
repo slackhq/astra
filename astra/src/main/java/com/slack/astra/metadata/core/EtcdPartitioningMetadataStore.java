@@ -586,7 +586,16 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
           EtcdMetadataStore<T> newStore =
               new EtcdMetadataStore<>(
-                  path, etcdConfig, true, meterRegistry, serializer, createMode, etcdClient);
+                  path,
+                  etcdConfig,
+                  true,
+                  meterRegistry,
+                  serializer,
+                  createMode,
+                  etcdConfig.getEphemeralNodeTtlSeconds() > 0
+                      ? etcdConfig.getEphemeralNodeTtlSeconds()
+                      : EtcdCreateMode.DEFAULT_EPHEMERAL_TTL_SECONDS,
+                  etcdClient);
           listenerMap.forEach((_, listener) -> newStore.addListener(listener));
 
           return newStore;
