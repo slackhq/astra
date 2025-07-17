@@ -144,10 +144,12 @@ public class EtcdCreateModeTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
             .build();
 
     // Create a client for the store
@@ -184,18 +186,17 @@ public class EtcdCreateModeTest {
 
   @Test
   public void testEphemeralNodeWithShortTtl() throws Exception {
-    // Use a short TTL for faster testing
-    long shortTtlSeconds = 2;
-
     AstraConfigs.EtcdConfig etcdConfig =
         AstraConfigs.EtcdConfig.newBuilder()
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace("test")
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
             .build();
 
     // Create ephemeral node that should disappear after the store is closed
@@ -212,7 +213,6 @@ public class EtcdCreateModeTest {
             meterRegistry,
             serializer,
             EtcdCreateMode.EPHEMERAL,
-            shortTtlSeconds,
             ephemeralClient)) {
 
       // Create a node
@@ -229,7 +229,7 @@ public class EtcdCreateModeTest {
     }
 
     // Wait for the TTL to expire (plus a little extra time)
-    TimeUnit.SECONDS.sleep(shortTtlSeconds + 1);
+    TimeUnit.SECONDS.sleep(4);
 
     // Create a new store instance and verify the node no longer exists
     Client verifyClient = createEtcdClient(etcdConfig);
