@@ -260,7 +260,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         long fileCount = 0;
         try (Stream<Path> fileList = Files.list(dataDirectory)) {
           fileCount = fileList.count();
-          if (fileCount > 0) {
+        }
+
+        try (Stream<Path> fileList = Files.list(dataDirectory)) {
+          if (fileList.findAny().isEmpty()) {
             throw new IOException(
                 "No files found on blob storage, released slot for re-assignment");
           }
