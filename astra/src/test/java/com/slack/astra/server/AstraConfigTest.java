@@ -225,8 +225,10 @@ public class AstraConfigTest {
     assertThat(etcdConfig.getConnectionTimeoutMs()).isEqualTo(5000);
     assertThat(etcdConfig.getKeepaliveTimeoutMs()).isEqualTo(3000);
     assertThat(etcdConfig.getRetryDelayMs()).isEqualTo(100);
-    assertThat(etcdConfig.getMaxRetries()).isEqualTo(3);
-    assertThat(etcdConfig.getEphemeralNodeTtlSeconds()).isEqualTo(60);
+    assertThat(etcdConfig.getOperationsMaxRetries()).isEqualTo(3);
+    assertThat(etcdConfig.getOperationsTimeoutMs()).isEqualTo(60000);
+    assertThat(etcdConfig.getEphemeralNodeTtlMs()).isEqualTo(60000);
+    assertThat(etcdConfig.getEphemeralNodeMaxRetries()).isEqualTo(3);
 
     final AstraConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final AstraConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
@@ -410,8 +412,10 @@ public class AstraConfigTest {
     assertThat(etcdConfig.getConnectionTimeoutMs()).isEqualTo(5000);
     assertThat(etcdConfig.getKeepaliveTimeoutMs()).isEqualTo(3000);
     assertThat(etcdConfig.getRetryDelayMs()).isEqualTo(100);
-    assertThat(etcdConfig.getMaxRetries()).isEqualTo(3);
-    assertThat(etcdConfig.getEphemeralNodeTtlSeconds()).isEqualTo(60);
+    assertThat(etcdConfig.getOperationsMaxRetries()).isEqualTo(3);
+    assertThat(etcdConfig.getOperationsTimeoutMs()).isEqualTo(60000);
+    assertThat(etcdConfig.getEphemeralNodeTtlMs()).isEqualTo(60000);
+    assertThat(etcdConfig.getEphemeralNodeMaxRetries()).isEqualTo(3);
 
     final AstraConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final AstraConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
