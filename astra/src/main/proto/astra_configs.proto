@@ -121,11 +121,19 @@ message QueryServiceConfig {
   ServerConfig server_config = 1;
   int32 default_query_timeout_ms = 2;
   string managerConnectString = 3;
+
+  // The maximum number of snapshots to query in a single batch
+  int32 max_snapshots_queried_per_batch = 4;
+
+  // The timeout per query batch. This value should be far lower
+  // than the request timeout to allow for retries, processing
+  // of more batches, aggregations, etc.
+  int32 per_batch_query_timeout_ms = 5;
 }
 
 message RedactionUpdateServiceConfig {
   // Redaction update period is the amount of time between each
-  // refresh of the redactions list, whether or not a ZK event
+  // refresh of the redactions list, whether a ZK event
   // has triggered it
   int32 redaction_update_period_secs = 1;
 
