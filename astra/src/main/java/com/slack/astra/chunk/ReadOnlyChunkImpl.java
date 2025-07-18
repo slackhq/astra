@@ -277,11 +277,16 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
         try {
           this.logSearcher =
-                  (LogIndexSearcher<T>)
-                          new LogIndexSearcherImpl(
-                                  new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
+              (LogIndexSearcher<T>)
+                  new LogIndexSearcherImpl(
+                      new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
         } catch (Exception e) {
-          LOG.error("Failed to init logSearcher for chunk {}. Snapshot ID is {}. {} files are on disk at {}", chunkInfo, snapshotMetadata.snapshotId, fileCount, dataDirectory.toString());
+          LOG.error(
+              "Failed to init logSearcher for chunk {}. Snapshot ID is {}. {} files are on disk at {}",
+              chunkInfo,
+              snapshotMetadata.snapshotId,
+              fileCount,
+              dataDirectory.toString());
           throw e;
         }
       }

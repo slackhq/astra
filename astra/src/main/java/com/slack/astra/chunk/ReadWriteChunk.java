@@ -7,7 +7,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.logstore.LogStore;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
-import com.slack.astra.logstore.search.*;
+import com.slack.astra.logstore.search.LogIndexSearcher;
+import com.slack.astra.logstore.search.LogIndexSearcherImpl;
+import com.slack.astra.logstore.search.SearchQuery;
+import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.metadata.schema.ChunkSchema;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.search.SearchMetadata;
@@ -29,7 +32,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexCommit;
@@ -266,11 +268,19 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         logger.info("Secondary load succeeded");
       } catch (CorruptIndexException corruptIndexException) {
         logger.error("Detected CorruptIndexException while copying RW chunk {} to S3!", chunkInfo);
-        logger.info("Additional info: {} active files in {} in index, total bytes: {}", filesToUpload.size(), dirPath, totalBytes);
+        logger.info(
+            "Additional info: {} active files in {} in index, total bytes: {}",
+            filesToUpload.size(),
+            dirPath,
+            totalBytes);
         logger.info("Trying to do another `preSnapshot` and seeing if that works");
         preSnapshot();
         logger.info("Finished preSnapshot");
-        logger.info("New additional info: {} active files in {} in index, total bytes: {}", filesToUpload.size(), dirPath, totalBytes);
+        logger.info(
+            "New additional info: {} active files in {} in index, total bytes: {}",
+            filesToUpload.size(),
+            dirPath,
+            totalBytes);
         try {
           directory = new MMapDirectory(dirPath);
           directoryReader = DirectoryReader.open(directory);
@@ -283,18 +293,18 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
           if (directoryReader != null) {
             directoryReader.close();
           }
-          throw corruptIndexException;
         }
+        throw corruptIndexException;
       } catch (Exception e) {
         logger.error("Error while opening LogIndexSearcherImpl as a test for chunk {}!", chunkInfo);
         throw e;
       } finally {
-          if (directory != null) {
-            directory.close();
-          }
-          if (directoryReader != null) {
-            directoryReader.close();
-          }
+        if (directory != null) {
+          directory.close();
+        }
+        if (directoryReader != null) {
+          directoryReader.close();
+        }
       }
 
       return true;
