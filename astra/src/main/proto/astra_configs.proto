@@ -78,10 +78,14 @@ message EtcdConfig {
   int32 keepalive_timeout_ms = 5;
   // Time between retries in milliseconds
   int32 retry_delay_ms = 6;
+  // Operations timeout
+  int32 operations_timeout_ms = 9;
   // Max number of retries for operations
-  int32 max_retries = 7;
+  int32 operations_max_retries = 10;
   // TTL in seconds for ephemeral nodes
-  int32 ephemeral_node_ttl_seconds = 8;
+  int32 ephemeral_node_ttl_ms = 11;
+  // Max number of retries for ephemeral nodes
+  int32 ephemeral_node_max_retries = 12;
 }
 
 // Configuration for Zookeeper metadata store.
