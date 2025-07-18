@@ -32,7 +32,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexCommit;
+import org.apache.lucene.store.MMapDirectory;
 import org.slf4j.Logger;
 
 /**
@@ -255,6 +258,55 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);
       logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
+
+      MMapDirectory directory = null;
+      DirectoryReader directoryReader = null;
+      try {
+        logger.info("Trying to do secondary load of chunk after upload to S3");
+        directory = new MMapDirectory(dirPath);
+        directoryReader = DirectoryReader.open(directory);
+        logger.info("Secondary load succeeded");
+      } catch (CorruptIndexException corruptIndexException) {
+        logger.error("Detected CorruptIndexException while copying RW chunk {} to S3!", chunkInfo);
+        logger.info(
+            "Additional info: {} active files in {} in index, total bytes: {}",
+            filesToUpload.size(),
+            dirPath,
+            totalBytes);
+        logger.info("Trying to do another `preSnapshot` and seeing if that works");
+        preSnapshot();
+        logger.info("Finished preSnapshot");
+        logger.info(
+            "New additional info: {} active files in {} in index, total bytes: {}",
+            filesToUpload.size(),
+            dirPath,
+            totalBytes);
+        try {
+          directory = new MMapDirectory(dirPath);
+          directoryReader = DirectoryReader.open(directory);
+        } catch (Exception e) {
+          logger.info("Nope, didn't work. Error: ", e);
+        } finally {
+          if (directory != null) {
+            directory.close();
+          }
+          if (directoryReader != null) {
+            directoryReader.close();
+          }
+        }
+        throw corruptIndexException;
+      } catch (Exception e) {
+        logger.error("Error while opening LogIndexSearcherImpl as a test for chunk {}!", chunkInfo);
+        throw e;
+      } finally {
+        if (directory != null) {
+          directory.close();
+        }
+        if (directoryReader != null) {
+          directoryReader.close();
+        }
+      }
+
       return true;
     } catch (Exception e) {
       logger.error("Exception when copying RW chunk " + chunkInfo + " to S3.", e);
