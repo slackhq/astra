@@ -486,4 +486,9 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
+
+  @Override
+  public void migrateZKDatasetMetadataStoreToEtcd(ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest request) {
+
+  }
 }
