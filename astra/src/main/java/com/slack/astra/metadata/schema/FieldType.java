@@ -399,7 +399,7 @@ public enum FieldType {
         try {
           return Long.valueOf((String) value);
         } catch (NumberFormatException e) {
-          return (long) 0;
+          return 0L;
         }
       }
       if (toType == FieldType.DOUBLE) {
@@ -413,7 +413,7 @@ public enum FieldType {
         try {
           return Float.valueOf((String) value);
         } catch (NumberFormatException e) {
-          return (float) 0;
+          return 0.0f;
         }
       }
       if (toType == FieldType.BOOLEAN) {

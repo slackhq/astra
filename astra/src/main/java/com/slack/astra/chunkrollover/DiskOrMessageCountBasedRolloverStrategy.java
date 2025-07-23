@@ -80,30 +80,32 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
     this.rolloverStartTime = Instant.now();
     this.liveBytesDirGauge = this.registry.gauge(LIVE_BYTES_DIR, new AtomicLong(0));
 
-    directorySizeExecutorService.scheduleAtFixedRate(
-        () -> {
-          try {
-            long dirSize = calculateDirectorySize(activeChunkDirectory);
-            // in case the method fails to calculate we return -1 so don't update the old value
-            if (dirSize > 0) {
-              approximateDirectoryBytes.set(dirSize);
-            }
-            if (!maxTimePerChunksMinsReached.get()
-                && Instant.now()
-                    .isAfter(rolloverStartTime.plus(maxTimePerChunksSeconds, ChronoUnit.SECONDS))) {
-              LOG.info(
-                  "Max time per chunk reached. chunkStartTime: {} currentTime: {}",
-                  rolloverStartTime,
-                  Instant.now());
-              maxTimePerChunksMinsReached.set(true);
-            }
-          } catch (Exception e) {
-            LOG.error("Error calculating directory size", e);
-          }
-        },
-        DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
-        DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
-        TimeUnit.MILLISECONDS);
+    var unused =
+        directorySizeExecutorService.scheduleAtFixedRate(
+            () -> {
+              try {
+                long dirSize = calculateDirectorySize(activeChunkDirectory);
+                // in case the method fails to calculate we return -1 so don't update the old value
+                if (dirSize > 0) {
+                  approximateDirectoryBytes.set(dirSize);
+                }
+                if (!maxTimePerChunksMinsReached.get()
+                    && Instant.now()
+                        .isAfter(
+                            rolloverStartTime.plus(maxTimePerChunksSeconds, ChronoUnit.SECONDS))) {
+                  LOG.info(
+                      "Max time per chunk reached. chunkStartTime: {} currentTime: {}",
+                      rolloverStartTime,
+                      Instant.now());
+                  maxTimePerChunksMinsReached.set(true);
+                }
+              } catch (Exception e) {
+                LOG.error("Error calculating directory size", e);
+              }
+            },
+            DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
+            DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
+            TimeUnit.MILLISECONDS);
   }
 
   @Override

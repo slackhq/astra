@@ -139,29 +139,31 @@ public class LuceneIndexStoreImpl implements LogStore {
             ShardId.fromString("[shard-index][%d]".formatted(UUID.fromString(id).hashCode())));
     this.astraSearcherManager = new AstraSearcherManager(openSearchDirectoryReader);
 
-    scheduledCommit.scheduleWithFixedDelay(
-        () -> {
-          try {
-            commit();
-          } catch (Exception e) {
-            LOG.error("Error running scheduled commit", e);
-          }
-        },
-        config.commitDuration.toMillis(),
-        config.commitDuration.toMillis(),
-        TimeUnit.MILLISECONDS);
+    var unused =
+        scheduledCommit.scheduleWithFixedDelay(
+            () -> {
+              try {
+                commit();
+              } catch (Exception e) {
+                LOG.error("Error running scheduled commit", e);
+              }
+            },
+            config.commitDuration.toMillis(),
+            config.commitDuration.toMillis(),
+            TimeUnit.MILLISECONDS);
 
-    scheduledRefresh.scheduleWithFixedDelay(
-        () -> {
-          try {
-            refresh();
-          } catch (Exception e) {
-            LOG.error("Error running scheduled commit", e);
-          }
-        },
-        config.refreshDuration.toMillis(),
-        config.refreshDuration.toMillis(),
-        TimeUnit.MILLISECONDS);
+    var unused_1 =
+        scheduledRefresh.scheduleWithFixedDelay(
+            () -> {
+              try {
+                refresh();
+              } catch (Exception e) {
+                LOG.error("Error running scheduled commit", e);
+              }
+            },
+            config.refreshDuration.toMillis(),
+            config.refreshDuration.toMillis(),
+            TimeUnit.MILLISECONDS);
 
     // Initialize stats counters
     messagesReceivedCounter = registry.counter(MESSAGES_RECEIVED_COUNTER);
@@ -203,7 +205,7 @@ public class LuceneIndexStoreImpl implements LogStore {
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
             .setMergeScheduler(new AstraMergeScheduler(metricsRegistry))
-            .setRAMBufferSizeMB(ramBufferSizeMb)
+            .setRAMBufferSizeMB((double) ramBufferSizeMb)
             .setUseCompoundFile(useCFSFiles)
             // we sort by timestamp descending, as that is the order we expect to return results the
             // majority of the time

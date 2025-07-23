@@ -55,7 +55,7 @@ public class AstraMergeScheduler extends ConcurrentMergeScheduler {
 
     boolean paused = super.maybeStall(mergeSource);
 
-    long elapsed = System.nanoTime() - startTime;
+    double elapsed = System.nanoTime() - startTime;
     stallCounter.increment(elapsed);
     activeStallThreadsCount.decrementAndGet();
 
