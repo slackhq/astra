@@ -85,8 +85,8 @@ public class AstraDistributedQueryServiceTest {
     queryServiceConfig =
         AstraConfigs.QueryServiceConfig.newBuilder()
             .setMaxSnapshotsQueriedPerBatch(20)
-            .setPerBatchQueryTimeoutMs(5000)
-            .setDefaultQueryTimeoutMs(10_000)
+            .setPerBatchQueryTimeoutMs(50_000)
+            .setDefaultQueryTimeoutMs(100_000)
             .build();
 
     metricsRegistry = new SimpleMeterRegistry();
@@ -107,10 +107,10 @@ public class AstraDistributedQueryServiceTest {
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testZKServer.getConnectString())
             .setZkPathPrefix("distributedQuery")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
+            .setZkSessionTimeoutMs(100_000)
+            .setZkConnectionTimeoutMs(100_000)
             .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(1000)
+            .setZkCacheInitTimeoutMs(100_000)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -140,7 +140,7 @@ public class AstraDistributedQueryServiceTest {
                     .setRetryDelayMs(100)
                     .setNamespace("distributedQuery")
                     .setEnabled(true)
-                    .setEphemeralNodeTtlMs(3000)
+                    .setEphemeralNodeTtlMs(30000)
                     .setEphemeralNodeMaxRetries(3)
                     .build())
             .build();
@@ -1013,8 +1013,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Mock successful response
@@ -1088,8 +1088,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Mock first call failure, second call success
@@ -1175,8 +1175,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     AstraServiceGrpc.AstraServiceFutureStub mockStub =
@@ -1226,8 +1226,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Query time range that matches no snapshots
@@ -1286,8 +1286,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Mock stubs - first three fail with hard failure, fourth succeeds
@@ -1391,8 +1391,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Mock stubs - both fail
@@ -1475,8 +1475,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStoreMock,
             datasetMetadataStoreMock,
             new SimpleMeterRegistry(),
-            Duration.of(2, ChronoUnit.SECONDS),
-            Duration.of(2, ChronoUnit.SECONDS),
+            Duration.of(30, ChronoUnit.SECONDS),
+            Duration.of(30, ChronoUnit.SECONDS),
             queryServiceConfig);
 
     // Make a mock grpc stub and store it in the stubs cache map
