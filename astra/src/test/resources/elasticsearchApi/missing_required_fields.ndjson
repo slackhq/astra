@@ -1,0 +1,2 @@
+{"index": "_all"}
+{"query":{"bool":{"filter":[{"range":{"@timestamp":{"gte":1624882582314,"lte":2724904182313,"format":"epoch_millis"}}}]}}}
