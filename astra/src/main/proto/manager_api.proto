@@ -154,9 +154,12 @@ message ListFieldRedactionsResponse {
   repeated RedactedFieldMetadata redacted_fields = 1;
 }
 
-message MigrateZKDatasetMetadataStoreToEtcdRequest {}
+message MigrateZKDatasetMetadataStoreToEtcdRequest {
+  bool dry_run = 1;
+}
 
 message MigrateZKDatasetMetadataStoreToEtcdResponse {
-  // was the migration successful
-  string status = 1;
+  // dataset that was migrated to etcd
+  repeated DatasetMetadata dataset_metadata = 1;
+  string status = 2;
 }

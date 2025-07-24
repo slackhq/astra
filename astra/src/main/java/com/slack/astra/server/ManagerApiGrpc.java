@@ -123,6 +123,54 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
+  @Override
+  public void migrateZKDatasetMetadataStoreToEtcd(
+      ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest request,
+      StreamObserver<ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse> responseObserver) {
+
+    try {
+      List<DatasetMetadata> existingDatasetMetadata =
+          datasetMetadataStore.listSync().stream().toList();
+
+      if (!request.getDryRun()) {
+        // has to be deleted first, otherwise the delete will delete from both ZK and ETCD
+        datasetMetadataStore
+            .listSync()
+            .forEach(
+                datasetMetadata -> {
+                  datasetMetadataStore.deleteAsync(datasetMetadata.getName());
+                });
+
+        // add to the etcd store (assuming this migration is run when `ETCD_CREATE` mode is enabled
+        // for the datasetmetadatastore)
+        existingDatasetMetadata.forEach(datasetMetadataStore::createSync);
+
+        // return the new store
+        responseObserver.onNext(
+            ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse.newBuilder()
+                .addAllDatasetMetadata(
+                    datasetMetadataStore.listSync().stream()
+                        .map(DatasetMetadataSerializer::toDatasetMetadataProto)
+                        .collect(Collectors.toList()))
+                .setStatus("SUCCESS")
+                .build());
+        responseObserver.onCompleted();
+      } else {
+        responseObserver.onNext(
+            ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse.newBuilder()
+                .addAllDatasetMetadata(
+                    datasetMetadataStore.listSync().stream()
+                        .map(DatasetMetadataSerializer::toDatasetMetadataProto)
+                        .collect(Collectors.toList()))
+                .setStatus("DRY RUN")
+                .build());
+      }
+    } catch (Exception e) {
+      LOG.error("Error migrating ZK dataset metadata store to etcd", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
   /** Returns all available datasets from the metadata store */
   @Override
   public void listDatasetMetadata(
@@ -485,10 +533,5 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       LOG.error("Error getting field redactions", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
-  }
-
-  @Override
-  public void migrateZKDatasetMetadataStoreToEtcd(ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest request) {
-
   }
 }
