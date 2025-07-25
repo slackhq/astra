@@ -86,7 +86,7 @@ public class AstraDistributedQueryServiceTest {
         AstraConfigs.QueryServiceConfig.newBuilder()
             .setMaxSnapshotsQueriedPerBatch(20)
             .setPerBatchQueryTimeoutMs(5000)
-            .setDefaultQueryTimeoutMs(10_000)
+            .setDefaultQueryTimeoutMs(10000)
             .build();
 
     metricsRegistry = new SimpleMeterRegistry();
@@ -136,7 +136,7 @@ public class AstraDistributedQueryServiceTest {
                     .setConnectionTimeoutMs(5000)
                     .setKeepaliveTimeoutMs(3000)
                     .setOperationsMaxRetries(3)
-                    .setOperationsTimeoutMs(9000)
+                    .setOperationsTimeoutMs(3000)
                     .setRetryDelayMs(100)
                     .setNamespace("distributedQuery")
                     .setEnabled(true)
@@ -1175,8 +1175,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(8),
-            Duration.ofSeconds(8),
+            Duration.ofSeconds(2),
+            Duration.ofSeconds(2),
             queryServiceConfig);
 
     AstraServiceGrpc.AstraServiceFutureStub mockStub =
