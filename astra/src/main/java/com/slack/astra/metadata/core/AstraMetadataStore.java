@@ -672,6 +672,35 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   /**
+   * Deletes a ZK node asynchronously by metadata object reference.
+   *
+   * @param metadataNode the node to delete
+   * @return a CompletionStage that completes when the operation is done. In case of failure, the
+   *     CompletionStage will complete exceptionally.
+   * @throws IllegalStateException if the node does not exist in either store
+   */
+  public CompletionStage<Void> deleteZkOnlyAsync(T metadataNode) {
+    String path = metadataNode.getName();
+    CompletableFuture<Boolean> zkExistsFuture =
+        zkStore != null
+            ? zkStore.hasAsync(path).toCompletableFuture()
+            : CompletableFuture.completedFuture(false);
+
+    return CompletableFuture.allOf(zkExistsFuture)
+        .thenCompose(
+            unused -> {
+              boolean existsInZk = zkExistsFuture.join();
+
+              // Handle case where node exists in both stores
+              if (existsInZk) {
+                return zkStore.deleteAsync(metadataNode);
+              } else {
+                throw new IllegalStateException("Node does not exist in zk store: " + path);
+              }
+            });
+  }
+
+  /**
    * Lists all nodes asynchronously.
    *
    * @return a CompletionStage that completes with the list of nodes. The list is never null but may
