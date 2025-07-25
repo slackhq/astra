@@ -8,8 +8,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.slack.astra.chunk.ChunkInfo;
 import com.slack.astra.clusterManager.ReplicaRestoreService;
-import com.slack.astra.metadata.core.ZookeeperMetadataStore;
-import com.slack.astra.metadata.core.ZookeeperPartitioningMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataSerializer;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
@@ -34,9 +32,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.naming.SizeLimitExceededException;
-import javax.xml.crypto.Data;
-
-import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -143,9 +138,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
         existingDatasetMetadata.forEach(datasetMetadataStore::createSync);
 
         // delete from ZK only
-        datasetMetadataStore
-                .listSync()
-                .forEach(datasetMetadataStore::deleteZkOnlyAsync);
+        datasetMetadataStore.listSync().forEach(datasetMetadataStore::deleteZkOnlyAsync);
 
         // return the new store
         responseObserver.onNext(

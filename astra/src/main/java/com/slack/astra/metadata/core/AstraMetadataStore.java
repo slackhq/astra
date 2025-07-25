@@ -474,22 +474,22 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   public CompletionStage<Void> deleteZkOnlyAsync(T metadataNode) {
     String path = metadataNode.getName();
     CompletableFuture<Boolean> zkExistsFuture =
-            zkStore != null
-                    ? zkStore.hasAsync(path).toCompletableFuture()
-                    : CompletableFuture.completedFuture(false);
+        zkStore != null
+            ? zkStore.hasAsync(path).toCompletableFuture()
+            : CompletableFuture.completedFuture(false);
 
     return CompletableFuture.allOf(zkExistsFuture)
-                              .thenCompose(
-                                      unused -> {
-                                        boolean existsInZk = zkExistsFuture.join();
+        .thenCompose(
+            unused -> {
+              boolean existsInZk = zkExistsFuture.join();
 
-                                        // Handle case where node exists in both stores
-                                        if (existsInZk) {
-                                            return zkStore.deleteAsync(metadataNode);
-                                        } else {
-                                          throw new IllegalStateException("Node does not exist in zk store: " + path);
-                                        }
-                                      });
+              // Handle case where node exists in both stores
+              if (existsInZk) {
+                return zkStore.deleteAsync(metadataNode);
+              } else {
+                throw new IllegalStateException("Node does not exist in zk store: " + path);
+              }
+            });
   }
 
   /**
@@ -502,73 +502,73 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public CompletionStage<Void> deleteAsync(String path) {
     return hasAsync(path)
-            .thenCompose(
-                    exists -> {
-                      if (!exists) {
-                        CompletableFuture<Void> future = new CompletableFuture<>();
-                        future.completeExceptionally(
-                                new IllegalStateException("Node does not exist in either store: " + path));
-                        return future;
-                      }
+        .thenCompose(
+            exists -> {
+              if (!exists) {
+                CompletableFuture<Void> future = new CompletableFuture<>();
+                future.completeExceptionally(
+                    new IllegalStateException("Node does not exist in either store: " + path));
+                return future;
+              }
 
-                      // We know it exists in at least one store, now check both
-                      CompletableFuture<Boolean> zkExistsFuture =
-                              zkStore != null
-                                      ? zkStore.hasAsync(path).toCompletableFuture()
-                                      : CompletableFuture.completedFuture(false);
+              // We know it exists in at least one store, now check both
+              CompletableFuture<Boolean> zkExistsFuture =
+                  zkStore != null
+                      ? zkStore.hasAsync(path).toCompletableFuture()
+                      : CompletableFuture.completedFuture(false);
 
-                      CompletableFuture<Boolean> etcdExistsFuture =
-                              etcdStore != null
-                                      ? etcdStore.hasAsync(path).toCompletableFuture()
-                                      : CompletableFuture.completedFuture(false);
+              CompletableFuture<Boolean> etcdExistsFuture =
+                  etcdStore != null
+                      ? etcdStore.hasAsync(path).toCompletableFuture()
+                      : CompletableFuture.completedFuture(false);
 
-                      return CompletableFuture.allOf(zkExistsFuture, etcdExistsFuture)
-                              .thenCompose(
-                                      unused -> {
-                                        boolean existsInZk = zkExistsFuture.join();
-                                        boolean existsInEtcd = etcdExistsFuture.join();
+              return CompletableFuture.allOf(zkExistsFuture, etcdExistsFuture)
+                  .thenCompose(
+                      unused -> {
+                        boolean existsInZk = zkExistsFuture.join();
+                        boolean existsInEtcd = etcdExistsFuture.join();
 
-                                        // Handle case where node exists in both stores
-                                        if (existsInZk && existsInEtcd) {
-                                          LOG.warn(
-                                                  "Node exists in both ZK and Etcd stores, which should never happen: {}",
-                                                  path);
-                                          // Delete from both stores based on current mode
-                                          if (mode == MetadataStoreMode.ZOOKEEPER_CREATES) {
-                                            CompletionStage<Void> zkResult = zkStore.deleteAsync(path);
-                                            // Also delete from Etcd but don't wait for it
-                                            if (etcdStore != null) {
-                                              try {
-                                                etcdStore.deleteAsync(path);
-                                              } catch (Exception e) {
-                                                LOG.warn(
-                                                        "Failed to delete node from secondary Etcd store: {}", path, e);
-                                              }
-                                            }
-                                            return zkResult;
-                                          } else { // ETCD_CREATES
-                                            CompletionStage<Void> etcdResult = etcdStore.deleteAsync(path);
-                                            // Also delete from ZK but don't wait for it
-                                            if (zkStore != null) {
-                                              try {
-                                                zkStore.deleteAsync(path);
-                                              } catch (Exception e) {
-                                                LOG.warn(
-                                                        "Failed to delete node from secondary ZK store: {}", path, e);
-                                              }
-                                            }
-                                            return etcdResult;
-                                          }
-                                        }
+                        // Handle case where node exists in both stores
+                        if (existsInZk && existsInEtcd) {
+                          LOG.warn(
+                              "Node exists in both ZK and Etcd stores, which should never happen: {}",
+                              path);
+                          // Delete from both stores based on current mode
+                          if (mode == MetadataStoreMode.ZOOKEEPER_CREATES) {
+                            CompletionStage<Void> zkResult = zkStore.deleteAsync(path);
+                            // Also delete from Etcd but don't wait for it
+                            if (etcdStore != null) {
+                              try {
+                                etcdStore.deleteAsync(path);
+                              } catch (Exception e) {
+                                LOG.warn(
+                                    "Failed to delete node from secondary Etcd store: {}", path, e);
+                              }
+                            }
+                            return zkResult;
+                          } else { // ETCD_CREATES
+                            CompletionStage<Void> etcdResult = etcdStore.deleteAsync(path);
+                            // Also delete from ZK but don't wait for it
+                            if (zkStore != null) {
+                              try {
+                                zkStore.deleteAsync(path);
+                              } catch (Exception e) {
+                                LOG.warn(
+                                    "Failed to delete node from secondary ZK store: {}", path, e);
+                              }
+                            }
+                            return etcdResult;
+                          }
+                        }
 
-                                        // Handle case where node exists in only one store
-                                        if (existsInZk) {
-                                          return zkStore.deleteAsync(path);
-                                        } else { // existsInEtcd
-                                          return etcdStore.deleteAsync(path);
-                                        }
-                                      });
-                    });
+                        // Handle case where node exists in only one store
+                        if (existsInZk) {
+                          return zkStore.deleteAsync(path);
+                        } else { // existsInEtcd
+                          return etcdStore.deleteAsync(path);
+                        }
+                      });
+            });
   }
 
   /**
