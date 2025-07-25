@@ -86,7 +86,7 @@ public class AstraDistributedQueryServiceTest {
         AstraConfigs.QueryServiceConfig.newBuilder()
             .setMaxSnapshotsQueriedPerBatch(20)
             .setPerBatchQueryTimeoutMs(5000)
-            .setDefaultQueryTimeoutMs(10000)
+            .setDefaultQueryTimeoutMs(10_000)
             .build();
 
     metricsRegistry = new SimpleMeterRegistry();
