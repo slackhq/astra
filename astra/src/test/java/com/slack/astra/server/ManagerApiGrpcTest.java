@@ -391,7 +391,7 @@ public class ManagerApiGrpcTest {
   }
 
   @Test
-  public void shouldMigrateExistingDataset() {
+  public void shouldMigrateExistingDataset() throws InterruptedException {
     String datasetName = "testDataset";
     String datasetOwner = "testOwner";
     String serviceNamePattern = "serviceNamePattern";
@@ -401,11 +401,13 @@ public class ManagerApiGrpcTest {
             .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
             .setConnectionTimeoutMs(5000)
             .setKeepaliveTimeoutMs(3000)
-            .setMaxRetries(3)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
             .setNamespace("ManagerApiGrpcTest")
             .setEnabled(true)
-            .setEphemeralNodeTtlSeconds(3)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfigWithEtcdCreates =
@@ -508,6 +510,7 @@ public class ManagerApiGrpcTest {
     assertThat(migrateResponse.getDatasetMetadata(0).getName()).isEqualTo(datasetName);
 
     // Verify dataset was deleted from Zookeeper
+    await().until(() -> zkOnlyStore.listSync().isEmpty());
     assertThat(zkOnlyStore.hasSync(datasetName)).isFalse();
 
     // Verify dataset was added to Etcd
