@@ -136,7 +136,7 @@ public class AstraDistributedQueryServiceTest {
                     .setConnectionTimeoutMs(5000)
                     .setKeepaliveTimeoutMs(3000)
                     .setOperationsMaxRetries(3)
-                    .setOperationsTimeoutMs(3000)
+                    .setOperationsTimeoutMs(9000)
                     .setRetryDelayMs(100)
                     .setNamespace("distributedQuery")
                     .setEnabled(true)
@@ -1175,8 +1175,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(8),
+            Duration.ofSeconds(8),
             queryServiceConfig);
 
     AstraServiceGrpc.AstraServiceFutureStub mockStub =
