@@ -564,6 +564,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                   // every search to every node)
                   Map<String, SearchResult<LogMessage>> snapshotToResult =
                       newDistributedSearch(request, searchMetadataURLToSnapshotNames);
+                  LOG.error("SEARCH RESULTS: {}", snapshotToResult);
 
                   for (Map.Entry<String, SearchResult<LogMessage>> entry :
                       snapshotToResult.entrySet()) {
@@ -571,9 +572,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                     SearchResult<LogMessage> result = entry.getValue();
 
                     if (result.equals(SearchResult.soft_error())) {
-                      LOG.debug("There was a soft error for the entire request!");
+                      LOG.error("There was a soft error for the entire request!");
                     } else if (result.equals(SearchResult.error())) {
-                      LOG.debug(
+                      LOG.error(
                           "There was a hard error for the entire request! We need to retry all snapshots for {}",
                           nodeURL);
                     } else {
@@ -590,7 +591,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                       }
 
                       for (String snapshot : result.hardFailedChunkIds) {
-                        LOG.debug("Retrying snapshot: '{}'", snapshot);
+                        LOG.error("Retrying snapshot: '{}'", snapshot);
                         allSnapshotsQueriedForNode.remove(snapshot);
                       }
 
@@ -734,6 +735,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                                                   .search(localSearchReq)
                                                   .get());
                                       totalRequests.addAndGet(temp.totalSnapshots);
+                                      LOG.error("TEMP SEARCH RESULT: {}", temp);
                                       return temp;
                                     }))))
                 .toList();
@@ -745,6 +747,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                       Duration.ofMillis(queryServiceConfig.getPerBatchQueryTimeoutMs())
                           .toSeconds()));
         } catch (TimeoutException timeoutException) {
+          LOG.error("HIT newDistributedSearch TIMEOUTEXCEPTION");
           scope.shutdown();
           scope.join();
         }
@@ -763,6 +766,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
           try {
             if (searchResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
+              LOG.error("newDistributedSearch had a successful state!");
               nodeURLToResponse.put(
                   nodeURL, searchResult.get() == null ? hardError : searchResult.get());
             } else {
@@ -781,7 +785,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       span.error(e);
       failedQueryCount.increment();
       return searchMetadataURLToSnapshotNames.entrySet().stream()
-          .collect(Collectors.toMap(Map.Entry::getKey, _ -> SearchResult.error()));
+          .collect(Collectors.toMap(Map.Entry::getKey, _ -> SearchResult.error().clone()));
     }
   }
 
@@ -909,14 +913,14 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         for (StructuredTaskScope.Subtask<SearchResult<LogMessage>> searchResult : searchSubtasks) {
           try {
             if (searchResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
-              response.add(searchResult.get() == null ? SearchResult.error() : searchResult.get());
+              response.add(searchResult.get() == null ? SearchResult.error().clone() : searchResult.get());
             } else {
-              response.add(SearchResult.error());
+              response.add(SearchResult.error().clone());
               LOG.warn("Error fetching part of search result {}", searchResult);
             }
           } catch (Exception e) {
             LOG.error("Error fetching search result", e);
-            response.add(SearchResult.error());
+            response.add(SearchResult.error().clone());
           }
         }
         return response;

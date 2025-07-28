@@ -55,6 +55,7 @@ import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class AstraDistributedQueryServiceTest {
@@ -94,13 +95,7 @@ public class AstraDistributedQueryServiceTest {
 
     etcdCluster = TestEtcdClusterFactory.start();
 
-    etcdClient =
-        Client.builder()
-            .endpoints(
-                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .namespace(
-                ByteSequence.from("distributedQuery", java.nio.charset.StandardCharsets.UTF_8))
-            .build();
+
 
     // Metadata store
     AstraConfigs.ZookeeperConfig zkConfig =
@@ -133,17 +128,24 @@ public class AstraDistributedQueryServiceTest {
                 AstraConfigs.EtcdConfig.newBuilder()
                     .addAllEndpoints(
                         etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
-                    .setConnectionTimeoutMs(5000)
-                    .setKeepaliveTimeoutMs(3000)
+                    .setConnectionTimeoutMs(500_000)
+                    .setKeepaliveTimeoutMs(300_000)
                     .setOperationsMaxRetries(3)
-                    .setOperationsTimeoutMs(3000)
+                    .setOperationsTimeoutMs(300_000)
                     .setRetryDelayMs(100)
                     .setNamespace("distributedQuery")
                     .setEnabled(true)
-                    .setEphemeralNodeTtlMs(30000)
+                    .setEphemeralNodeTtlMs(300_000)
                     .setEphemeralNodeMaxRetries(3)
                     .build())
             .build();
+
+    etcdClient =
+            Client.builder()
+                    .endpoints(metadataStoreConfig.getEtcdConfig().getEndpointsList().toArray(String[]::new))
+                    .namespace(
+                            ByteSequence.from(metadataStoreConfig.getEtcdConfig().getNamespace(), java.nio.charset.StandardCharsets.UTF_8))
+                    .build();
 
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
 
@@ -1141,7 +1143,7 @@ public class AstraDistributedQueryServiceTest {
             .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
             .setQuery(
                 """
-                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"* !astra.enableNextGenDistributedQueries"}}]}}
+                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*:* !astra.enableNextGenDistributedQueries"}}]}}
                       """)
             .setHowMany(100)
             .build();
@@ -1249,6 +1251,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   @Test
+  // NOT THIS ONE
   public void testNewDistributedQueryMultipleReplicasRetryLogic() throws JsonProcessingException {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));

@@ -72,8 +72,8 @@ public class CuratorBuilder {
               if (curatorEvent.getType() == CuratorEventType.WATCHED
                   && curatorEvent.getWatchedEvent().getState()
                       == Watcher.Event.KeeperState.Expired) {
-                LOG.warn("The ZK session has expired {}.", curatorEvent);
-                new RuntimeHalterImpl().handleFatal(new Throwable("ZK session expired."));
+                LOG.warn("The ZK session has expired {} for store {}.", curatorEvent, zkConfig.getZkPathPrefix());
+                new RuntimeHalterImpl().handleFatal(new Throwable("ZK session expired for " + zkConfig.getZkPathPrefix()));
               }
             });
     curator.start();
