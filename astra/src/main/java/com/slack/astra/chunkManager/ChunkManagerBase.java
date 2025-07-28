@@ -155,7 +155,8 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                         // invalid queries are received
                         // return 1 snapshot, still searchable but user-side error cause
                         LOG.warn("Chunk Query Exception: {}", err.getMessage());
-                        SearchResult<T> softError = (SearchResult<T>) SearchResult.soft_error().clone();
+                        SearchResult<T> softError =
+                            (SearchResult<T>) SearchResult.soft_error().clone();
                         softError.setSoftFailedChunkIds(softFailedChunkIds);
                         softError.setHardFailedChunkIds(hardFailedChunkIds);
                         return softError;

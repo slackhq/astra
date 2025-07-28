@@ -55,7 +55,6 @@ import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class AstraDistributedQueryServiceTest {
@@ -94,8 +93,6 @@ public class AstraDistributedQueryServiceTest {
     testZKServer = new TestingServer();
 
     etcdCluster = TestEtcdClusterFactory.start();
-
-
 
     // Metadata store
     AstraConfigs.ZookeeperConfig zkConfig =
@@ -141,11 +138,14 @@ public class AstraDistributedQueryServiceTest {
             .build();
 
     etcdClient =
-            Client.builder()
-                    .endpoints(metadataStoreConfig.getEtcdConfig().getEndpointsList().toArray(String[]::new))
-                    .namespace(
-                            ByteSequence.from(metadataStoreConfig.getEtcdConfig().getNamespace(), java.nio.charset.StandardCharsets.UTF_8))
-                    .build();
+        Client.builder()
+            .endpoints(
+                metadataStoreConfig.getEtcdConfig().getEndpointsList().toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(
+                    metadataStoreConfig.getEtcdConfig().getNamespace(),
+                    java.nio.charset.StandardCharsets.UTF_8))
+            .build();
 
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
 

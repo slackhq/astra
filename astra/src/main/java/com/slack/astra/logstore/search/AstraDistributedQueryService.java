@@ -909,7 +909,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         for (StructuredTaskScope.Subtask<SearchResult<LogMessage>> searchResult : searchSubtasks) {
           try {
             if (searchResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
-              response.add(searchResult.get() == null ? SearchResult.error().clone() : searchResult.get());
+              response.add(
+                  searchResult.get() == null ? SearchResult.error().clone() : searchResult.get());
             } else {
               response.add(SearchResult.error().clone());
               LOG.warn("Error fetching part of search result {}", searchResult);
