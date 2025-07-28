@@ -1084,9 +1084,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         LOG.trace("Successfully refreshed shared lease {}", sharedLeaseId);
         this.leaseRefreshHandlerFired.increment();
         break;
-      } catch (TimeoutException e) {
-        LOG.error(String.valueOf(e));
-      } catch(InterruptedException e) {
+      } catch (InterruptedException e) {
         LOG.warn("Interrupted while refreshing shared lease {}", sharedLeaseId, e);
         Thread.currentThread().interrupt(); // Preserve interrupt status
       } catch (Exception e) {
