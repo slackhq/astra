@@ -564,7 +564,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                   // every search to every node)
                   Map<String, SearchResult<LogMessage>> snapshotToResult =
                       newDistributedSearch(request, searchMetadataURLToSnapshotNames);
-                  LOG.error("SEARCH RESULTS: {}", snapshotToResult);
 
                   for (Map.Entry<String, SearchResult<LogMessage>> entry :
                       snapshotToResult.entrySet()) {
@@ -572,9 +571,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                     SearchResult<LogMessage> result = entry.getValue();
 
                     if (result.equals(SearchResult.soft_error())) {
-                      LOG.error("There was a soft error for the entire request!");
+                      LOG.debug("There was a soft error for the entire request!");
                     } else if (result.equals(SearchResult.error())) {
-                      LOG.error(
+                      LOG.debug(
                           "There was a hard error for the entire request! We need to retry all snapshots for {}",
                           nodeURL);
                     } else {
@@ -591,7 +590,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                       }
 
                       for (String snapshot : result.hardFailedChunkIds) {
-                        LOG.error("Retrying snapshot: '{}'", snapshot);
+                        LOG.debug("Retrying snapshot: '{}'", snapshot);
                         allSnapshotsQueriedForNode.remove(snapshot);
                       }
 
@@ -735,7 +734,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                                                   .search(localSearchReq)
                                                   .get());
                                       totalRequests.addAndGet(temp.totalSnapshots);
-                                      LOG.error("TEMP SEARCH RESULT: {}", temp);
                                       return temp;
                                     }))))
                 .toList();
@@ -747,7 +745,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                       Duration.ofMillis(queryServiceConfig.getPerBatchQueryTimeoutMs())
                           .toSeconds()));
         } catch (TimeoutException timeoutException) {
-          LOG.error("HIT newDistributedSearch TIMEOUTEXCEPTION");
           scope.shutdown();
           scope.join();
         }
@@ -766,7 +763,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
           try {
             if (searchResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
-              LOG.error("newDistributedSearch had a successful state!");
               nodeURLToResponse.put(
                   nodeURL, searchResult.get() == null ? hardError : searchResult.get());
             } else {
