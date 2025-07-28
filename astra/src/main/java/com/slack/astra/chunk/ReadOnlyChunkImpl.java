@@ -270,10 +270,18 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         }
         this.chunkSchema = ChunkSchema.deserializeFile(schemaPath);
 
-        this.logSearcher =
-            (LogIndexSearcher<T>)
-                new LogIndexSearcherImpl(
-                    new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
+        try {
+          this.logSearcher =
+              (LogIndexSearcher<T>)
+                  new LogIndexSearcherImpl(
+                      new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
+        } catch (Exception e) {
+          LOG.error(
+              "Failed to init logSearcher for chunk {}. Snapshot ID is {}.",
+              chunkInfo,
+              snapshotMetadata.snapshotId);
+          throw e;
+        }
       }
 
       // set chunk state
