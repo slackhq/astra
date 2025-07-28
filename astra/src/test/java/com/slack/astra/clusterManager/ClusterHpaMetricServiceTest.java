@@ -22,6 +22,10 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -48,16 +52,55 @@ class ClusterHpaMetricServiceTest {
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private CacheNodeMetadataStore cacheNodeMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(
+                    "ClusterHpaMetricServiceTest", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace("ClusterHpaMetricServiceTest")
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -67,23 +110,36 @@ class ClusterHpaMetricServiceTest {
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
 
     curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
 
     replicaMetadataStore =
-        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new ReplicaMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     cacheSlotMetadataStore =
-        spy(new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheSlotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     cacheNodeAssignmentStore =
-        spy(new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheNodeAssignmentStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     cacheNodeMetadataStore =
-        spy(new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheNodeMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new SnapshotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     hpaMetricMetadataStore =
-        spy(new HpaMetricMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true));
+        spy(
+            new HpaMetricMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true));
   }
 
   @AfterEach
@@ -91,7 +147,12 @@ class ClusterHpaMetricServiceTest {
     hpaMetricMetadataStore.close();
     cacheSlotMetadataStore.close();
     replicaMetadataStore.close();
+    cacheNodeAssignmentStore.close();
+    cacheNodeMetadataStore.close();
+    snapshotMetadataStore.close();
+    hpaMetricMetadataStore.close();
     curatorFramework.unwrap().close();
+    etcdClient.close();
 
     testingServer.close();
     meterRegistry.close();

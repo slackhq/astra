@@ -14,6 +14,10 @@ import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -32,16 +36,55 @@ public class CacheNodeSearchabilityServiceTest {
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private AstraConfigs.ManagerConfig managerConfig;
   private CacheNodeMetadataStore cacheNodeMetadataStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(
+                    "CacheNodeAssignmentServiceTest", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace("CacheNodeAssignmentServiceTest")
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -51,6 +94,7 @@ public class CacheNodeSearchabilityServiceTest {
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
 
     AstraConfigs.ManagerConfig.CacheNodeSearchabilityServiceConfig
@@ -68,21 +112,33 @@ public class CacheNodeSearchabilityServiceTest {
     curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     searchMetadataStore =
-        spy(new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true));
+        spy(
+            new SearchMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true));
     cacheNodeMetadataStore =
-        spy(new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheNodeMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     cacheNodeAssignmentStore =
-        spy(new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheNodeAssignmentStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new SnapshotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
   }
 
   @AfterEach
   public void tearDown() throws IOException {
     meterRegistry.close();
     testingServer.close();
+    searchMetadataStore.close();
+    cacheNodeAssignmentStore.close();
+    cacheNodeMetadataStore.close();
     snapshotMetadataStore.close();
     curatorFramework.unwrap().close();
+    etcdClient.close();
   }
 
   @Test
@@ -175,7 +231,7 @@ public class CacheNodeSearchabilityServiceTest {
             1,
             Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE));
     searchMetadataStore.createSync(
-        new SearchMetadata("test-name", "snapshot-id", "test-url:testhostname", false));
+        new SearchMetadata("test-name", "snapshot-id", "testhostname", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
             meterRegistry,
@@ -187,7 +243,7 @@ public class CacheNodeSearchabilityServiceTest {
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name");
+    SearchMetadata searchMetadata = searchMetadataStore.getSync("testhostname", "test-name");
     assertThat(cacheNodeMetadata.searchable).isTrue();
     assertThat(searchMetadata.isSearchable()).isTrue();
   }
@@ -218,7 +274,7 @@ public class CacheNodeSearchabilityServiceTest {
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name");
+    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-url", "test-name");
     assertThat(cacheNodeMetadata.searchable).isFalse();
     assertThat(searchMetadata.isSearchable()).isFalse();
   }
@@ -238,7 +294,7 @@ public class CacheNodeSearchabilityServiceTest {
             1,
             Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICTING));
     searchMetadataStore.createSync(
-        new SearchMetadata("test-name", "snapshot-id", "test-url", false));
+        new SearchMetadata("test-name", "snapshot-id", "http://test-url", false));
     CacheNodeSearchabilityService cacheNodeSearchabilityService =
         new CacheNodeSearchabilityService(
             meterRegistry,
@@ -250,7 +306,7 @@ public class CacheNodeSearchabilityServiceTest {
     cacheNodeSearchabilityService.runOneIteration();
 
     CacheNodeMetadata cacheNodeMetadata = cacheNodeMetadataStore.getSync("test-id");
-    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-name");
+    SearchMetadata searchMetadata = searchMetadataStore.getSync("test-url", "test-name");
     assertThat(cacheNodeMetadata.searchable).isFalse();
     assertThat(searchMetadata.isSearchable()).isFalse();
   }

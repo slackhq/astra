@@ -15,8 +15,12 @@ import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.MetricsUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.testlib.TestKafkaServer;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -46,6 +50,9 @@ class BulkIngestKafkaProducerTest {
   private static AstraConfigs.PreprocessorConfig preprocessorConfig;
   private static DatasetMetadataStore datasetMetadataStore;
   private static TestingServer zkServer;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
+
   private static TestKafkaServer kafkaServer;
 
   private BulkIngestKafkaProducer bulkIngestKafkaProducer;
@@ -61,10 +68,34 @@ class BulkIngestKafkaProducerTest {
     meterRegistry = new SimpleMeterRegistry();
 
     zkServer = new TestingServer();
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
+
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
-            .setZkPathPrefix("testZK")
+            .setZkPathPrefix("test")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
@@ -73,8 +104,21 @@ class BulkIngestKafkaProducerTest {
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(zkConfig)
+            .setEtcdConfig(etcdConfig)
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
@@ -101,7 +145,8 @@ class BulkIngestKafkaProducerTest {
             .build();
 
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new DatasetMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
             INDEX_NAME,
@@ -140,6 +185,9 @@ class BulkIngestKafkaProducerTest {
     }
     if (zkServer != null) {
       zkServer.close();
+    }
+    if (etcdClient != null) {
+      etcdClient.close();
     }
   }
 

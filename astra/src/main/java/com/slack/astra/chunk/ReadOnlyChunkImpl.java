@@ -270,10 +270,18 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         }
         this.chunkSchema = ChunkSchema.deserializeFile(schemaPath);
 
-        this.logSearcher =
-            (LogIndexSearcher<T>)
-                new LogIndexSearcherImpl(
-                    new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
+        try {
+          this.logSearcher =
+              (LogIndexSearcher<T>)
+                  new LogIndexSearcherImpl(
+                      new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
+        } catch (Exception e) {
+          LOG.error(
+              "Failed to init logSearcher for chunk {}. Snapshot ID is {}.",
+              chunkInfo,
+              snapshotMetadata.snapshotId);
+          throw e;
+        }
       }
 
       // set chunk state
@@ -564,13 +572,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    cacheNodeMetadataStore.close();
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       evictChunk(getCacheNodeAssignment());
-      cacheNodeAssignmentStore.close();
-      replicaMetadataStore.close();
-      snapshotMetadataStore.close();
-      searchMetadataStore.close();
 
       LOG.debug("Closed chunk");
     } else {
@@ -581,7 +584,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         handleChunkEviction(cacheSlotMetadata);
       }
       cacheSlotMetadataStore.removeListener(cacheSlotListener);
-      cacheSlotMetadataStore.close();
       LOG.debug("Closed chunk");
     }
   }

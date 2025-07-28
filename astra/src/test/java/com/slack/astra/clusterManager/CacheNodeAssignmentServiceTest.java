@@ -18,6 +18,10 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -50,12 +54,25 @@ public class CacheNodeAssignmentServiceTest {
   private AstraConfigs.ManagerConfig managerConfig;
   private CacheNodeMetadataStore cacheNodeMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(
+                    "CacheNodeAssignmentServiceTest", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
 
     com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig zkConfig =
         com.slack.astra.proto.config.AstraConfigs.ZookeeperConfig.newBuilder()
@@ -67,10 +84,37 @@ public class CacheNodeAssignmentServiceTest {
             .setZkCacheInitTimeoutMs(1000)
             .build();
 
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace("CacheNodeAssignmentServiceTest")
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(zkConfig)
+            .setEtcdConfig(etcdConfig)
             .build();
 
     AstraConfigs.ManagerConfig.CacheNodeAssignmentServiceConfig cacheNodeAssignmentServiceConfig =
@@ -88,13 +132,21 @@ public class CacheNodeAssignmentServiceTest {
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     cacheNodeAssignmentStore =
-        spy(new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheNodeAssignmentStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     cacheNodeMetadataStore =
-        spy(new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheNodeMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new SnapshotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     replicaMetadataStore =
-        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new ReplicaMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
   }
 
   @AfterEach
@@ -102,7 +154,11 @@ public class CacheNodeAssignmentServiceTest {
     meterRegistry.close();
     testingServer.close();
     cacheNodeAssignmentStore.close();
+    cacheNodeMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
+    etcdClient.close();
   }
 
   @Test
@@ -152,7 +208,6 @@ public class CacheNodeAssignmentServiceTest {
   public void testExpiredReplicasMarkedForEvictionLifecycle() throws TimeoutException {
     String name = "foo";
     String snapshotKey = "snapshot_%s";
-    String replicaKey = "replica_%s";
     String replicaSet = "rep1";
     String replicaId = "replica1";
     for (int i = 0; i < 3; i++) {
@@ -174,7 +229,7 @@ public class CacheNodeAssignmentServiceTest {
 
       ReplicaMetadata replicaMetadata =
           new ReplicaMetadata(
-              String.format(replicaKey, i),
+              String.format("replica_%s", i),
               String.format(snapshotKey, i),
               replicaSet,
               1L,
@@ -205,7 +260,6 @@ public class CacheNodeAssignmentServiceTest {
   public void testEvictExpiredReplicasOnly() {
     String name = "foo";
     String snapshotKey = "snapshot_%s";
-    String replicaKey = "replica_%s";
     String replicaSet = "rep1";
     String replicaId = "replica1";
     for (int i = 0; i < 6; i++) {
@@ -229,7 +283,7 @@ public class CacheNodeAssignmentServiceTest {
 
       ReplicaMetadata replicaMetadata =
           new ReplicaMetadata(
-              String.format(replicaKey, i),
+              String.format("replica_%s", i),
               String.format(snapshotKey, i),
               replicaSet,
               1L,

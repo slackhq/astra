@@ -21,6 +21,10 @@ import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.MetricsUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -49,16 +53,55 @@ public class ReplicaDeletionServiceTest {
   private CacheSlotMetadataStore cacheSlotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
   private CacheNodeAssignmentStore cacheNodeMetadataStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(
+                    "ReplicaDeletionServiceTest", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace("ReplicaDeletionServiceTest")
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -68,16 +111,23 @@ public class ReplicaDeletionServiceTest {
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
 
     curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     cacheSlotMetadataStore =
-        spy(new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheSlotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     replicaMetadataStore =
-        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new ReplicaMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     cacheNodeMetadataStore =
-        spy(new CacheNodeAssignmentStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheNodeAssignmentStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
   }
 
   @AfterEach
@@ -85,6 +135,7 @@ public class ReplicaDeletionServiceTest {
     cacheSlotMetadataStore.close();
     replicaMetadataStore.close();
     curatorFramework.unwrap().close();
+    etcdClient.close();
 
     testingServer.close();
     meterRegistry.close();
@@ -537,6 +588,7 @@ public class ReplicaDeletionServiceTest {
         .isEqualTo(2);
 
     timeoutServiceExecutor.shutdown();
+    timeoutServiceExecutor.close();
   }
 
   @Test
