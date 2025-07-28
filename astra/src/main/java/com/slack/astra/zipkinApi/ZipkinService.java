@@ -16,8 +16,10 @@ import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Default;
 import com.linecorp.armeria.server.annotation.Get;
+import com.linecorp.armeria.server.annotation.Header;
 import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
+import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.proto.service.AstraSearch;
@@ -28,10 +30,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -128,8 +132,8 @@ public class ZipkinService {
   // returning LogWireMessage instead of LogMessage
   // If we return LogMessage the caller then needs to call getSource which is a deep copy of the
   // object. To return LogWireMessage we do a JSON parse
-  private static List<LogWireMessage> searchResultToLogWireMessage(
-      AstraSearch.SearchResult searchResult) throws IOException {
+  static List<LogWireMessage> searchResultToLogWireMessage(AstraSearch.SearchResult searchResult)
+      throws IOException {
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
     List<LogWireMessage> messages = new ArrayList<>(hitsByteList.size());
     for (ByteString byteString : hitsByteList) {
@@ -148,8 +152,13 @@ public class ZipkinService {
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
   private final int defaultMaxSpans;
   private final int defaultLookbackMins;
+  private final long defaultDataFreshnessInSeconds;
 
   private final AstraQueryServiceBase searcher;
+
+  private final BlobStore blobStore;
+
+  public static final String TRACE_CACHE_PREFIX = "traceCacheData";
 
   private static final ObjectMapper objectMapper =
       JsonMapper.builder()
@@ -160,10 +169,16 @@ public class ZipkinService {
           .build();
 
   public ZipkinService(
-      AstraQueryServiceBase searcher, int defaultMaxSpans, int defaultLookbackMins) {
+      AstraQueryServiceBase searcher,
+      BlobStore blobStore,
+      int defaultMaxSpans,
+      int defaultLookbackMins,
+      long defaultDataFreshnessInSeconds) {
     this.searcher = searcher;
+    this.blobStore = blobStore;
     this.defaultMaxSpans = defaultMaxSpans;
     this.defaultLookbackMins = defaultLookbackMins;
+    this.defaultDataFreshnessInSeconds = defaultDataFreshnessInSeconds;
   }
 
   @Get
@@ -201,9 +216,24 @@ public class ZipkinService {
       @Param("traceId") String traceId,
       @Param("startTimeEpochMs") Optional<Long> startTimeEpochMs,
       @Param("endTimeEpochMs") Optional<Long> endTimeEpochMs,
-      @Param("maxSpans") Optional<Integer> maxSpans)
+      @Param("maxSpans") Optional<Integer> maxSpans,
+      @Header("X-User-Request") Optional<Boolean> userRequest,
+      @Header("X-Data-Freshness-In-Seconds") Optional<Long> dataFreshnessInSeconds)
       throws IOException {
 
+    // Log the custom header userRequest value if present
+    if (userRequest.isPresent()) {
+      LOG.info("Received custom header X-User-Request: {}", userRequest.get());
+      // try to retrieve trace data from blob store cache; check timestamp before using blob store
+      // cache for data freshness
+
+      String traceData = retrieveDataFromBlobStoreCache(traceId);
+      // if found, return the data
+      if (traceData != null) {
+        LOG.info("Trace data retrieved from blob store cache for traceId={}", traceId);
+        return HttpResponse.of(HttpStatus.OK, MediaType.ANY_APPLICATION_TYPE, traceData);
+      }
+    }
     JSONObject traceObject = new JSONObject();
     traceObject.put("trace_id", traceId);
     JSONObject queryJson = new JSONObject();
@@ -225,6 +255,8 @@ public class ZipkinService {
     span.tag("startTimeEpochMs", String.valueOf(startTime));
     span.tag("endTimeEpochMs", String.valueOf(endTime));
     span.tag("howMany", String.valueOf(howMany));
+    // Add custom header to span tags if present
+    userRequest.ifPresent(headerValue -> span.tag("userRequest", headerValue.toString()));
 
     // TODO: when MAX_SPANS is hit the results will look weird because the index is sorted in
     // reverse timestamp and the spans returned will be the tail. We should support sort in the
@@ -243,6 +275,86 @@ public class ZipkinService {
     List<LogWireMessage> messages = searchResultToLogWireMessage(searchResult);
     String output = convertLogWireMessageToZipkinSpan(messages);
 
+    if (userRequest.isPresent() && userRequest.get() && !output.isEmpty()) {
+      long dataFreshnessInSecondsValue =
+          dataFreshnessInSeconds.orElse(
+              this.defaultDataFreshnessInSeconds); // default to 15 minutes if not
+      // Check if no new spans in trace data, it can be saved
+      Instant latestSpanTimestamp = getLatestSpanTimestamp(messages);
+
+      if (shouldSaveToBlobStoreCache(latestSpanTimestamp, dataFreshnessInSecondsValue)) {
+        LOG.info(
+            "Data freshness check done, can be saved to blob store cache for traceId={}", traceId);
+        // Save the trace data to blob store cache
+        saveDataToBlobStoreCache(traceId, output);
+      }
+    }
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
+  }
+
+  protected static boolean shouldSaveToBlobStoreCache(
+      Instant latestSpanTimestamp, long dataFreshnessInSeconds) {
+    Instant currentTime = Instant.now();
+    return latestSpanTimestamp.isBefore(
+        currentTime.minus(dataFreshnessInSeconds, ChronoUnit.SECONDS));
+  }
+
+  @VisibleForTesting
+  protected Instant getLatestSpanTimestamp(List<LogWireMessage> spanList) {
+    return spanList.stream()
+        .map(LogWireMessage::getTimestamp)
+        .max(Comparator.naturalOrder())
+        .orElse(null);
+  }
+
+  protected String retrieveDataFromBlobStoreCache(String traceId) {
+    assert traceId != null && !traceId.isEmpty();
+
+    try {
+      // Retrieve the compressed trace data from blob store cache
+      String jsonData =
+          blobStore.readFileData(
+              String.format("%s/%s/traceData.json.gz", TRACE_CACHE_PREFIX, traceId), true);
+
+      if (jsonData == null || jsonData.isEmpty()) {
+        LOG.warn("No trace data found in blob store cache for traceId={}", traceId);
+        return null;
+      }
+      LOG.info(
+          "Retrieved and decompressed trace data from blob store cache for traceId={}", traceId);
+      return jsonData;
+
+    } catch (Exception e) {
+      // Log other exceptions as errors
+      LOG.error("Error retrieving trace data from blob store cache for traceId={}", traceId, e);
+      return null;
+    }
+  }
+
+  protected void saveDataToBlobStoreCache(String traceId, String output) {
+    assert traceId != null && !traceId.isEmpty();
+    assert output != null && !output.isEmpty();
+
+    try {
+      // Upload the compressed trace data to blob store cache
+      String srcLocation =
+          String.format("%s/tmp-%s/%s.json.gz", TRACE_CACHE_PREFIX, traceId, UUID.randomUUID());
+      String dstLocation = String.format("%s/%s/traceData.json.gz", TRACE_CACHE_PREFIX, traceId);
+
+      if (blobStore.pathExists("%s/tmp-%s".formatted(TRACE_CACHE_PREFIX, traceId))) {
+        LOG.info("Temporary location found in blob store cache for traceId={}", traceId);
+        return;
+      }
+
+      blobStore.uploadData(srcLocation, output, true);
+      blobStore.copyFile(srcLocation, dstLocation);
+      blobStore.delete(String.format("%s/tmp-%s", TRACE_CACHE_PREFIX, traceId));
+
+      LOG.info("Compressed trace data saved to blob store cache for traceId={}", traceId);
+
+    } catch (Exception e) {
+      LOG.error("Error saving trace data to blob store cache for traceId={}", traceId, e);
+      throw new RuntimeException("Failed to save trace data to blob store cache", e);
+    }
   }
 }

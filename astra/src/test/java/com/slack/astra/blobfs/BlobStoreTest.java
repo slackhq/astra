@@ -2,6 +2,8 @@ package com.slack.astra.blobfs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import java.io.File;
@@ -214,5 +216,95 @@ class BlobStoreTest {
     String chunkId = UUID.randomUUID().toString();
 
     assertThat(blobStore.listFiles(chunkId).size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testCompressDecompressJsonData() throws Exception {
+    // Arrange
+    String jsonData =
+        "[{\"id\":\"101\",\"traceId\":\"test_trace_789\",\"name\":\"test-span\",\"tags\":{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"value3\"}}]";
+    byte[] compressedData = BlobStore.compressData(jsonData);
+
+    // Act
+    String decompressedData = BlobStore.decompressData(compressedData);
+
+    // Assert
+    assertNotNull(decompressedData, "Decompressed data should not be null");
+    assertEquals(jsonData, decompressedData, "Decompressed data should match original");
+  }
+
+  @Test
+  public void testCompressDecompressJsonData_emptyString() throws Exception {
+    // Arrange
+    String jsonData = "";
+    byte[] compressedData = BlobStore.compressData(jsonData);
+
+    // Act
+    String decompressedData = BlobStore.decompressData(compressedData);
+
+    // Assert
+    assertNotNull(decompressedData, "Decompressed data should not be null");
+    assertEquals(
+        jsonData, decompressedData, "Decompressed data should match original empty string");
+  }
+
+  @Test
+  public void testUploadDownloadJsonData() throws IOException {
+    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
+    String chunkId = UUID.randomUUID().toString();
+    String jsonData =
+        "[{\"id\":\"101\",\"traceId\":\"test_trace_789\",\"name\":\"test-span\",\"tags\":{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"value3\"}}]";
+
+    // Upload JSON data
+    blobStore.uploadData(chunkId, jsonData, false);
+
+    // Download and decompress the JSON data
+    String downloadedJsonData = blobStore.readFileData(chunkId, false);
+
+    // Assert that the downloaded data matches the original
+    assertEquals(jsonData, downloadedJsonData, "Downloaded JSON data should match original");
+  }
+
+  @Test
+  public void testUploadDownloadJsonData_gzip() throws IOException {
+    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
+    String chunkId = UUID.randomUUID().toString();
+    String jsonData =
+        "[{\"id\":\"101\",\"traceId\":\"test_trace_789\",\"name\":\"test-span\",\"tags\":{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"value3\"}}]";
+
+    // Upload empty JSON data
+    blobStore.uploadData(chunkId, jsonData, true);
+
+    // Download and decompress the JSON data
+    String downloadedJsonData = blobStore.readFileData(chunkId, true);
+
+    // Assert that the downloaded data matches the original empty string
+    assertEquals(
+        jsonData, downloadedJsonData, "Downloaded JSON data should match original empty string");
+  }
+
+  @Test
+  public void testCopyFile() throws IOException {
+    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
+    String sourceChunkId = UUID.randomUUID().toString();
+    String destinationChunkId = UUID.randomUUID().toString();
+
+    // Upload a file
+    Path directoryUpload = Files.createTempDirectory("");
+    Path foo = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(foo.toFile())) {
+      fileWriter.write("Example test");
+    }
+    blobStore.upload(sourceChunkId, directoryUpload);
+
+    // Copy the file to a new chunk ID
+    blobStore.copyFile(
+        String.format("%s/%s", sourceChunkId, foo.getFileName()),
+        String.format("%s/%s", destinationChunkId, foo.getFileName()));
+
+    // Verify the file is copied
+    List<String> filesInDestination = blobStore.listFiles(destinationChunkId);
+    assertThat(filesInDestination)
+        .contains(String.format("%s/%s", destinationChunkId, foo.getFileName()));
   }
 }

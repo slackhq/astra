@@ -52,6 +52,7 @@ queryConfig:
   defaultQueryTimeoutMs: ${ASTRA_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-3000}
   zipkinDefaultMaxSpans: ${ASTRA_QUERY_ZIPKIN_DEFAULT_MAX_SPANS:-20000}
   zipkinDefaultLookbackMins: ${ASTRA_QUERY_ZIPKIN_DEFAULT_LOOKBACK_MINS:-10080}
+  zipkinDefaultDataFreshnessSecs: ${ASTRA_QUERY_DEFAULT_DATA_FRESHNESS_SECONDS:-900}
   managerConnectString: ${ASTRA_MANAGER_CONNECTION_STRING:-localhost:8083}
 
 metadataStoreConfig:

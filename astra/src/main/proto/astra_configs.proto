@@ -97,6 +97,7 @@ message QueryServiceConfig {
   string managerConnectString = 3;
   int32 zipkin_default_max_spans = 4;
   int32 zipkin_default_lookback_mins = 5;
+  int64 zipkin_default_data_freshness_secs = 6;
 }
 
 message RedactionUpdateServiceConfig {
