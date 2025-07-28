@@ -979,6 +979,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
 
     timeoutServiceExecutor.shutdown();
+    timeoutServiceExecutor.close();
   }
 
   @Test

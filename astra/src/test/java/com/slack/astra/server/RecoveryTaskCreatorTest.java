@@ -430,6 +430,8 @@ public class RecoveryTaskCreatorTest {
                 || (actualSnapshots.contains(livePartition11)
                     && !actualSnapshots.contains(livePartition1)))
         .isTrue();
+
+    timeoutServiceExecutor.close();
   }
 
   @Test
