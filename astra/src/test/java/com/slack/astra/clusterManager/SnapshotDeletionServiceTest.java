@@ -757,6 +757,7 @@ public class SnapshotDeletionServiceTest {
         .isEqualTo(2);
 
     timeoutServiceExecutor.shutdown();
+    timeoutServiceExecutor.close();
   }
 
   @Test
