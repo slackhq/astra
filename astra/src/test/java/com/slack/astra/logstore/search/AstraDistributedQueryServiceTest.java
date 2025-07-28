@@ -86,8 +86,8 @@ public class AstraDistributedQueryServiceTest {
     queryServiceConfig =
         AstraConfigs.QueryServiceConfig.newBuilder()
             .setMaxSnapshotsQueriedPerBatch(20)
-            .setPerBatchQueryTimeoutMs(50_000)
-            .setDefaultQueryTimeoutMs(100_000)
+            .setPerBatchQueryTimeoutMs(5000)
+            .setDefaultQueryTimeoutMs(10_000)
             .build();
 
     metricsRegistry = new SimpleMeterRegistry();
@@ -102,10 +102,10 @@ public class AstraDistributedQueryServiceTest {
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testZKServer.getConnectString())
             .setZkPathPrefix("distributedQuery")
-            .setZkSessionTimeoutMs(100_000)
-            .setZkConnectionTimeoutMs(100_000)
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
-            .setZkCacheInitTimeoutMs(100_000)
+            .setZkCacheInitTimeoutMs(1000)
             .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
@@ -128,10 +128,10 @@ public class AstraDistributedQueryServiceTest {
                 AstraConfigs.EtcdConfig.newBuilder()
                     .addAllEndpoints(
                         etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
-                    .setConnectionTimeoutMs(500_000)
-                    .setKeepaliveTimeoutMs(300_000)
+                    .setConnectionTimeoutMs(5000)
+                    .setKeepaliveTimeoutMs(3000)
                     .setOperationsMaxRetries(3)
-                    .setOperationsTimeoutMs(300_000)
+                    .setOperationsTimeoutMs(3000)
                     .setRetryDelayMs(100)
                     .setNamespace("distributedQuery")
                     .setEnabled(true)
