@@ -384,6 +384,80 @@ public class ElasticsearchApiServiceTest {
     serviceUnderTest.mapping(Optional.of("bar"), Optional.empty(), Optional.empty());
   }
 
+  @Test
+  public void testMalformedJsonReturns400() throws Exception {
+    String postBody =
+        Resources.toString(
+            Resources.getResource("elasticsearchApi/invalid_json_syntax.ndjson"),
+            Charset.defaultCharset());
+    HttpResponse response = elasticsearchApiService.multiSearch(postBody);
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+    assertThat(aggregatedRes.status().code()).isEqualTo(400);
+    assertThat(jsonNode.get("error").asText()).contains("Invalid JSON format");
+  }
+
+  @Test
+  public void testIncompleteNdjsonReturns400() throws Exception {
+    String postBody =
+        Resources.toString(
+            Resources.getResource("elasticsearchApi/incomplete_ndjson.ndjson"),
+            Charset.defaultCharset());
+    HttpResponse response = elasticsearchApiService.multiSearch(postBody);
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+    assertThat(aggregatedRes.status().code()).isEqualTo(400);
+    assertThat(jsonNode.get("error").asText()).contains("Invalid JSON format");
+  }
+
+  @Test
+  public void testMissingRequiredFieldsReturns400() throws Exception {
+    String postBody =
+        Resources.toString(
+            Resources.getResource("elasticsearchApi/missing_required_fields.ndjson"),
+            Charset.defaultCharset());
+    HttpResponse response = elasticsearchApiService.multiSearch(postBody);
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+    assertThat(aggregatedRes.status().code()).isEqualTo(400);
+    assertThat(jsonNode.get("error").asText()).contains("Invalid request argument");
+  }
+
+  @Test
+  public void testMultiSearchWithNonexistentDataset() throws Exception {
+    // Create a properly formatted request that will parse successfully but may fail during search
+    // Use a valid request format with proper required fields
+    String postBody =
+        "{\"index\":\"nonexistent-dataset\"}\n{\"size\":10,\"query\":{\"match_all\":{}}}";
+    HttpResponse response = elasticsearchApiService.multiSearch(postBody);
+
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+    // The response should be 200 (successful multisearch) but individual responses may have errors
+    assertThat(aggregatedRes.status().code()).isEqualTo(200);
+    assertThat(jsonNode.get("responses")).isNotNull();
+    assertThat(jsonNode.get("responses").isArray()).isTrue();
+    assertThat(jsonNode.get("responses").size()).isEqualTo(1);
+
+    JsonNode firstResponse = jsonNode.get("responses").get(0);
+    assertThat(firstResponse).isNotNull();
+
+    // The individual response should have some response structure - either successful or with error
+    // We can't guarantee it will be a 500 since the dataset might just return empty results
+    assertThat(firstResponse.has("took")).isTrue();
+  }
+
   private void addMessagesToChunkManager(List<Trace.Span> messages) throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     int offset = 1;

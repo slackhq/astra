@@ -241,6 +241,35 @@ Definitions for the OpenSearch compatible API, queryable via the Grafana and end
                 }
             </sample>
         </response>
+        <response type="400">
+            <sample lang="JSON">
+                {
+                    "error": "Invalid JSON format. Please check your input and try again."
+                }
+            </sample>
+        </response>
+        <response type="400">
+            <sample lang="JSON">
+                {
+                    "error": "Invalid request argument. Please check your input and try again."
+                }
+            </sample>
+        </response>
+        <response type="500">
+            <sample lang="JSON">
+                {
+                    "took": 0,
+                    "responses":
+                    [
+                        {
+                            "took": 0,
+                            "status": 500,
+                            "error": "Backend error occurred during search"
+                        }
+                    ]
+                }
+            </sample>
+        </response>
     </api-endpoint>
     <api-endpoint endpoint="/{indexName}/_mapping" method="GET">
         <response type="200">

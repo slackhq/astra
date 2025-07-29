@@ -4,6 +4,7 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.CurrentTraceContext;
 import brave.propagation.TraceContext;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -97,8 +98,43 @@ public class ElasticsearchApiService {
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
     try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
+      List<AstraSearch.SearchRequest> searchRequests;
+      try {
+        searchRequests = openSearchRequest.parseHttpPostBody(postBody);
+      } catch (JsonProcessingException e) {
+        LOG.error("Invalid JSON in multisearch request", e);
+        return HttpResponse.of(
+            HttpStatus.BAD_REQUEST,
+            MediaType.JSON_UTF_8,
+            JsonUtil.writeAsString(
+                Map.of("error", "Invalid JSON format. Please check your input and try again.")));
+      } catch (IllegalArgumentException e) {
+        LOG.error("Invalid argument in multisearch request", e);
+        return HttpResponse.of(
+            HttpStatus.BAD_REQUEST,
+            MediaType.JSON_UTF_8,
+            JsonUtil.writeAsString(
+                Map.of(
+                    "error", "Invalid request argument. Please check your input and try again.")));
+      } catch (IndexOutOfBoundsException e) {
+        LOG.error("Incomplete NDJSON in multisearch request", e);
+        return HttpResponse.of(
+            HttpStatus.BAD_REQUEST,
+            MediaType.JSON_UTF_8,
+            JsonUtil.writeAsString(
+                Map.of("error", "Invalid JSON format. Please check your input and try again.")));
+      } catch (NullPointerException e) {
+        LOG.error("Missing required fields in multisearch request", e);
+        return HttpResponse.of(
+            HttpStatus.BAD_REQUEST,
+            MediaType.JSON_UTF_8,
+            JsonUtil.writeAsString(
+                Map.of(
+                    "error", "Invalid request argument. Please check your input and try again.")));
+      }
+
       List<StructuredTaskScope.Subtask<EsSearchResponse>> requestSubtasks =
-          openSearchRequest.parseHttpPostBody(postBody).stream()
+          searchRequests.stream()
               .map((request) -> scope.fork(currentTraceContext.wrap(() -> doSearch(request))))
               .toList();
 
