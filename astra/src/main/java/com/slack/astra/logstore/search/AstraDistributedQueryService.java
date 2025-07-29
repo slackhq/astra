@@ -760,7 +760,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     } catch (Exception e) {
       LOG.error("Search failed with ", e);
       span.error(e);
-      failedQueryCount.increment();
+//      failedQueryCount.increment();
       return searchMetadataURLToSnapshotNames.entrySet().stream()
           .collect(Collectors.toMap(Map.Entry::getKey, _ -> SearchResult.error()));
     }
@@ -905,7 +905,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     } catch (Exception e) {
       LOG.error("Search failed with ", e);
       span.error(e);
-      failedQueryCount.increment();
+//      failedQueryCount.increment();
       return List.of(SearchResult.empty());
     } finally {
       recordQueryDuration(requestedDataHours, Instant.now().toEpochMilli() - startTime, "old");
