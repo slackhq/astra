@@ -104,14 +104,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   private static final String TIME_WINDOW_TAG = "requested_time_window";
   private static final String QUERY_PATH_TAG = "query_path";
 
-  private final Counter distributedQueryApdexSatisfied;
-  private final Counter distributedQueryApdexTolerating;
-  private final Counter distributedQueryApdexFrustrated;
-  private final Counter distributedQueryTotalSnapshots;
-  private final Counter distributedQuerySnapshotsWithReplicas;
-  private final Counter successfulQueryCount;
-  private final Counter incompleteQueryCount;
-  private final Counter failedQueryCount;
   // Timeouts are structured such that we always attempt to return a successful response, as we
   // include metadata that should always be present. The Armeria timeout is used at the top request,
   // distributed query is used as a deadline for all nodes to return, and the local query timeout
@@ -147,17 +139,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     this.datasetMetadataStore = datasetMetadataStore;
     this.defaultQueryTimeout = defaultQueryTimeout;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
-    this.distributedQueryApdexSatisfied = meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED);
-    this.distributedQueryApdexTolerating =
-        meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING);
-    this.distributedQueryApdexFrustrated =
-        meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED);
-    this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
-    this.distributedQuerySnapshotsWithReplicas =
-        meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
-    this.successfulQueryCount = meterRegistry.counter(ASTRA_QUERIES_SUCCESSFUL_COUNT);
-    this.incompleteQueryCount = meterRegistry.counter(ASTRA_QUERIES_INCOMPLETE_COUNT);
-    this.failedQueryCount = meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT);
     this.meterRegistry = meterRegistry;
 
     // start listening for new events
