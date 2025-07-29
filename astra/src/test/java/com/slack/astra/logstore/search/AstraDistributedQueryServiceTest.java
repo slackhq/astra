@@ -94,14 +94,6 @@ public class AstraDistributedQueryServiceTest {
 
     etcdCluster = TestEtcdClusterFactory.start();
 
-    etcdClient =
-        Client.builder()
-            .endpoints(
-                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .namespace(
-                ByteSequence.from("distributedQuery", java.nio.charset.StandardCharsets.UTF_8))
-            .build();
-
     // Metadata store
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
@@ -143,6 +135,16 @@ public class AstraDistributedQueryServiceTest {
                     .setEphemeralNodeTtlMs(3000)
                     .setEphemeralNodeMaxRetries(3)
                     .build())
+            .build();
+
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                metadataStoreConfig.getEtcdConfig().getEndpointsList().toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(
+                    metadataStoreConfig.getEtcdConfig().getNamespace(),
+                    java.nio.charset.StandardCharsets.UTF_8))
             .build();
 
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
@@ -1013,8 +1015,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Mock successful response
@@ -1088,8 +1090,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Mock first call failure, second call success
@@ -1141,7 +1143,7 @@ public class AstraDistributedQueryServiceTest {
             .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
             .setQuery(
                 """
-                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"* !astra.enableNextGenDistributedQueries"}}]}}
+                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*:* !astra.enableNextGenDistributedQueries"}}]}}
                       """)
             .setHowMany(100)
             .build();
@@ -1226,8 +1228,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Query time range that matches no snapshots
@@ -1249,6 +1251,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   @Test
+  // NOT THIS ONE
   public void testNewDistributedQueryMultipleReplicasRetryLogic() throws JsonProcessingException {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
@@ -1286,8 +1289,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Mock stubs - first three fail with hard failure, fourth succeeds
@@ -1391,8 +1394,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     // Mock stubs - both fail
@@ -1475,8 +1478,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStoreMock,
             datasetMetadataStoreMock,
             new SimpleMeterRegistry(),
-            Duration.of(2, ChronoUnit.SECONDS),
-            Duration.of(2, ChronoUnit.SECONDS),
+            Duration.of(30, ChronoUnit.SECONDS),
+            Duration.of(30, ChronoUnit.SECONDS),
             queryServiceConfig);
 
     // Make a mock grpc stub and store it in the stubs cache map

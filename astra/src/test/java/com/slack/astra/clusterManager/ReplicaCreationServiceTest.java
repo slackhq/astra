@@ -589,6 +589,7 @@ public class ReplicaCreationServiceTest {
     timeoutServiceExecutor.shutdown();
     //noinspection ResultOfMethodCallIgnored
     timeoutServiceExecutor.awaitTermination(15, TimeUnit.SECONDS);
+    timeoutServiceExecutor.close();
   }
 
   @Test
@@ -691,6 +692,7 @@ public class ReplicaCreationServiceTest {
         .isEqualTo(1);
 
     timeoutServiceExecutor.shutdown();
+    timeoutServiceExecutor.close();
   }
 
   @Test

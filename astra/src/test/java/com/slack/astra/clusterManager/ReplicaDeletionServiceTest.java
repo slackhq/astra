@@ -588,6 +588,7 @@ public class ReplicaDeletionServiceTest {
         .isEqualTo(2);
 
     timeoutServiceExecutor.shutdown();
+    timeoutServiceExecutor.close();
   }
 
   @Test

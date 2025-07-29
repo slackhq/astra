@@ -797,7 +797,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       span.error(e);
       meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT, QUERY_PATH_TAG, "new").increment();
       return searchMetadataURLToSnapshotNames.entrySet().stream()
-          .collect(Collectors.toMap(Map.Entry::getKey, _ -> SearchResult.error()));
+          .collect(Collectors.toMap(Map.Entry::getKey, _ -> SearchResult.error().clone()));
     }
   }
 
@@ -908,14 +908,15 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         for (StructuredTaskScope.Subtask<SearchResult<LogMessage>> searchResult : searchSubtasks) {
           try {
             if (searchResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
-              response.add(searchResult.get() == null ? SearchResult.error() : searchResult.get());
+              response.add(
+                  searchResult.get() == null ? SearchResult.error().clone() : searchResult.get());
             } else {
-              response.add(SearchResult.error());
+              response.add(SearchResult.error().clone());
               LOG.warn("Error fetching part of search result {}", searchResult);
             }
           } catch (Exception e) {
             LOG.error("Error fetching search result", e);
-            response.add(SearchResult.error());
+            response.add(SearchResult.error().clone());
           }
         }
         return response;
