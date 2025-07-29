@@ -410,7 +410,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         .record(batchSuccessRatio);
   }
 
-  // The first time a metric is collected, the value is thrown away. Initializing these to zero allows the first
+  // The first time a metric is collected, the value is thrown away. Initializing these to zero
+  // allows the first
   // record to be meaningful.
   private void initializeMetrics() {
     for (String tag : List.of("old", "new")) {
@@ -419,14 +420,17 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING, QUERY_PATH_TAG, tag).increment(0);
       meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED, QUERY_PATH_TAG, tag).increment(0);
       meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS, QUERY_PATH_TAG, tag).increment(0);
-      meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS, QUERY_PATH_TAG, tag).increment(0);
+      meterRegistry
+          .counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS, QUERY_PATH_TAG, tag)
+          .increment(0);
       meterRegistry.counter(ASTRA_QUERIES_SUCCESSFUL_COUNT, QUERY_PATH_TAG, tag).increment(0);
       meterRegistry.counter(ASTRA_QUERIES_INCOMPLETE_COUNT, QUERY_PATH_TAG, tag).increment(0);
       meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT, QUERY_PATH_TAG, tag).increment(0);
     }
   }
 
-  private void recordQueryDuration(long requestedDataHours, long requestDuration, String queryPath) {
+  private void recordQueryDuration(
+      long requestedDataHours, long requestDuration, String queryPath) {
     String timeWindowTag = getTimeWindowTag(requestedDataHours);
 
     Timer.builder(DISTRIBUTED_QUERY_DURATION_SECONDS)
@@ -445,26 +449,31 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
   private void recordApdexMetrics(SearchResult<LogMessage> result, String queryPath) {
     if (result.totalNodes == 0 || result.failedNodes == 0) {
-      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED, QUERY_PATH_TAG, queryPath).increment();
-    } else if (((double) result.failedNodes
-            / (double) result.totalNodes)
-            <= 0.02) {
-      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING, QUERY_PATH_TAG, queryPath).increment();
+      meterRegistry
+          .counter(DISTRIBUTED_QUERY_APDEX_SATISFIED, QUERY_PATH_TAG, queryPath)
+          .increment();
+    } else if (((double) result.failedNodes / (double) result.totalNodes) <= 0.02) {
+      meterRegistry
+          .counter(DISTRIBUTED_QUERY_APDEX_TOLERATING, QUERY_PATH_TAG, queryPath)
+          .increment();
     } else {
-      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED, QUERY_PATH_TAG, queryPath).increment();
+      meterRegistry
+          .counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED, QUERY_PATH_TAG, queryPath)
+          .increment();
     }
   }
 
   private void recordTotalSnapshots(SearchResult<LogMessage> result, String queryPath) {
     meterRegistry
-            .counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS, QUERY_PATH_TAG, queryPath)
-            .increment(result.totalSnapshots);
+        .counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS, QUERY_PATH_TAG, queryPath)
+        .increment(result.totalSnapshots);
     meterRegistry
-            .counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS, QUERY_PATH_TAG, queryPath)
-            .increment(result.snapshotsWithReplicas);
+        .counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS, QUERY_PATH_TAG, queryPath)
+        .increment(result.snapshotsWithReplicas);
   }
 
-  private void recordQuerySuccessMetrics(long totalSnapshotsRequested, long totalSnapshotsSuccessful, String queryPath) {
+  private void recordQuerySuccessMetrics(
+      long totalSnapshotsRequested, long totalSnapshotsSuccessful, String queryPath) {
     // Record query completion status
     if (totalSnapshotsRequested == totalSnapshotsSuccessful) {
       meterRegistry.counter(ASTRA_QUERIES_SUCCESSFUL_COUNT, QUERY_PATH_TAG, queryPath).increment();
@@ -473,7 +482,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     } else {
       meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT, QUERY_PATH_TAG, queryPath).increment();
     }
-
   }
 
   @Override
