@@ -140,6 +140,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     this.defaultQueryTimeout = defaultQueryTimeout;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.meterRegistry = meterRegistry;
+    initializeMetrics();
 
     // start listening for new events
     this.searchMetadataStore.addListener(searchMetadataListener);
@@ -388,7 +389,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
    * @param snapshotsRequestedInBatch The total number of snapshots requested in this batch.
    * @param snapshotsFulfilledInBatch The number of snapshots successfully fulfilled in this batch.
    */
-  public void recordBatchSnapshotOperation(
+  private void recordBatchSnapshotOperation(
       long dataWindowHours,
       long snapshotsRequestedInBatch,
       long snapshotsFulfilledInBatch,
@@ -409,7 +410,23 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         .record(batchSuccessRatio);
   }
 
-  public void recordQueryDuration(long requestedDataHours, long requestDuration, String queryPath) {
+  // The first time a metric is collected, the value is thrown away. Initializing these to zero allows the first
+  // record to be meaningful.
+  private void initializeMetrics() {
+    for (String tag : List.of("old", "new")) {
+      meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER, QUERY_PATH_TAG, tag).increment(0);
+      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED, QUERY_PATH_TAG, tag).increment(0);
+      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING, QUERY_PATH_TAG, tag).increment(0);
+      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED, QUERY_PATH_TAG, tag).increment(0);
+      meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS, QUERY_PATH_TAG, tag).increment(0);
+      meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS, QUERY_PATH_TAG, tag).increment(0);
+      meterRegistry.counter(ASTRA_QUERIES_SUCCESSFUL_COUNT, QUERY_PATH_TAG, tag).increment(0);
+      meterRegistry.counter(ASTRA_QUERIES_INCOMPLETE_COUNT, QUERY_PATH_TAG, tag).increment(0);
+      meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT, QUERY_PATH_TAG, tag).increment(0);
+    }
+  }
+
+  private void recordQueryDuration(long requestedDataHours, long requestDuration, String queryPath) {
     String timeWindowTag = getTimeWindowTag(requestedDataHours);
 
     Timer.builder(DISTRIBUTED_QUERY_DURATION_SECONDS)
@@ -424,6 +441,39 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         .tag(QUERY_PATH_TAG, queryPath)
         .register(meterRegistry)
         .record(requestDuration, TimeUnit.MILLISECONDS);
+  }
+
+  private void recordApdexMetrics(SearchResult<LogMessage> result, String queryPath) {
+    if (result.totalNodes == 0 || result.failedNodes == 0) {
+      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED, QUERY_PATH_TAG, queryPath).increment();
+    } else if (((double) result.failedNodes
+            / (double) result.totalNodes)
+            <= 0.02) {
+      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING, QUERY_PATH_TAG, queryPath).increment();
+    } else {
+      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED, QUERY_PATH_TAG, queryPath).increment();
+    }
+  }
+
+  private void recordTotalSnapshots(SearchResult<LogMessage> result, String queryPath) {
+    meterRegistry
+            .counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS, QUERY_PATH_TAG, queryPath)
+            .increment(result.totalSnapshots);
+    meterRegistry
+            .counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS, QUERY_PATH_TAG, queryPath)
+            .increment(result.snapshotsWithReplicas);
+  }
+
+  private void recordQuerySuccessMetrics(long totalSnapshotsRequested, long totalSnapshotsSuccessful, String queryPath) {
+    // Record query completion status
+    if (totalSnapshotsRequested == totalSnapshotsSuccessful) {
+      meterRegistry.counter(ASTRA_QUERIES_SUCCESSFUL_COUNT, QUERY_PATH_TAG, queryPath).increment();
+    } else if (totalSnapshotsSuccessful > 0) {
+      meterRegistry.counter(ASTRA_QUERIES_INCOMPLETE_COUNT, QUERY_PATH_TAG, queryPath).increment();
+    } else {
+      meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT, QUERY_PATH_TAG, queryPath).increment();
+    }
+
   }
 
   @Override
@@ -636,32 +686,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     recordBatchSnapshotOperation(
         requestedDataHours, totalSnapshotsRequested, totalSnapshotsSuccessful, "new");
 
-    // Record APDEX metrics for new query path
-    if (finalAggregatedResult.totalNodes == 0 || finalAggregatedResult.failedNodes == 0) {
-      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED, QUERY_PATH_TAG, "new").increment();
-    } else if (((double) finalAggregatedResult.failedNodes
-            / (double) finalAggregatedResult.totalNodes)
-        <= 0.02) {
-      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING, QUERY_PATH_TAG, "new").increment();
-    } else {
-      meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED, QUERY_PATH_TAG, "new").increment();
-    }
-
-    meterRegistry
-        .counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS, QUERY_PATH_TAG, "new")
-        .increment(finalAggregatedResult.totalSnapshots);
-    meterRegistry
-        .counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS, QUERY_PATH_TAG, "new")
-        .increment(finalAggregatedResult.snapshotsWithReplicas);
-
-    // Record query completion status
-    if (totalSnapshotsRequested == totalSnapshotsSuccessful) {
-      meterRegistry.counter(ASTRA_QUERIES_SUCCESSFUL_COUNT, QUERY_PATH_TAG, "new").increment();
-    } else if (totalSnapshotsSuccessful > 0) {
-      meterRegistry.counter(ASTRA_QUERIES_INCOMPLETE_COUNT, QUERY_PATH_TAG, "new").increment();
-    } else {
-      meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT, QUERY_PATH_TAG, "new").increment();
-    }
+    recordApdexMetrics(finalAggregatedResult, "new");
+    recordTotalSnapshots(finalAggregatedResult, "new");
+    recordQuerySuccessMetrics(totalSnapshotsRequested, totalSnapshotsSuccessful, "new");
 
     span.finish();
     return SearchResultUtils.toSearchResultProto(finalAggregatedResult);
@@ -776,25 +803,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
       // We report a query with more than 0% of requested nodes, but less than 2% as a tolerable
       // response. Anything over 2% is considered an unacceptable.
-      if (aggregatedResult.totalNodes == 0 || aggregatedResult.failedNodes == 0) {
-        meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED, QUERY_PATH_TAG, "old").increment();
-      } else if (((double) aggregatedResult.failedNodes / (double) aggregatedResult.totalNodes)
-          <= 0.02) {
-        meterRegistry
-            .counter(DISTRIBUTED_QUERY_APDEX_TOLERATING, QUERY_PATH_TAG, "old")
-            .increment();
-      } else {
-        meterRegistry
-            .counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED, QUERY_PATH_TAG, "old")
-            .increment();
-      }
-
-      meterRegistry
-          .counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS, QUERY_PATH_TAG, "old")
-          .increment(aggregatedResult.totalSnapshots);
-      meterRegistry
-          .counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS, QUERY_PATH_TAG, "old")
-          .increment(aggregatedResult.snapshotsWithReplicas);
+      recordApdexMetrics(aggregatedResult, "old");
+      recordTotalSnapshots(aggregatedResult, "old");
       LOG.debug("aggregatedResult={}", aggregatedResult);
       return SearchResultUtils.toSearchResultProto(aggregatedResult);
     } catch (Exception e) {
@@ -911,11 +921,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       recordQueryDuration(requestedDataHours, Instant.now().toEpochMilli() - startTime, "old");
       recordBatchSnapshotOperation(
           requestedDataHours, snapshotsMatchingQuery.size(), totalRequests.get(), "old");
-      if (snapshotsMatchingQuery.size() == totalRequests.get()) {
-        meterRegistry.counter(ASTRA_QUERIES_SUCCESSFUL_COUNT, QUERY_PATH_TAG, "old").increment();
-      } else {
-        meterRegistry.counter(ASTRA_QUERIES_INCOMPLETE_COUNT, QUERY_PATH_TAG, "old").increment();
-      }
+      recordQuerySuccessMetrics(snapshotsMatchingQuery.size(), totalRequests.get(), "old");
       span.finish();
     }
   }

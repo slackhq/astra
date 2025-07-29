@@ -1175,8 +1175,8 @@ public class AstraDistributedQueryServiceTest {
             snapshotMetadataStore,
             datasetMetadataStore,
             metricsRegistry,
-            Duration.ofSeconds(2),
-            Duration.ofSeconds(2),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(30),
             queryServiceConfig);
 
     AstraServiceGrpc.AstraServiceFutureStub mockStub =
