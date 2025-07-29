@@ -31,7 +31,7 @@
         <log4j.version>2.25.1</log4j.version>
         <aws.sdk.version>2.32.9</aws.sdk.version>
         <error.prone.version>2.40.0</error.prone.version>
-        <junit.jupiter.version>5.13.3</junit.jupiter.version>
+        <junit.jupiter.version>5.13.4</junit.jupiter.version>
         <jetcd.version>0.8.5</jetcd.version>
     </properties>
 
