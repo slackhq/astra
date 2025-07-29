@@ -193,7 +193,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   }
 
   /**
-   * This method initiates a roll over of the active chunk. In future, consider moving the some of
+   * This method initiates a roll over of the active chunk. In the future, consider moving some of
    * the roll over logic into ChunkImpl.
    */
   private void doRollover(ReadWriteChunk<T> currentChunk) {
