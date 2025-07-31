@@ -42,20 +42,21 @@ public class LocalKafkaSeed {
   @Test
   public void seedJsonLogsFromFile() throws IOException {
     EphemeralKafkaBroker broker = EphemeralKafkaBroker.create(9092, 2181);
-    BufferedReader reader = Files.newBufferedReader(Path.of("../example_logs.txt"));
+    try (BufferedReader reader = Files.newBufferedReader(Path.of("../example_logs.txt"))) {
 
-    String line = reader.readLine();
-    int i = 0;
+      String line = reader.readLine();
+      int i = 0;
 
-    try (KafkaProducer<String, byte[]> producer =
-        broker.createProducer(new StringSerializer(), new ByteArraySerializer(), null)) {
-      while (line != null) {
-        ProducerRecord<String, byte[]> kafkaRecord =
-            new ProducerRecord<>(
-                TEST_KAFKA_TOPIC, 0, String.valueOf(i), line.getBytes(StandardCharsets.UTF_8));
-        producer.send(kafkaRecord);
-        line = reader.readLine();
-        i++;
+      try (KafkaProducer<String, byte[]> producer =
+          broker.createProducer(new StringSerializer(), new ByteArraySerializer(), null)) {
+        while (line != null) {
+          ProducerRecord<String, byte[]> kafkaRecord =
+              new ProducerRecord<>(
+                  TEST_KAFKA_TOPIC, 0, String.valueOf(i), line.getBytes(StandardCharsets.UTF_8));
+          producer.send(kafkaRecord);
+          line = reader.readLine();
+          i++;
+        }
       }
     }
   }
@@ -65,18 +66,19 @@ public class LocalKafkaSeed {
   @Test
   public void seedFromFile() throws IOException {
     EphemeralKafkaBroker broker = EphemeralKafkaBroker.create(9092, 2181);
-    BufferedReader reader = Files.newBufferedReader(Path.of("../example_logs.txt"));
+    try (BufferedReader reader = Files.newBufferedReader(Path.of("../example_logs.txt"))) {
 
-    String line = reader.readLine();
-    int i = 0;
+      String line = reader.readLine();
+      int i = 0;
 
-    try (KafkaProducer<String, byte[]> producer =
-        broker.createProducer(new StringSerializer(), new ByteArraySerializer(), null)) {
-      while (line != null) {
-        ProducerRecord<String, byte[]> kafkaRecord = makeProducerRecord(line, i);
-        producer.send(kafkaRecord);
-        line = reader.readLine();
-        i++;
+      try (KafkaProducer<String, byte[]> producer =
+          broker.createProducer(new StringSerializer(), new ByteArraySerializer(), null)) {
+        while (line != null) {
+          ProducerRecord<String, byte[]> kafkaRecord = makeProducerRecord(line, i);
+          producer.send(kafkaRecord);
+          line = reader.readLine();
+          i++;
+        }
       }
     }
   }

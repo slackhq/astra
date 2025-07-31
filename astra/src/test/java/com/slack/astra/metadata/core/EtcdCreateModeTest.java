@@ -170,6 +170,7 @@ public class EtcdCreateModeTest {
       assertThat(result.getName()).isEqualTo("persistent1");
       assertThat(result.getData()).isEqualTo("This node should persist");
     }
+    etcdClient.close();
 
     // Create a new store instance and verify the node still exists
     Client newClient = createEtcdClient(etcdConfig);
@@ -182,6 +183,7 @@ public class EtcdCreateModeTest {
       assertThat(result.getName()).isEqualTo("persistent1");
       assertThat(result.getData()).isEqualTo("This node should persist");
     }
+    newClient.close();
   }
 
   @Test
@@ -227,6 +229,7 @@ public class EtcdCreateModeTest {
 
       // Close the store, which will stop the lease refresh
     }
+    ephemeralClient.close();
 
     // Wait for the TTL to expire (plus a little extra time)
     TimeUnit.SECONDS.sleep(4);
@@ -240,5 +243,6 @@ public class EtcdCreateModeTest {
       // After TTL expiration, the node should no longer exist
       assertThat(newStore.hasSync(nodeName)).isFalse();
     }
+    verifyClient.close();
   }
 }

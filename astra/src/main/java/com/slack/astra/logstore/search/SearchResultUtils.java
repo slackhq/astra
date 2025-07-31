@@ -169,7 +169,9 @@ public class SearchResultUtils {
         protoSearchResult.getTotalSnapshots(),
         protoSearchResult.getSnapshotsWithReplicas(),
         OpenSearchInternalAggregation.fromByteArray(
-            protoSearchResult.getInternalAggregations().toByteArray()));
+            protoSearchResult.getInternalAggregations().toByteArray()),
+        protoSearchResult.getHardFailedChunkIdsList(),
+        protoSearchResult.getSoftFailedChunkIdsList());
   }
 
   public static FieldType fromSchemaDefinitionProto(
