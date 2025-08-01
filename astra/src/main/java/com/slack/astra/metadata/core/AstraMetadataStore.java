@@ -132,7 +132,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   public void createEtcdOnlySync(T metadataNode) {
     switch (mode) {
       case ZOOKEEPER_CREATES:
-        throw new IllegalArgumentException("Etcd metadata store mode is ZOOKEEPER_CREATES, can't create in etcd");
+        throw new IllegalArgumentException(
+            "Etcd metadata store mode is ZOOKEEPER_CREATES, can't create in etcd");
       case ETCD_CREATES:
         etcdStore.createSync(metadataNode);
         break;
@@ -351,9 +352,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *
    * @param path the path to check
    * @return true if the node exists, false otherwise.
-   * @throws RuntimeException from EtcdMetadataStore if a connection error
-   *     or other unrecoverable error occurs. Note that the node not existing is NOT treated as an
-   *     error; in that case, the method returns false.
+   * @throws RuntimeException from EtcdMetadataStore if a connection error or other unrecoverable
+   *     error occurs. Note that the node not existing is NOT treated as an error; in that case, the
+   *     method returns false.
    */
   public boolean hasEtcdOnlySync(String path) {
     boolean existsInEtcd = etcdStore.hasSync(path);
