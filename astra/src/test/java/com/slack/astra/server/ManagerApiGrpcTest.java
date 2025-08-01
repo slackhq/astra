@@ -521,6 +521,7 @@ public class ManagerApiGrpcTest {
     assertThat(etcdDataset.getServiceNamePattern()).isEqualTo(serviceNamePattern);
 
     // Clean up
+    localCuratorFramework.unwrap().close();
     zkOnlyStore.close();
     etcdOnlyStore.close();
   }
