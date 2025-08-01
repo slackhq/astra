@@ -495,6 +495,9 @@ public class ManagerApiGrpcTest {
     assertThat(zkDataset.get().getThroughputBytes()).isEqualTo(0);
     assertThat(zkDataset.get().getPartitionConfigs().size()).isEqualTo(0);
 
+    etcdOnlyStore.deleteSync(originalDataset.get());
+    await().until(() -> etcdOnlyStore.listSync().isEmpty());
+
     // Perform the migration
     ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse migrateResponse =
         managerApiStub.migrateZKDatasetMetadataStoreToEtcd(
@@ -502,16 +505,14 @@ public class ManagerApiGrpcTest {
                 .setDryRun(false)
                 .build());
 
-    // Verify migration response
-    assertThat(migrateResponse.getStatus()).isEqualTo("SUCCESS");
-    // Since Etcd already had the dataset due to the test using ETCD_CREATES, verifying the size
-    // ensures it got deleted and then added again, instead of getting added twice
-    assertThat(migrateResponse.getDatasetMetadataList()).hasSize(1);
-    assertThat(migrateResponse.getDatasetMetadata(0).getName()).isEqualTo(datasetName);
-
     // Verify dataset was deleted from Zookeeper
     await().until(() -> zkOnlyStore.listSync().isEmpty());
     assertThat(zkOnlyStore.hasSync(datasetName)).isFalse();
+
+    // Verify migration response
+    assertThat(migrateResponse.getStatus()).isEqualTo("SUCCESS");
+    assertThat(migrateResponse.getDatasetMetadataList()).hasSize(1);
+    assertThat(migrateResponse.getDatasetMetadata(0).getName()).isEqualTo(datasetName);
 
     // Verify dataset was added to Etcd
     assertThat(etcdOnlyStore.hasSync(datasetName)).isTrue();

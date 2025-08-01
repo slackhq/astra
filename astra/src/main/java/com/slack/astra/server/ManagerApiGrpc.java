@@ -133,13 +133,11 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
           datasetMetadataStore.listSync().stream().toList();
 
       if (!request.getDryRun()) {
-        // add to the etcd store if it doesn't already exist there (assuming this migration is run
-        // when `ETCD_CREATE` mode is enabled
-        // for the datasetmetadatastore)
+        // add to the etcd store if it doesn't already exist there
         existingDatasetMetadata.forEach(
             dataset -> {
-              if (!datasetMetadataStore.hasSync(dataset.getName())) {
-                datasetMetadataStore.updateSync(dataset);
+              if (!datasetMetadataStore.hasEtcdOnlySync(dataset.getName())) {
+                datasetMetadataStore.createEtcdOnlySync(dataset);
               }
             });
 
