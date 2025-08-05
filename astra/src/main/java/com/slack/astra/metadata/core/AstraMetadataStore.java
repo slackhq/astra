@@ -123,6 +123,26 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   /**
+   * Synchronously creates a new ETCD metadata node.
+   *
+   * @param metadataNode the node to create
+   * @throws InternalMetadataStoreException from EtcdMetadataStore if serialization fails or another
+   *     error occurs
+   */
+  public void createEtcdOnlySync(T metadataNode) {
+    switch (mode) {
+      case ZOOKEEPER_CREATES:
+        throw new IllegalArgumentException(
+            "Etcd metadata store mode is ZOOKEEPER_CREATES, can't create in etcd");
+      case ETCD_CREATES:
+        etcdStore.createSync(metadataNode);
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
    * Gets a metadata node asynchronously.
    *
    * @param path the path to the node
@@ -324,6 +344,24 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
         }
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
+   * Checks if an ETCD node exists synchronously.
+   *
+   * @param path the path to check
+   * @return true if the node exists, false otherwise.
+   * @throws RuntimeException from EtcdMetadataStore if a connection error or other unrecoverable
+   *     error occurs. Note that the node not existing is NOT treated as an error; in that case, the
+   *     method returns false.
+   */
+  public boolean hasEtcdOnlySync(String path) {
+    boolean existsInEtcd = etcdStore.hasSync(path);
+    if (existsInEtcd) {
+      return true;
+    } else {
+      return false;
     }
   }
 
@@ -669,6 +707,35 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     } else { // existsInEtcd
       etcdStore.deleteSync(metadataNode); // Let exceptions bubble up
     }
+  }
+
+  /**
+   * Deletes a ZK node asynchronously by metadata object reference.
+   *
+   * @param metadataNode the node to delete
+   * @return a CompletionStage that completes when the operation is done. In case of failure, the
+   *     CompletionStage will complete exceptionally.
+   * @throws IllegalStateException if the node does not exist in either store
+   */
+  public CompletionStage<Void> deleteZkOnlyAsync(T metadataNode) {
+    String path = metadataNode.getName();
+    CompletableFuture<Boolean> zkExistsFuture =
+        zkStore != null
+            ? zkStore.hasAsync(path).toCompletableFuture()
+            : CompletableFuture.completedFuture(false);
+
+    return CompletableFuture.allOf(zkExistsFuture)
+        .thenCompose(
+            unused -> {
+              boolean existsInZk = zkExistsFuture.join();
+
+              // Handle case where node exists in both stores
+              if (existsInZk) {
+                return zkStore.deleteAsync(metadataNode);
+              } else {
+                throw new IllegalStateException("Node does not exist in zk store: " + path);
+              }
+            });
   }
 
   /**
