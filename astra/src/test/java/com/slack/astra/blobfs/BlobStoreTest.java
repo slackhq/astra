@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -216,6 +217,35 @@ class BlobStoreTest {
     String chunkId = UUID.randomUUID().toString();
 
     assertThat(blobStore.listFiles(chunkId).size()).isEqualTo(0);
+  }
+
+  @Test
+  void testListFilesWithSize() throws IOException {
+    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
+    String chunkId = UUID.randomUUID().toString();
+
+    assertThat(blobStore.listFiles(chunkId).size()).isEqualTo(0);
+
+    Path directoryUpload = Files.createTempDirectory("");
+    Path foo = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(foo.toFile())) {
+      fileWriter.write("Example test 1");
+    }
+    Path bar = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(bar.toFile())) {
+      fileWriter.write("Example test 2");
+    }
+    blobStore.upload(chunkId, directoryUpload);
+
+    Map<String, Long> filesWithSize = blobStore.listFilesWithSize(chunkId);
+    assertThat(filesWithSize.size()).isEqualTo(2);
+    assertThat(filesWithSize)
+        .containsExactlyInAnyOrderEntriesOf(
+            Map.of(
+                String.format("%s/%s", chunkId, foo.getFileName().toString()),
+                Files.size(foo),
+                String.format("%s/%s", chunkId, bar.getFileName().toString()),
+                Files.size(bar)));
   }
 
   @Test

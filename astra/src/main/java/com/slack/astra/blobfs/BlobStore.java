@@ -8,7 +8,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -193,6 +195,28 @@ public class BlobStore {
       throw new RuntimeException(e);
     }
     return filesList;
+  }
+
+  public Map<String, Long> listFilesWithSize(String prefix) {
+    assert prefix != null && !prefix.isEmpty();
+
+    ListObjectsV2Request listRequest = builder().bucket(bucketName).prefix(prefix).build();
+    ListObjectsV2Publisher asyncPaginatedListResponse =
+        s3AsyncClient.listObjectsV2Paginator(listRequest);
+
+    Map<String, Long> filesListWithSize = new HashMap<>();
+    try {
+      asyncPaginatedListResponse
+          .subscribe(
+              listResponse ->
+                  listResponse
+                      .contents()
+                      .forEach(s3Object -> filesListWithSize.put(s3Object.key(), s3Object.size())))
+          .get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
+    return filesListWithSize;
   }
 
   /**

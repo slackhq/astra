@@ -28,6 +28,7 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -228,6 +229,48 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     return assignment;
   }
 
+  private boolean validateS3vsLocalDownLoad() {
+    // check if the number of files in S3 matches the local directory
+    Map<String, Long> filesWithSizeInS3 = blobStore.listFilesWithSize(snapshotMetadata.snapshotId);
+
+    Map<String, Long> localFiles;
+
+    try (Stream<Path> fileList = Files.list(dataDirectory)) {
+      localFiles =
+          fileList
+              .filter(Files::isRegularFile)
+              .collect(
+                  Collectors.toMap(
+                      path ->
+                          dataDirectory.relativize(path).toString().replace(File.separator, "/"),
+                      path -> path.toFile().length()));
+    } catch (IOException e) {
+      throw new RuntimeException(
+          String.format("Error reading local files in directory %s", dataDirectory), e);
+    }
+    if (localFiles.size() != filesWithSizeInS3.size()) {
+      LOG.error(
+          String.format(
+              "Mismatch in number of files in S3 (%s) and local directory (%s) for snapshot %s",
+              filesWithSizeInS3.size(), localFiles.size(), snapshotMetadata.toString()));
+      return false;
+    }
+
+    for (Map.Entry<String, Long> entry : filesWithSizeInS3.entrySet()) {
+      String path = entry.getKey();
+      long s3Size = entry.getValue();
+
+      if (!localFiles.containsKey(path) || !localFiles.get(path).equals(s3Size)) {
+        LOG.error(
+            String.format(
+                "Mismatch for file %s in S3 and local directory of size %s for snapshot %s",
+                path, s3Size, snapshotMetadata.toString()));
+        return false;
+      }
+    }
+    return true;
+  }
+
   public void downloadChunkData() {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
     // lock
@@ -265,7 +308,17 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                 "No files found on blob storage, released slot for re-assignment");
           }
         }
+        // validate if the number of files in S3 matches the local directory
+        if (!validateS3vsLocalDownLoad()) {
+          String errorString =
+              String.format(
+                  "Mismatch in number or size of files in S3 and local directory for snapshot %s",
+                  snapshotMetadata.toString());
+          LOG.error(errorString);
+          throw new IOException(errorString);
+        }
 
+        // check if schema file exists
         Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
         if (!Files.exists(schemaPath)) {
           throw new RuntimeException("We expect a schema.json file to exist within the index");
