@@ -275,7 +275,7 @@ public class ZipkinService {
     List<LogWireMessage> messages = searchResultToLogWireMessage(searchResult);
     String output = convertLogWireMessageToZipkinSpan(messages);
 
-    if (userRequest.isPresent() && userRequest.get() && !output.isEmpty()) {
+    if (userRequest.isPresent() && userRequest.get() && !messages.isEmpty()) {
       long dataFreshnessInSecondsValue =
           dataFreshnessInSeconds.orElse(
               this.defaultDataFreshnessInSeconds); // default to 15 minutes if not

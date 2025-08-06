@@ -53,6 +53,7 @@ public class ZipkinServiceTest {
   @Mock private AstraQueryServiceBase searcher;
   private ZipkinService zipkinService;
   private AstraSearch.SearchResult mockSearchResult;
+  private AstraSearch.SearchResult mockEmptySearchResult;
   private BlobStore mockBlobStore;
 
   private static final int defaultMaxSpans = 2000;
@@ -91,6 +92,14 @@ public class ZipkinServiceTest {
     AstraSearch.SearchResult.Builder builder = AstraSearch.SearchResult.newBuilder();
     JsonFormat.parser().merge(jsonString, builder);
     mockSearchResult = builder.build();
+
+    // Build mockEmptySearchResult
+    objectMapper = new ObjectMapper();
+    jsonNode = objectMapper.readTree(Resources.getResource("zipkinApi/empty_search_result.json"));
+    jsonString = objectMapper.writeValueAsString(jsonNode);
+    builder = AstraSearch.SearchResult.newBuilder();
+    JsonFormat.parser().merge(jsonString, builder);
+    mockEmptySearchResult = builder.build();
   }
 
   @Test
@@ -232,7 +241,8 @@ public class ZipkinServiceTest {
   }
 
   @Test
-  public void testGetTraceByTraceId_respectUserRequest_skip_search() throws Exception {
+  public void testGetTraceByTraceId_respectUserRequest_no_upload_after_search_empty_search_result()
+      throws Exception {
     try (MockedStatic<Tracing> mockedTracing = mockStatic(Tracing.class)) {
       // Mocking Tracing and Span
       Tracer mockTracer = mock(Tracer.class);
@@ -242,6 +252,51 @@ public class ZipkinServiceTest {
       when(mockTracer.currentSpan()).thenReturn(mockSpan);
 
       String traceId = "test_trace_4";
+      String traceFilePath = String.format("%s/%s/traceData.json.gz", TRACE_CACHE_PREFIX, traceId);
+      when(searcher.doSearch(any())).thenReturn(mockEmptySearchResult);
+
+      boolean userRequest = true;
+
+      HttpResponse response =
+          zipkinService.getTraceByTraceId(
+              traceId,
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.of(userRequest),
+              Optional.empty());
+
+      verify(searcher)
+          .doSearch(
+              Mockito.argThat(
+                  request -> request.getQuery().contains("\"trace_id\":\"" + traceId + "\"")));
+
+      verify(mockBlobStore, never()).uploadData(anyString(), anyString(), eq(true));
+      verify(mockBlobStore, never()).copyFile(anyString(), eq(traceFilePath));
+      verify(mockBlobStore, never()).delete(anyString());
+
+      assertNotNull(response, "Response should not be null");
+      response
+          .aggregate()
+          .thenAccept(
+              aggregatedResponse -> {
+                assertEquals(HttpStatus.OK, aggregatedResponse.status());
+                assertEquals(mockSearchResult.toString(), aggregatedResponse.contentUtf8());
+              });
+    }
+  }
+
+  @Test
+  public void testGetTraceByTraceId_respectUserRequest_skip_search() throws Exception {
+    try (MockedStatic<Tracing> mockedTracing = mockStatic(Tracing.class)) {
+      // Mocking Tracing and Span
+      Tracer mockTracer = mock(Tracer.class);
+      Span mockSpan = mock(Span.class);
+
+      mockedTracing.when(Tracing::currentTracer).thenReturn(mockTracer);
+      when(mockTracer.currentSpan()).thenReturn(mockSpan);
+
+      String traceId = "test_trace_5";
       String traceFilePath = String.format("%s/%s/traceData.json.gz", TRACE_CACHE_PREFIX, traceId);
 
       Path filePath = Paths.get(Resources.getResource("zipkinApi/traceData.json").toURI());
@@ -286,7 +341,7 @@ public class ZipkinServiceTest {
       mockedTracing.when(Tracing::currentTracer).thenReturn(mockTracer);
       when(mockTracer.currentSpan()).thenReturn(mockSpan);
 
-      String traceId = "test_trace_5";
+      String traceId = "test_trace_6";
       String traceFilePath = String.format("%s/%s/traceData.json.gz", TRACE_CACHE_PREFIX, traceId);
 
       boolean userRequest = true;
@@ -344,7 +399,7 @@ public class ZipkinServiceTest {
       mockedTracing.when(Tracing::currentTracer).thenReturn(mockTracer);
       when(mockTracer.currentSpan()).thenReturn(mockSpan);
 
-      String traceId = "test_trace_6";
+      String traceId = "test_trace_7";
       String traceFilePath = String.format("%s/%s/traceData.json.gz", TRACE_CACHE_PREFIX, traceId);
       boolean userRequest = true;
       long dataFreshnessInSeconds = 100;
