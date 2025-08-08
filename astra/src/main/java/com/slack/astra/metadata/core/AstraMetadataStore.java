@@ -486,10 +486,8 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
                         // Handle case where node exists in only one store
                         if (existsInZk) {
-                          LOG.info("Node does not exist in ETCD, deleting in ZK: {}", path);
                           return zkStore.deleteAsync(path);
                         } else { // existsInEtcd
-                          LOG.info("Node does not exist in ZK, deleting in etcd: {}", path);
                           return etcdStore.deleteAsync(path);
                         }
                       });
