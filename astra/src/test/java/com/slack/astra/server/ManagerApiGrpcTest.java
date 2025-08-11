@@ -498,8 +498,20 @@ public class ManagerApiGrpcTest {
     etcdOnlyStore.deleteSync(originalDataset.get());
     await().until(() -> etcdOnlyStore.listSync().isEmpty());
 
-    // Perform the migration
+    // try a dryrun
     ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse migrateResponse =
+            managerApiStub.migrateZKDatasetMetadataStoreToEtcd(
+                    ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest.newBuilder()
+                            .setDryRun(true)
+                            .build());
+
+    // Verify dryrun response
+    assertThat(migrateResponse.getStatus()).isEqualTo("DRY RUN, would migrate the outputted data to ETCD");
+    assertThat(migrateResponse.getDatasetMetadataList()).hasSize(1);
+    assertThat(migrateResponse.getDatasetMetadata(0).getName()).isEqualTo(datasetName);
+
+    // Perform the migration
+    migrateResponse =
         managerApiStub.migrateZKDatasetMetadataStoreToEtcd(
             ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest.newBuilder()
                 .setDryRun(false)

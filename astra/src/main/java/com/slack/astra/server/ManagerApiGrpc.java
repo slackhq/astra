@@ -155,14 +155,23 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
                 .build());
         responseObserver.onCompleted();
       } else {
+        List<DatasetMetadata> dataToMigrate = new ArrayList<>();
+        existingDatasetMetadata.forEach(
+            dataset -> {
+              if (!datasetMetadataStore.hasEtcdOnlySync(dataset.getName())) {
+                dataToMigrate.add(dataset);
+              }
+            });
+
         responseObserver.onNext(
             ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse.newBuilder()
                 .addAllDatasetMetadata(
-                    datasetMetadataStore.listSync().stream()
+                    dataToMigrate.stream()
                         .map(DatasetMetadataSerializer::toDatasetMetadataProto)
                         .collect(Collectors.toList()))
-                .setStatus("DRY RUN")
+                .setStatus("DRY RUN, would migrate the outputted data to ETCD")
                 .build());
+        responseObserver.onCompleted();
       }
     } catch (Exception e) {
       LOG.error("Error migrating ZK dataset metadata store to etcd", e);
