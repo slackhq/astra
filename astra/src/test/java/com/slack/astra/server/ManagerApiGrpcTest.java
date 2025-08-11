@@ -500,13 +500,14 @@ public class ManagerApiGrpcTest {
 
     // try a dryrun
     ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse migrateResponse =
-            managerApiStub.migrateZKDatasetMetadataStoreToEtcd(
-                    ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest.newBuilder()
-                            .setDryRun(true)
-                            .build());
+        managerApiStub.migrateZKDatasetMetadataStoreToEtcd(
+            ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest.newBuilder()
+                .setDryRun(true)
+                .build());
 
     // Verify dryrun response
-    assertThat(migrateResponse.getStatus()).isEqualTo("DRY RUN, would migrate the outputted data to ETCD");
+    assertThat(migrateResponse.getStatus())
+        .isEqualTo("DRY RUN, would migrate the outputted data to ETCD");
     assertThat(migrateResponse.getDatasetMetadataList()).hasSize(1);
     assertThat(migrateResponse.getDatasetMetadata(0).getName()).isEqualTo(datasetName);
 
