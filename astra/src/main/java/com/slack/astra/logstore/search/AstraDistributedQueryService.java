@@ -877,10 +877,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                                           .addAllChunkIds(searchNode.getValue())
                                           .build();
 
-                                  LOG.info(
-                                      "OLD REQUEST SENDING: {} TO {}",
-                                      localSearchReq,
-                                      searchNode.getKey());
                                   SearchResult<LogMessage> temp =
                                       SearchResultUtils.fromSearchResultProtoOrEmpty(
                                           stub.withDeadlineAfter(
