@@ -32,7 +32,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.lucene.index.CheckIndex;
 import org.apache.lucene.index.IndexCommit;
+import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
 
 /**
@@ -248,6 +250,17 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         long sizeOfFile = Files.size(Path.of(dirPath + "/" + fileName));
         totalBytes += sizeOfFile;
         logger.debug("File name is {} ({} bytes)", fileName, sizeOfFile);
+      }
+
+      // check if lucene index is valid and not corrupted
+      try (FSDirectory directory = FSDirectory.open(dirPath)) {
+        CheckIndex checker = new CheckIndex(directory);
+        CheckIndex.Status status = checker.checkIndex();
+
+        if (!status.clean) {
+          logger.error("Lucene index is not clean. Found issues: {}.", status);
+          throw new IllegalStateException("Lucene index is not clean. Found issues: " + status);
+        }
       }
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
