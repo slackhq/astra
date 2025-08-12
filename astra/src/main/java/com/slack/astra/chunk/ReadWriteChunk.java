@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.lucene.index.CheckIndex;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.NoLockFactory;
 import org.slf4j.Logger;
 
 /**
@@ -251,17 +252,17 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         totalBytes += sizeOfFile;
         logger.debug("File name is {} ({} bytes)", fileName, sizeOfFile);
       }
-
       // check if lucene index is valid and not corrupted
-      try (FSDirectory directory = FSDirectory.open(dirPath)) {
-        CheckIndex checker = new CheckIndex(directory);
-        CheckIndex.Status status = checker.checkIndex();
+      FSDirectory existingDir = FSDirectory.open(dirPath, NoLockFactory.INSTANCE);
+      CheckIndex checker = new CheckIndex(existingDir);
+      CheckIndex.Status status = checker.checkIndex();
+      checker.close();
 
-        if (!status.clean) {
-          logger.error("Lucene index is not clean. Found issues: {}.", status);
-          throw new IllegalStateException("Lucene index is not clean. Found issues: " + status);
-        }
+      if (!status.clean) {
+        logger.error("Lucene index is not clean. Found issues: {}.", status);
+        return false;
       }
+
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
 
@@ -286,6 +287,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
             filesUploaded);
         return false;
       }
+
+      // validate the size of the uploaded files
+
       // and schema file exists in s3
       if (!filesUploaded.contains(chunkInfo.chunkId + "/" + SCHEMA_FILE_NAME)) {
         logger.error("Schema file was not uploaded to S3: {}", SCHEMA_FILE_NAME);
