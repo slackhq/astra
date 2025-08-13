@@ -47,6 +47,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.io.FileUtils;
 import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.lucene.index.CheckIndex;
+import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.NoLockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -317,6 +320,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                   snapshotMetadata.toString());
           LOG.error(errorString);
           throw new IOException(errorString);
+        }
+
+        // check if lucene index is valid and not corrupted
+        FSDirectory existingDir = FSDirectory.open(dataDirectory, NoLockFactory.INSTANCE);
+        CheckIndex checker = new CheckIndex(existingDir);
+        CheckIndex.Status status = checker.checkIndex();
+        checker.close();
+
+        if (!status.clean) {
+          LOG.error("Lucene index is not clean. Found issues for snapshot: {}.", snapshotMetadata);
+          throw new IOException(
+              String.format(
+                  "Lucene index is not clean. Found issues for snapshot: %s. Please check the logs for more details.",
+                  snapshotMetadata));
         }
 
         // check if schema file exists
