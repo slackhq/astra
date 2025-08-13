@@ -272,7 +272,8 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);
 
-      List<String> filesUploaded = blobStore.listFiles(chunkInfo.chunkId);
+      Map<String, Long> filesWithSizeInS3 = blobStore.listFilesWithSize(chunkInfo.chunkId);
+      List<String> filesUploaded = new ArrayList<>(filesWithSizeInS3.keySet().stream().toList());
       filesUploaded.removeIf(file -> file.endsWith("write.lock"));
 
       // check here that all files are uploaded
@@ -289,6 +290,18 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       }
 
       // validate the size of the uploaded files
+      for (String fileName : filesToUpload) {
+        String s3Path = String.format("%s/%s", chunkInfo.chunkId, fileName);
+        long sizeOfFile = Files.size(Path.of(dirPath + "/" + fileName));
+        if (!filesWithSizeInS3.containsKey(s3Path)
+            || !filesWithSizeInS3.get(s3Path).equals(sizeOfFile)) {
+          logger.error(
+              String.format(
+                  "Mismatch for file %s in S3 and local directory of size %s for snapshot %s",
+                      s3Path, sizeOfFile, chunkInfo.chunkId));
+          return false;
+        }
+      }
 
       // and schema file exists in s3
       if (!filesUploaded.contains(chunkInfo.chunkId + "/" + SCHEMA_FILE_NAME)) {

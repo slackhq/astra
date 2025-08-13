@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
@@ -232,9 +233,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private boolean validateS3vsLocalDownLoad() {
     // check if the number of files in S3 matches the local directory
     Map<String, Long> filesWithSizeInS3 = blobStore.listFilesWithSize(snapshotMetadata.snapshotId);
-
+    
     Map<String, Long> localFiles;
-
     try (Stream<Path> fileList = Files.list(dataDirectory)) {
       localFiles =
           fileList
@@ -257,14 +257,15 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
 
     for (Map.Entry<String, Long> entry : filesWithSizeInS3.entrySet()) {
-      String path = entry.getKey();
+      String s3Path = entry.getKey();
       long s3Size = entry.getValue();
+      String fileName = Paths.get(s3Path).getFileName().toString();
 
-      if (!localFiles.containsKey(path) || !localFiles.get(path).equals(s3Size)) {
+      if (!localFiles.containsKey(fileName) || !localFiles.get(fileName).equals(s3Size)) {
         LOG.error(
             String.format(
                 "Mismatch for file %s in S3 and local directory of size %s for snapshot %s",
-                path, s3Size, snapshotMetadata.toString()));
+                    s3Path, s3Size, snapshotMetadata.toString()));
         return false;
       }
     }
