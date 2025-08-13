@@ -317,8 +317,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           String errorString =
               String.format(
                   "Mismatch in number or size of files in S3 and local directory for snapshot %s",
-                  snapshotMetadata.toString());
-          LOG.error(errorString);
+                  snapshotMetadata);
           throw new IOException(errorString);
         }
 
@@ -329,11 +328,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         checker.close();
 
         if (!status.clean) {
-          LOG.error("Lucene index is not clean. Found issues for snapshot: {}.", snapshotMetadata);
           throw new IOException(
               String.format(
-                  "Lucene index is not clean. Found issues for snapshot: %s. Please check the logs for more details.",
-                  snapshotMetadata));
+                  "Lucene index is not clean. Found issues for snapshot: %s.", snapshotMetadata));
         }
 
         // check if schema file exists
