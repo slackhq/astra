@@ -233,7 +233,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private boolean validateS3vsLocalDownLoad() {
     // check if the number of files in S3 matches the local directory
     Map<String, Long> filesWithSizeInS3 = blobStore.listFilesWithSize(snapshotMetadata.snapshotId);
-    
+
     Map<String, Long> localFiles;
     try (Stream<Path> fileList = Files.list(dataDirectory)) {
       localFiles =
@@ -265,7 +265,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         LOG.error(
             String.format(
                 "Mismatch for file %s in S3 and local directory of size %s for snapshot %s",
-                    s3Path, s3Size, snapshotMetadata.toString()));
+                s3Path, s3Size, snapshotMetadata.toString()));
         return false;
       }
     }

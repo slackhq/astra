@@ -259,7 +259,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       checker.close();
 
       if (!status.clean) {
-        logger.error("Lucene index is not clean. Found issues: {}.", status);
+        logger.error("Lucene index is not clean. Found issues for chunk: {}.", chunkInfo);
         return false;
       }
 
@@ -297,8 +297,8 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
             || !filesWithSizeInS3.get(s3Path).equals(sizeOfFile)) {
           logger.error(
               String.format(
-                  "Mismatch for file %s in S3 and local directory of size %s for snapshot %s",
-                      s3Path, sizeOfFile, chunkInfo.chunkId));
+                  "Mismatch for file %s in S3 and local directory of size %s for chunk %s",
+                  s3Path, sizeOfFile, chunkInfo.chunkId));
           return false;
         }
       }
