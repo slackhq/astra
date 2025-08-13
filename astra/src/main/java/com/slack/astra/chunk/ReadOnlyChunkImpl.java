@@ -1,5 +1,6 @@
 package com.slack.astra.chunk;
 
+import static com.slack.astra.chunk.ChunkValidationUtils.isChunkClean;
 import static com.slack.astra.chunkManager.CachingChunkManager.ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG;
 import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
@@ -47,9 +48,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.io.FileUtils;
 import org.apache.curator.x.async.AsyncCuratorFramework;
-import org.apache.lucene.index.CheckIndex;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.NoLockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -322,12 +320,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         }
 
         // check if lucene index is valid and not corrupted
-        FSDirectory existingDir = FSDirectory.open(dataDirectory, NoLockFactory.INSTANCE);
-        CheckIndex checker = new CheckIndex(existingDir);
-        CheckIndex.Status status = checker.checkIndex();
-        checker.close();
-
-        if (!status.clean) {
+        boolean luceneStatus = isChunkClean(dataDirectory);
+        if (!luceneStatus) {
           throw new IOException(
               String.format(
                   "Lucene index is not clean. Found issues for snapshot: %s.", snapshotMetadata));

@@ -1,6 +1,7 @@
 package com.slack.astra.chunk;
 
 import static com.slack.astra.chunk.ChunkInfo.toSnapshotMetadata;
+import static com.slack.astra.chunk.ChunkValidationUtils.isChunkClean;
 import static com.slack.astra.writer.SpanFormatter.isValidTimestamp;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -32,10 +33,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.lucene.index.CheckIndex;
 import org.apache.lucene.index.IndexCommit;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.NoLockFactory;
 import org.slf4j.Logger;
 
 /**
@@ -253,12 +251,8 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         logger.debug("File name is {} ({} bytes)", fileName, sizeOfFile);
       }
       // check if lucene index is valid and not corrupted
-      FSDirectory existingDir = FSDirectory.open(dirPath, NoLockFactory.INSTANCE);
-      CheckIndex checker = new CheckIndex(existingDir);
-      CheckIndex.Status status = checker.checkIndex();
-      checker.close();
-
-      if (!status.clean) {
+      boolean luceneStatus = isChunkClean(dirPath);
+      if (!luceneStatus) {
         logger.error("Lucene index is not clean. Found issues for chunk: {}.", chunkInfo);
         return false;
       }
