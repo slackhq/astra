@@ -123,6 +123,26 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   /**
+   * Synchronously creates a new ETCD metadata node.
+   *
+   * @param metadataNode the node to create
+   * @throws InternalMetadataStoreException from EtcdMetadataStore if serialization fails or another
+   *     error occurs
+   */
+  public void createEtcdOnlySync(T metadataNode) {
+    switch (mode) {
+      case ZOOKEEPER_CREATES:
+        throw new IllegalArgumentException(
+            "Etcd metadata store mode is ZOOKEEPER_CREATES, can't create in etcd");
+      case ETCD_CREATES:
+        etcdStore.createSync(metadataNode);
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
    * Gets a metadata node asynchronously.
    *
    * @param path the path to the node
@@ -325,6 +345,19 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
     }
+  }
+
+  /**
+   * Checks if an ETCD node exists synchronously.
+   *
+   * @param path the path to check
+   * @return true if the node exists, false otherwise.
+   * @throws RuntimeException from EtcdMetadataStore if a connection error or other unrecoverable
+   *     error occurs. Note that the node not existing is NOT treated as an error; in that case, the
+   *     method returns false.
+   */
+  public boolean hasEtcdOnlySync(String path) {
+    return etcdStore.hasSync(path);
   }
 
   /**
@@ -668,6 +701,24 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       zkStore.deleteSync(metadataNode); // Let exceptions bubble up
     } else { // existsInEtcd
       etcdStore.deleteSync(metadataNode); // Let exceptions bubble up
+    }
+  }
+
+  /**
+   * Deletes a ZK node synchronously by metadata object reference.
+   *
+   * @param metadataNode the node to delete
+   * @throws IllegalStateException if the node does not exist in either store
+   */
+  public void deleteZkOnlySync(T metadataNode) {
+    String path = metadataNode.getName();
+    boolean existsInZk = zkStore != null && zkStore.hasSync(path);
+
+    // Handle case where node exists in both stores
+    if (existsInZk) {
+      zkStore.deleteAsync(metadataNode);
+    } else {
+      LOG.info("Node does not exist in zk store, not deleting: " + path);
     }
   }
 

@@ -123,6 +123,62 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
+  @Override
+  public void migrateZKDatasetMetadataStoreToEtcd(
+      ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest request,
+      StreamObserver<ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse> responseObserver) {
+
+    try {
+      List<DatasetMetadata> existingDatasetMetadata =
+          datasetMetadataStore.listSync().stream().toList();
+
+      if (!request.getDryRun()) {
+        // add to the etcd store if it doesn't already exist there
+        existingDatasetMetadata.forEach(
+            dataset -> {
+              if (!datasetMetadataStore.hasEtcdOnlySync(dataset.getName())) {
+                datasetMetadataStore.createEtcdOnlySync(dataset);
+              }
+            });
+
+        // delete from ZK only (deleteZkOnlySync checks if the store exists already)
+        datasetMetadataStore.listSync().forEach(datasetMetadataStore::deleteZkOnlySync);
+
+        // return the new store
+        responseObserver.onNext(
+            ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse.newBuilder()
+                .addAllDatasetMetadata(
+                    datasetMetadataStore.listSync().stream()
+                        .map(DatasetMetadataSerializer::toDatasetMetadataProto)
+                        .collect(Collectors.toList()))
+                .setStatus("SUCCESS")
+                .build());
+        responseObserver.onCompleted();
+      } else {
+        List<DatasetMetadata> dataToMigrate = new ArrayList<>();
+        existingDatasetMetadata.forEach(
+            dataset -> {
+              if (!datasetMetadataStore.hasEtcdOnlySync(dataset.getName())) {
+                dataToMigrate.add(dataset);
+              }
+            });
+
+        responseObserver.onNext(
+            ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse.newBuilder()
+                .addAllDatasetMetadata(
+                    dataToMigrate.stream()
+                        .map(DatasetMetadataSerializer::toDatasetMetadataProto)
+                        .collect(Collectors.toList()))
+                .setStatus("DRY RUN, would migrate the outputted data to ETCD")
+                .build());
+        responseObserver.onCompleted();
+      }
+    } catch (Exception e) {
+      LOG.error("Error migrating ZK dataset metadata store to etcd", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
   /** Returns all available datasets from the metadata store */
   @Override
   public void listDatasetMetadata(
