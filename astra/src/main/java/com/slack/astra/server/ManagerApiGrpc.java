@@ -141,8 +141,8 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
               }
             });
 
-        // delete from ZK only (deleteZkOnlyAsync checks if the store exists already)
-        datasetMetadataStore.listSync().forEach(datasetMetadataStore::deleteZkOnlyAsync);
+        // delete from ZK only (deleteZkOnlySync checks if the store exists already)
+        datasetMetadataStore.listSync().forEach(datasetMetadataStore::deleteZkOnlySync);
 
         // return the new store
         responseObserver.onNext(
