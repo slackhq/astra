@@ -357,12 +357,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     method returns false.
    */
   public boolean hasEtcdOnlySync(String path) {
-    boolean existsInEtcd = etcdStore.hasSync(path);
-    if (existsInEtcd) {
-      return true;
-    } else {
-      return false;
-    }
+    return etcdStore.hasSync(path);
   }
 
   /**
