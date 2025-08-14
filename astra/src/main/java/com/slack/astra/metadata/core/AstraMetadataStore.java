@@ -716,9 +716,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
     // Handle case where node exists in both stores
     if (existsInZk) {
-       zkStore.deleteAsync(metadataNode);
+      zkStore.deleteAsync(metadataNode);
     } else {
-       LOG.info("Node does not exist in zk store, not deleting: " + path);
+      LOG.info("Node does not exist in zk store, not deleting: " + path);
     }
   }
 
