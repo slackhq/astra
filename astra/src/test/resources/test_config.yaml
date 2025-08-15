@@ -1,13 +1,14 @@
 nodeRoles: [ INDEX,QUERY,CACHE,MANAGER ]
 
+luceneConfig:
+  commitDurationSecs: 10
+  refreshDurationSecs: 11
+  enableFullTextSearch: true
+
 indexerConfig:
   maxMessagesPerChunk: 100
   maxBytesPerChunk: 100000
   maxTimePerChunkSeconds: 1800
-  luceneConfig:
-    commitDurationSecs: 10
-    refreshDurationSecs: 11
-    enableFullTextSearch: true
   staleDurationSecs: 7200
   dataDirectory: "/tmp"
   maxOffsetDelayMessages: 10001

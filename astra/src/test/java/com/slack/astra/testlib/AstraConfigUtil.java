@@ -50,12 +50,6 @@ public class AstraConfigUtil {
                     .build())
             .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
             .setMaxMessagesPerChunk(maxMessagesPerChunk)
-            .setLuceneConfig(
-                AstraConfigs.LuceneConfig.newBuilder()
-                    .setCommitDurationSecs(10)
-                    .setRefreshDurationSecs(10)
-                    .setEnableFullTextSearch(true)
-                    .build())
             .setMaxChunksOnDisk(3)
             .setStaleDurationSecs(7200)
             .setMaxOffsetDelayMessages(maxOffsetDelay)
@@ -134,6 +128,13 @@ public class AstraConfigUtil {
             .setRedactionUpdateInitDelaySecs(1)
             .build();
 
+    AstraConfigs.LuceneConfig luceneConfig =
+        AstraConfigs.LuceneConfig.newBuilder()
+            .setCommitDurationSecs(10)
+            .setRefreshDurationSecs(10)
+            .setEnableFullTextSearch(true)
+            .build();
+
     return AstraConfigs.AstraConfig.newBuilder()
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
@@ -141,6 +142,7 @@ public class AstraConfigUtil {
         .setQueryConfig(queryConfig)
         .setMetadataStoreConfig(metadataStoreConfig)
         .setRedactionUpdateServiceConfig(redactionUpdateServiceConfig)
+        .setLuceneConfig(luceneConfig)
         .addNodeRoles(nodeRole)
         .build();
   }
@@ -187,12 +189,6 @@ public class AstraConfigUtil {
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
         .setMaxMessagesPerChunk(maxMessagesPerChunk)
-        .setLuceneConfig(
-            AstraConfigs.LuceneConfig.newBuilder()
-                .setCommitDurationSecs(10)
-                .setRefreshDurationSecs(10)
-                .setEnableFullTextSearch(enableFullTextSearch)
-                .build())
         .setMaxChunksOnDisk(3)
         .setStaleDurationSecs(7200)
         .setMaxOffsetDelayMessages(maxOffsetDelay)
@@ -213,12 +209,6 @@ public class AstraConfigUtil {
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
         .setMaxMessagesPerChunk(maxMessagesPerChunk)
-        .setLuceneConfig(
-            AstraConfigs.LuceneConfig.newBuilder()
-                .setCommitDurationSecs(10)
-                .setRefreshDurationSecs(10)
-                .setEnableFullTextSearch(true)
-                .build())
         .setMaxChunksOnDisk(maxChunksOnDisk)
         .setStaleDurationSecs(staleDuration)
         .setMaxOffsetDelayMessages(maxOffsetDelay)
