@@ -22,7 +22,9 @@ import org.opensearch.common.xcontent.json.JsonXContentParser;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.AbstractQueryBuilder;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.search.SearchModule;
 import org.opensearch.search.aggregations.AggregatorFactories;
 
@@ -99,6 +101,83 @@ public class SearchResultUtils {
     return valueBuilder.build();
   }
 
+  /**
+   * Rewrites QueryStringQueryBuilder instances to include default searchable fields when none are
+   * explicitly specified.
+   *
+   * <p>This method addresses a limitation where OpenSearch's index.query.default_field setting
+   * cannot specify multiple default fields (e.g., both "_all" and "*"). While the setting supports
+   * either "_all" OR "*" individually, it cannot handle the combination of both.
+   *
+   * <p>The method recursively traverses the query tree and modifies QueryStringQueryBuilder
+   * instances that have neither a default_field nor explicit fields configured. For such queries,
+   * it sets both "_all" and "*" as searchable fields with equal boost factors (1.0f each).
+   *
+   * <p>This ensures comprehensive search coverage across:
+   * <ul>
+   *   <li>"_all" - The meta-field that contains all document content
+   *   <li>"*" - Wildcard pattern matching all regular field names
+   * </ul>
+   *
+   * <p>The rewrite is applied to QueryStringQueryBuilder instances within:
+   * <ul>
+   *   <li>Standalone query_string queries
+   *   <li>Nested queries within BoolQueryBuilder (must, filter, should, must_not clauses)
+   * </ul>
+   *
+   * <p>The method preserves existing field configurations and only applies defaults when no field
+   * specification exists, ensuring user preferences are respected.
+   *
+   * @param queryBuilder the query builder to rewrite
+   * @return the rewritten query builder with default fields applied where appropriate
+   */
+  private static QueryBuilder rewriteQueryStringWithDefaultField(QueryBuilder queryBuilder) {
+    if (queryBuilder == null) {
+      return null;
+    }
+
+    if (queryBuilder instanceof QueryStringQueryBuilder) {
+      QueryStringQueryBuilder queryStringQuery = (QueryStringQueryBuilder) queryBuilder;
+      if (queryStringQuery.defaultField() == null && queryStringQuery.fields().isEmpty()) {
+        Map<String, Float> fieldsMap = new HashMap<>();
+        fieldsMap.put("_all", 1.0f);
+        fieldsMap.put("*", 1.0f);
+        queryStringQuery.fields(fieldsMap);
+      }
+      return queryStringQuery;
+    } else if (queryBuilder instanceof BoolQueryBuilder) {
+      BoolQueryBuilder boolQuery = (BoolQueryBuilder) queryBuilder;
+
+      // Rewrite must clauses
+      for (int i = 0; i < boolQuery.must().size(); i++) {
+        QueryBuilder rewritten = rewriteQueryStringWithDefaultField(boolQuery.must().get(i));
+        boolQuery.must().set(i, rewritten);
+      }
+
+      // Rewrite filter clauses
+      for (int i = 0; i < boolQuery.filter().size(); i++) {
+        QueryBuilder rewritten = rewriteQueryStringWithDefaultField(boolQuery.filter().get(i));
+        boolQuery.filter().set(i, rewritten);
+      }
+
+      // Rewrite should clauses
+      for (int i = 0; i < boolQuery.should().size(); i++) {
+        QueryBuilder rewritten = rewriteQueryStringWithDefaultField(boolQuery.should().get(i));
+        boolQuery.should().set(i, rewritten);
+      }
+
+      // Rewrite must_not clauses
+      for (int i = 0; i < boolQuery.mustNot().size(); i++) {
+        QueryBuilder rewritten = rewriteQueryStringWithDefaultField(boolQuery.mustNot().get(i));
+        boolQuery.mustNot().set(i, rewritten);
+      }
+
+      return boolQuery;
+    }
+
+    return queryBuilder;
+  }
+
   public static SearchQuery fromSearchRequest(AstraSearch.SearchRequest searchRequest) {
     QueryBuilder queryBuilder = null;
 
@@ -110,6 +189,7 @@ public class SearchResultUtils {
                 DeprecationHandler.IGNORE_DEPRECATIONS,
                 objectMapper.createParser(searchRequest.getQuery()));
         queryBuilder = AbstractQueryBuilder.parseInnerQueryBuilder(jsonXContentParser);
+        queryBuilder = rewriteQueryStringWithDefaultField(queryBuilder);
       } catch (Exception e) {
         throw new IllegalArgumentException(e);
       }

@@ -161,15 +161,24 @@ public class AstraConfigUtil {
   public static int TEST_INDEXER_PORT = 10000;
 
   public static AstraConfigs.IndexerConfig makeIndexerConfig() {
-    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, 100);
+    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, 100, true);
+  }
+
+  public static AstraConfigs.IndexerConfig makeIndexerConfig(boolean enableFullTextSearch) {
+    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, 100, enableFullTextSearch);
   }
 
   public static AstraConfigs.IndexerConfig makeIndexerConfig(int maxOffsetDelay) {
-    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, 100);
+    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, 100, true);
   }
 
   public static AstraConfigs.IndexerConfig makeIndexerConfig(
       int indexerPort, int maxOffsetDelay, int maxMessagesPerChunk) {
+    return makeIndexerConfig(indexerPort, maxOffsetDelay, maxMessagesPerChunk, true);
+  }
+
+  public static AstraConfigs.IndexerConfig makeIndexerConfig(
+      int indexerPort, int maxOffsetDelay, int maxMessagesPerChunk, boolean enableFullTextSearch) {
     return AstraConfigs.IndexerConfig.newBuilder()
         .setServerConfig(
             AstraConfigs.ServerConfig.newBuilder()
@@ -182,7 +191,7 @@ public class AstraConfigUtil {
             AstraConfigs.LuceneConfig.newBuilder()
                 .setCommitDurationSecs(10)
                 .setRefreshDurationSecs(10)
-                .setEnableFullTextSearch(true)
+                .setEnableFullTextSearch(enableFullTextSearch)
                 .build())
         .setMaxChunksOnDisk(3)
         .setStaleDurationSecs(7200)
@@ -196,6 +205,17 @@ public class AstraConfigUtil {
       int maxMessagesPerChunk,
       int maxChunksOnDisk,
       long staleDuration) {
+    return makeIndexerConfig(
+        indexerPort, maxOffsetDelay, maxMessagesPerChunk, maxChunksOnDisk, staleDuration, true);
+  }
+
+  public static AstraConfigs.IndexerConfig makeIndexerConfig(
+      int indexerPort,
+      int maxOffsetDelay,
+      int maxMessagesPerChunk,
+      int maxChunksOnDisk,
+      long staleDuration,
+      boolean enableFullTextSearch) {
     return AstraConfigs.IndexerConfig.newBuilder()
         .setServerConfig(
             AstraConfigs.ServerConfig.newBuilder()
@@ -208,7 +228,7 @@ public class AstraConfigUtil {
             AstraConfigs.LuceneConfig.newBuilder()
                 .setCommitDurationSecs(10)
                 .setRefreshDurationSecs(10)
-                .setEnableFullTextSearch(true)
+                .setEnableFullTextSearch(enableFullTextSearch)
                 .build())
         .setMaxChunksOnDisk(maxChunksOnDisk)
         .setStaleDurationSecs(staleDuration)

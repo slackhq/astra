@@ -64,6 +64,112 @@ public class SearchResultUtilsTest {
   }
 
   @Test
+  public void shouldAppendDefaultFieldToQueryStringQuery() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQuery(
+                """
+            {
+              "query_string": {
+                "analyze_wildcard": true,
+                "query": "Message70"
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryBuilder).isInstanceOf(QueryStringQueryBuilder.class);
+
+    QueryStringQueryBuilder queryStringQueryBuilder = (QueryStringQueryBuilder) output.queryBuilder;
+    assertThat(queryStringQueryBuilder.queryString()).isEqualTo("Message70");
+    assertThat(queryStringQueryBuilder.analyzeWildcard()).isTrue();
+    assertThat(queryStringQueryBuilder.fields()).containsKeys("_all", "*");
+    assertThat(queryStringQueryBuilder.fields().get("_all")).isEqualTo(1.0f);
+    assertThat(queryStringQueryBuilder.fields().get("*")).isEqualTo(1.0f);
+  }
+
+  @Test
+  public void shouldNotOverrideExistingDefaultFieldInQueryString() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQuery(
+                """
+            {
+              "query_string": {
+                "analyze_wildcard": true,
+                "query": "Message70",
+                "default_field": "custom_field"
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryBuilder).isInstanceOf(QueryStringQueryBuilder.class);
+
+    QueryStringQueryBuilder queryStringQueryBuilder = (QueryStringQueryBuilder) output.queryBuilder;
+    assertThat(queryStringQueryBuilder.queryString()).isEqualTo("Message70");
+    assertThat(queryStringQueryBuilder.analyzeWildcard()).isTrue();
+    assertThat(queryStringQueryBuilder.defaultField()).isEqualTo("custom_field");
+    assertThat(queryStringQueryBuilder.fields()).isEmpty();
+  }
+
+  @Test
+  public void shouldNotOverrideExistingFieldsInQueryString() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQuery(
+                """
+            {
+              "query_string": {
+                "analyze_wildcard": true,
+                "query": "Message70",
+                "fields": ["field1^2", "field2"]
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryBuilder).isInstanceOf(QueryStringQueryBuilder.class);
+
+    QueryStringQueryBuilder queryStringQueryBuilder = (QueryStringQueryBuilder) output.queryBuilder;
+    assertThat(queryStringQueryBuilder.queryString()).isEqualTo("Message70");
+    assertThat(queryStringQueryBuilder.analyzeWildcard()).isTrue();
+    assertThat(queryStringQueryBuilder.fields()).containsKeys("field1", "field2");
+    assertThat(queryStringQueryBuilder.fields().get("field1")).isEqualTo(2.0f);
+    assertThat(queryStringQueryBuilder.fields().get("field2")).isEqualTo(1.0f);
+  }
+
+  @Test
+  public void shouldAppendDefaultFieldToNestedQueryStringInBoolQuery() {
+    AstraSearch.SearchRequest searchRequest =
+        AstraSearch.SearchRequest.newBuilder()
+            .setQuery(
+                """
+            {
+              "bool": {
+                "must": {
+                  "query_string": {
+                    "analyze_wildcard": true,
+                    "query": "Message70"
+                  }
+                }
+              }
+            }""")
+            .build();
+    SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
+    assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
+
+    BoolQueryBuilder boolQueryBuilder = (BoolQueryBuilder) output.queryBuilder;
+    assertThat(boolQueryBuilder.must().size()).isEqualTo(1);
+    assertThat(boolQueryBuilder.must().getFirst()).isInstanceOf(QueryStringQueryBuilder.class);
+
+    QueryStringQueryBuilder queryStringQueryBuilder =
+        (QueryStringQueryBuilder) boolQueryBuilder.must().getFirst();
+    assertThat(queryStringQueryBuilder.queryString()).isEqualTo("Message70");
+    assertThat(queryStringQueryBuilder.analyzeWildcard()).isTrue();
+    assertThat(queryStringQueryBuilder.fields()).containsKeys("_all", "*");
+    assertThat(queryStringQueryBuilder.fields().get("_all")).isEqualTo(1.0f);
+    assertThat(queryStringQueryBuilder.fields().get("*")).isEqualTo(1.0f);
+  }
+
+  @Test
   public void shouldParseBasicMustNotQueryIntoQueryBuilder() {
     AstraSearch.SearchRequest searchRequest =
         AstraSearch.SearchRequest.newBuilder()
