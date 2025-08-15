@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
+import com.slack.astra.proto.config.AstraConfigs;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -66,15 +67,22 @@ import org.slf4j.LoggerFactory;
 public class OpenSearchAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAdapter.class);
 
-  private static final IndexSettings indexSettings = AstraIndexSettings.getInstance();
   private static final SimilarityService similarityService = AstraSimilarityService.getInstance();
 
+  private final IndexSettings indexSettings;
   private final MapperService mapperService;
-
   private final Map<String, LuceneFieldDef> chunkSchema;
 
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
-    this.mapperService = buildMapperService();
+    this.indexSettings = AstraIndexSettings.getInstance();
+    this.mapperService = buildMapperService(this.indexSettings);
+    this.chunkSchema = chunkSchema;
+  }
+
+  public OpenSearchAdapter(
+      Map<String, LuceneFieldDef> chunkSchema, AstraConfigs.LuceneConfig luceneConfig) {
+    this.indexSettings = AstraIndexSettings.getInstance(luceneConfig);
+    this.mapperService = buildMapperService(this.indexSettings);
     this.chunkSchema = chunkSchema;
   }
 
@@ -277,9 +285,9 @@ public class OpenSearchAdapter {
    * initializing the mapper service, individual fields will still need to be added using
    * this.registerField()
    */
-  private static MapperService buildMapperService() {
+  private static MapperService buildMapperService(IndexSettings indexSettings) {
     return new MapperService(
-        OpenSearchAdapter.indexSettings,
+        indexSettings,
         AstraIndexAnalyzer.getInstance(),
         new NamedXContentRegistry(ClusterModule.getNamedXWriteables()),
         OpenSearchAdapter.similarityService,
@@ -295,19 +303,18 @@ public class OpenSearchAdapter {
    * Minimal implementation of an OpenSearch QueryShardContext while still allowing an
    * AggregatorFactory to successfully instantiate. See AggregatorFactory.class
    */
-  private static QueryShardContext buildQueryShardContext(
+  private QueryShardContext buildQueryShardContext(
       BigArrays bigArrays, IndexSearcher indexSearcher, MapperService mapperService) {
     final ValuesSourceRegistry valuesSourceRegistry = buildValueSourceRegistry();
     return new QueryShardContext(
         0,
-        OpenSearchAdapter.indexSettings,
+        this.indexSettings,
         bigArrays,
         null,
         new IndexFieldDataService(
-                OpenSearchAdapter.indexSettings,
+                this.indexSettings,
                 new IndicesFieldDataCache(
-                    OpenSearchAdapter.indexSettings.getSettings(),
-                    new IndexFieldDataCache.Listener() {}),
+                    this.indexSettings.getSettings(), new IndexFieldDataCache.Listener() {}),
                 new NoneCircuitBreakerService(),
                 mapperService)
             ::getForField,
