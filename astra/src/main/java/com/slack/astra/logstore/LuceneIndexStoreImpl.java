@@ -60,6 +60,7 @@ public class LuceneIndexStoreImpl implements LogStore {
   private final AstraSearcherManager astraSearcherManager;
   private final DocumentBuilder documentBuilder;
   private final FSDirectory indexDirectory;
+  private final AstraConfigs.LuceneConfig luceneConfig;
 
   private final ScheduledExecutorService scheduledCommit =
       Executors.newSingleThreadScheduledExecutor();
@@ -93,7 +94,8 @@ public class LuceneIndexStoreImpl implements LogStore {
         LuceneIndexStoreConfig.getRefreshDuration(luceneConfig.getRefreshDurationSecs()),
         luceneConfig.getEnableFullTextSearch(),
         SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
-        metricsRegistry);
+        metricsRegistry,
+        luceneConfig);
   }
 
   public static LuceneIndexStoreImpl makeLogStore(
@@ -103,6 +105,25 @@ public class LuceneIndexStoreImpl implements LogStore {
       boolean enableFullTextSearch,
       SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy,
       MeterRegistry metricsRegistry)
+      throws IOException {
+    return makeLogStore(
+        dataDirectory,
+        commitInterval,
+        refreshInterval,
+        enableFullTextSearch,
+        fieldConflictPolicy,
+        metricsRegistry,
+        null);
+  }
+
+  public static LuceneIndexStoreImpl makeLogStore(
+      File dataDirectory,
+      Duration commitInterval,
+      Duration refreshInterval,
+      boolean enableFullTextSearch,
+      SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy,
+      MeterRegistry metricsRegistry,
+      AstraConfigs.LuceneConfig luceneConfig)
       throws IOException {
     // TODO: Move all these config values into chunk?
     // TODO: Chunk should create log store?
@@ -114,13 +135,23 @@ public class LuceneIndexStoreImpl implements LogStore {
         indexStoreCfg,
         SchemaAwareLogDocumentBuilderImpl.build(
             fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
-        metricsRegistry);
+        metricsRegistry,
+        luceneConfig);
   }
 
   public LuceneIndexStoreImpl(
       LuceneIndexStoreConfig config, DocumentBuilder documentBuilder, MeterRegistry registry)
       throws IOException {
+    this(config, documentBuilder, registry, null);
+  }
 
+  public LuceneIndexStoreImpl(
+      LuceneIndexStoreConfig config,
+      DocumentBuilder documentBuilder,
+      MeterRegistry registry,
+      AstraConfigs.LuceneConfig luceneConfig)
+      throws IOException {
+    this.luceneConfig = luceneConfig;
     this.documentBuilder = documentBuilder;
 
     Analyzer analyzer = new StandardAnalyzer();
@@ -265,6 +296,10 @@ public class LuceneIndexStoreImpl implements LogStore {
   @Override
   public FSDirectory getDirectory() {
     return indexDirectory;
+  }
+
+  public AstraConfigs.LuceneConfig getLuceneConfig() {
+    return luceneConfig;
   }
 
   private void handleNonFatal(Throwable ex) {

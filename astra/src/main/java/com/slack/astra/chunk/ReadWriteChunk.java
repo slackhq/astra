@@ -17,6 +17,7 @@ import com.slack.astra.metadata.search.SearchMetadata;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -100,9 +101,11 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     // TODO: Add checkArgument for the fields.
     this.logStore = logStore;
     String logStoreId = ((LuceneIndexStoreImpl) logStore).getId();
+    AstraConfigs.LuceneConfig luceneConfig = ((LuceneIndexStoreImpl) logStore).getLuceneConfig();
     this.logSearcher =
         (LogIndexSearcher<T>)
-            new LogIndexSearcherImpl(logStore.getAstraSearcherManager(), logStore.getSchema());
+            new LogIndexSearcherImpl(
+                logStore.getAstraSearcherManager(), logStore.getSchema(), luceneConfig);
 
     // Create chunk metadata
     Instant chunkCreationTime = Instant.now();
