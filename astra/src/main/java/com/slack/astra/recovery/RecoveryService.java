@@ -330,6 +330,7 @@ public class RecoveryService extends AbstractIdleService {
                 searchMetadataStore,
                 snapshotMetadataStore,
                 AstraConfig.getIndexerConfig(),
+                AstraConfig.getLuceneConfig(),
                 blobStore);
 
         // Ingest data in parallel

@@ -5,6 +5,11 @@
     "CACHE",
     "MANAGER"
   ],
+  "luceneConfig" : {
+    "commitDurationSecs": 10,
+    "refreshDurationSecs": 11,
+    "enableFullTextSearch": true
+  },
   "s3Config": {
     "s3AccessKey": "access",
     "s3SecretKey": "secret",
@@ -24,11 +29,6 @@
     "maxBytesPerChunk": 100000,
     "maxChunksOnDisk": 3,
     "staleDurationSecs": 7200,
-    "luceneConfig" : {
-      "commitDurationSecs": 10,
-      "refreshDurationSecs": 11,
-      "enableFullTextSearch": true
-    },
     "dataDirectory": "/tmp",
     "maxOffsetDelayMessages" : 10002,
     "serverConfig": {

@@ -61,6 +61,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
   // for flag "astra.ng.dynamicChunkSizes"
   private final String cacheNodeId;
+  private final AstraConfigs.LuceneConfig luceneConfig;
   protected CacheNodeAssignmentStore cacheNodeAssignmentStore;
   protected CacheNodeMetadataStore cacheNodeMetadataStore;
 
@@ -79,7 +80,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       String dataDirectoryPrefix,
       String replicaSet,
       int slotCountPerInstance,
-      long capacityBytes) {
+      long capacityBytes,
+      AstraConfigs.LuceneConfig luceneConfig) {
     this.meterRegistry = registry;
     this.curatorFramework = curatorFramework;
     this.etcdClient = etcdClient;
@@ -92,6 +94,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     this.slotCountPerInstance = slotCountPerInstance;
     this.cacheNodeId = UUID.randomUUID().toString();
     this.capacityBytes = capacityBytes;
+    this.luceneConfig = luceneConfig;
   }
 
   @Override
@@ -137,7 +140,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                 replicaMetadataStore,
                 snapshotMetadataStore,
                 searchMetadataStore,
-                cacheNodeMetadataStore);
+                cacheNodeMetadataStore,
+                luceneConfig);
 
         chunkMap.put(newChunk.getSlotId(), newChunk);
       }
@@ -181,7 +185,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       AstraConfigs.S3Config s3Config,
       AstraConfigs.CacheConfig cacheConfig,
-      BlobStore blobStore)
+      BlobStore blobStore,
+      AstraConfigs.LuceneConfig luceneConfig)
       throws Exception {
     return new CachingChunkManager<>(
         meterRegistry,
@@ -194,7 +199,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
         cacheConfig.getDataDirectory(),
         cacheConfig.getReplicaSet(),
         cacheConfig.getSlotsPerInstance(),
-        cacheConfig.getCapacityBytes());
+        cacheConfig.getCapacityBytes(),
+        luceneConfig);
   }
 
   @Override
@@ -253,7 +259,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                     cacheNodeAssignmentStore,
                     assignment,
                     snapshotsBySnapshotId.get(assignment.snapshotId),
-                    cacheNodeMetadataStore);
+                    cacheNodeMetadataStore,
+                    luceneConfig);
             executorService.submit(newChunk::downloadChunkData);
             chunkMap.put(assignment.assignmentId, newChunk);
           }

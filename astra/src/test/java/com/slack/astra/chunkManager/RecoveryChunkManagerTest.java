@@ -212,6 +212,7 @@ public class RecoveryChunkManagerTest {
             searchMetadataStore,
             snapshotMetadataStore,
             AstraConfig.getIndexerConfig(),
+            AstraConfig.getLuceneConfig(),
             blobStore);
 
     chunkManager.startAsync();

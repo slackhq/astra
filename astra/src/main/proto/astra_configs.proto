@@ -30,6 +30,7 @@ message AstraConfig {
   PreprocessorConfig preprocessor_config = 11;
   ClusterConfig cluster_config = 12;
   RedactionUpdateServiceConfig redaction_update_service_config = 13;
+  LuceneConfig lucene_config = 14;
 }
 
 // Static configuration for the Astra cluster.
@@ -152,9 +153,6 @@ message IndexerConfig {
   int64 max_messages_per_chunk = 1;
   int64 max_bytes_per_chunk = 2;
   int64 max_time_per_chunk_seconds = 14;
-
-  // Lucene config
-  LuceneConfig lucene_config = 3;
 
   // How long it's okay for a chunk to be on disk. If any chunks are found on
   // disk that were created longer than this many seconds ago, they will be

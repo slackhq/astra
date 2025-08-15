@@ -26,17 +26,21 @@ public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchContext searchContext;
   private final AstraConfigs.IndexerConfig indexerConfig;
+  private final AstraConfigs.LuceneConfig luceneConfig;
   private String kafkaPartitionId = null;
 
   public RecoveryChunkFactoryImpl(
       AstraConfigs.IndexerConfig indexerConfig,
+      AstraConfigs.LuceneConfig luceneConfig,
       String chunkDataPrefix,
       MeterRegistry meterRegistry,
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
       SearchContext searchContext) {
     checkNotNull(indexerConfig, "indexerConfig can't be null");
+    checkNotNull(luceneConfig, "luceneConfig can't be null");
     this.indexerConfig = indexerConfig;
+    this.luceneConfig = luceneConfig;
     this.chunkDataPrefix = chunkDataPrefix;
     this.meterRegistry = meterRegistry;
     this.searchMetadataStore = searchMetadataStore;
@@ -51,8 +55,7 @@ public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
     final File dataDirectory = new File(indexerConfig.getDataDirectory());
 
     LogStore logStore =
-        LuceneIndexStoreImpl.makeLogStore(
-            dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
+        LuceneIndexStoreImpl.makeLogStore(dataDirectory, luceneConfig, meterRegistry);
 
     return new RecoveryChunkImpl<>(
         logStore,
