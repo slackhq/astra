@@ -136,13 +136,13 @@ public class BlobStore {
             .forEach(
                 failedFileDownload -> {
                   Throwable cause = failedFileDownload.exception();
-                  while (cause != null && !(cause instanceof S3Exception)) {
+                  while (cause.getCause() != null && cause != cause.getCause()) {
                     cause = cause.getCause();
                   }
                   if (cause instanceof S3Exception s3ex) {
                     LOG.error(
                         "Error attempting to download file from S3: key={}, requestId={}, extendedRequestId={},",
-                        failedFileDownload.request().destination(),
+                        failedFileDownload.request().getObjectRequest().key(),
                         s3ex.requestId(),
                         s3ex.extendedRequestId(),
                         s3ex);
