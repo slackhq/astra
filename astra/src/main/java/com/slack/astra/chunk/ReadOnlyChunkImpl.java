@@ -270,6 +270,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         return false;
       }
     }
+    LOG.info(
+        "No file mismatch found with snapshot id '{}' and local directory '{}', s3 files: {} local dir: {}",
+        snapshotMetadata.snapshotId,
+        dataDirectory.toString(),
+        filesWithSizeInS3,
+        localFiles);
     return true;
   }
 
@@ -318,10 +324,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                   snapshotMetadata);
           throw new IOException(errorString);
         }
-        LOG.info(
-            "No file mismatch found with snapshot id '{}' and local directory '{}'",
-            snapshotMetadata.snapshotId,
-            dataDirectory.toString());
 
         // check if lucene index is valid and not corrupted
         boolean luceneStatus = isChunkClean(dataDirectory);
