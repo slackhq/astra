@@ -131,6 +131,12 @@ public class BlobStore {
 
       if (!download.failedTransfers().isEmpty()) {
         // Log each failed transfer with its exception
+        LOG.error(
+            "Error attempting to download directory from S3: bucket={}, prefix={}, destination={}, failed transfers={}",
+            bucketName,
+            prefix,
+            destinationDirectory,
+            download.failedTransfers());
         download
             .failedTransfers()
             .forEach(
