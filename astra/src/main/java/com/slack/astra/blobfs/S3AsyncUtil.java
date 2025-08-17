@@ -11,6 +11,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
@@ -58,7 +59,8 @@ public class S3AsyncUtil {
               .targetThroughputInGbps(config.getS3TargetThroughputGbps())
               .region(Region.of(region))
               .maxNativeMemoryLimitInBytes(maxNativeMemoryLimitBytes)
-              .credentialsProvider(awsCredentialsProvider);
+              .credentialsProvider(awsCredentialsProvider)
+              .responseChecksumValidation(ResponseChecksumValidation.WHEN_SUPPORTED);
 
       // We add a healthcheck to prevent an error with the CRT client, where it will
       // continue to attempt to read data from a socket that is no longer returning data
