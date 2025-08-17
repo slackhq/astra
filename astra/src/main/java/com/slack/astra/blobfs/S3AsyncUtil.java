@@ -60,7 +60,7 @@ public class S3AsyncUtil {
               .region(Region.of(region))
               .maxNativeMemoryLimitInBytes(maxNativeMemoryLimitBytes)
               .credentialsProvider(awsCredentialsProvider)
-              .responseChecksumValidation(ResponseChecksumValidation.WHEN_SUPPORTED);
+              .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED);
 
       // We add a healthcheck to prevent an error with the CRT client, where it will
       // continue to attempt to read data from a socket that is no longer returning data
