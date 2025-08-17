@@ -318,6 +318,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                   snapshotMetadata);
           throw new IOException(errorString);
         }
+        LOG.info(
+            "No file mismatch found with snapshot id '{}' and local directory '{}'",
+            snapshotMetadata.snapshotId,
+            dataDirectory.toString());
 
         // check if lucene index is valid and not corrupted
         boolean luceneStatus = isChunkClean(dataDirectory);

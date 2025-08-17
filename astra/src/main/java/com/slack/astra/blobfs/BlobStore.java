@@ -129,6 +129,13 @@ public class BlobStore {
               .completionFuture()
               .get();
 
+      LOG.info(
+          "Downloaded directory from S3: bucket={}, prefix={}, destination={}, status={}",
+          bucketName,
+          prefix,
+          destinationDirectory,
+          download.failedTransfers());
+
       if (!download.failedTransfers().isEmpty()) {
         // Log each failed transfer with its exception
         LOG.error(
