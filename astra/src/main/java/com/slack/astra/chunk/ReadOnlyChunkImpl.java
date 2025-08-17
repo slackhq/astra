@@ -330,6 +330,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
               String.format(
                   "Lucene index is not clean. Found issues for snapshot: %s.", snapshotMetadata));
         }
+        LOG.info(
+            "Lucene index is clean for snapshot id '{}' and local directory '{}'",
+            snapshotMetadata.snapshotId,
+            dataDirectory.toString());
 
         // check if schema file exists
         Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
