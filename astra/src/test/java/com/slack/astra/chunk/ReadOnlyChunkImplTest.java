@@ -213,7 +213,8 @@ public class ReadOnlyChunkImplTest {
             cacheNodeAssignmentStore,
             cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
             snapshotMetadataStore.findSync(snapshotId),
-            cacheNodeMetadataStore);
+            cacheNodeMetadataStore,
+            AstraConfig.getLuceneConfig());
 
     // wait for chunk to register
     await()
@@ -400,7 +401,8 @@ public class ReadOnlyChunkImplTest {
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore,
-            cacheNodeMetadataStore);
+            cacheNodeMetadataStore,
+            AstraConfig.getLuceneConfig());
 
     // wait for chunk to register
     await()
@@ -516,7 +518,8 @@ public class ReadOnlyChunkImplTest {
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore,
-            cacheNodeMetadataStore);
+            cacheNodeMetadataStore,
+            AstraConfig.getLuceneConfig());
 
     // wait for chunk to register
     await()
@@ -644,7 +647,8 @@ public class ReadOnlyChunkImplTest {
             cacheNodeAssignmentStore,
             cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
             snapshotMetadataStore.findSync(snapshotId),
-            cacheNodeMetadataStore);
+            cacheNodeMetadataStore,
+            AstraConfig.getLuceneConfig());
 
     // wait for chunk to register
     await()
@@ -810,7 +814,8 @@ public class ReadOnlyChunkImplTest {
             cacheNodeAssignmentStore,
             cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
             snapshotMetadataStore.findSync(snapshotId),
-            cacheNodeMetadataStore);
+            cacheNodeMetadataStore,
+            AstraConfig.getLuceneConfig());
 
     // wait for chunk to register
     // ignoreExceptions is workaround for https://github.com/aws/aws-sdk-java-v2/issues/3658

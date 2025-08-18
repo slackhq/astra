@@ -203,7 +203,8 @@ public class CachingChunkManagerTest {
             AstraConfig.getCacheConfig().getDataDirectory(),
             AstraConfig.getCacheConfig().getReplicaSet(),
             AstraConfig.getCacheConfig().getSlotsPerInstance(),
-            AstraConfig.getCacheConfig().getCapacityBytes());
+            AstraConfig.getCacheConfig().getCapacityBytes(),
+            AstraConfig.getLuceneConfig());
 
     cachingChunkManager.startAsync();
     cachingChunkManager.awaitRunning(15, TimeUnit.SECONDS);

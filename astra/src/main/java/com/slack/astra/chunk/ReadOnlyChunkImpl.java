@@ -25,6 +25,7 @@ import com.slack.astra.metadata.search.SearchMetadata;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -77,6 +78,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private CacheNodeAssignmentStore cacheNodeAssignmentStore;
   private final MeterRegistry meterRegistry;
   private final BlobStore blobStore;
+  private final AstraConfigs.LuceneConfig luceneConfig;
 
   public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
   public static final String CHUNK_EVICTION_TIMER = "chunk_eviction_timer";
@@ -110,7 +112,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
       CacheNodeAssignment assignment,
       SnapshotMetadata snapshotMetadata,
-      CacheNodeMetadataStore cacheNodeMetadataStore)
+      CacheNodeMetadataStore cacheNodeMetadataStore,
+      AstraConfigs.LuceneConfig luceneConfig)
       throws Exception {
     this(
         curatorFramework,
@@ -124,7 +127,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         replicaMetadataStore,
         snapshotMetadataStore,
         searchMetadataStore,
-        cacheNodeMetadataStore);
+        cacheNodeMetadataStore,
+        luceneConfig);
     this.assignment = assignment;
     this.lastKnownAssignmentState = assignment.state;
     this.snapshotMetadata = snapshotMetadata;
@@ -143,13 +147,15 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
-      CacheNodeMetadataStore cacheNodeMetadataStore)
+      CacheNodeMetadataStore cacheNodeMetadataStore,
+      AstraConfigs.LuceneConfig luceneConfig)
       throws Exception {
     this.meterRegistry = meterRegistry;
     this.blobStore = blobStore;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.searchContext = searchContext;
     this.slotId = UUID.randomUUID().toString();
+    this.luceneConfig = luceneConfig;
 
     this.cacheSlotMetadataStore = cacheSlotMetadataStore;
     this.replicaMetadataStore = replicaMetadataStore;
@@ -240,7 +246,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             (LogIndexSearcher<T>)
                 new LogIndexSearcherImpl(
                     new AstraSearcherManager(chunkInfo.chunkId, blobStore),
-                    chunkSchema.fieldDefMap);
+                    chunkSchema.fieldDefMap,
+                    luceneConfig);
       } else {
         // get data directory
         dataDirectory =
@@ -274,7 +281,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           this.logSearcher =
               (LogIndexSearcher<T>)
                   new LogIndexSearcherImpl(
-                      new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
+                      new AstraSearcherManager(dataDirectory),
+                      chunkSchema.fieldDefMap,
+                      luceneConfig);
         } catch (Exception e) {
           LOG.error(
               "Failed to init logSearcher for chunk {}. Snapshot ID is {}.",
@@ -430,7 +439,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
-                  new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap);
+                  new AstraSearcherManager(dataDirectory), chunkSchema.fieldDefMap, luceneConfig);
 
       // we first mark the slot LIVE before registering the search metadata as available
       if (!setChunkMetadataState(

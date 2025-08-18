@@ -50,12 +50,6 @@ public class AstraConfigUtil {
                     .build())
             .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
             .setMaxMessagesPerChunk(maxMessagesPerChunk)
-            .setLuceneConfig(
-                AstraConfigs.LuceneConfig.newBuilder()
-                    .setCommitDurationSecs(10)
-                    .setRefreshDurationSecs(10)
-                    .setEnableFullTextSearch(true)
-                    .build())
             .setMaxChunksOnDisk(3)
             .setStaleDurationSecs(7200)
             .setMaxOffsetDelayMessages(maxOffsetDelay)
@@ -134,6 +128,13 @@ public class AstraConfigUtil {
             .setRedactionUpdateInitDelaySecs(1)
             .build();
 
+    AstraConfigs.LuceneConfig luceneConfig =
+        AstraConfigs.LuceneConfig.newBuilder()
+            .setCommitDurationSecs(10)
+            .setRefreshDurationSecs(10)
+            .setEnableFullTextSearch(true)
+            .build();
+
     return AstraConfigs.AstraConfig.newBuilder()
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
@@ -141,6 +142,7 @@ public class AstraConfigUtil {
         .setQueryConfig(queryConfig)
         .setMetadataStoreConfig(metadataStoreConfig)
         .setRedactionUpdateServiceConfig(redactionUpdateServiceConfig)
+        .setLuceneConfig(luceneConfig)
         .addNodeRoles(nodeRole)
         .build();
   }
@@ -164,12 +166,21 @@ public class AstraConfigUtil {
     return makeIndexerConfig(TEST_INDEXER_PORT, 1000, 100);
   }
 
+  public static AstraConfigs.IndexerConfig makeIndexerConfig(boolean enableFullTextSearch) {
+    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, 100, enableFullTextSearch);
+  }
+
   public static AstraConfigs.IndexerConfig makeIndexerConfig(int maxOffsetDelay) {
     return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, 100);
   }
 
   public static AstraConfigs.IndexerConfig makeIndexerConfig(
       int indexerPort, int maxOffsetDelay, int maxMessagesPerChunk) {
+    return makeIndexerConfig(indexerPort, maxOffsetDelay, maxMessagesPerChunk, true);
+  }
+
+  public static AstraConfigs.IndexerConfig makeIndexerConfig(
+      int indexerPort, int maxOffsetDelay, int maxMessagesPerChunk, boolean enableFullTextSearch) {
     return AstraConfigs.IndexerConfig.newBuilder()
         .setServerConfig(
             AstraConfigs.ServerConfig.newBuilder()
@@ -178,12 +189,6 @@ public class AstraConfigUtil {
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
         .setMaxMessagesPerChunk(maxMessagesPerChunk)
-        .setLuceneConfig(
-            AstraConfigs.LuceneConfig.newBuilder()
-                .setCommitDurationSecs(10)
-                .setRefreshDurationSecs(10)
-                .setEnableFullTextSearch(true)
-                .build())
         .setMaxChunksOnDisk(3)
         .setStaleDurationSecs(7200)
         .setMaxOffsetDelayMessages(maxOffsetDelay)
@@ -204,12 +209,6 @@ public class AstraConfigUtil {
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
         .setMaxMessagesPerChunk(maxMessagesPerChunk)
-        .setLuceneConfig(
-            AstraConfigs.LuceneConfig.newBuilder()
-                .setCommitDurationSecs(10)
-                .setRefreshDurationSecs(10)
-                .setEnableFullTextSearch(true)
-                .build())
         .setMaxChunksOnDisk(maxChunksOnDisk)
         .setStaleDurationSecs(staleDuration)
         .setMaxOffsetDelayMessages(maxOffsetDelay)

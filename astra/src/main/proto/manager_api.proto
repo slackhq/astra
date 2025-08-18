@@ -38,6 +38,10 @@ service ManagerApiService {
 
   // ListFieldRedactions lists all existing field redactions
   rpc ListFieldRedactions(ListFieldRedactionsRequest) returns (ListFieldRedactionsResponse) {}
+
+  // MigrateZKDatasetMetadataStoreToEtcd migrates the datasetmetadata store to Etcd
+  // We need this since that is the only store that never ages out
+  rpc MigrateZKDatasetMetadataStoreToEtcd(MigrateZKDatasetMetadataStoreToEtcdRequest) returns (MigrateZKDatasetMetadataStoreToEtcdResponse) {}
 }
 
 // CreateDatasetMetadataRequest represents a new dataset with uninitialized thoughput and partition assignments
@@ -148,4 +152,14 @@ message ListFieldRedactionsRequest {}
 // ListFieldRedactionsResponse represents the response when listing all existing field redactions
 message ListFieldRedactionsResponse {
   repeated RedactedFieldMetadata redacted_fields = 1;
+}
+
+message MigrateZKDatasetMetadataStoreToEtcdRequest {
+  bool dry_run = 1;
+}
+
+message MigrateZKDatasetMetadataStoreToEtcdResponse {
+  // dataset that was migrated to etcd
+  repeated DatasetMetadata dataset_metadata = 1;
+  string status = 2;
 }

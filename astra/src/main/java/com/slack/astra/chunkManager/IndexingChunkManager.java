@@ -67,6 +67,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private final Client etcdClient;
   private final SearchContext searchContext;
   private final AstraConfigs.IndexerConfig indexerConfig;
+  private final AstraConfigs.LuceneConfig luceneConfig;
   private final AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private ReadWriteChunk<T> activeChunk;
 
@@ -125,6 +126,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       Client etcdClient,
       SearchContext searchContext,
       AstraConfigs.IndexerConfig indexerConfig,
+      AstraConfigs.LuceneConfig luceneConfig,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig) {
 
     ensureNonNullString(dataDirectory, "The data directory shouldn't be empty");
@@ -144,6 +146,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     this.etcdClient = etcdClient;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
+    this.luceneConfig = luceneConfig;
     this.metadataStoreConfig = metadataStoreConfig;
 
     stopIngestion = true;
@@ -264,8 +267,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     if (activeChunk == null) {
       @SuppressWarnings("unchecked")
       LogStore logStore =
-          LuceneIndexStoreImpl.makeLogStore(
-              dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
+          LuceneIndexStoreImpl.makeLogStore(dataDirectory, luceneConfig, meterRegistry);
 
       chunkRollOverStrategy.setActiveChunkDirectory(logStore.getDirectory());
 
@@ -456,6 +458,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       AsyncCuratorFramework curatorFramework,
       Client etcdClient,
       AstraConfigs.IndexerConfig indexerConfig,
+      AstraConfigs.LuceneConfig luceneConfig,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       BlobStore blobStore,
       AstraConfigs.S3Config s3Config) {
@@ -474,6 +477,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
         etcdClient,
         SearchContext.fromConfig(indexerConfig.getServerConfig()),
         indexerConfig,
+        luceneConfig,
         metadataStoreConfig);
   }
 }

@@ -11,6 +11,7 @@ import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.JsonUtil;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,7 +57,18 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   public LogIndexSearcherImpl(
       AstraSearcherManager astraSearcherManager,
       ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
-    this.openSearchAdapter = new OpenSearchAdapter(chunkSchema);
+    this(astraSearcherManager, chunkSchema, null);
+  }
+
+  public LogIndexSearcherImpl(
+      AstraSearcherManager astraSearcherManager,
+      ConcurrentHashMap<String, LuceneFieldDef> chunkSchema,
+      AstraConfigs.LuceneConfig luceneConfig) {
+    if (luceneConfig != null) {
+      this.openSearchAdapter = new OpenSearchAdapter(chunkSchema, luceneConfig);
+    } else {
+      this.openSearchAdapter = new OpenSearchAdapter(chunkSchema);
+    }
     this.refreshListener =
         new ReferenceManager.RefreshListener() {
           @Override

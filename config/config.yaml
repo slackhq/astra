@@ -1,13 +1,14 @@
 nodeRoles: [${NODE_ROLES:-QUERY,INDEX,CACHE,MANAGER,RECOVERY,PREPROCESSOR}]
 
+luceneConfig:
+  commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
+  refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
+  enableFullTextSearch: ${INDEXER_ENABLE_FULL_TEXT_SEARCH:-false}
+
 indexerConfig:
   maxMessagesPerChunk: ${INDEXER_MAX_MESSAGES_PER_CHUNK:-100000}
   maxBytesPerChunk: ${INDEXER_MAX_BYTES_PER_CHUNK:-1000000}
   maxTimePerChunkSeconds: ${INDEXER_MAX_TIME_PER_CHUNK_SECONDS:-5400}
-  luceneConfig:
-    commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
-    refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
-    enableFullTextSearch: ${INDEXER_ENABLE_FULL_TEXT_SEARCH:-false}
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
   maxOffsetDelayMessages: ${INDEXER_MAX_OFFSET_DELAY_MESSAGES:-10000000}
