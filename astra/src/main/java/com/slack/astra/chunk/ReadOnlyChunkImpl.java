@@ -378,12 +378,13 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       setAssignmentState(
           getCacheNodeAssignment(), Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
       LOG.error(
-          "Error handling chunk assignment for assignment: {}, snapshot id: {}, snapshot size: {}, replicaId: {}, replicaSet: {}",
+          "Error handling chunk assignment for assignment: {}, snapshot id: {}, snapshot size: {}, replicaId: {}, replicaSet: {}, cacheNodeId: {}",
           assignment.assignmentId,
           assignment.snapshotId,
           assignment.snapshotSize,
           assignment.replicaId,
           assignment.replicaSet,
+          assignment.cacheNodeId,
           e);
       assignmentTimer.stop(chunkAssignmentTimerFailure);
     } finally {
