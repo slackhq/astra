@@ -153,6 +153,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                       } catch (OutOfMemoryError oom) {
                         LOG.error("OutOfMemoryError in chunk query - terminating process", oom);
                         new RuntimeHalterImpl().handleFatal(oom);
+                        throw oom;
                       } catch (Exception err) {
                         if (err instanceof IllegalArgumentException) {
                           throw err;
