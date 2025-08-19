@@ -135,8 +135,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                           if (throwable instanceof OutOfMemoryError) {
                             LOG.error("OutOfMemoryError in chunk query - terminating process", throwable);
                             new RuntimeHalterImpl().handleFatal(throwable);
-                          }
-                          if (throwable instanceof IllegalArgumentException) {
+                          } else if (throwable instanceof IllegalArgumentException) {
                             // We catch IllegalArgumentException ( and any other exception that
                             // represents a parse failure ) and instead of returning an empty
                             // result we throw back an error to the user
