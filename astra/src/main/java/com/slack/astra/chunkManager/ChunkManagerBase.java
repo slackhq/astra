@@ -24,6 +24,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+
+import com.slack.astra.util.RuntimeHalterImpl;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -130,6 +132,10 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                             .state()
                             .equals(StructuredTaskScope.Subtask.State.FAILED)) {
                           Throwable throwable = searchResultSubtask.exception();
+                          if (throwable instanceof OutOfMemoryError) {
+                            LOG.error("OutOfMemoryError in chunk query - terminating process", throwable);
+                            new RuntimeHalterImpl().handleFatal(throwable);
+                          }
                           if (throwable instanceof IllegalArgumentException) {
                             // We catch IllegalArgumentException ( and any other exception that
                             // represents a parse failure ) and instead of returning an empty
@@ -145,6 +151,9 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                         hardError.setHardFailedChunkIds(hardFailedChunkIds);
                         hardError.setSoftFailedChunkIds(softFailedChunkIds);
                         return hardError;
+                      } catch (OutOfMemoryError oom) {
+                        LOG.error("OutOfMemoryError in chunk query - terminating process", oom);
+                        new RuntimeHalterImpl().handleFatal(oom);
                       } catch (Exception err) {
                         if (err instanceof IllegalArgumentException) {
                           throw err;
