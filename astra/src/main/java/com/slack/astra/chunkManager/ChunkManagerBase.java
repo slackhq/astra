@@ -11,6 +11,7 @@ import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.logstore.search.SearchResultAggregator;
 import com.slack.astra.logstore.search.SearchResultAggregatorImpl;
 import com.slack.astra.metadata.schema.FieldType;
+import com.slack.astra.util.RuntimeHalterImpl;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -24,8 +25,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-
-import com.slack.astra.util.RuntimeHalterImpl;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -133,7 +132,8 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                             .equals(StructuredTaskScope.Subtask.State.FAILED)) {
                           Throwable throwable = searchResultSubtask.exception();
                           if (throwable instanceof OutOfMemoryError) {
-                            LOG.error("OutOfMemoryError in chunk query - terminating process", throwable);
+                            LOG.error(
+                                "OutOfMemoryError in chunk query - terminating process", throwable);
                             new RuntimeHalterImpl().handleFatal(throwable);
                           } else if (throwable instanceof IllegalArgumentException) {
                             // We catch IllegalArgumentException ( and any other exception that
