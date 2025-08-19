@@ -275,7 +275,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
       String s3crc32 = blobStore.getFileCRC32(s3Path);
       if (s3crc32 == null || s3crc32.isEmpty()) {
-        LOG.error(
+        LOG.info(
             String.format(
                 "No CRC32 checksum found for file %s in S3 for snapshot %s",
                 s3Path, snapshotMetadata.toString()));
