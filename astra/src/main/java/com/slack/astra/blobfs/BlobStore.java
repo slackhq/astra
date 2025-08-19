@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,6 +31,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -461,6 +463,22 @@ public class BlobStore {
       return !listRes.contents().isEmpty();
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException("Failed to check if S3 path exists", e);
+    }
+  }
+
+  /*
+   * Fetch the crc32 checksum of a file in the object store by S3 key (full path in the bucket).
+   */
+  public String getFileCRC32(String key) {
+    CompletableFuture<HeadObjectResponse> head =
+        s3AsyncClient
+            .headObject(HeadObjectRequest.builder().bucket(bucketName).key(key).build())
+            .toCompletableFuture();
+    try {
+      HeadObjectResponse response = head.get();
+      return response.checksumCRC32();
+    } catch (ExecutionException | InterruptedException e) {
+      throw new RuntimeException("Failed to get CRC32 checksum for file: " + key, e);
     }
   }
 }
