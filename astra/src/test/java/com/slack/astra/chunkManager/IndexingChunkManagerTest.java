@@ -27,6 +27,12 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.catchThrowable;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -47,9 +53,9 @@ import com.slack.astra.chunkrollover.MessageSizeOrCountBasedRolloverStrategy;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.AlreadyClosedLogIndexSearcherImpl;
 import com.slack.astra.logstore.search.AstraLocalQueryService;
-import com.slack.astra.logstore.search.IllegalArgumentLogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
+import com.slack.astra.logstore.search.IllegalArgumentLogIndexSearcherImpl;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.schema.FieldType;
@@ -65,6 +71,7 @@ import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.util.QueryBuilderUtil;
+import com.slack.astra.util.RuntimeHalterImpl;
 import com.slack.service.murron.trace.Trace;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
@@ -96,6 +103,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedConstruction;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 public class IndexingChunkManagerTest {
@@ -1680,5 +1688,44 @@ public class IndexingChunkManagerTest {
         await().until(() -> getValue(LIVE_BYTES_INDEXED, metricsRegistry), (value) -> value == 0);
       }
     }
+  }
+  @Test
+  public void testOOMInStructuredTaskScopeTriggersRuntimeHalter() throws Exception {
+    final Instant creationTime = Instant.now();
+    ChunkRollOverStrategy chunkRollOverStrategy =
+            new DiskOrMessageCountBasedRolloverStrategy(
+                    metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
+
+    final String CHUNK_DATA_PREFIX = "testData";
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
+
+    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
+    int actualChunkSize = 0;
+    int offset = 1;
+    for (Trace.Span m : messages) {
+      final int msgSize = m.toString().length();
+      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      actualChunkSize += msgSize;
+      offset++;
+    }
+    chunkManager.getActiveChunk().commit();
+
+    Chunk<LogMessage> mockChunk = mock(Chunk.class);
+    when(mockChunk.query(any())).thenThrow(OutOfMemoryError.class);
+
+    SearchQuery searchQuery =
+            new SearchQuery(
+                    MessageUtil.TEST_DATASET_NAME,
+                    0,
+                    MAX_TIME,
+                    10,
+                    Collections.emptyList(),
+                    QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+                    null,
+                    createGenericDateHistogramAggregatorFactoriesBuilder());
+    
+    // Assert that OutOfMemoryError is thrown
+    assertThatThrownBy(() -> chunkManager.query(searchQuery, Duration.ofMillis(3000)))
+        .isInstanceOf(OutOfMemoryError.class);
   }
 }
