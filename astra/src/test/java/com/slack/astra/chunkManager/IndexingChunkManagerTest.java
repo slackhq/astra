@@ -29,11 +29,12 @@ import static org.assertj.core.api.AssertionsForClassTypes.catchThrowable;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isA;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -92,6 +93,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -1691,22 +1693,11 @@ public class IndexingChunkManagerTest {
     }
   }
   @Test
-  public void testOOMInStructuredTaskScopeTriggersRuntimeHalter() throws Exception {
+  public void testQueryOOMInStructuredTaskScopeFailed() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
             new DiskOrMessageCountBasedRolloverStrategy(
                     metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
     initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
-
-    List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
-    int actualChunkSize = 0;
-    int offset = 1;
-    for (Trace.Span m : messages) {
-      final int msgSize = m.toString().length();
-      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
-      actualChunkSize += msgSize;
-      offset++;
-    }
-    chunkManager.getActiveChunk().commit();
 
     Chunk<LogMessage> mockChunk = mock(Chunk.class);
     when(mockChunk.id()).thenReturn("oom-chunk");
@@ -1730,4 +1721,45 @@ public class IndexingChunkManagerTest {
       assertThat(res).isNotNull();
     }
   }
+
+  @Test
+  public void testQueryMapperOOM() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+            new DiskOrMessageCountBasedRolloverStrategy(
+                    metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
+
+    Chunk<LogMessage> mockTimeoutChunk = mock(Chunk.class);
+    when(mockTimeoutChunk.id()).thenReturn("timeout");
+    when(mockTimeoutChunk.query(any())).thenAnswer(inv -> {
+      Thread.sleep(1_000); // ensure it's still running when joinUntil returns
+      return mock(SearchResult.class);
+    });
+    chunkManager.chunkMap.put("timeout", mockTimeoutChunk);
+
+    SearchQuery searchQuery =
+            new SearchQuery(
+                    MessageUtil.TEST_DATASET_NAME,
+                    0,
+                    MAX_TIME,
+                    10,
+                    List.of("timeout"),
+                    QueryBuilderUtil.generateQueryBuilder("Message*", 0L, MAX_TIME),
+                    null,
+                    createGenericDateHistogramAggregatorFactoriesBuilder());
+
+    try (org.mockito.MockedStatic<SearchResult> staticResults = org.mockito.Mockito.mockStatic(SearchResult.class);
+         org.mockito.MockedConstruction<RuntimeHalterImpl> mockHalterConstructor =
+                 org.mockito.Mockito.mockConstruction(RuntimeHalterImpl.class)) {
+
+      staticResults.when(SearchResult::error)
+              .thenThrow(new OutOfMemoryError("simulated OOM in SearchResult.error()"));
+
+      assertThatThrownBy(() -> chunkManager.query(searchQuery, Duration.ZERO))
+              .isInstanceOf(OutOfMemoryError.class);
+
+      verify(mockHalterConstructor.constructed().get(0)).handleFatal(isA(OutOfMemoryError.class));
+    }
+  }
+
 }
