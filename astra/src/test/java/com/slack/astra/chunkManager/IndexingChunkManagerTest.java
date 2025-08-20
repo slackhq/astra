@@ -28,6 +28,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.catchThrowable;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -1691,12 +1692,9 @@ public class IndexingChunkManagerTest {
   }
   @Test
   public void testOOMInStructuredTaskScopeTriggersRuntimeHalter() throws Exception {
-    final Instant creationTime = Instant.now();
     ChunkRollOverStrategy chunkRollOverStrategy =
             new DiskOrMessageCountBasedRolloverStrategy(
                     metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
-
-    final String CHUNK_DATA_PREFIX = "testData";
     initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     List<Trace.Span> messages = SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now());
@@ -1711,7 +1709,9 @@ public class IndexingChunkManagerTest {
     chunkManager.getActiveChunk().commit();
 
     Chunk<LogMessage> mockChunk = mock(Chunk.class);
+    when(mockChunk.id()).thenReturn("oom-chunk");
     when(mockChunk.query(any())).thenThrow(OutOfMemoryError.class);
+    chunkManager.chunkMap.put("oom-chunk", mockChunk);
 
     SearchQuery searchQuery =
             new SearchQuery(
@@ -1719,13 +1719,15 @@ public class IndexingChunkManagerTest {
                     0,
                     MAX_TIME,
                     10,
-                    Collections.emptyList(),
+                    List.of("oom-chunk"),
                     QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                     null,
                     createGenericDateHistogramAggregatorFactoriesBuilder());
-    
-    // Assert that OutOfMemoryError is thrown
-    assertThatThrownBy(() -> chunkManager.query(searchQuery, Duration.ofMillis(3000)))
-        .isInstanceOf(OutOfMemoryError.class);
+    try (MockedConstruction<RuntimeHalterImpl> mockHalterConstructor = mockConstruction(RuntimeHalterImpl.class)) {
+      SearchResult<LogMessage> res = chunkManager.query(searchQuery, Duration.ofSeconds(1));
+      RuntimeHalterImpl mockHalter = mockHalterConstructor.constructed().get(0);
+      verify(mockHalter).handleFatal(isA(OutOfMemoryError.class));
+      assertThat(res).isNotNull();
+    }
   }
 }
