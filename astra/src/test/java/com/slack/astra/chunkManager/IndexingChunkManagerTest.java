@@ -1709,7 +1709,7 @@ public class IndexingChunkManagerTest {
             MAX_TIME,
             10,
             List.of("oom-chunk"),
-            QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+            QueryBuilderUtil.generateQueryBuilder("Message103", 0L, MAX_TIME),
             null,
             createGenericDateHistogramAggregatorFactoriesBuilder());
     try (MockedConstruction<RuntimeHalterImpl> mockHalterConstructor =
@@ -1745,7 +1745,7 @@ public class IndexingChunkManagerTest {
             MAX_TIME,
             10,
             List.of("timeout"),
-            QueryBuilderUtil.generateQueryBuilder("Message*", 0L, MAX_TIME),
+            QueryBuilderUtil.generateQueryBuilder("Message104", 0L, MAX_TIME),
             null,
             createGenericDateHistogramAggregatorFactoriesBuilder());
 
