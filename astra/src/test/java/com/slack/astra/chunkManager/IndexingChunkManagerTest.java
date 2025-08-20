@@ -29,12 +29,10 @@ import static org.assertj.core.api.AssertionsForClassTypes.catchThrowable;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isA;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.mockConstruction;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -55,9 +53,9 @@ import com.slack.astra.chunkrollover.MessageSizeOrCountBasedRolloverStrategy;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.search.AlreadyClosedLogIndexSearcherImpl;
 import com.slack.astra.logstore.search.AstraLocalQueryService;
+import com.slack.astra.logstore.search.IllegalArgumentLogIndexSearcherImpl;
 import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
-import com.slack.astra.logstore.search.IllegalArgumentLogIndexSearcherImpl;
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.schema.FieldType;
@@ -93,7 +91,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -1692,11 +1689,12 @@ public class IndexingChunkManagerTest {
       }
     }
   }
+
   @Test
   public void testQueryOOMInStructuredTaskScopeFailed() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
-            new DiskOrMessageCountBasedRolloverStrategy(
-                    metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
+        new DiskOrMessageCountBasedRolloverStrategy(
+            metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
     initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     Chunk<LogMessage> mockChunk = mock(Chunk.class);
@@ -1705,16 +1703,17 @@ public class IndexingChunkManagerTest {
     chunkManager.chunkMap.put("oom-chunk", mockChunk);
 
     SearchQuery searchQuery =
-            new SearchQuery(
-                    MessageUtil.TEST_DATASET_NAME,
-                    0,
-                    MAX_TIME,
-                    10,
-                    List.of("oom-chunk"),
-                    QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
-                    null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder());
-    try (MockedConstruction<RuntimeHalterImpl> mockHalterConstructor = mockConstruction(RuntimeHalterImpl.class)) {
+        new SearchQuery(
+            MessageUtil.TEST_DATASET_NAME,
+            0,
+            MAX_TIME,
+            10,
+            List.of("oom-chunk"),
+            QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
+            null,
+            createGenericDateHistogramAggregatorFactoriesBuilder());
+    try (MockedConstruction<RuntimeHalterImpl> mockHalterConstructor =
+        mockConstruction(RuntimeHalterImpl.class)) {
       SearchResult<LogMessage> res = chunkManager.query(searchQuery, Duration.ofSeconds(1));
       RuntimeHalterImpl mockHalter = mockHalterConstructor.constructed().get(0);
       verify(mockHalter).handleFatal(isA(OutOfMemoryError.class));
@@ -1725,41 +1724,44 @@ public class IndexingChunkManagerTest {
   @Test
   public void testQueryMapperOOM() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
-            new DiskOrMessageCountBasedRolloverStrategy(
-                    metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
+        new DiskOrMessageCountBasedRolloverStrategy(
+            metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
     initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
 
     Chunk<LogMessage> mockTimeoutChunk = mock(Chunk.class);
     when(mockTimeoutChunk.id()).thenReturn("timeout");
-    when(mockTimeoutChunk.query(any())).thenAnswer(inv -> {
-      Thread.sleep(1_000); // ensure it's still running when joinUntil returns
-      return mock(SearchResult.class);
-    });
+    when(mockTimeoutChunk.query(any()))
+        .thenAnswer(
+            inv -> {
+              Thread.sleep(1_000); // ensure it's still running when joinUntil returns
+              return mock(SearchResult.class);
+            });
     chunkManager.chunkMap.put("timeout", mockTimeoutChunk);
 
     SearchQuery searchQuery =
-            new SearchQuery(
-                    MessageUtil.TEST_DATASET_NAME,
-                    0,
-                    MAX_TIME,
-                    10,
-                    List.of("timeout"),
-                    QueryBuilderUtil.generateQueryBuilder("Message*", 0L, MAX_TIME),
-                    null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder());
+        new SearchQuery(
+            MessageUtil.TEST_DATASET_NAME,
+            0,
+            MAX_TIME,
+            10,
+            List.of("timeout"),
+            QueryBuilderUtil.generateQueryBuilder("Message*", 0L, MAX_TIME),
+            null,
+            createGenericDateHistogramAggregatorFactoriesBuilder());
 
-    try (org.mockito.MockedStatic<SearchResult> staticResults = org.mockito.Mockito.mockStatic(SearchResult.class);
-         org.mockito.MockedConstruction<RuntimeHalterImpl> mockHalterConstructor =
-                 org.mockito.Mockito.mockConstruction(RuntimeHalterImpl.class)) {
+    try (org.mockito.MockedStatic<SearchResult> staticResults =
+            org.mockito.Mockito.mockStatic(SearchResult.class);
+        org.mockito.MockedConstruction<RuntimeHalterImpl> mockHalterConstructor =
+            org.mockito.Mockito.mockConstruction(RuntimeHalterImpl.class)) {
 
-      staticResults.when(SearchResult::error)
-              .thenThrow(new OutOfMemoryError("simulated OOM in SearchResult.error()"));
+      staticResults
+          .when(SearchResult::error)
+          .thenThrow(new OutOfMemoryError("simulated OOM in SearchResult.error()"));
 
       assertThatThrownBy(() -> chunkManager.query(searchQuery, Duration.ZERO))
-              .isInstanceOf(OutOfMemoryError.class);
+          .isInstanceOf(OutOfMemoryError.class);
 
       verify(mockHalterConstructor.constructed().get(0)).handleFatal(isA(OutOfMemoryError.class));
     }
   }
-
 }
