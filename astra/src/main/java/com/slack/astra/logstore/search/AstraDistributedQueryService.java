@@ -1,7 +1,6 @@
 package com.slack.astra.logstore.search;
 
 import static com.slack.astra.chunk.ChunkInfo.containsDataInTimeRange;
-import static com.slack.astra.logstore.search.AstraQueryFlags.ASTRA_NEXT_GEN_DISTRIBUTED_QUERIES;
 
 import brave.ScopedSpan;
 import brave.Tracing;
@@ -64,6 +63,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   private final MeterRegistry meterRegistry;
 
   public static final String ASTRA_ENABLE_QUERY_GATING_FLAG = "astra.enableQueryGating";
+  public static final String ASTRA_ENABLE_DISTRIBUTED_QUERY_V2 = "astra.enableDistributedQueryV2";
 
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
@@ -486,13 +486,10 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
   @Override
   public AstraSearch.SearchResult doSearch(final AstraSearch.SearchRequest request) {
-    Pair<Boolean, String> useNewQuery =
-        AstraQueryFlags.isQueryFlagEnabled(request.getQuery(), ASTRA_NEXT_GEN_DISTRIBUTED_QUERIES);
-    if (useNewQuery.getKey()) {
-      AstraSearch.SearchRequest newSearchRequest =
-          AstraSearch.SearchRequest.newBuilder(request).setQuery(useNewQuery.getValue()).build();
+    boolean useNewQuery = Boolean.getBoolean(ASTRA_ENABLE_QUERY_GATING_FLAG);
+    if (useNewQuery) {
       try {
-        return this.newDoSearch(newSearchRequest);
+        return this.newDoSearch(request);
       } catch (Exception e) {
         LOG.error("Something went wrong:", e);
         throw new RuntimeException(e);
