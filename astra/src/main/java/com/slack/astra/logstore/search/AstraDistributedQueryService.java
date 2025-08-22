@@ -486,7 +486,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
 
   @Override
   public AstraSearch.SearchResult doSearch(final AstraSearch.SearchRequest request) {
-    boolean useNewQuery = Boolean.getBoolean(ASTRA_ENABLE_QUERY_GATING_FLAG);
+    boolean useNewQuery = Boolean.getBoolean(ASTRA_ENABLE_DISTRIBUTED_QUERY_V2);
     if (useNewQuery) {
       try {
         return this.newDoSearch(request);

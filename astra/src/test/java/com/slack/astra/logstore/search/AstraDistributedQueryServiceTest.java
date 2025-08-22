@@ -167,6 +167,8 @@ public class AstraDistributedQueryServiceTest {
     cache2SearchContext = new SearchContext("cache_host2", 20001);
     cache3SearchContext = new SearchContext("cache_host3", 20002);
     cache4SearchContext = new SearchContext("cache_host4", 20003);
+
+    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
   }
 
   @AfterEach
