@@ -18,7 +18,7 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.8</protobuf.version>
-        <grpc.version>1.74.0</grpc.version>
+        <grpc.version>1.75.0</grpc.version>
         <micrometer.version>1.15.3</micrometer.version>
         <armeria.version>1.33.1</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
@@ -29,7 +29,7 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
         <log4j.version>2.25.1</log4j.version>
-        <aws.sdk.version>2.32.24</aws.sdk.version>
+        <aws.sdk.version>2.32.29</aws.sdk.version>
         <error.prone.version>2.41.0</error.prone.version>
         <junit.jupiter.version>5.13.4</junit.jupiter.version>
         <jetcd.version>0.8.5</jetcd.version>
@@ -358,7 +358,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.38.9</version>
+            <version>0.38.11</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
