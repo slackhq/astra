@@ -514,11 +514,15 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
       Instant expireOlderThan,
       Map<String, ReplicaMetadata> replicaMetadataBySnapshotId,
       CacheNodeAssignment cacheNodeAssignment) {
-    return cacheNodeAssignment.state.equals(
-            Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
-        && replicaMetadataBySnapshotId.containsKey(cacheNodeAssignment.snapshotId)
-        && replicaMetadataBySnapshotId.get(cacheNodeAssignment.snapshotId).expireAfterEpochMs
-            < expireOlderThan.toEpochMilli();
+    boolean shouldEvict =
+        cacheNodeAssignment.state.equals(Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
+            && replicaMetadataBySnapshotId.containsKey(cacheNodeAssignment.snapshotId)
+            && replicaMetadataBySnapshotId.get(cacheNodeAssignment.snapshotId).expireAfterEpochMs
+                < expireOlderThan.toEpochMilli();
+    if (shouldEvict) {
+      LOG.info("Should evict replica " + cacheNodeAssignment.snapshotId);
+    }
+    return shouldEvict;
   }
 
   private void assignmentListener(CacheNodeAssignment assignment) {

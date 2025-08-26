@@ -581,8 +581,8 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         partition,
         (p1) -> {
           String path = String.format("%s/%s", storeFolder, p1);
-          LOG.debug(
-              "Creating new metadata store for partition - {}, at path - {}", partition, path);
+          LOG.info(
+              "Creating new etcd metadata store for partition - {}, at path - {}", partition, path);
 
           EtcdMetadataStore<T> newStore =
               new EtcdMetadataStore<>(

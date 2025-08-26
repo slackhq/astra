@@ -341,8 +341,8 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
         partition,
         (p1) -> {
           String path = String.format("%s/%s", storeFolder, p1);
-          LOG.debug(
-              "Creating new metadata store for partition - {}, at path - {}", partition, path);
+          LOG.info(
+              "Creating new ZK metadata store for partition - {}, at path - {}", partition, path);
 
           ZookeeperMetadataStore<T> newStore =
               new ZookeeperMetadataStore<>(
