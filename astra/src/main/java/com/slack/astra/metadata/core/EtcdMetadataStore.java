@@ -210,7 +210,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         sharedLeaseId =
             etcdClient
                 .getLeaseClient()
-                .grant(ephemeralTtlMs)
+                .grant(ephemeralTtlMs / 1000) // grant ttl is in seconds
                 .get(ephemeralTtlMs, TimeUnit.MILLISECONDS)
                 .getID();
       } catch (InterruptedException | ExecutionException | TimeoutException e) {

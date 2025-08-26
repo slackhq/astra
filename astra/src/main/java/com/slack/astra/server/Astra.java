@@ -190,6 +190,7 @@ public class Astra {
               curatorFramework,
               etcdClient,
               astraConfig.getIndexerConfig(),
+              astraConfig.getLuceneConfig(),
               astraConfig.getMetadataStoreConfig(),
               blobStore,
               astraConfig.getS3Config());
@@ -294,7 +295,8 @@ public class Astra {
               astraConfig.getMetadataStoreConfig(),
               astraConfig.getS3Config(),
               astraConfig.getCacheConfig(),
-              blobStore);
+              blobStore,
+              astraConfig.getLuceneConfig());
       services.add(chunkManager);
 
       HpaMetricMetadataStore hpaMetricMetadataStore =

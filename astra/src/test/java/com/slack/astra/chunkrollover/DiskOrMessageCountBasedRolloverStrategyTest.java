@@ -196,6 +196,11 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             etcdClient,
             searchContext,
             AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100),
+            AstraConfigs.LuceneConfig.newBuilder()
+                .setCommitDurationSecs(10)
+                .setRefreshDurationSecs(10)
+                .setEnableFullTextSearch(true)
+                .build(),
             metadataStoreConfig);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);

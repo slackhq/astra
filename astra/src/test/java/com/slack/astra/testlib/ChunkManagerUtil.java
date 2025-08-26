@@ -176,6 +176,11 @@ public class ChunkManagerUtil<T> {
             etcdClient,
             searchContext,
             indexerConfig,
+            AstraConfigs.LuceneConfig.newBuilder()
+                .setCommitDurationSecs(10)
+                .setRefreshDurationSecs(10)
+                .setEnableFullTextSearch(true)
+                .build(),
             metadataStoreConfig);
   }
 
