@@ -172,6 +172,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 return etcdClient
                     .getKVClient()
                     .get(prefix, GetOption.builder().isPrefix(true).build())
+                    .orTimeout(etcdConfig.getOperationsTimeoutMs(), TimeUnit.MILLISECONDS)
                     .thenApplyAsync(
                         childResponse -> {
                           List<String> children = new ArrayList<>();

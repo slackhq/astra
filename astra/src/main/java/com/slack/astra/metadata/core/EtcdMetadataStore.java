@@ -301,6 +301,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return etcdClient
           .getKVClient()
           .get(key)
+          .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
           .thenComposeAsync(
               getResponse -> {
                 if (!getResponse.getKvs().isEmpty()) {
@@ -317,6 +318,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   return etcdClient
                       .getKVClient()
                       .put(key, value)
+                      .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
                       .thenApplyAsync(
                           putResponse -> {
                             // Always update the cache for consistency
@@ -337,6 +339,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   return etcdClient
                       .getKVClient()
                       .put(key, value, putOption)
+                      .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
                       .thenApplyAsync(
                           putResponse -> {
                             LOG.debug(
@@ -406,6 +409,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     return etcdClient
         .getKVClient()
         .get(key)
+        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
         .thenApplyAsync(
             getResponse -> {
               if (getResponse.getKvs().isEmpty()) {
@@ -482,6 +486,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     return etcdClient
         .getKVClient()
         .get(key)
+        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
         .thenApplyAsync(getResponse -> !getResponse.getKvs().isEmpty());
   }
 
@@ -529,6 +534,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return etcdClient
           .getKVClient()
           .get(key)
+          .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
           .thenComposeAsync(
               getResponse -> {
                 long existingLeaseId = 0;
@@ -603,6 +609,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     return etcdClient
         .getKVClient()
         .delete(key)
+        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
         .thenAcceptAsync(
             deleteResponse -> {
               // Note: deleteResponse.getDeleted() tells us how many keys were deleted
@@ -690,6 +697,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     return etcdClient
         .getKVClient()
         .get(prefix, getOption)
+        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
         .thenApplyAsync(
             getResponse -> {
               List<T> nodes = new ArrayList<>();

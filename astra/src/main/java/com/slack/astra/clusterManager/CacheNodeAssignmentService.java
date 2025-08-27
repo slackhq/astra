@@ -42,7 +42,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.crt.Log;
 
 /**
  * Service responsible for managing the assignment & cleanup of replicas to cache nodes.
@@ -523,7 +522,9 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     if (shouldEvict) {
       LOG.info("Should evict replica " + cacheNodeAssignment.snapshotId);
     } else {
-      LOG.info("Should NOT evict replica with expireAfterMs of %s" + replicaMetadataBySnapshotId.get(cacheNodeAssignment.snapshotId).expireAfterEpochMs);
+      LOG.info(
+          "Should NOT evict replica with expireAfterMs of %s"
+              + replicaMetadataBySnapshotId.get(cacheNodeAssignment.snapshotId).expireAfterEpochMs);
     }
     return shouldEvict;
   }
