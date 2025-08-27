@@ -12,8 +12,6 @@ public class Node {
   private String operation;
   private String resource;
 
-  private Set<Node> children = Collections.emptySet();
-
   public Node(String id, String serviceName) {
     this.id = id;
     this.serviceName = serviceName;
@@ -43,10 +41,6 @@ public class Node {
     return this.resource;
   }
 
-  public Set<Node> getChildren() {
-    return this.children;
-  }
-
   public void setApp(String app) {
     this.app = app;
   }
@@ -61,17 +55,6 @@ public class Node {
 
   public void setResource(String resource) {
     this.resource = resource;
-  }
-
-  /** Adds the child IFF it isn't already a child. */
-  Node addChild(Node child) {
-    if (child == null) throw new NullPointerException("child == null");
-    if (child == this) throw new IllegalArgumentException("circular dependency on " + this);
-
-    if (children.equals(Collections.emptyList())) children = new HashSet<Node>();
-
-    children.add(child);
-    return this;
   }
 
   @Override
