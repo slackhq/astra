@@ -1,28 +1,28 @@
 package com.slack.astra.zipkinApi;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-
 public class Node {
   private final String id;
-  private final String serviceName;
-  private String app;
-  private String namespace;
-  private String operation;
-  private String resource;
+  private final String app;
+  private final String namespace;
+  private final String operation;
+  private final String resource;
 
-  public Node(String id, String serviceName) {
-    this.id = id;
-    this.serviceName = serviceName;
+  public Node(String app, String namespace, String operation, String resource) {
+    if (app == null) throw new NullPointerException("app == null");
+    if (namespace == null) throw new NullPointerException("namespace == null");
+    if (operation == null) throw new NullPointerException("operation == null");
+    if (resource == null) throw new NullPointerException("resource == null");
+
+    this.app = app;
+    this.namespace = namespace;
+    this.operation = operation;
+    this.resource = resource;
+
+    this.id = this.app + ":" + this.namespace + ":" + this.resource;
   }
 
   public String getId() {
     return this.id;
-  }
-
-  public String getServiceName() {
-    return this.serviceName;
   }
 
   public String getApp() {
@@ -41,29 +41,12 @@ public class Node {
     return this.resource;
   }
 
-  public void setApp(String app) {
-    this.app = app;
-  }
-
-  public void setNamespace(String namespace) {
-    this.namespace = namespace;
-  }
-
-  public void setOperation(String operation) {
-    this.operation = operation;
-  }
-
-  public void setResource(String resource) {
-    this.resource = resource;
-  }
-
   @Override
   public boolean equals(Object o) {
     if (o == this) return true;
     if (!(o instanceof Node)) return false;
     Node that = (Node) o;
     return this.id.equals(that.getId())
-        && this.serviceName.equals(that.getServiceName())
         && java.util.Objects.equals(this.app, that.getApp())
         && java.util.Objects.equals(this.namespace, that.getNamespace())
         && java.util.Objects.equals(this.operation, that.getOperation())
