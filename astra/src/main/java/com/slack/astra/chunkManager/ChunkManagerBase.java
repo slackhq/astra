@@ -11,6 +11,7 @@ import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.logstore.search.SearchResultAggregator;
 import com.slack.astra.logstore.search.SearchResultAggregatorImpl;
 import com.slack.astra.metadata.schema.FieldType;
+import com.slack.astra.util.RuntimeHalterImpl;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -130,7 +131,11 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                             .state()
                             .equals(StructuredTaskScope.Subtask.State.FAILED)) {
                           Throwable throwable = searchResultSubtask.exception();
-                          if (throwable instanceof IllegalArgumentException) {
+                          if (throwable instanceof OutOfMemoryError) {
+                            LOG.error(
+                                "OutOfMemoryError in chunk query - terminating process", throwable);
+                            new RuntimeHalterImpl().handleFatal(throwable);
+                          } else if (throwable instanceof IllegalArgumentException) {
                             // We catch IllegalArgumentException ( and any other exception that
                             // represents a parse failure ) and instead of returning an empty
                             // result we throw back an error to the user
@@ -145,6 +150,10 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                         hardError.setHardFailedChunkIds(hardFailedChunkIds);
                         hardError.setSoftFailedChunkIds(softFailedChunkIds);
                         return hardError;
+                      } catch (OutOfMemoryError oom) {
+                        LOG.error("OutOfMemoryError in chunk query - terminating process", oom);
+                        new RuntimeHalterImpl().handleFatal(oom);
+                        throw oom;
                       } catch (Exception err) {
                         if (err instanceof IllegalArgumentException) {
                           throw err;
