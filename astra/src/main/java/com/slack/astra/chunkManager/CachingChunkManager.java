@@ -231,18 +231,22 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
           }
         } else {
           LOG.info(
-              "Chunk for assignment {} not exists in cache node {}, state: {}",
+              "Chunk for assignment {}, snapshot {}, not exists in cache node {}, state: {}",
               assignment.assignmentId,
+              assignment.snapshotId,
               cacheNodeId,
               assignment.state);
           if (assignment.state != Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING) {
             LOG.info(
-                "Encountered an new assignment with a non LOADING state, state: {}",
+                "Encountered an new assignment {}, snapshot {} with a non LOADING state, state: {}",
+                assignment.assignmentId,
+                assignment.snapshotId,
                 assignment.state);
           } else {
             LOG.info(
-                "Created new chunk for assignment {} in cache node {}",
+                "Created new chunk for assignment {}, snapshot {} in cache node {}",
                 assignment.assignmentId,
+                assignment.snapshotId,
                 cacheNodeId);
             ReadOnlyChunkImpl<T> newChunk =
                 new ReadOnlyChunkImpl<>(
