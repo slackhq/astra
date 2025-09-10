@@ -1,6 +1,5 @@
 package com.slack.astra.chunk;
 
-import static com.slack.astra.chunk.ChunkValidationUtils.getCRC32Checksum;
 import static com.slack.astra.chunk.ChunkValidationUtils.isChunkClean;
 import static com.slack.astra.chunkManager.CachingChunkManager.ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG;
 import static com.slack.astra.server.AstraConfig.DEFAULT_ZK_TIMEOUT_SECS;
@@ -32,12 +31,10 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -273,26 +270,27 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         return false;
       }
 
-//      String s3crc32 = blobStore.getFileCRC32(s3Path);
-//      if (s3crc32 == null || s3crc32.isEmpty()) {
-//        LOG.info(
-//            String.format(
-//                "No CRC32 checksum found for file %s in S3 for snapshot %s",
-//                s3Path, snapshotMetadata.toString()));
-//        continue;
-//      }
-//      byte[] decoded = Base64.getDecoder().decode(s3crc32);
-//      long s3Crc32 = ByteBuffer.wrap(decoded).getInt() & 0xFFFFFFFFL;
-//
-//      String localFilePath = dataDirectory.resolve(fileName).toString();
-//      long localCrc32 = getCRC32Checksum(localFilePath);
-//      if (s3Crc32 != localCrc32) {
-//        LOG.error(
-//            String.format(
-//                "CRC32 mismatch for file %s in S3 (%s) and local directory (%s) for snapshot %s",
-//                s3Path, s3Crc32, localCrc32, snapshotMetadata.toString()));
-//        return false;
-//      }
+      //      String s3crc32 = blobStore.getFileCRC32(s3Path);
+      //      if (s3crc32 == null || s3crc32.isEmpty()) {
+      //        LOG.info(
+      //            String.format(
+      //                "No CRC32 checksum found for file %s in S3 for snapshot %s",
+      //                s3Path, snapshotMetadata.toString()));
+      //        continue;
+      //      }
+      //      byte[] decoded = Base64.getDecoder().decode(s3crc32);
+      //      long s3Crc32 = ByteBuffer.wrap(decoded).getInt() & 0xFFFFFFFFL;
+      //
+      //      String localFilePath = dataDirectory.resolve(fileName).toString();
+      //      long localCrc32 = getCRC32Checksum(localFilePath);
+      //      if (s3Crc32 != localCrc32) {
+      //        LOG.error(
+      //            String.format(
+      //                "CRC32 mismatch for file %s in S3 (%s) and local directory (%s) for snapshot
+      // %s",
+      //                s3Path, s3Crc32, localCrc32, snapshotMetadata.toString()));
+      //        return false;
+      //      }
     }
     LOG.info(
         "No file mismatch found with snapshot id '{}' and local directory '{}', s3 files: {} local dir: {}",
