@@ -244,9 +244,10 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                 assignment.state);
           } else {
             LOG.info(
-                "Created new chunk for assignment {}, snapshot {} in cache node {}",
+                "Created new chunk for assignment {}, snapshot {}, assignment state {} in cache node {}",
                 assignment.assignmentId,
                 assignment.snapshotId,
+                assignment.state,
                 cacheNodeId);
             ReadOnlyChunkImpl<T> newChunk =
                 new ReadOnlyChunkImpl<>(
