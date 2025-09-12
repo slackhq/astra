@@ -289,7 +289,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
       if (USE_S3_STREAMING) {
         this.chunkSchema = ChunkSchema.deserializeBytes(blobStore.getSchema(chunkInfo.chunkId));
-        this.logSearcher = (LogIndexSearcher<T>) new LogIndexSearcherImpl(chunkSchema.fieldDefMap);
+        this.logSearcher =
+            (LogIndexSearcher<T>)
+                new LogIndexSearcherImpl(
+                    new AstraSearcherManager(chunkInfo.chunkId, blobStore),
+                    chunkSchema.fieldDefMap);
       } else {
         // get data directory
         dataDirectory =
