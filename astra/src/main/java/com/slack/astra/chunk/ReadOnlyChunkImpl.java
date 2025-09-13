@@ -617,8 +617,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private void cleanDirectory() {
     if (dataDirectory != null) {
       try {
-        //        FileUtils.cleanDirectory(dataDirectory.toFile());
-        //        FileUtils.deleteDirectory(dataDirectory.toFile());
+        FileUtils.cleanDirectory(dataDirectory.toFile());
+        FileUtils.deleteDirectory(dataDirectory.toFile());
       } catch (Exception e) {
         LOG.error("Error removing files {}", dataDirectory.toString(), e);
       }

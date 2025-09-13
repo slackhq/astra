@@ -44,7 +44,7 @@ public class S3AsyncUtil {
 
       // default to 5% of the heap size for the max crt off-heap or 1GiB (min for client)
       long jvmMaxHeapSizeBytes = Runtime.getRuntime().maxMemory();
-      long defaultCrtMemoryLimit = Math.max(Math.round(jvmMaxHeapSizeBytes * 0.05), 1073741824);
+      long defaultCrtMemoryLimit = Math.max(Math.round(jvmMaxHeapSizeBytes * 0.05), 6L * 1024 * 1024 * 1024);
       long maxNativeMemoryLimitBytes =
           Long.parseLong(
               System.getProperty(
@@ -60,7 +60,8 @@ public class S3AsyncUtil {
               .region(Region.of(region))
               .maxNativeMemoryLimitInBytes(maxNativeMemoryLimitBytes)
               .credentialsProvider(awsCredentialsProvider)
-              .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED);
+              .responseChecksumValidation(ResponseChecksumValidation.WHEN_SUPPORTED)
+              .minimumPartSizeInBytes(128 * 1024 * 1024L);  // 128MiB minimum part size
 
       // We add a healthcheck to prevent an error with the CRT client, where it will
       // continue to attempt to read data from a socket that is no longer returning data

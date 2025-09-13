@@ -257,6 +257,10 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         return false;
       }
 
+      logger.info(
+        "Lucene index is clean for chunk '{}' and local directory '{}'",
+        chunkInfo, dirPath);
+
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
 
