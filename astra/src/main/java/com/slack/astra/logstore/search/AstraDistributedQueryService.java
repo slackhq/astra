@@ -484,7 +484,8 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   }
 
   @Override
-  public AstraSearch.SearchResult doSearch(final AstraSearch.SearchRequest request) throws InterruptedException {
+  public AstraSearch.SearchResult doSearch(final AstraSearch.SearchRequest request)
+      throws InterruptedException {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("AstraDistributedQueryService.newDoSearch");
     long requestedDataHours =
