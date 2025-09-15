@@ -444,11 +444,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
         // Try Etcd first, fall back to ZK if not found
         try {
           if (etcdStore.hasSync(metadataNode.getName())) {
-            try {
-              etcdStore.updateSync(metadataNode);
-            } catch (InternalMetadataStoreException e) {
-              LOG.error("error updating etcd sync", e);
-            }
+            etcdStore.updateSync(metadataNode);
           } else {
             // Try ZK
             zkStore.updateSync(metadataNode);

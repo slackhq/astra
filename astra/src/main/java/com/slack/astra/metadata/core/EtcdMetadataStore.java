@@ -588,6 +588,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     try {
       updateAsync(metadataNode)
+          .exceptionally(
+              throwable -> {
+                throw new RuntimeException(throwable);
+              })
           .toCompletableFuture()
           .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
