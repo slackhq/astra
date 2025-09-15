@@ -37,7 +37,7 @@ public abstract class AstraQueryServiceBase extends AstraServiceGrpc.AstraServic
     }
   }
 
-  public abstract AstraSearch.SearchResult doSearch(AstraSearch.SearchRequest request);
+  public abstract AstraSearch.SearchResult doSearch(AstraSearch.SearchRequest request) throws InterruptedException;
 
   public abstract AstraSearch.SchemaResult getSchema(AstraSearch.SchemaRequest request);
 }

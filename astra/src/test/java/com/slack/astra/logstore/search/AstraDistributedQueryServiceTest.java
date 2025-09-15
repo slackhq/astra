@@ -167,8 +167,6 @@ public class AstraDistributedQueryServiceTest {
     cache2SearchContext = new SearchContext("cache_host2", 20001);
     cache3SearchContext = new SearchContext("cache_host3", 20002);
     cache4SearchContext = new SearchContext("cache_host4", 20003);
-
-    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
   }
 
   @AfterEach
@@ -996,11 +994,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   @Test
-  public void testNewDistributedQueryWithSingleSnapshotSuccess() throws JsonProcessingException {
-    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
-
-    try {
-
+  public void testNewDistributedQueryWithSingleSnapshotSuccess() throws JsonProcessingException, InterruptedException {
       String indexName = "testIndex";
       DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
       DatasetMetadata datasetMetadata =
@@ -1062,16 +1056,10 @@ public class AstraDistributedQueryServiceTest {
       AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
       assertThat(result.getHitsCount()).isEqualTo(1);
       distributedQueryService.close();
-    } finally {
-      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
-    }
   }
 
   @Test
-  public void testNewDistributedQueryRetryOnHardFailure() throws JsonProcessingException {
-    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
-
-    try {
+  public void testNewDistributedQueryRetryOnHardFailure() throws JsonProcessingException, InterruptedException {
       String indexName = "testIndex";
       DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
       DatasetMetadata datasetMetadata =
@@ -1167,16 +1155,10 @@ public class AstraDistributedQueryServiceTest {
       AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
       assertThat(result.getHitsCount()).isEqualTo(1);
       distributedQueryService.close();
-    } finally {
-      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
-    }
   }
 
   @Test
-  public void testNewDistributedQueryDoesNotRetryOnSoftFailure() {
-    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
-
-    try {
+  public void testNewDistributedQueryDoesNotRetryOnSoftFailure() throws InterruptedException {
       String indexName = "testIndex";
       DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
       DatasetMetadata datasetMetadata =
@@ -1234,16 +1216,10 @@ public class AstraDistributedQueryServiceTest {
       assertThat(result.getHitsCount()).isEqualTo(0);
       // Verify cache stub was never called (no retry)
       distributedQueryService.close();
-    } finally {
-      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
-    }
   }
 
   @Test
-  public void testNewDistributedQueryHandlesEmptySnapshotList() {
-    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
-
-    try {
+  public void testNewDistributedQueryHandlesEmptySnapshotList() throws InterruptedException {
       String indexName = "testIndex";
       DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 50, List.of("1"));
       DatasetMetadata datasetMetadata =
@@ -1278,16 +1254,10 @@ public class AstraDistributedQueryServiceTest {
       AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
       assertThat(result.getHitsCount()).isEqualTo(0);
       distributedQueryService.close();
-    } finally {
-      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
-    }
   }
 
   @Test
-  public void testNewDistributedQueryMultipleReplicasRetryLogic() throws JsonProcessingException {
-    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
-
-    try {
+  public void testNewDistributedQueryMultipleReplicasRetryLogic() throws JsonProcessingException, InterruptedException {
       String indexName = "testIndex";
       DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
       DatasetMetadata datasetMetadata =
@@ -1405,16 +1375,10 @@ public class AstraDistributedQueryServiceTest {
       AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
       assertThat(result.getHitsCount()).isEqualTo(1);
       distributedQueryService.close();
-    } finally {
-      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
-    }
   }
 
   @Test
-  public void testNewDistributedQueryAllReplicasFailForSnapshot() {
-    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
-
-    try {
+  public void testNewDistributedQueryAllReplicasFailForSnapshot() throws InterruptedException {
       String indexName = "testIndex";
       DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
       DatasetMetadata datasetMetadata =
@@ -1480,9 +1444,6 @@ public class AstraDistributedQueryServiceTest {
       // Should still return a result even if snapshot failed completely
       assertThat(result.getHitsCount()).isEqualTo(0);
       distributedQueryService.close();
-    } finally {
-      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
-    }
   }
 
   @Test

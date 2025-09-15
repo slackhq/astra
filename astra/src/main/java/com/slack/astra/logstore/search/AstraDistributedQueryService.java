@@ -63,7 +63,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   private final MeterRegistry meterRegistry;
 
   public static final String ASTRA_ENABLE_QUERY_GATING_FLAG = "astra.enableQueryGating";
-  public static final String ASTRA_ENABLE_DISTRIBUTED_QUERY_V2 = "astra.enableDistributedQueryV2";
 
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
@@ -485,21 +484,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   }
 
   @Override
-  public AstraSearch.SearchResult doSearch(final AstraSearch.SearchRequest request) {
-    boolean useNewQuery = Boolean.getBoolean(ASTRA_ENABLE_DISTRIBUTED_QUERY_V2);
-    if (useNewQuery) {
-      try {
-        return this.newDoSearch(request);
-      } catch (Exception e) {
-        LOG.error("Something went wrong:", e);
-        throw new RuntimeException(e);
-      }
-    }
-    return this.oldDosSearch(request);
-  }
-
-  private AstraSearch.SearchResult newDoSearch(final AstraSearch.SearchRequest request)
-      throws InterruptedException {
+  public AstraSearch.SearchResult doSearch(final AstraSearch.SearchRequest request) throws InterruptedException {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("AstraDistributedQueryService.newDoSearch");
     long requestedDataHours =
@@ -795,136 +780,6 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
       meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT, QUERY_PATH_TAG, "new").increment();
       return searchMetadataURLToSnapshotNames.entrySet().stream()
           .collect(Collectors.toMap(Map.Entry::getKey, _ -> SearchResult.error().clone()));
-    }
-  }
-
-  private AstraSearch.SearchResult oldDosSearch(final AstraSearch.SearchRequest request) {
-    try {
-      List<SearchResult<LogMessage>> searchResults = oldDistributedSearch(request);
-      SearchResult<LogMessage> aggregatedResult =
-          ((SearchResultAggregator<LogMessage>)
-                  new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
-              .aggregate(searchResults, true);
-
-      // We report a query with more than 0% of requested nodes, but less than 2% as a tolerable
-      // response. Anything over 2% is considered an unacceptable.
-      recordApdexMetrics(aggregatedResult, "old");
-      recordTotalSnapshots(aggregatedResult, "old");
-      LOG.debug("aggregatedResult={}", aggregatedResult);
-      return SearchResultUtils.toSearchResultProto(aggregatedResult);
-    } catch (Exception e) {
-      LOG.error("Distributed search failed", e);
-      throw new RuntimeException(e);
-    }
-  }
-
-  private List<SearchResult<LogMessage>> oldDistributedSearch(
-      final AstraSearch.SearchRequest distribSearchReq) {
-    LOG.debug("Starting old distributed search for request: {}", distribSearchReq);
-    ScopedSpan span =
-        Tracing.currentTracer()
-            .startScopedSpan("AstraDistributedQueryService.oldDistributedSearch");
-    long requestedDataHours =
-        Duration.ofMillis(
-                distribSearchReq.getEndTimeEpochMs() - distribSearchReq.getStartTimeEpochMs())
-            .toHours();
-    long startTime = Instant.now().toEpochMilli();
-
-    Map<String, SnapshotMetadata> snapshotsMatchingQuery =
-        getMatchingSnapshots(
-            snapshotMetadataStore,
-            datasetMetadataStore,
-            distribSearchReq.getStartTimeEpochMs(),
-            distribSearchReq.getEndTimeEpochMs(),
-            distribSearchReq.getDataset());
-
-    // for each matching snapshot, we find the search metadata nodes that we can potentially query
-    Map<String, List<SearchMetadata>> searchMetadataNodesMatchingQuery =
-        getMatchingSearchMetadata(searchMetadataStore, snapshotsMatchingQuery);
-
-    // from the list of search metadata nodes per snapshot, pick one. Additionally map it to the
-    // underlying URL to query
-    Map<String, List<String>> nodesAndSnapshotsToQuery =
-        getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
-
-    span.tag("queryServerCount", String.valueOf(nodesAndSnapshotsToQuery.size()));
-
-    CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
-    AtomicLong totalRequests = new AtomicLong();
-    try {
-      try (var scope = new StructuredTaskScope<SearchResult<LogMessage>>()) {
-        List<StructuredTaskScope.Subtask<SearchResult<LogMessage>>> searchSubtasks =
-            nodesAndSnapshotsToQuery.entrySet().stream()
-                .map(
-                    (searchNode) ->
-                        scope.fork(
-                            currentTraceContext.wrap(
-                                () -> {
-                                  AstraServiceGrpc.AstraServiceFutureStub stub =
-                                      getStub(searchNode.getKey());
-
-                                  if (stub == null) {
-                                    // TODO: insert a failed result in the results object that we
-                                    // return from this method
-                                    return null;
-                                  }
-
-                                  AstraSearch.SearchRequest localSearchReq =
-                                      distribSearchReq.toBuilder()
-                                          .addAllChunkIds(searchNode.getValue())
-                                          .build();
-
-                                  SearchResult<LogMessage> temp =
-                                      SearchResultUtils.fromSearchResultProtoOrEmpty(
-                                          stub.withDeadlineAfter(
-                                                  defaultQueryTimeout.toMillis(),
-                                                  TimeUnit.MILLISECONDS)
-                                              .withInterceptors(
-                                                  GrpcTracing.newBuilder(Tracing.current())
-                                                      .build()
-                                                      .newClientInterceptor())
-                                              .search(localSearchReq)
-                                              .get());
-                                  totalRequests.addAndGet(temp.totalSnapshots);
-                                  return temp;
-                                })))
-                .toList();
-
-        try {
-          scope.joinUntil(Instant.now().plusSeconds(defaultQueryTimeout.toSeconds()));
-        } catch (TimeoutException timeoutException) {
-          scope.shutdown();
-          scope.join();
-        }
-
-        List<SearchResult<LogMessage>> response = new ArrayList(searchSubtasks.size());
-        for (StructuredTaskScope.Subtask<SearchResult<LogMessage>> searchResult : searchSubtasks) {
-          try {
-            if (searchResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
-              response.add(
-                  searchResult.get() == null ? SearchResult.error().clone() : searchResult.get());
-            } else {
-              response.add(SearchResult.error().clone());
-              LOG.warn("Error fetching part of search result {}", searchResult);
-            }
-          } catch (Exception e) {
-            LOG.error("Error fetching search result", e);
-            response.add(SearchResult.error().clone());
-          }
-        }
-        return response;
-      }
-    } catch (Exception e) {
-      LOG.error("Search failed with ", e);
-      span.error(e);
-      meterRegistry.counter(ASTRA_QUERIES_FAILED_COUNT, QUERY_PATH_TAG, "old").increment();
-      return List.of(SearchResult.empty());
-    } finally {
-      recordQueryDuration(requestedDataHours, Instant.now().toEpochMilli() - startTime, "old");
-      recordBatchSnapshotOperation(
-          requestedDataHours, snapshotsMatchingQuery.size(), totalRequests.get(), "old");
-      recordQuerySuccessMetrics(snapshotsMatchingQuery.size(), totalRequests.get(), "old");
-      span.finish();
     }
   }
 

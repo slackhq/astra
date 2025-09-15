@@ -200,7 +200,7 @@ public class ZipkinService {
       @Param("startTimeEpochMs") Optional<Long> startTimeEpochMs,
       @Param("endTimeEpochMs") Optional<Long> endTimeEpochMs,
       @Param("maxSpans") Optional<Integer> maxSpans)
-      throws IOException {
+          throws IOException, InterruptedException {
 
     JSONObject traceObject = new JSONObject();
     traceObject.put("trace_id", traceId);
