@@ -20,7 +20,7 @@
         <protobuf.version>3.25.8</protobuf.version>
         <grpc.version>1.75.0</grpc.version>
         <micrometer.version>1.15.4</micrometer.version>
-        <armeria.version>1.33.1</armeria.version>
+        <armeria.version>1.33.2</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.19.2</jackson.version>
