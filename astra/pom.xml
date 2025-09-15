@@ -19,7 +19,7 @@
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.8</protobuf.version>
         <grpc.version>1.75.0</grpc.version>
-        <micrometer.version>1.15.3</micrometer.version>
+        <micrometer.version>1.15.4</micrometer.version>
         <armeria.version>1.33.1</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
@@ -283,7 +283,7 @@
         <dependency>
             <groupId>org.checkerframework</groupId>
             <artifactId>checker-qual</artifactId>
-            <version>3.49.5</version>
+            <version>3.51.0</version>
         </dependency>
 
         <dependency>
