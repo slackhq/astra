@@ -264,7 +264,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
 
       // blobstore.upload uploads everything in the directory, including write.lock if it exists.
-      blobStore.upload(chunkInfo.chunkId, dirPath);
+      blobStore.uploadSequentially(chunkInfo.chunkId, dirPath);
 
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);

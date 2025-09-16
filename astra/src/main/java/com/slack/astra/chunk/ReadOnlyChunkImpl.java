@@ -271,11 +271,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
     }
     LOG.info(
-        "No file mismatch found with snapshot id '{}' and local directory '{}', s3 files: {} local dir: {}",
+        "No file mismatch found for snapshot id '{}' and local directory '{}'",
         snapshotMetadata.snapshotId,
-        dataDirectory.toString(),
-        filesWithSizeInS3,
-        localFiles);
+        dataDirectory.toString());
     return true;
   }
 
@@ -378,6 +376,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       setAssignmentState(
           getCacheNodeAssignment(), Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
       LOG.error(
+          "Error handling chunk assignment for assignment: {}, snapshot id: {}, snapshot size: {}, replicaId: {}, replicaSet: {}, cacheNodeId: {}",
           "Error handling chunk assignment for assignment: {}, snapshot id: {}, snapshot size: {}, replicaId: {}, replicaSet: {}, cacheNodeId: {}",
           assignment.assignmentId,
           assignment.snapshotId,

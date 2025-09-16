@@ -1,5 +1,7 @@
 package com.slack.astra.blobfs;
 
+import static software.amazon.awssdk.core.checksums.ResponseChecksumValidation.WHEN_SUPPORTED;
+
 import com.google.common.base.Preconditions;
 import com.slack.astra.proto.config.AstraConfigs;
 import java.net.URI;
@@ -44,7 +46,7 @@ public class S3AsyncUtil {
       // default to 5% of the heap size for the max crt off-heap or 1GiB (min for client)
       long jvmMaxHeapSizeBytes = Runtime.getRuntime().maxMemory();
       long defaultCrtMemoryLimit =
-          Math.max(Math.round(jvmMaxHeapSizeBytes * 0.05), 6L * 1024 * 1024 * 1024);
+          Math.max(Math.round(jvmMaxHeapSizeBytes * 0.05), 4L * 1024 * 1024 * 1024);
       long maxNativeMemoryLimitBytes =
           Long.parseLong(
               System.getProperty(
@@ -60,6 +62,7 @@ public class S3AsyncUtil {
               .region(Region.of(region))
               .maxNativeMemoryLimitInBytes(maxNativeMemoryLimitBytes)
               .credentialsProvider(awsCredentialsProvider)
+              .responseChecksumValidation(WHEN_SUPPORTED)
               .minimumPartSizeInBytes(64 * 1024 * 1024L); // 64MiB minimum part size
 
       // We add a healthcheck to prevent an error with the CRT client, where it will

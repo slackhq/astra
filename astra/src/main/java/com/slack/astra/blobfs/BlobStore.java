@@ -7,12 +7,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -24,6 +21,7 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.core.internal.async.ByteArrayAsyncResponseTransformer;
+import software.amazon.awssdk.crt.s3.ChecksumAlgorithm;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
@@ -31,7 +29,6 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -40,11 +37,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
-import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryDownload;
-import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
-import software.amazon.awssdk.transfer.s3.model.DownloadDirectoryRequest;
-import software.amazon.awssdk.transfer.s3.model.DownloadRequest;
-import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
+import software.amazon.awssdk.transfer.s3.model.*;
 
 /**
  * Blob store abstraction for basic operations on chunk/snapshots on remote storage. All operations
@@ -72,6 +65,75 @@ public class BlobStore {
    * @throws IllegalStateException Thrown if any files fail to upload
    * @throws RuntimeException Thrown when error is considered generally non-retryable
    */
+  public void uploadSequentially(String prefix, Path directoryToUpload) {
+    assert prefix != null && !prefix.isEmpty();
+    assert directoryToUpload.toFile().isDirectory();
+    assert Objects.requireNonNull(directoryToUpload.toFile().listFiles()).length > 0;
+
+    try {
+      // Get all files and sort by size (largest first for better progress visibility)
+      List<Path> allFiles =
+          Files.walk(directoryToUpload)
+              .filter(Files::isRegularFile)
+              .sorted(
+                  (a, b) -> Long.compare(b.toFile().length(), a.toFile().length())) // Largest first
+              .toList();
+
+      List<String> failedUploads = new ArrayList<>();
+      int completedCount = 0;
+
+      for (Path file : allFiles) {
+        String relativePath = directoryToUpload.relativize(file).toString();
+        String s3Key = prefix + "/" + relativePath;
+
+        try {
+          LOG.info(
+              "Uploading file {}/{}: {} ({}MB)",
+              completedCount + 1,
+              allFiles.size(),
+              relativePath,
+              file.toFile().length() / (1024 * 1024));
+
+          // Upload single file with checksum validation
+          transferManager
+              .uploadFile(
+                  UploadFileRequest.builder()
+                      .putObjectRequest(
+                          req ->
+                              req.bucket(bucketName)
+                                  .key(s3Key)
+                                  .checksumAlgorithm(
+                                      String.valueOf(
+                                          ChecksumAlgorithm.SHA256)) // Critical for integrity
+                          )
+                      .source(file)
+                      .build())
+              .completionFuture()
+              .get(); // Wait for completion
+
+          completedCount++;
+          LOG.info("Successfully uploaded: {} ", relativePath);
+
+        } catch (Exception e) {
+          LOG.error("Failed to upload file: {}", relativePath, e);
+          failedUploads.add(relativePath);
+        }
+      }
+
+      // Handle failures same as original code
+      if (!failedUploads.isEmpty()) {
+        throw new IllegalStateException(
+            String.format(
+                "Some files failed to upload - attempted to upload %s files, failed %s.",
+                allFiles.size(), failedUploads.size()));
+      }
+      LOG.info("Successfully uploaded all {} files sequentially", completedCount);
+
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to walk directory", e);
+    }
+  }
+
   public void upload(String prefix, Path directoryToUpload) {
     assert prefix != null && !prefix.isEmpty();
     assert directoryToUpload.toFile().isDirectory();
@@ -463,22 +525,6 @@ public class BlobStore {
       return !listRes.contents().isEmpty();
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException("Failed to check if S3 path exists", e);
-    }
-  }
-
-  /*
-   * Fetch the crc32 checksum of a file in the object store by S3 key (full path in the bucket).
-   */
-  public String getFileCRC32(String key) {
-    CompletableFuture<HeadObjectResponse> head =
-        s3AsyncClient
-            .headObject(HeadObjectRequest.builder().bucket(bucketName).key(key).build())
-            .toCompletableFuture();
-    try {
-      HeadObjectResponse response = head.get();
-      return response.checksumCRC32();
-    } catch (ExecutionException | InterruptedException e) {
-      throw new RuntimeException("Failed to get CRC32 checksum for file: " + key, e);
     }
   }
 }
