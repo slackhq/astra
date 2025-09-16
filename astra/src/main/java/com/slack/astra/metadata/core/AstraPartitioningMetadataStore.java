@@ -467,6 +467,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                           .thenCompose(
                               etcdExists -> {
                                 if (etcdExists) {
+                                  LOG.info(
+                                      "Calling ETCD update async for partition {} and node {}",
+                                      metadataNode.getPartition(),
+                                      metadataNode.name);
                                   // Node exists in Etcd, update it there
                                   return etcdStore.updateAsync(metadataNode);
                                 } else {
@@ -488,6 +492,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               .thenCompose(
                   exists -> {
                     if (exists) {
+                      LOG.info(
+                          "Calling ETCD update async for partition {} and node {}",
+                          metadataNode.getPartition(),
+                          metadataNode.name);
                       // Node exists in Etcd, update it there
                       return etcdStore.updateAsync(metadataNode);
                     } else {
