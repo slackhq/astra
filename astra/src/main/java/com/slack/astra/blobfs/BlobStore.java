@@ -41,7 +41,12 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
-import software.amazon.awssdk.transfer.s3.model.*;
+import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryDownload;
+import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
+import software.amazon.awssdk.transfer.s3.model.DownloadDirectoryRequest;
+import software.amazon.awssdk.transfer.s3.model.DownloadRequest;
+import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
+import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 
 /**
  * Blob store abstraction for basic operations on chunk/snapshots on remote storage. All operations
