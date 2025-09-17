@@ -205,11 +205,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
           snapshotMetadataBySnapshotId(snapshotMetadataStore);
       try {
         if (chunkMap.containsKey(assignment.assignmentId)) {
-          LOG.info(
-              "Chunk for assignment {} already exists in cache node {}, state: {}",
-              assignment.assignmentId,
-              cacheNodeId,
-              assignment.state);
           ReadOnlyChunkImpl<T> chunk = (ReadOnlyChunkImpl) chunkMap.get(assignment.assignmentId);
 
           if (chunkStateChangedToEvict(assignment, chunk)) {
@@ -222,32 +217,16 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
             LOG.info("Evicted assignment {} from node {}", assignment.assignmentId, cacheNodeId);
           } else if (assignment.state == chunk.getLastKnownAssignmentState()) {
             LOG.info("Chunk listener fired, but state remained the same");
-          } else {
-            LOG.info(
-                "No operation needed for assignment {} in cache node {}, state: {}",
-                assignment.assignmentId,
-                cacheNodeId,
-                assignment.state);
           }
         } else {
-          LOG.info(
-              "Chunk for assignment {}, snapshot {}, not exists in cache node {}, state: {}",
-              assignment.assignmentId,
-              assignment.snapshotId,
-              cacheNodeId,
-              assignment.state);
           if (assignment.state != Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING) {
             LOG.info(
-                "Encountered an new assignment {}, snapshot {} with a non LOADING state, state: {}",
-                assignment.assignmentId,
-                assignment.snapshotId,
+                "Encountered an new assignment with a non LOADING state, state: {}",
                 assignment.state);
           } else {
             LOG.info(
-                "Created new chunk for assignment {}, snapshot {}, assignment state {} in cache node {}",
+                "Created new chunk for assignment {} in cache node {}",
                 assignment.assignmentId,
-                assignment.snapshotId,
-                assignment.state,
                 cacheNodeId);
             ReadOnlyChunkImpl<T> newChunk =
                 new ReadOnlyChunkImpl<>(
