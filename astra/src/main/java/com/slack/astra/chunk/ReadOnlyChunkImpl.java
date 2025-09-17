@@ -294,6 +294,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       // set chunk state
+      LOG.info("Setting cache node {} assignment state to LIVE", cacheNodeAssignmentStore);
       cacheNodeAssignmentStore.updateAssignmentState(
           getCacheNodeAssignment(), Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
       lastKnownAssignmentState = Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;

@@ -211,6 +211,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   }
 
   private void onAssignmentHandler(CacheNodeAssignment assignment) {
+    LOG.info("onAssignmentHandler called for assignment {}", assignment);
     if (Objects.equals(assignment.cacheNodeId, this.cacheNodeId)) {
       LOG.info(
           "Assignment handler fired for cache node {} and assignment {}",

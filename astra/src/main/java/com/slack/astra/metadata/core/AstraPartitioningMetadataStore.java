@@ -850,6 +850,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     notified twice. Applications should be prepared to handle duplicate notifications.
    */
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
+    LOG.info("etcd add listener for {}", watcher);
     // Only add if not already present
     if (!listeners.contains(watcher)) {
       listeners.add(watcher);

@@ -625,6 +625,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
+    LOG.info("Adding listener {}", watcher);
     // add this watcher to the map for new stores to add
     listenerMap.put(System.identityHashCode(watcher) + "", watcher);
     // add this watcher to existing stores
