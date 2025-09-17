@@ -17,6 +17,8 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import org.slf4j.Logger;
@@ -81,12 +83,14 @@ public class BlobStore {
 
     try {
       // Get all files and sort by size (largest first for better progress visibility)
-      List<Path> allFiles =
-          Files.walk(directoryToUpload)
-              .filter(Files::isRegularFile)
-              .sorted(
-                  (a, b) -> Long.compare(b.toFile().length(), a.toFile().length())) // Largest first
-              .toList();
+      List<Path> allFiles;
+      try (Stream<Path> pathStream = Files.walk(directoryToUpload)) {
+        allFiles =
+            pathStream
+                .filter(Files::isRegularFile)
+                .sorted((a, b) -> Long.compare(b.toFile().length(), a.toFile().length()))
+                .collect(Collectors.toList());
+      }
 
       List<String> failedUploads = new ArrayList<>();
       int completedCount = 0;
