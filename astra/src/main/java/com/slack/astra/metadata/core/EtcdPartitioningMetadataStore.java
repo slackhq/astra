@@ -143,7 +143,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       watchOption =
           WatchOption.builder()
               .withPrefix(storeFolderKey)
-              .withRevision(currentRevision - 2)
+              .withRevision(currentRevision - 5)
               .build();
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to get current revision for watch setup on store {}", storeFolder, e);
