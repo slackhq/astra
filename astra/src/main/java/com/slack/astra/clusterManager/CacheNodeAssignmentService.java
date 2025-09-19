@@ -170,16 +170,6 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
           cacheNodeMetadataStore.listSync().stream()
               .filter(cacheNodeMetadata -> replicaSet.equals(cacheNodeMetadata.getReplicaSet()))
               .toList();
-      // TODO filter out cache nodes that don't have a cacheAssignment yet (then have the cache node
-      // add this)
-      cacheNodes =
-          cacheNodes.stream()
-              .filter(
-                  cacheNodeMetadata ->
-                      cacheNodeMetadata.id.equals(
-                          cacheNodeAssignmentStore.getSync(cacheNodeMetadata.id, "fakeId")
-                              .cacheNodeId))
-              .toList();
       List<CacheNodeAssignment> currentAssignments =
           cacheNodeAssignmentStore.listSync().stream()
               .filter(assignment -> replicaSet.equals(assignment.replicaSet))
