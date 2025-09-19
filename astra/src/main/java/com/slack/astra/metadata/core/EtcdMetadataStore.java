@@ -889,7 +889,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   WATCH_EVENT_EXECUTOR.execute(
                       () -> {
                         for (WatchEvent event : response.getEvents()) {
-                          LOG.info("Got watcher event for: {} for store {}", event, storeFolder);
                           try {
                             // Extract the path from the key
                             String path = keyToName(event.getKeyValue().getKey());
