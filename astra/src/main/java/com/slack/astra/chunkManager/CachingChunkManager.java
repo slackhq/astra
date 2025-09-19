@@ -120,6 +120,17 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
+      LOG.info("Creating FAKE cache node assignment for cache node {}", cacheNodeId);
+      // create fake assignment to ensure something exists in this node's assignment store
+      cacheNodeAssignmentStore.createSync(
+          new CacheNodeAssignment(
+              "fakeId",
+              cacheNodeId,
+              "fakeId",
+              "fakeId",
+              "fakeRep",
+              0,
+              Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING));
       cacheNodeMetadataStore.createSync(
           new CacheNodeMetadata(
               cacheNodeId, searchContext.hostname, capacityBytes, replicaSet, false));
