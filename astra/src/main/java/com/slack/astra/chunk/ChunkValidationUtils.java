@@ -9,9 +9,9 @@ public class ChunkValidationUtils {
 
   public static boolean isChunkClean(Path path) throws Exception {
     FSDirectory existingDir = FSDirectory.open(path, NoLockFactory.INSTANCE);
-    CheckIndex checker = new CheckIndex(existingDir);
-    CheckIndex.Status status = checker.checkIndex();
-    checker.close();
-    return status.clean;
+    try (CheckIndex checker = new CheckIndex(existingDir)) {
+      CheckIndex.Status status = checker.checkIndex();
+      return status.clean;
+    }
   }
 }

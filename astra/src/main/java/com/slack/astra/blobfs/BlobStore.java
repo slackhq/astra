@@ -100,13 +100,6 @@ public class BlobStore {
         String s3Key = prefix + "/" + relativePath;
 
         try {
-          LOG.info(
-              "Uploading file {}/{}: {} ({}MB)",
-              completedCount + 1,
-              allFiles.size(),
-              relativePath,
-              file.toFile().length() / (1024 * 1024));
-
           // Upload single file with checksum validation
           transferManager
               .uploadFile(
@@ -137,10 +130,11 @@ public class BlobStore {
       if (!failedUploads.isEmpty()) {
         throw new IllegalStateException(
             String.format(
-                "Some files failed to upload - attempted to upload %s files, failed %s.",
-                allFiles.size(), failedUploads.size()));
+                "Some files failed to upload for predix %s - attempted to upload %s files, failed %s.",
+                prefix, allFiles.size(), failedUploads.size()));
       }
-      LOG.info("Successfully uploaded all {} files sequentially", completedCount);
+      LOG.info(
+          "Successfully uploaded all {} files sequentially for predix {}", completedCount, prefix);
 
     } catch (IOException e) {
       throw new RuntimeException("Failed to walk directory", e);
@@ -206,48 +200,22 @@ public class BlobStore {
               .completionFuture()
               .get();
 
-      LOG.info(
-          "Downloaded directory from S3: bucket={}, prefix={}, destination={}, status={}",
-          bucketName,
-          prefix,
-          destinationDirectory,
-          download.failedTransfers());
-
       if (!download.failedTransfers().isEmpty()) {
         // Log each failed transfer with its exception
-        LOG.error(
-            "Error attempting to download directory from S3: bucket={}, prefix={}, destination={}, failed transfers={}",
-            bucketName,
-            prefix,
-            destinationDirectory,
-            download.failedTransfers());
         download
             .failedTransfers()
             .forEach(
                 failedFileDownload -> {
-                  Throwable cause = failedFileDownload.exception();
-                  while (cause.getCause() != null && cause != cause.getCause()) {
-                    cause = cause.getCause();
-                  }
-                  if (cause instanceof S3Exception s3ex) {
-                    LOG.error(
-                        "Error attempting to download file from S3: key={}, requestId={}, extendedRequestId={},",
-                        failedFileDownload.request().getObjectRequest().key(),
-                        s3ex.requestId(),
-                        s3ex.extendedRequestId(),
-                        s3ex);
-
-                  } else {
-                    LOG.error(
-                        "Error attempting to download file from S3",
-                        failedFileDownload.exception());
-                  }
+                  LOG.error(
+                      "Error attempting to download file from S3 for prefix {}",
+                      prefix,
+                      failedFileDownload.exception());
                 });
 
         throw new IllegalStateException(
             String.format(
-                "Some files failed to download - failed to download %s files.",
-                download.failedTransfers().size()));
+                "Some files failed to download for prefix %s - failed to download %s files.",
+                prefix, download.failedTransfers().size()));
       }
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException(e);

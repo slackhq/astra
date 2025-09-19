@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -231,13 +232,14 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     return assignment;
   }
 
-  private boolean validateS3vsLocalDownLoad() throws Exception {
+  private boolean validateS3vsLocalDownLoad() {
     // check if the number of files in S3 matches the local directory
     Map<String, Long> filesWithSizeInS3 = blobStore.listFilesWithSize(snapshotMetadata.snapshotId);
 
-    Map<String, Long> localFiles;
+    Map<String, Long> localFilesSizeMap;
+    Map<String, Long> mismatchFilesSizeMap = new HashMap<String, Long>();
     try (Stream<Path> fileList = Files.list(dataDirectory)) {
-      localFiles =
+      localFilesSizeMap =
           fileList
               .filter(Files::isRegularFile)
               .collect(
@@ -249,11 +251,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       throw new RuntimeException(
           String.format("Error reading local files in directory %s", dataDirectory), e);
     }
-    if (localFiles.size() != filesWithSizeInS3.size()) {
+    if (localFilesSizeMap.size() != filesWithSizeInS3.size()) {
       LOG.error(
-          String.format(
-              "Mismatch in number of files in S3 (%s) and local directory (%s) for snapshot %s",
-              filesWithSizeInS3.size(), localFiles.size(), snapshotMetadata.toString()));
+          "Mismatch in number of files in S3 ({}) and local directory ({}) for snapshot {}",
+          filesWithSizeInS3.size(),
+          localFilesSizeMap.size(),
+          snapshotMetadata.toString());
       return false;
     }
 
@@ -262,18 +265,26 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       long s3Size = entry.getValue();
       String fileName = Paths.get(s3Path).getFileName().toString();
 
-      if (!localFiles.containsKey(fileName) || !localFiles.get(fileName).equals(s3Size)) {
-        LOG.error(
-            String.format(
-                "Mismatch for file %s in S3 and local directory of size %s for snapshot %s",
-                s3Path, s3Size, snapshotMetadata.toString()));
-        return false;
+      if (!localFilesSizeMap.containsKey(fileName)
+          || !localFilesSizeMap.get(fileName).equals(s3Size)) {
+        mismatchFilesSizeMap.put(fileName, s3Size);
       }
     }
-    LOG.info(
-        "No file mismatch found for snapshot id '{}' and local directory '{}'",
-        snapshotMetadata.snapshotId,
-        dataDirectory.toString());
+    if (!mismatchFilesSizeMap.isEmpty()) {
+      String mismatchFilesAndSize =
+          mismatchFilesSizeMap.entrySet().stream()
+              .map(
+                  e ->
+                      String.format(
+                          "%s (S3Size: %s LocalSize: %s)",
+                          e.getKey(), e.getValue(), localFilesSizeMap.get(e.getKey())))
+              .collect(Collectors.joining(", "));
+      LOG.error(
+          "Mismatch in file sizes between S3 and local directory for snapshot {}. Mismatch files: {}",
+          snapshotMetadata.toString(),
+          mismatchFilesAndSize);
+      return false;
+    }
     return true;
   }
 
@@ -320,7 +331,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
               String.format(
                   "Mismatch in number or size of files in S3 and local directory for snapshot %s",
                   snapshotMetadata);
-          throw new IOException(errorString);
+          throw new RuntimeException(errorString);
         }
 
         // check if lucene index is valid and not corrupted
@@ -330,10 +341,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
               String.format(
                   "Lucene index is not clean. Found issues for snapshot: %s.", snapshotMetadata));
         }
-        LOG.info(
-            "Lucene index is clean for snapshot id '{}' and local directory '{}'",
-            snapshotMetadata.snapshotId,
-            dataDirectory.toString());
 
         // check if schema file exists
         Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
@@ -375,16 +382,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       // disregarding any errors
       setAssignmentState(
           getCacheNodeAssignment(), Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
-      LOG.error(
-          "Error handling chunk assignment for assignment: {}, snapshot id: {}, snapshot size: {}, replicaId: {}, replicaSet: {}, cacheNodeId: {}",
-          "Error handling chunk assignment for assignment: {}, snapshot id: {}, snapshot size: {}, replicaId: {}, replicaSet: {}, cacheNodeId: {}",
-          assignment.assignmentId,
-          assignment.snapshotId,
-          assignment.snapshotSize,
-          assignment.replicaId,
-          assignment.replicaSet,
-          assignment.cacheNodeId,
-          e);
+      LOG.error("Error handling chunk assignment", e);
       assignmentTimer.stop(chunkAssignmentTimerFailure);
     } finally {
       chunkAssignmentLock.unlock();

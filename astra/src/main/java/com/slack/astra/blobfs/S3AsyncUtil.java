@@ -45,8 +45,7 @@ public class S3AsyncUtil {
 
       // default to 5% of the heap size for the max crt off-heap or 1GiB (min for client)
       long jvmMaxHeapSizeBytes = Runtime.getRuntime().maxMemory();
-      long defaultCrtMemoryLimit =
-          Math.max(Math.round(jvmMaxHeapSizeBytes * 0.05), 4L * 1024 * 1024 * 1024);
+      long defaultCrtMemoryLimit = Math.max(Math.round(jvmMaxHeapSizeBytes * 0.05), 1073741824);
       long maxNativeMemoryLimitBytes =
           Long.parseLong(
               System.getProperty(
@@ -57,7 +56,7 @@ public class S3AsyncUtil {
           maxNativeMemoryLimitBytes);
       S3CrtAsyncClientBuilder s3AsyncClient =
           S3AsyncClient.crtBuilder()
-              .retryConfiguration(S3CrtRetryConfiguration.builder().numRetries(10).build())
+              .retryConfiguration(S3CrtRetryConfiguration.builder().numRetries(3).build())
               .targetThroughputInGbps(config.getS3TargetThroughputGbps())
               .region(Region.of(region))
               .maxNativeMemoryLimitInBytes(maxNativeMemoryLimitBytes)
