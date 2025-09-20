@@ -4,9 +4,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 public class AstraQueryFlags {
 
-  public static final String ASTRA_NEXT_GEN_DISTRIBUTED_QUERIES =
-      "astra.enableNextGenDistributedQueries";
-
   // Determines whether a particular query flag is enabled (that is, a flag that is in the query
   // itself, e.g. "foo: bar !astra.QueryFlag").
   // Returns a pair containing whether the flag is enabled and the new query string without the flag
