@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -257,9 +258,6 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         return false;
       }
 
-      logger.info(
-          "Lucene index is clean for chunk '{}' and local directory '{}'", chunkInfo, dirPath);
-
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
 
@@ -287,17 +285,29 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       }
 
       // validate the size of the uploaded files
+      Map<String, Long> mismatchedFilesMap = new HashMap<>();
       for (String fileName : filesToUpload) {
         String s3Path = String.format("%s/%s", chunkInfo.chunkId, fileName);
-        long sizeOfFile = Files.size(Path.of(dirPath + "/" + fileName));
+        long sizeOfFile = Files.size(Path.of(String.format("%s/%s", dirPath, fileName)));
         if (!filesWithSizeInS3.containsKey(s3Path)
             || !filesWithSizeInS3.get(s3Path).equals(sizeOfFile)) {
-          logger.error(
-              String.format(
-                  "Mismatch for file %s in S3 and local directory of size %s for chunk %s",
-                  s3Path, sizeOfFile, chunkInfo.chunkId));
-          return false;
+          mismatchedFilesMap.put(fileName, sizeOfFile);
         }
+      }
+      if (!mismatchedFilesMap.isEmpty()) {
+        String mismatchFilesAndSize =
+            mismatchedFilesMap.keySet().stream()
+                .map(
+                    aLong ->
+                        String.format(
+                            "%s (S3Size: %s, LocalSize: %s)",
+                            aLong, filesWithSizeInS3.get(aLong), mismatchedFilesMap.get(aLong)))
+                .collect(Collectors.joining(", "));
+        logger.error(
+            "Mismatch in file sizes between S3 and local directory for chunk {}. Mismatch files: {}",
+            chunkInfo.chunkId,
+            mismatchFilesAndSize);
+        return false;
       }
 
       // and schema file exists in s3
@@ -308,7 +318,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;
     } catch (Exception e) {
-      logger.error("Exception when copying RW chunk " + chunkInfo + " to S3.", e);
+      logger.error("Exception when copying RW chunk {} to S3.", chunkInfo, e);
       return false;
     } finally {
       logStore.releaseIndexCommit(indexCommit);

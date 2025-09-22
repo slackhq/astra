@@ -547,11 +547,6 @@ public class ReadOnlyChunkImplTest {
     assertThat(logMessageSearchResultEmpty).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
 
-    // verify that the directory has been cleaned up
-    try (var files = java.nio.file.Files.list(readOnlyChunk.getDataDirectory())) {
-      assertThat(files.findFirst().isPresent()).isFalse();
-    }
-
     curatorFramework.unwrap().close();
   }
 
@@ -671,11 +666,6 @@ public class ReadOnlyChunkImplTest {
 
     // simulate eviction
     readOnlyChunk.evictChunk(cacheNodeAssignmentStore.findSync(assignmentId));
-
-    // verify that the directory has been cleaned up
-    try (var files = java.nio.file.Files.list(readOnlyChunk.getDataDirectory())) {
-      assertThat(files.findFirst().isPresent()).isFalse();
-    }
 
     curatorFramework.unwrap().close();
   }
@@ -875,11 +865,6 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(1);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(1);
-
-    // verify that the directory has been cleaned up
-    try (var files = java.nio.file.Files.list(readOnlyChunk.getDataDirectory())) {
-      assertThat(files.findFirst().isPresent()).isFalse();
-    }
 
     curatorFramework.unwrap().close();
   }

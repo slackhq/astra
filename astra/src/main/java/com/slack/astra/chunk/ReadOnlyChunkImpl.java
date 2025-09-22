@@ -36,7 +36,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -237,7 +236,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     Map<String, Long> filesWithSizeInS3 = blobStore.listFilesWithSize(snapshotMetadata.snapshotId);
 
     Map<String, Long> localFilesSizeMap;
-    Map<String, Long> mismatchFilesSizeMap = new HashMap<String, Long>();
+    List<String> mismatchFiles = new java.util.ArrayList<>();
     try (Stream<Path> fileList = Files.list(dataDirectory)) {
       localFilesSizeMap =
           fileList
@@ -267,17 +266,17 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
       if (!localFilesSizeMap.containsKey(fileName)
           || !localFilesSizeMap.get(fileName).equals(s3Size)) {
-        mismatchFilesSizeMap.put(fileName, s3Size);
+        mismatchFiles.add(fileName);
       }
     }
-    if (!mismatchFilesSizeMap.isEmpty()) {
+    if (!mismatchFiles.isEmpty()) {
       String mismatchFilesAndSize =
-          mismatchFilesSizeMap.entrySet().stream()
+          mismatchFiles.stream()
               .map(
                   e ->
                       String.format(
-                          "%s (S3Size: %s LocalSize: %s)",
-                          e.getKey(), e.getValue(), localFilesSizeMap.get(e.getKey())))
+                          "%s (S3Size: %s, LocalSize: %s)",
+                          e, filesWithSizeInS3.get(e), localFilesSizeMap.get(e)))
               .collect(Collectors.joining(", "));
       LOG.error(
           "Mismatch in file sizes between S3 and local directory for snapshot {}. Mismatch files: {}",

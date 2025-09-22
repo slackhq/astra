@@ -784,7 +784,7 @@ public class IndexingChunkImplTest {
                 return null;
               })
           .when(spyBlobStore)
-          .upload(any(), any());
+          .uploadSequentially(any(), any());
 
       // Run snapshot — should fail due to missing schema.json
       boolean result = chunk.snapshotToS3(spyBlobStore);
