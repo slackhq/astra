@@ -823,7 +823,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param listener The listener to add
    */
   public void addListener(AstraMetadataStoreChangeListener<T> listener) {
-    addListener(listener, 0);
+    addListener(listener, 0, 0);
   }
 
   /**
@@ -832,7 +832,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param listener The listener to add
    * @param attemptNumber The current attempt number (0-based)
    */
-  private void addListener(AstraMetadataStoreChangeListener<T> listener, int attemptNumber) {
+  private void addListener(AstraMetadataStoreChangeListener<T> listener, int attemptNumber, long startRevision) {
     this.addedListener.increment();
 
     if (!shouldCache) {
@@ -851,14 +851,18 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // We start watching from the next revision to ensure we capture all events
     // that occur during and after watch setup
     WatchOption watchOption;
+    long currentRevision = startRevision;
     try {
-      long currentRevision =
-          etcdClient
-              .getKVClient()
-              .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
-              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
-              .getHeader()
-              .getRevision();
+      // only get currentRevision if a revision hasn't been specified
+      if (startRevision == 0) {
+        currentRevision =
+                etcdClient
+                        .getKVClient()
+                        .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
+                        .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
+                        .getHeader()
+                        .getRevision();
+      }
 
       // Create watch option starting from the current revision - 5
       // This ensures we don't miss events that occur during watch registration
@@ -876,6 +880,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     // Create a watcher for this listener
+    long finalCurrentRevision = currentRevision;
     Watcher watcher =
         etcdClient
             .getWatchClient()
@@ -961,7 +966,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
                     // Schedule retry using the dedicated watch retry executor with delay
                     watchRetryExecutor.schedule(
-                        () -> addListener(listener, attemptNumber + 1),
+                        () -> addListener(listener, attemptNumber + 1, finalCurrentRevision),
                         delayMs,
                         TimeUnit.MILLISECONDS);
                   } else {
