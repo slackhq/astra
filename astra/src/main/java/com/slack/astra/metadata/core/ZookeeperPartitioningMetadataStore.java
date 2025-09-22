@@ -204,6 +204,10 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
     }
   }
 
+  public ZookeeperMetadataStore<T> createPartitionSync(String partitionId) {
+    return getOrCreateMetadataStore(partitionId);
+  }
+
   public CompletionStage<T> getAsync(String partition, String path) {
     return getOrCreateMetadataStore(partition).getAsync(path);
   }

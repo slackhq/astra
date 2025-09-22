@@ -102,6 +102,19 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     }
   }
 
+  public void createPartitionSync(String partitionId) {
+    switch (mode) {
+      case ZOOKEEPER_CREATES:
+        zkStore.createPartitionSync(partitionId);
+        break;
+      case ETCD_CREATES:
+        etcdStore.createPartitionSync(partitionId);
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
   /**
    * Gets a metadata node asynchronously.
    *

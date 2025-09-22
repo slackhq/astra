@@ -358,6 +358,10 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     }
   }
 
+  public EtcdMetadataStore<T> createPartitionSync(String partitionId) {
+    return getOrCreateMetadataStore(partitionId);
+  }
+
   public CompletionStage<T> getAsync(String partition, String path) {
     return getOrCreateMetadataStore(partition).getAsync(path);
   }
