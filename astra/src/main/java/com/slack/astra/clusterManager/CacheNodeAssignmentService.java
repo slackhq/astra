@@ -176,6 +176,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
                   cacheNodeMetadata ->
                       cacheNodeAssignmentStore.hasPartitionSync(cacheNodeMetadata.id))
               .toList();
+      LOG.info("cacheNodes: {}", cacheNodes);
       List<CacheNodeAssignment> currentAssignments =
           cacheNodeAssignmentStore.listSync().stream()
               .filter(assignment -> replicaSet.equals(assignment.replicaSet))
