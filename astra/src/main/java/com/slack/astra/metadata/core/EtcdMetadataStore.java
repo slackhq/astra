@@ -860,15 +860,15 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
               .getHeader()
               .getRevision();
 
-      // Create watch option starting from the current revision + 1
+      // Create watch option starting from the current revision - 5
       // This ensures we don't miss events that occur during watch registration
       watchOption =
-          WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
+          WatchOption.builder().withPrefix(prefix).withRevision(currentRevision - 5).build();
       LOG.info(
           "adding listener {} for store {} at revision {}",
           listener,
           storeFolder,
-          currentRevision + 1);
+          currentRevision - 5);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to get current revision for watch setup on attempt {}", attemptNumber, e);
       // Fallback to basic watch without revision

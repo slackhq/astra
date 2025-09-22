@@ -138,7 +138,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               .getHeader()
               .getRevision();
 
-      // Create watch option starting from the current revision + 1
+      // Create watch option starting from the current revision - 5
       // This ensures we don't miss events that occur during watch registration
       watchOption =
           WatchOption.builder()
