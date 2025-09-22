@@ -169,6 +169,12 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
       List<CacheNodeMetadata> cacheNodes =
           cacheNodeMetadataStore.listSync().stream()
               .filter(cacheNodeMetadata -> replicaSet.equals(cacheNodeMetadata.getReplicaSet()))
+              // filter out the nodes that are registered but don't have a partition in the
+              // cacheNodeAssignment store
+              // meaning that the cache node has not created the partition yet
+              .filter(
+                  cacheNodeMetadata ->
+                      cacheNodeAssignmentStore.hasPartitionSync(cacheNodeMetadata.id))
               .toList();
       List<CacheNodeAssignment> currentAssignments =
           cacheNodeAssignmentStore.listSync().stream()
