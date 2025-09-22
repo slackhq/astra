@@ -172,9 +172,9 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
               // filter out the nodes that are registered but don't have a partition in the
               // cacheNodeAssignment store
               // meaning that the cache node has not created the partition yet
-              .filter(
-                  cacheNodeMetadata ->
-                      cacheNodeAssignmentStore.hasPartitionSync(cacheNodeMetadata.id))
+//              .filter(
+//                  cacheNodeMetadata ->
+//                      cacheNodeAssignmentStore.hasPartitionSync(cacheNodeMetadata.id))
               .toList();
       LOG.info("cacheNodes: {}", cacheNodes);
       List<CacheNodeAssignment> currentAssignments =
