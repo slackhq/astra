@@ -98,12 +98,12 @@ public class CacheSlotMetadataStoreTest {
 
   @AfterEach
   public void tearDown() throws IOException {
+    this.store.close();
     curatorFramework.unwrap().close();
     if (etcdClient != null) etcdClient.close();
 
     testingServer.close();
     meterRegistry.close();
-    this.store.close();
   }
 
   @Test

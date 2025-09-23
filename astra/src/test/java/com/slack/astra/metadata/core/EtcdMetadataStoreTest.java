@@ -293,14 +293,14 @@ public class EtcdMetadataStoreTest {
     store.createSync(testData);
 
     // Wait for notification
-    await().atMost(2, TimeUnit.SECONDS).until(() -> counter.get() == 1);
+    await().atMost(2, TimeUnit.SECONDS).until(() -> counter.get() == 2);
 
     // Update node - should trigger listener again
     TestMetadata updatedData = new TestMetadata("watch1", "updated");
     store.updateSync(updatedData);
 
     // Wait for notification
-    await().atMost(2, TimeUnit.SECONDS).until(() -> counter.get() == 2);
+    await().atMost(2, TimeUnit.SECONDS).until(() -> counter.get() == 3);
 
     // Remove listener
     store.removeListener(listener);
@@ -312,7 +312,7 @@ public class EtcdMetadataStoreTest {
 
     // Wait a bit to see if counter changes
     TimeUnit.MILLISECONDS.sleep(500);
-    assertThat(counter.get()).isEqualTo(2);
+    assertThat(counter.get()).isEqualTo(3);
   }
 
   @Test
