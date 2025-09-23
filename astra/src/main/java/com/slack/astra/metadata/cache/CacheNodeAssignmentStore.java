@@ -13,11 +13,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<CacheNodeAssignment> {
-  protected static final Logger LOG = LoggerFactory.getLogger(CacheNodeAssignmentStore.class);
   public static final String CACHE_NODE_ASSIGNMENT_STORE_PATH = "/cacheAssignment";
 
   public CacheNodeAssignmentStore(
@@ -93,7 +90,6 @@ public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<Cac
             cacheNodeAssignment.replicaSet,
             cacheNodeAssignment.snapshotSize,
             state);
-    LOG.info("Setting node {} assignment state to {}", cacheNodeAssignment.assignmentId, state);
 
     return JdkFutureAdapters.listenInPoolThread(
         updateAsync(updatedCacheNodeAssignment).toCompletableFuture());

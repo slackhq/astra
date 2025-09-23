@@ -102,6 +102,13 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     }
   }
 
+  /**
+   * Initializes just the partition in an Astrametadata store Note: this does NOT add a key/value to
+   * ETCD, but this does initialize the store enough to force a listener on the store to initialize.
+   * Mainly added to fix race condition bug found September 2025
+   *
+   * @param partitionId
+   */
   public void createPartitionSync(String partitionId) {
     switch (mode) {
       case ZOOKEEPER_CREATES:
@@ -110,18 +117,6 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       case ETCD_CREATES:
         etcdStore.createPartitionSync(partitionId);
         break;
-      default:
-        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
-    }
-  }
-
-  public boolean hasPartitionSync(String partitionId) {
-    switch (mode) {
-      case ZOOKEEPER_CREATES:
-        // doesn't matter for ZK, no race condition
-        return true;
-      case ETCD_CREATES:
-        return etcdStore.hasPartition(partitionId);
       default:
         throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
     }
@@ -492,10 +487,6 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                           .thenCompose(
                               etcdExists -> {
                                 if (etcdExists) {
-                                  LOG.info(
-                                      "Calling ETCD update async for partition {} and node {}",
-                                      metadataNode.getPartition(),
-                                      metadataNode.name);
                                   // Node exists in Etcd, update it there
                                   return etcdStore.updateAsync(metadataNode);
                                 } else {
@@ -517,10 +508,6 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               .thenCompose(
                   exists -> {
                     if (exists) {
-                      LOG.info(
-                          "Calling ETCD update async for partition {} and node {}",
-                          metadataNode.getPartition(),
-                          metadataNode.name);
                       // Node exists in Etcd, update it there
                       return etcdStore.updateAsync(metadataNode);
                     } else {
@@ -875,7 +862,6 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     notified twice. Applications should be prepared to handle duplicate notifications.
    */
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
-    LOG.info("etcd add listener for {}", watcher);
     // Only add if not already present
     if (!listeners.contains(watcher)) {
       listeners.add(watcher);

@@ -383,15 +383,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
               .thenCompose(
                   exists -> {
                     if (exists) {
-                      LOG.info(
-                          "Calling ZK updateAsync on node {} from ZK_CREATES mode",
-                          metadataNode.getName());
                       return zkStore.updateAsync(metadataNode);
                     } else {
                       // Try Etcd
-                      LOG.info(
-                          "Calling ETCD updateAsync on node {} from ZK_CREATES mode",
-                          metadataNode.getName());
                       return etcdStore
                           .updateAsync(metadataNode)
                           .exceptionally(
@@ -407,9 +401,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
               .thenCompose(
                   exists -> {
                     if (exists) {
-                      LOG.info(
-                          "Calling ETCD updateAsync on node {} from ETCD_CREATES mode",
-                          metadataNode.getName());
                       return etcdStore
                           .updateAsync(metadataNode)
                           .exceptionally(
@@ -418,9 +409,6 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
                               });
                     } else {
                       // Try ZK
-                      LOG.info(
-                          "Calling ZK updateAsync on node {} from ETCD_CREATES mode",
-                          metadataNode.getName());
                       return zkStore.updateAsync(metadataNode);
                     }
                   });

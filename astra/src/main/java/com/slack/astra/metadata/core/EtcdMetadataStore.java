@@ -16,7 +16,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -524,9 +523,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @return A CompletionStage that completes with the node name when the update is done
    */
   public CompletionStage<String> updateAsync(T metadataNode) {
-    Instant start = Instant.now();
     this.updateCall.increment();
-    LOG.info("etcd update async call for node {}", metadataNode.getName());
 
     try {
       ByteSequence key = pathToKey(metadataNode.getName());
@@ -558,11 +555,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   putOption = PutOption.builder().withLeaseId(sharedLeaseId).build();
                 }
 
-                LOG.info(
-                    "etcd update async for node {} and value {}",
-                    metadataNode.getName(),
-                    metadataNode);
-
                 // Perform the put with appropriate lease option
                 if (putOption != null) {
                   return etcdClient.getKVClient().put(key, value, putOption);
@@ -576,18 +568,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 if (shouldCache) {
                   cache.put(metadataNode.getName(), metadataNode);
                 }
-                LOG.info(
-                    "etcd update async call for metadata node {} took {} seconds",
-                    metadataNode.getName(),
-                    Instant.now().getEpochSecond() - start.getEpochSecond());
                 return metadataNode.getName();
               });
     } catch (InvalidProtocolBufferException e) {
-      LOG.error(
-          "Failed to update node (async): {} and took {} seconds",
-          metadataNode.getName(),
-          Instant.now().getEpochSecond() - start.getEpochSecond(),
-          e);
+      LOG.error("Failed to update node (async): {} and took {} seconds", metadataNode.getName(), e);
       CompletableFuture<String> future = new CompletableFuture<>();
       future.completeExceptionally(
           new InternalMetadataStoreException("Failed to serialize node", e));
@@ -601,9 +585,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param metadataNode The node to update
    */
   public void updateSync(T metadataNode) {
-    Instant start = Instant.now();
     this.updateCall.increment();
-    LOG.info("etcd update sync call for metadata node: {}", metadataNode.getName());
 
     try {
       updateAsync(metadataNode)
@@ -613,16 +595,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
               })
           .toCompletableFuture()
           .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
-      LOG.info(
-          "etcd update sync call for metadata node {} took {} seconds",
-          metadataNode.getName(),
-          Instant.now().getEpochSecond() - start.getEpochSecond());
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error(
-          "Failed to update node: {} and took {} seconds",
-          metadataNode.getName(),
-          Instant.now().getEpochSecond() - start.getEpochSecond(),
-          e);
+      LOG.error("Failed to update node: {} and took {} seconds", metadataNode.getName(), e);
       throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
     }
   }
@@ -832,7 +806,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param listener The listener to add
    * @param attemptNumber The current attempt number (0-based)
    */
-  private void addListener(AstraMetadataStoreChangeListener<T> listener, int attemptNumber, long startRevision) {
+  private void addListener(
+      AstraMetadataStoreChangeListener<T> listener, int attemptNumber, long startRevision) {
     this.addedListener.increment();
 
     if (!shouldCache) {
@@ -856,23 +831,19 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       // only get currentRevision if a revision hasn't been specified
       if (startRevision == 0) {
         currentRevision =
-                etcdClient
-                        .getKVClient()
-                        .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
-                        .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
-                        .getHeader()
-                        .getRevision();
+            etcdClient
+                .getKVClient()
+                .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
+                .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
+                .getHeader()
+                .getRevision();
       }
 
       // Create watch option starting from the current revision
       // This ensures we don't miss events that occur during watch registration
-      watchOption =
-          WatchOption.builder().withPrefix(prefix).withRevision(currentRevision).build();
-      LOG.info(
-          "adding listener {} for store {} at revision {}",
-          listener,
-          storeFolder,
-          currentRevision);
+      watchOption = WatchOption.builder().withPrefix(prefix).withRevision(currentRevision).build();
+      LOG.debug(
+          "adding listener {} for store {} at revision {}", listener, storeFolder, currentRevision);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to get current revision for watch setup on attempt {}", attemptNumber, e);
       // Fallback to basic watch without revision

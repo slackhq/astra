@@ -141,10 +141,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       // Create watch option starting from the current revision
       // This ensures we don't miss events that occur during watch registration
       watchOption =
-          WatchOption.builder()
-              .withPrefix(storeFolderKey)
-              .withRevision(currentRevision)
-              .build();
+          WatchOption.builder().withPrefix(storeFolderKey).withRevision(currentRevision).build();
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to get current revision for watch setup on store {}", storeFolder, e);
       // Fallback to basic watch without revision
@@ -586,7 +583,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         partition,
         (p1) -> {
           String path = String.format("%s/%s", storeFolder, p1);
-          LOG.info(
+          LOG.debug(
               "Creating new etcd metadata store for partition - {}, at path - {}", partition, path);
 
           EtcdMetadataStore<T> newStore =

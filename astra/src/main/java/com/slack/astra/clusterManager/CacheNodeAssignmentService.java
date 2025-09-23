@@ -169,14 +169,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
       List<CacheNodeMetadata> cacheNodes =
           cacheNodeMetadataStore.listSync().stream()
               .filter(cacheNodeMetadata -> replicaSet.equals(cacheNodeMetadata.getReplicaSet()))
-              // filter out the nodes that are registered but don't have a partition in the
-              // cacheNodeAssignment store
-              // meaning that the cache node has not created the partition yet
-//              .filter(
-//                  cacheNodeMetadata ->
-//                      cacheNodeAssignmentStore.hasPartitionSync(cacheNodeMetadata.id))
               .toList();
-      LOG.info("cacheNodes: {}", cacheNodes);
       List<CacheNodeAssignment> currentAssignments =
           cacheNodeAssignmentStore.listSync().stream()
               .filter(assignment -> replicaSet.equals(assignment.replicaSet))
@@ -521,19 +514,11 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
       Instant expireOlderThan,
       Map<String, ReplicaMetadata> replicaMetadataBySnapshotId,
       CacheNodeAssignment cacheNodeAssignment) {
-    boolean shouldEvict =
-        cacheNodeAssignment.state.equals(Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
-            && replicaMetadataBySnapshotId.containsKey(cacheNodeAssignment.snapshotId)
-            && replicaMetadataBySnapshotId.get(cacheNodeAssignment.snapshotId).expireAfterEpochMs
-                < expireOlderThan.toEpochMilli();
-    if (shouldEvict) {
-      LOG.info("Should evict replica " + cacheNodeAssignment.snapshotId);
-    } else {
-      LOG.info(
-          "Should NOT evict replica with expireAfterMs of %s"
-              + replicaMetadataBySnapshotId.get(cacheNodeAssignment.snapshotId).expireAfterEpochMs);
-    }
-    return shouldEvict;
+    return cacheNodeAssignment.state.equals(
+            Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
+        && replicaMetadataBySnapshotId.containsKey(cacheNodeAssignment.snapshotId)
+        && replicaMetadataBySnapshotId.get(cacheNodeAssignment.snapshotId).expireAfterEpochMs
+            < expireOlderThan.toEpochMilli();
   }
 
   private void assignmentListener(CacheNodeAssignment assignment) {

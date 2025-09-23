@@ -120,8 +120,9 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
-      LOG.info("Creating partition for cache node assignment for cache node {}", cacheNodeId);
-      // create fake assignment to ensure something exists in this node's assignment store
+      // cache node creates its own partition in cacheNodeAssignment store so the listener
+      // initializes
+      // this is necessary due to race condition bug found september 2025
       cacheNodeAssignmentStore.createPartitionSync(cacheNodeId);
       cacheNodeMetadataStore.createSync(
           new CacheNodeMetadata(
@@ -214,7 +215,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   }
 
   private void onAssignmentHandler(CacheNodeAssignment assignment) {
-    LOG.info("onAssignmentHandler called for assignment {}", assignment);
     if (Objects.equals(assignment.cacheNodeId, this.cacheNodeId)) {
       LOG.info(
           "Assignment handler fired for cache node {} and assignment {}",
