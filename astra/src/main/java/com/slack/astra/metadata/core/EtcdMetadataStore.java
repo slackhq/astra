@@ -571,7 +571,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 return metadataNode.getName();
               });
     } catch (InvalidProtocolBufferException e) {
-      LOG.error("Failed to update node (async): {} and took {} seconds", metadataNode.getName(), e);
+      LOG.error("Failed to update node (async): {}", metadataNode.getName(), e);
       CompletableFuture<String> future = new CompletableFuture<>();
       future.completeExceptionally(
           new InternalMetadataStoreException("Failed to serialize node", e));
@@ -805,6 +805,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    *
    * @param listener The listener to add
    * @param attemptNumber The current attempt number (0-based)
+   * @param startRevision The ETCD revision number to start at (0 will get current revision of the
+   *     db)
    */
   private void addListener(
       AstraMetadataStoreChangeListener<T> listener, int attemptNumber, long startRevision) {
@@ -936,6 +938,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                         etcdOperationsMaxRetries);
 
                     // Schedule retry using the dedicated watch retry executor with delay
+                    // retry with the same revision number so we don't miss events on this async
+                    // operation
                     watchRetryExecutor.schedule(
                         () -> addListener(listener, attemptNumber + 1, finalCurrentRevision),
                         delayMs,
