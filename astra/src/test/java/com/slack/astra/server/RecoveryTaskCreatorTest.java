@@ -1073,7 +1073,11 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, startTime, endTime, maxOffset, partitionId, 100);
     snapshotMetadataStore.createSync(partition1);
-    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
+    await()
+        .until(
+            () ->
+                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)
+                    .contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore),

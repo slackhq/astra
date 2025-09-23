@@ -156,6 +156,7 @@ public class EtcdMetadataStoreTest {
 
   @AfterEach
   public void tearDown() {
+    store.listSyncUncached().forEach(s -> store.deleteSync(s));
     // Close the store and meter registry
     store.close();
     etcdClient.close();
@@ -246,7 +247,6 @@ public class EtcdMetadataStoreTest {
 
   @Test
   public void testListNodes() throws ExecutionException, InterruptedException {
-    store.listSyncUncached().forEach(s -> store.deleteSync(s));
 
     // Create test metadata objects
     TestMetadata testData1 = new TestMetadata("list1", "data1");
@@ -277,7 +277,10 @@ public class EtcdMetadataStoreTest {
   @Test
   public void testListeners() throws InterruptedException {
     AtomicInteger counter = new AtomicInteger(0);
-    AstraMetadataStoreChangeListener<TestMetadata> listener = unused -> counter.incrementAndGet();
+    AstraMetadataStoreChangeListener<TestMetadata> listener =
+        unused -> {
+          counter.incrementAndGet();
+        };
 
     // Add listener
     store.addListener(listener);
@@ -286,21 +289,21 @@ public class EtcdMetadataStoreTest {
     TimeUnit.MILLISECONDS.sleep(200);
 
     // Initial count should be 0
-    assertThat(counter.get()).isEqualTo(1);
+    assertThat(counter.get()).isEqualTo(0);
 
     // Create a node - should trigger listener
     TestMetadata testData = new TestMetadata("watch1", "data");
     store.createSync(testData);
 
     // Wait for notification
-    await().atMost(2, TimeUnit.SECONDS).until(() -> counter.get() == 2);
+    await().atMost(2, TimeUnit.SECONDS).until(() -> counter.get() == 1);
 
     // Update node - should trigger listener again
     TestMetadata updatedData = new TestMetadata("watch1", "updated");
     store.updateSync(updatedData);
 
     // Wait for notification
-    await().atMost(2, TimeUnit.SECONDS).until(() -> counter.get() == 3);
+    await().atMost(2, TimeUnit.SECONDS).until(() -> counter.get() == 2);
 
     // Remove listener
     store.removeListener(listener);
@@ -312,7 +315,7 @@ public class EtcdMetadataStoreTest {
 
     // Wait a bit to see if counter changes
     TimeUnit.MILLISECONDS.sleep(500);
-    assertThat(counter.get()).isEqualTo(3);
+    assertThat(counter.get()).isEqualTo(2);
   }
 
   @Test
