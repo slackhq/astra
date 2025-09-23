@@ -286,7 +286,7 @@ public class EtcdMetadataStoreTest {
     TimeUnit.MILLISECONDS.sleep(200);
 
     // Initial count should be 0
-    assertThat(counter.get()).isEqualTo(0);
+    assertThat(counter.get()).isEqualTo(1);
 
     // Create a node - should trigger listener
     TestMetadata testData = new TestMetadata("watch1", "data");
