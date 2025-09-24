@@ -103,6 +103,26 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   /**
+   * Initializes just the partition in an Astrametadata store Note: this does NOT add a key/value to
+   * ETCD, but this does initialize the store enough to force a listener on the store to initialize.
+   * Mainly added to fix race condition bug found September 2025
+   *
+   * @param partitionId
+   */
+  public void createPartitionSync(String partitionId) {
+    switch (mode) {
+      case ZOOKEEPER_CREATES:
+        zkStore.createPartitionSync(partitionId);
+        break;
+      case ETCD_CREATES:
+        etcdStore.createPartitionSync(partitionId);
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown metadata store mode: " + mode);
+    }
+  }
+
+  /**
    * Gets a metadata node asynchronously.
    *
    * @param partition the partition to look in
