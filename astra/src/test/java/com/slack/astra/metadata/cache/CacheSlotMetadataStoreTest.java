@@ -134,7 +134,8 @@ public class CacheSlotMetadataStoreTest {
         .until(
             () ->
                 store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.LIVE);
+                    && AstraMetadataTestUtils.listSyncUncached(store).get(0).cacheSlotState
+                        == CacheSlotState.LIVE);
     final CacheSlotMetadata liveNode = store.getSync(hostname, name);
     assertThat(liveNode.name).isEqualTo(name);
     assertThat(liveNode.cacheSlotState).isEqualTo(CacheSlotState.LIVE);
@@ -206,7 +207,8 @@ public class CacheSlotMetadataStoreTest {
         .until(
             () ->
                 store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.LIVE);
+                    && AstraMetadataTestUtils.listSyncUncached(store).get(0).cacheSlotState
+                        == CacheSlotState.LIVE);
     final CacheSlotMetadata liveNode = store.getSync(hostname, name);
     assertThat(liveNode.name).isEqualTo(name);
     assertThat(liveNode.cacheSlotState).isEqualTo(CacheSlotState.LIVE);

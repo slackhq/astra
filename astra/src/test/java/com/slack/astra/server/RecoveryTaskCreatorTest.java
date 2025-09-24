@@ -257,7 +257,11 @@ public class RecoveryTaskCreatorTest {
       int deletedSnapshotSize,
       List<SnapshotMetadata> expectedSnapshots) {
     actualSnapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
-    await().until(() -> snapshotMetadataStore.listSync().containsAll(actualSnapshots));
+    await()
+        .until(
+            () ->
+                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)
+                    .containsAll(actualSnapshots));
 
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
