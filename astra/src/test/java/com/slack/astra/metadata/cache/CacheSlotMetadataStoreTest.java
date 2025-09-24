@@ -91,14 +91,15 @@ public class CacheSlotMetadataStoreTest {
             .build();
     this.curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
-    this.store =
+    store =
         new CacheSlotMetadataStore(
             curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
   }
 
   @AfterEach
   public void tearDown() throws IOException {
-    this.store.close();
+    store.listSync().forEach(s -> store.deleteSync(s));
+    store.close();
     curatorFramework.unwrap().close();
     if (etcdClient != null) etcdClient.close();
 
@@ -125,8 +126,8 @@ public class CacheSlotMetadataStoreTest {
     assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
 
     store.createSync(cacheSlotMetadata);
-    assertThat(AstraMetadataTestUtils.listSyncUncached(store).size()).isEqualTo(1);
-
+//    assertThat(AstraMetadataTestUtils.listSyncUncached(store).size()).isEqualTo(1);
+    assertThat(store.listSync().size()).isEqualTo(1);
     store
         .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.LIVE)
         .get(1, TimeUnit.SECONDS);
