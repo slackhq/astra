@@ -140,8 +140,12 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
       // Create watch option starting from the current revision
       // This ensures we don't miss events that occur during watch registration
+      // and that we don't replay the last event
       watchOption =
-          WatchOption.builder().withPrefix(storeFolderKey).withRevision(currentRevision).build();
+          WatchOption.builder()
+              .withPrefix(storeFolderKey)
+              .withRevision(currentRevision + 1)
+              .build();
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to get current revision for watch setup on store {}", storeFolder, e);
       // Fallback to basic watch without revision
