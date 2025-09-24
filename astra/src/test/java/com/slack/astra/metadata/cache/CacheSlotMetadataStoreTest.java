@@ -126,8 +126,7 @@ public class CacheSlotMetadataStoreTest {
     assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
 
     store.createSync(cacheSlotMetadata);
-//    assertThat(AstraMetadataTestUtils.listSyncUncached(store).size()).isEqualTo(1);
-    assertThat(store.listSync().size()).isEqualTo(1);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(store).size()).isEqualTo(1);
     store
         .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.LIVE)
         .get(1, TimeUnit.SECONDS);
