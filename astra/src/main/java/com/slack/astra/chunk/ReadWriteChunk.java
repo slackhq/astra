@@ -264,7 +264,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       // blobstore.upload uploads everything in the directory, including write.lock if it exists.
       blobStore.uploadSequentially(chunkInfo.chunkId, dirPath);
 
-      snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
+      long durationNanos = snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);
 
       Map<String, Long> filesWithSizeInS3 = blobStore.listFilesWithSize(chunkInfo.chunkId);
@@ -315,7 +315,10 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         logger.error("Schema file was not uploaded to S3: {}", SCHEMA_FILE_NAME);
         return false;
       }
-      logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
+      logger.info(
+          "Finished RW chunk snapshot to S3 {} in {} secs.",
+          chunkInfo,
+          TimeUnit.SECONDS.convert(durationNanos, TimeUnit.NANOSECONDS));
       return true;
     } catch (Exception e) {
       logger.error("Exception when copying RW chunk {} to S3.", chunkInfo, e);

@@ -118,10 +118,8 @@ public class BlobStore {
               .get(); // Wait for completion
 
           completedCount++;
-          LOG.info("Successfully uploaded: {} ", relativePath);
-
         } catch (Exception e) {
-          LOG.error("Failed to upload file: {}", relativePath, e);
+          LOG.error("Failed to upload file: {} for prefix: {}", relativePath, prefix, e);
           failedUploads.add(relativePath);
         }
       }
@@ -130,11 +128,11 @@ public class BlobStore {
       if (!failedUploads.isEmpty()) {
         throw new IllegalStateException(
             String.format(
-                "Some files failed to upload for predix %s - attempted to upload %s files, failed %s.",
+                "Some files failed to upload for prefix %s - attempted to upload %s files, failed %s.",
                 prefix, allFiles.size(), failedUploads.size()));
       }
       LOG.info(
-          "Successfully uploaded all {} files sequentially for predix {}", completedCount, prefix);
+          "Successfully uploaded all {} files sequentially for prefix {}", completedCount, prefix);
 
     } catch (IOException e) {
       throw new RuntimeException("Failed to walk directory", e);

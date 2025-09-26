@@ -557,6 +557,13 @@ public class Astra {
       // stopping timed out
       LOG.error("ServiceManager shutdown timed out", e);
     }
+    if (s3Client != null) {
+      try {
+        s3Client.close();
+      } catch (Exception e) {
+        LOG.error("Error while closing s3Client ", e);
+      }
+    }
     try {
       curatorFramework.unwrap().close();
     } catch (Exception e) {
