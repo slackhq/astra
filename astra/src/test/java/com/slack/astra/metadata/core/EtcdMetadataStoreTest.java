@@ -156,6 +156,7 @@ public class EtcdMetadataStoreTest {
 
   @AfterEach
   public void tearDown() {
+    store.listSyncUncached().forEach(s -> store.deleteSync(s));
     // Close the store and meter registry
     store.close();
     etcdClient.close();
@@ -246,7 +247,6 @@ public class EtcdMetadataStoreTest {
 
   @Test
   public void testListNodes() throws ExecutionException, InterruptedException {
-    store.listSyncUncached().forEach(s -> store.deleteSync(s));
 
     // Create test metadata objects
     TestMetadata testData1 = new TestMetadata("list1", "data1");
@@ -277,7 +277,10 @@ public class EtcdMetadataStoreTest {
   @Test
   public void testListeners() throws InterruptedException {
     AtomicInteger counter = new AtomicInteger(0);
-    AstraMetadataStoreChangeListener<TestMetadata> listener = unused -> counter.incrementAndGet();
+    AstraMetadataStoreChangeListener<TestMetadata> listener =
+        unused -> {
+          counter.incrementAndGet();
+        };
 
     // Add listener
     store.addListener(listener);

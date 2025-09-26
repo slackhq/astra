@@ -301,6 +301,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return etcdClient
           .getKVClient()
           .get(key)
+          .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
           .thenComposeAsync(
               getResponse -> {
                 if (!getResponse.getKvs().isEmpty()) {
@@ -317,6 +318,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   return etcdClient
                       .getKVClient()
                       .put(key, value)
+                      .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
                       .thenApplyAsync(
                           putResponse -> {
                             // Always update the cache for consistency
@@ -337,6 +339,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   return etcdClient
                       .getKVClient()
                       .put(key, value, putOption)
+                      .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
                       .thenApplyAsync(
                           putResponse -> {
                             LOG.debug(
@@ -406,6 +409,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     return etcdClient
         .getKVClient()
         .get(key)
+        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
         .thenApplyAsync(
             getResponse -> {
               if (getResponse.getKvs().isEmpty()) {
@@ -482,6 +486,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     return etcdClient
         .getKVClient()
         .get(key)
+        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
         .thenApplyAsync(getResponse -> !getResponse.getKvs().isEmpty());
   }
 
@@ -529,6 +534,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return etcdClient
           .getKVClient()
           .get(key)
+          .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
           .thenComposeAsync(
               getResponse -> {
                 long existingLeaseId = 0;
@@ -565,6 +571,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 return metadataNode.getName();
               });
     } catch (InvalidProtocolBufferException e) {
+      LOG.error("Failed to update node (async): {}", metadataNode.getName(), e);
       CompletableFuture<String> future = new CompletableFuture<>();
       future.completeExceptionally(
           new InternalMetadataStoreException("Failed to serialize node", e));
@@ -582,10 +589,14 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     try {
       updateAsync(metadataNode)
+          .exceptionally(
+              throwable -> {
+                throw new RuntimeException(throwable);
+              })
           .toCompletableFuture()
           .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Failed to update node: {}", metadataNode.getName(), e);
+      LOG.error("Failed to update node: {} and took {} seconds", metadataNode.getName(), e);
       throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
     }
   }
@@ -603,6 +614,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     return etcdClient
         .getKVClient()
         .delete(key)
+        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
         .thenAcceptAsync(
             deleteResponse -> {
               // Note: deleteResponse.getDeleted() tells us how many keys were deleted
@@ -690,6 +702,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     return etcdClient
         .getKVClient()
         .get(prefix, getOption)
+        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
         .thenApplyAsync(
             getResponse -> {
               List<T> nodes = new ArrayList<>();
@@ -784,7 +797,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    * @param listener The listener to add
    */
   public void addListener(AstraMetadataStoreChangeListener<T> listener) {
-    addListener(listener, 0);
+    addListener(listener, 0, 0);
   }
 
   /**
@@ -792,8 +805,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
    *
    * @param listener The listener to add
    * @param attemptNumber The current attempt number (0-based)
+   * @param startRevision The ETCD revision number to start at (0 will get current revision of the
+   *     db)
    */
-  private void addListener(AstraMetadataStoreChangeListener<T> listener, int attemptNumber) {
+  private void addListener(
+      AstraMetadataStoreChangeListener<T> listener, int attemptNumber, long startRevision) {
     this.addedListener.increment();
 
     if (!shouldCache) {
@@ -812,19 +828,29 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // We start watching from the next revision to ensure we capture all events
     // that occur during and after watch setup
     WatchOption watchOption;
+    long currentRevision = startRevision;
     try {
-      long currentRevision =
-          etcdClient
-              .getKVClient()
-              .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
-              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
-              .getHeader()
-              .getRevision();
+      // only get currentRevision if a revision hasn't been specified
+      if (startRevision == 0) {
+        currentRevision =
+            etcdClient
+                .getKVClient()
+                .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
+                .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
+                .getHeader()
+                .getRevision();
+      }
 
       // Create watch option starting from the current revision + 1
       // This ensures we don't miss events that occur during watch registration
+      // and that we don't replay the last event
       watchOption =
           WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
+      LOG.debug(
+          "adding listener {} for store {} at revision {}",
+          listener,
+          storeFolder,
+          currentRevision + 1);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to get current revision for watch setup on attempt {}", attemptNumber, e);
       // Fallback to basic watch without revision
@@ -832,6 +858,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     // Create a watcher for this listener
+    long finalCurrentRevision = currentRevision + 1;
     Watcher watcher =
         etcdClient
             .getWatchClient()
@@ -916,8 +943,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                         etcdOperationsMaxRetries);
 
                     // Schedule retry using the dedicated watch retry executor with delay
+                    // retry with the same revision number so we don't miss events on this async
+                    // operation
                     watchRetryExecutor.schedule(
-                        () -> addListener(listener, attemptNumber + 1),
+                        () -> addListener(listener, attemptNumber + 1, finalCurrentRevision),
                         delayMs,
                         TimeUnit.MILLISECONDS);
                   } else {

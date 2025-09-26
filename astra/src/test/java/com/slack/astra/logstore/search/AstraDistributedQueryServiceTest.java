@@ -167,6 +167,8 @@ public class AstraDistributedQueryServiceTest {
     cache2SearchContext = new SearchContext("cache_host2", 20001);
     cache3SearchContext = new SearchContext("cache_host3", 20002);
     cache4SearchContext = new SearchContext("cache_host4", 20003);
+
+    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
   }
 
   @AfterEach
@@ -995,446 +997,492 @@ public class AstraDistributedQueryServiceTest {
 
   @Test
   public void testNewDistributedQueryWithSingleSnapshotSuccess() throws JsonProcessingException {
-    String indexName = "testIndex";
-    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
-    DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
-    datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
+    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
 
-    Instant chunk1CreationTime = Instant.ofEpochMilli(100);
-    Instant chunk1EndTime = Instant.ofEpochMilli(200);
-    String snapshot1Name =
-        createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 2);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
+    try {
 
-    AstraDistributedQueryService distributedQueryService =
-        new AstraDistributedQueryService(
-            searchMetadataStore,
-            snapshotMetadataStore,
-            datasetMetadataStore,
-            metricsRegistry,
-            Duration.ofSeconds(30),
-            Duration.ofSeconds(30),
-            queryServiceConfig);
+      String indexName = "testIndex";
+      DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
+      DatasetMetadata datasetMetadata =
+          new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
+      datasetMetadataStore.createSync(datasetMetadata);
+      await()
+          .until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
-    // Mock successful response
-    AstraServiceGrpc.AstraServiceFutureStub mockStub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
-    distributedQueryService.stubs.put(indexer1SearchContext.toUrl(), mockStub);
-    when(mockStub.withDeadlineAfter(anyLong(), any(TimeUnit.class))).thenReturn(mockStub);
-    when(mockStub.withInterceptors(any())).thenReturn(mockStub);
-    LogWireMessage logWireMessage =
-        new LogWireMessage(
-            "testIndex", "testType", "testId", Instant.now(), Map.of("testSource", "testValue"));
-    when(mockStub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(
-            Futures.immediateFuture(
-                AstraSearch.SearchResult.newBuilder()
-                    .addHits(JsonUtil.writeAsString(logWireMessage))
-                    .setTotalSnapshots(1)
-                    .setTotalNodes(1)
-                    .setInternalAggregations(
-                        ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
-                    .build()));
+      Instant chunk1CreationTime = Instant.ofEpochMilli(100);
+      Instant chunk1EndTime = Instant.ofEpochMilli(200);
+      String snapshot1Name =
+          createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
+      await()
+          .until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 2);
+      await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
 
-    AstraSearch.SearchRequest request =
-        AstraSearch.SearchRequest.newBuilder()
-            .setDataset(indexName)
-            .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
-            .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
-            .setQuery(
-                """
-                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":400,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"* !astra.enableNextGenDistributedQueries"}}]}}
-                      """)
-            .setHowMany(100)
-            .build();
+      AstraDistributedQueryService distributedQueryService =
+          new AstraDistributedQueryService(
+              searchMetadataStore,
+              snapshotMetadataStore,
+              datasetMetadataStore,
+              metricsRegistry,
+              Duration.ofSeconds(30),
+              Duration.ofSeconds(30),
+              queryServiceConfig);
 
-    AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
-    assertThat(result.getHitsCount()).isEqualTo(1);
-    distributedQueryService.close();
+      // Mock successful response
+      AstraServiceGrpc.AstraServiceFutureStub mockStub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      distributedQueryService.stubs.put(indexer1SearchContext.toUrl(), mockStub);
+      when(mockStub.withDeadlineAfter(anyLong(), any(TimeUnit.class))).thenReturn(mockStub);
+      when(mockStub.withInterceptors(any())).thenReturn(mockStub);
+      LogWireMessage logWireMessage =
+          new LogWireMessage(
+              "testIndex", "testType", "testId", Instant.now(), Map.of("testSource", "testValue"));
+      when(mockStub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(
+              Futures.immediateFuture(
+                  AstraSearch.SearchResult.newBuilder()
+                      .addHits(JsonUtil.writeAsString(logWireMessage))
+                      .setTotalSnapshots(1)
+                      .setTotalNodes(1)
+                      .setInternalAggregations(
+                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
+                      .build()));
+
+      AstraSearch.SearchRequest request =
+          AstraSearch.SearchRequest.newBuilder()
+              .setDataset(indexName)
+              .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
+              .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
+              .setQuery(
+                  """
+                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":400,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                                      """)
+              .setHowMany(100)
+              .build();
+
+      AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
+      assertThat(result.getHitsCount()).isEqualTo(1);
+      distributedQueryService.close();
+    } finally {
+      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
+    }
   }
 
   @Test
   public void testNewDistributedQueryRetryOnHardFailure() throws JsonProcessingException {
-    String indexName = "testIndex";
-    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
-    DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
-    datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
+    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
 
-    Instant chunk1CreationTime = Instant.ofEpochMilli(100);
-    Instant chunk1EndTime = Instant.ofEpochMilli(200);
-    SnapshotMetadata snapshotMetadata =
-        createSnapshot(chunk1CreationTime, chunk1EndTime, false, "1");
-    String snapshot1Name = snapshotMetadata.name;
+    try {
+      String indexName = "testIndex";
+      DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
+      DatasetMetadata datasetMetadata =
+          new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
+      datasetMetadataStore.createSync(datasetMetadata);
+      await()
+          .until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 1);
+      Instant chunk1CreationTime = Instant.ofEpochMilli(100);
+      Instant chunk1EndTime = Instant.ofEpochMilli(200);
+      SnapshotMetadata snapshotMetadata =
+          createSnapshot(chunk1CreationTime, chunk1EndTime, false, "1");
+      String snapshot1Name = snapshotMetadata.name;
 
-    // Mock this one out so that we can guarantee the return order and verify the failover
-    // behavior
-    SearchMetadataStore mockSearchMetadataStore = mock(SearchMetadataStore.class);
-    when(mockSearchMetadataStore.listSync())
-        .thenReturn(
-            List.of(
-                new SearchMetadata(
-                    "testSearchMetadata", snapshot1Name, cache1SearchContext.toUrl()),
-                new SearchMetadata(
-                    "otherTestSearchMetadata", snapshot1Name, cache2SearchContext.toUrl())));
+      await()
+          .until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 1);
 
-    AstraDistributedQueryService distributedQueryService =
-        new AstraDistributedQueryService(
-            mockSearchMetadataStore,
-            snapshotMetadataStore,
-            datasetMetadataStore,
-            metricsRegistry,
-            Duration.ofSeconds(30),
-            Duration.ofSeconds(30),
-            queryServiceConfig);
+      // Mock this one out so that we can guarantee the return order and verify the failover
+      // behavior
+      SearchMetadataStore mockSearchMetadataStore = mock(SearchMetadataStore.class);
+      when(mockSearchMetadataStore.listSync())
+          .thenReturn(
+              List.of(
+                  new SearchMetadata(
+                      "testSearchMetadata", snapshot1Name, cache1SearchContext.toUrl()),
+                  new SearchMetadata(
+                      "otherTestSearchMetadata", snapshot1Name, cache2SearchContext.toUrl())));
 
-    // Mock first call failure, second call success
-    AstraServiceGrpc.AstraServiceFutureStub mockFailedCacheStub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
-    AstraServiceGrpc.AstraServiceFutureStub mockSuccessfulCacheStub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      AstraDistributedQueryService distributedQueryService =
+          new AstraDistributedQueryService(
+              mockSearchMetadataStore,
+              snapshotMetadataStore,
+              datasetMetadataStore,
+              metricsRegistry,
+              Duration.ofSeconds(30),
+              Duration.ofSeconds(30),
+              queryServiceConfig);
 
-    distributedQueryService.stubs.put(cache1SearchContext.toUrl(), mockFailedCacheStub);
-    distributedQueryService.stubs.put(cache2SearchContext.toUrl(), mockSuccessfulCacheStub);
+      // Mock first call failure, second call success
+      AstraServiceGrpc.AstraServiceFutureStub mockFailedCacheStub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      AstraServiceGrpc.AstraServiceFutureStub mockSuccessfulCacheStub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
 
-    when(mockSuccessfulCacheStub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
-        .thenReturn(mockSuccessfulCacheStub);
-    when(mockSuccessfulCacheStub.withInterceptors(any())).thenReturn(mockSuccessfulCacheStub);
-    when(mockFailedCacheStub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
-        .thenReturn(mockFailedCacheStub);
-    when(mockFailedCacheStub.withInterceptors(any())).thenReturn(mockFailedCacheStub);
+      distributedQueryService.stubs.put(cache1SearchContext.toUrl(), mockFailedCacheStub);
+      distributedQueryService.stubs.put(cache2SearchContext.toUrl(), mockSuccessfulCacheStub);
 
-    // First call returns timeout/error, second call succeeds
-    when(mockFailedCacheStub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(
-            Futures.immediateFuture(
-                AstraSearch.SearchResult.newBuilder()
-                    .setTotalNodes(1)
-                    .setTotalSnapshots(0)
-                    .setFailedNodes(1)
-                    .setInternalAggregations(
-                        ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
-                    .build()));
+      when(mockSuccessfulCacheStub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
+          .thenReturn(mockSuccessfulCacheStub);
+      when(mockSuccessfulCacheStub.withInterceptors(any())).thenReturn(mockSuccessfulCacheStub);
+      when(mockFailedCacheStub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
+          .thenReturn(mockFailedCacheStub);
+      when(mockFailedCacheStub.withInterceptors(any())).thenReturn(mockFailedCacheStub);
 
-    LogWireMessage successLogWireMessage =
-        new LogWireMessage(
-            "testIndex", "testType", "testId", Instant.now(), Map.of("testSource", "testValue"));
-    when(mockSuccessfulCacheStub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(
-            Futures.immediateFuture(
-                AstraSearch.SearchResult.newBuilder()
-                    .addHits(JsonUtil.writeAsString(successLogWireMessage))
-                    .setTotalSnapshots(1)
-                    .setTotalNodes(1)
-                    .setInternalAggregations(
-                        ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
-                    .build()));
+      // First call returns timeout/error, second call succeeds
+      when(mockFailedCacheStub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(
+              Futures.immediateFuture(
+                  AstraSearch.SearchResult.newBuilder()
+                      .setTotalNodes(1)
+                      .setTotalSnapshots(0)
+                      .setFailedNodes(1)
+                      .setInternalAggregations(
+                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
+                      .build()));
 
-    AstraSearch.SearchRequest request =
-        AstraSearch.SearchRequest.newBuilder()
-            .setDataset(indexName)
-            .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
-            .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
-            .setQuery(
-                """
-                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*:* !astra.enableNextGenDistributedQueries"}}]}}
-                      """)
-            .setHowMany(100)
-            .build();
+      LogWireMessage successLogWireMessage =
+          new LogWireMessage(
+              "testIndex", "testType", "testId", Instant.now(), Map.of("testSource", "testValue"));
+      when(mockSuccessfulCacheStub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(
+              Futures.immediateFuture(
+                  AstraSearch.SearchResult.newBuilder()
+                      .addHits(JsonUtil.writeAsString(successLogWireMessage))
+                      .setTotalSnapshots(1)
+                      .setTotalNodes(1)
+                      .setInternalAggregations(
+                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
+                      .build()));
 
-    AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
-    assertThat(result.getHitsCount()).isEqualTo(1);
-    distributedQueryService.close();
+      AstraSearch.SearchRequest request =
+          AstraSearch.SearchRequest.newBuilder()
+              .setDataset(indexName)
+              .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
+              .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
+              .setQuery(
+                  """
+                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*:*"}}]}}
+                                      """)
+              .setHowMany(100)
+              .build();
+
+      AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
+      assertThat(result.getHitsCount()).isEqualTo(1);
+      distributedQueryService.close();
+    } finally {
+      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
+    }
   }
 
   @Test
   public void testNewDistributedQueryDoesNotRetryOnSoftFailure() {
-    String indexName = "testIndex";
-    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
-    DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
-    datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
+    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
 
-    Instant chunk1CreationTime = Instant.ofEpochMilli(100);
-    Instant chunk1EndTime = Instant.ofEpochMilli(200);
-    String snapshot1Name =
-        createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
+    try {
+      String indexName = "testIndex";
+      DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
+      DatasetMetadata datasetMetadata =
+          new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
+      datasetMetadataStore.createSync(datasetMetadata);
+      await()
+          .until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
-    // Create cache replica for the same snapshot
-    registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot1Name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
+      Instant chunk1CreationTime = Instant.ofEpochMilli(100);
+      Instant chunk1EndTime = Instant.ofEpochMilli(200);
+      String snapshot1Name =
+          createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
 
-    AstraDistributedQueryService distributedQueryService =
-        new AstraDistributedQueryService(
-            searchMetadataStore,
-            snapshotMetadataStore,
-            datasetMetadataStore,
-            metricsRegistry,
-            Duration.ofSeconds(30),
-            Duration.ofSeconds(30),
-            queryServiceConfig);
+      // Create cache replica for the same snapshot
+      registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot1Name);
+      await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
 
-    AstraServiceGrpc.AstraServiceFutureStub mockStub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
-    distributedQueryService.stubs.put(indexer1SearchContext.toUrl(), mockStub);
-    when(mockStub.withDeadlineAfter(anyLong(), any(TimeUnit.class))).thenReturn(mockStub);
-    when(mockStub.withInterceptors(any())).thenReturn(mockStub);
+      AstraDistributedQueryService distributedQueryService =
+          new AstraDistributedQueryService(
+              searchMetadataStore,
+              snapshotMetadataStore,
+              datasetMetadataStore,
+              metricsRegistry,
+              Duration.ofSeconds(30),
+              Duration.ofSeconds(30),
+              queryServiceConfig);
 
-    // Return soft failure (parsing error) - should not be retried
-    when(mockStub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(
-            Futures.immediateFuture(
-                AstraSearch.SearchResult.newBuilder()
-                    .addAllSoftFailedChunkIds(List.of(snapshot1Name))
-                    .build()));
+      AstraServiceGrpc.AstraServiceFutureStub mockStub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      distributedQueryService.stubs.put(indexer1SearchContext.toUrl(), mockStub);
+      when(mockStub.withDeadlineAfter(anyLong(), any(TimeUnit.class))).thenReturn(mockStub);
+      when(mockStub.withInterceptors(any())).thenReturn(mockStub);
 
-    AstraSearch.SearchRequest request =
-        AstraSearch.SearchRequest.newBuilder()
-            .setDataset(indexName)
-            .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
-            .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
-            .setQuery(
-                """
-                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"* !astra.enableNextGenDistributedQueries"}}]}}
-                      """)
-            .setHowMany(100)
-            .build();
+      // Return soft failure (parsing error) - should not be retried
+      when(mockStub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(
+              Futures.immediateFuture(
+                  AstraSearch.SearchResult.newBuilder()
+                      .addAllSoftFailedChunkIds(List.of(snapshot1Name))
+                      .build()));
 
-    AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
-    assertThat(result.getHitsCount()).isEqualTo(0);
-    // Verify cache stub was never called (no retry)
-    distributedQueryService.close();
+      AstraSearch.SearchRequest request =
+          AstraSearch.SearchRequest.newBuilder()
+              .setDataset(indexName)
+              .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
+              .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
+              .setQuery(
+                  """
+                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                                      """)
+              .setHowMany(100)
+              .build();
+
+      AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
+      assertThat(result.getHitsCount()).isEqualTo(0);
+      // Verify cache stub was never called (no retry)
+      distributedQueryService.close();
+    } finally {
+      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
+    }
   }
 
   @Test
   public void testNewDistributedQueryHandlesEmptySnapshotList() {
-    String indexName = "testIndex";
-    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 50, List.of("1"));
-    DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
-    datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
+    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
 
-    AstraDistributedQueryService distributedQueryService =
-        new AstraDistributedQueryService(
-            searchMetadataStore,
-            snapshotMetadataStore,
-            datasetMetadataStore,
-            metricsRegistry,
-            Duration.ofSeconds(30),
-            Duration.ofSeconds(30),
-            queryServiceConfig);
+    try {
+      String indexName = "testIndex";
+      DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 50, List.of("1"));
+      DatasetMetadata datasetMetadata =
+          new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
+      datasetMetadataStore.createSync(datasetMetadata);
+      await()
+          .until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
-    // Query time range that matches no snapshots
-    AstraSearch.SearchRequest request =
-        AstraSearch.SearchRequest.newBuilder()
-            .setDataset(indexName)
-            .setStartTimeEpochMs(100)
-            .setEndTimeEpochMs(200)
-            .setQuery(
-                """
-                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"* !astra.enableNextGenDistributedQueries"}}]}}
-                      """)
-            .setHowMany(100)
-            .build();
+      AstraDistributedQueryService distributedQueryService =
+          new AstraDistributedQueryService(
+              searchMetadataStore,
+              snapshotMetadataStore,
+              datasetMetadataStore,
+              metricsRegistry,
+              Duration.ofSeconds(30),
+              Duration.ofSeconds(30),
+              queryServiceConfig);
 
-    AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
-    assertThat(result.getHitsCount()).isEqualTo(0);
-    distributedQueryService.close();
+      // Query time range that matches no snapshots
+      AstraSearch.SearchRequest request =
+          AstraSearch.SearchRequest.newBuilder()
+              .setDataset(indexName)
+              .setStartTimeEpochMs(100)
+              .setEndTimeEpochMs(200)
+              .setQuery(
+                  """
+                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                                      """)
+              .setHowMany(100)
+              .build();
+
+      AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
+      assertThat(result.getHitsCount()).isEqualTo(0);
+      distributedQueryService.close();
+    } finally {
+      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
+    }
   }
 
   @Test
-  // NOT THIS ONE
   public void testNewDistributedQueryMultipleReplicasRetryLogic() throws JsonProcessingException {
-    String indexName = "testIndex";
-    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
-    DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
-    datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
+    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
 
-    Instant chunk1CreationTime = Instant.ofEpochMilli(100);
-    Instant chunk1EndTime = Instant.ofEpochMilli(200);
-    SnapshotMetadata snapshotMetadata =
-        createSnapshot(chunk1CreationTime, chunk1EndTime, false, "1");
-    String snapshot1Name = snapshotMetadata.name;
+    try {
+      String indexName = "testIndex";
+      DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
+      DatasetMetadata datasetMetadata =
+          new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
+      datasetMetadataStore.createSync(datasetMetadata);
+      await()
+          .until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 1);
+      Instant chunk1CreationTime = Instant.ofEpochMilli(100);
+      Instant chunk1EndTime = Instant.ofEpochMilli(200);
+      SnapshotMetadata snapshotMetadata =
+          createSnapshot(chunk1CreationTime, chunk1EndTime, false, "1");
+      String snapshot1Name = snapshotMetadata.name;
 
-    // Mock this one out so that we can guarantee the return order and verify the failover
-    // behavior
-    SearchMetadataStore mockSearchMetadataStore = mock(SearchMetadataStore.class);
-    when(mockSearchMetadataStore.listSync())
-        .thenReturn(
-            List.of(
-                new SearchMetadata(
-                    "testSearchMetadata1", snapshot1Name, indexer1SearchContext.toUrl()),
-                new SearchMetadata(
-                    "testSearchMetadata2", snapshot1Name, cache1SearchContext.toUrl()),
-                new SearchMetadata(
-                    "testSearchMetadata3", snapshot1Name, cache2SearchContext.toUrl()),
-                new SearchMetadata(
-                    "testSearchMetadata4", snapshot1Name, cache3SearchContext.toUrl())));
+      await()
+          .until(() -> AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 1);
 
-    AstraDistributedQueryService distributedQueryService =
-        new AstraDistributedQueryService(
-            mockSearchMetadataStore,
-            snapshotMetadataStore,
-            datasetMetadataStore,
-            metricsRegistry,
-            Duration.ofSeconds(30),
-            Duration.ofSeconds(30),
-            queryServiceConfig);
+      // Mock this one out so that we can guarantee the return order and verify the failover
+      // behavior
+      SearchMetadataStore mockSearchMetadataStore = mock(SearchMetadataStore.class);
+      when(mockSearchMetadataStore.listSync())
+          .thenReturn(
+              List.of(
+                  new SearchMetadata(
+                      "testSearchMetadata1", snapshot1Name, indexer1SearchContext.toUrl()),
+                  new SearchMetadata(
+                      "testSearchMetadata2", snapshot1Name, cache1SearchContext.toUrl()),
+                  new SearchMetadata(
+                      "testSearchMetadata3", snapshot1Name, cache2SearchContext.toUrl()),
+                  new SearchMetadata(
+                      "testSearchMetadata4", snapshot1Name, cache3SearchContext.toUrl())));
 
-    // Mock stubs - first three fail with hard failure, fourth succeeds
-    AstraServiceGrpc.AstraServiceFutureStub mockIndexerStub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
-    AstraServiceGrpc.AstraServiceFutureStub mockCache1Stub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
-    AstraServiceGrpc.AstraServiceFutureStub mockCache2Stub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
-    AstraServiceGrpc.AstraServiceFutureStub mockCache3Stub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      AstraDistributedQueryService distributedQueryService =
+          new AstraDistributedQueryService(
+              mockSearchMetadataStore,
+              snapshotMetadataStore,
+              datasetMetadataStore,
+              metricsRegistry,
+              Duration.ofSeconds(30),
+              Duration.ofSeconds(30),
+              queryServiceConfig);
 
-    distributedQueryService.stubs.put(indexer1SearchContext.toUrl(), mockIndexerStub);
-    distributedQueryService.stubs.put(cache1SearchContext.toUrl(), mockCache1Stub);
-    distributedQueryService.stubs.put(cache2SearchContext.toUrl(), mockCache2Stub);
-    distributedQueryService.stubs.put(cache3SearchContext.toUrl(), mockCache3Stub);
+      // Mock stubs - first three fail with hard failure, fourth succeeds
+      AstraServiceGrpc.AstraServiceFutureStub mockIndexerStub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      AstraServiceGrpc.AstraServiceFutureStub mockCache1Stub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      AstraServiceGrpc.AstraServiceFutureStub mockCache2Stub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      AstraServiceGrpc.AstraServiceFutureStub mockCache3Stub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
 
-    // Configure all stubs
-    when(mockIndexerStub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
-        .thenReturn(mockIndexerStub);
-    when(mockIndexerStub.withInterceptors(any())).thenReturn(mockIndexerStub);
-    when(mockCache1Stub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
-        .thenReturn(mockCache1Stub);
-    when(mockCache1Stub.withInterceptors(any())).thenReturn(mockCache1Stub);
-    when(mockCache2Stub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
-        .thenReturn(mockCache2Stub);
-    when(mockCache2Stub.withInterceptors(any())).thenReturn(mockCache2Stub);
-    when(mockCache3Stub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
-        .thenReturn(mockCache3Stub);
-    when(mockCache3Stub.withInterceptors(any())).thenReturn(mockCache3Stub);
+      distributedQueryService.stubs.put(indexer1SearchContext.toUrl(), mockIndexerStub);
+      distributedQueryService.stubs.put(cache1SearchContext.toUrl(), mockCache1Stub);
+      distributedQueryService.stubs.put(cache2SearchContext.toUrl(), mockCache2Stub);
+      distributedQueryService.stubs.put(cache3SearchContext.toUrl(), mockCache3Stub);
 
-    AstraSearch.SearchResult failedResult =
-        AstraSearch.SearchResult.newBuilder()
-            .setTotalNodes(1)
-            .setTotalSnapshots(0)
-            .setFailedNodes(1)
-            .setInternalAggregations(
-                ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
-            .build();
+      // Configure all stubs
+      when(mockIndexerStub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
+          .thenReturn(mockIndexerStub);
+      when(mockIndexerStub.withInterceptors(any())).thenReturn(mockIndexerStub);
+      when(mockCache1Stub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
+          .thenReturn(mockCache1Stub);
+      when(mockCache1Stub.withInterceptors(any())).thenReturn(mockCache1Stub);
+      when(mockCache2Stub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
+          .thenReturn(mockCache2Stub);
+      when(mockCache2Stub.withInterceptors(any())).thenReturn(mockCache2Stub);
+      when(mockCache3Stub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
+          .thenReturn(mockCache3Stub);
+      when(mockCache3Stub.withInterceptors(any())).thenReturn(mockCache3Stub);
 
-    // Mock responses: first three return hard failures, fourth succeeds
-    when(mockIndexerStub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(Futures.immediateFuture(failedResult));
-    when(mockCache1Stub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(Futures.immediateFuture(failedResult));
-    when(mockCache2Stub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(Futures.immediateFuture(failedResult));
+      AstraSearch.SearchResult failedResult =
+          AstraSearch.SearchResult.newBuilder()
+              .setTotalNodes(1)
+              .setTotalSnapshots(0)
+              .setFailedNodes(1)
+              .setInternalAggregations(
+                  ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
+              .build();
 
-    LogWireMessage successLogWireMessage =
-        new LogWireMessage(
-            "testIndex", "testType", "testId", Instant.now(), Map.of("testSource", "testValue"));
-    when(mockCache3Stub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(
-            Futures.immediateFuture(
-                AstraSearch.SearchResult.newBuilder()
-                    .addHits(JsonUtil.writeAsString(successLogWireMessage))
-                    .setTotalSnapshots(1)
-                    .setTotalNodes(1)
-                    .setInternalAggregations(
-                        ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
-                    .build()));
+      // Mock responses: first three return hard failures, fourth succeeds
+      when(mockIndexerStub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(Futures.immediateFuture(failedResult));
+      when(mockCache1Stub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(Futures.immediateFuture(failedResult));
+      when(mockCache2Stub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(Futures.immediateFuture(failedResult));
 
-    AstraSearch.SearchRequest request =
-        AstraSearch.SearchRequest.newBuilder()
-            .setDataset(indexName)
-            .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
-            .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
-            .setQuery(
-                """
-                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"* !astra.enableNextGenDistributedQueries"}}]}}
-                      """)
-            .setHowMany(100)
-            .build();
+      LogWireMessage successLogWireMessage =
+          new LogWireMessage(
+              "testIndex", "testType", "testId", Instant.now(), Map.of("testSource", "testValue"));
+      when(mockCache3Stub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(
+              Futures.immediateFuture(
+                  AstraSearch.SearchResult.newBuilder()
+                      .addHits(JsonUtil.writeAsString(successLogWireMessage))
+                      .setTotalSnapshots(1)
+                      .setTotalNodes(1)
+                      .setInternalAggregations(
+                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
+                      .build()));
 
-    AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
-    assertThat(result.getHitsCount()).isEqualTo(1);
-    distributedQueryService.close();
+      AstraSearch.SearchRequest request =
+          AstraSearch.SearchRequest.newBuilder()
+              .setDataset(indexName)
+              .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
+              .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
+              .setQuery(
+                  """
+                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                                      """)
+              .setHowMany(100)
+              .build();
+
+      AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
+      assertThat(result.getHitsCount()).isEqualTo(1);
+      distributedQueryService.close();
+    } finally {
+      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
+    }
   }
 
   @Test
   public void testNewDistributedQueryAllReplicasFailForSnapshot() {
-    String indexName = "testIndex";
-    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
-    DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
-    datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
+    System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "true");
 
-    Instant chunk1CreationTime = Instant.ofEpochMilli(100);
-    Instant chunk1EndTime = Instant.ofEpochMilli(200);
-    String snapshot1Name =
-        createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
+    try {
+      String indexName = "testIndex";
+      DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
+      DatasetMetadata datasetMetadata =
+          new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
+      datasetMetadataStore.createSync(datasetMetadata);
+      await()
+          .until(() -> AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
-    // Create cache replica for the same snapshot
-    registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot1Name);
-    await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
+      Instant chunk1CreationTime = Instant.ofEpochMilli(100);
+      Instant chunk1EndTime = Instant.ofEpochMilli(200);
+      String snapshot1Name =
+          createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
 
-    AstraDistributedQueryService distributedQueryService =
-        new AstraDistributedQueryService(
-            searchMetadataStore,
-            snapshotMetadataStore,
-            datasetMetadataStore,
-            metricsRegistry,
-            Duration.ofSeconds(30),
-            Duration.ofSeconds(30),
-            queryServiceConfig);
+      // Create cache replica for the same snapshot
+      registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot1Name);
+      await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
 
-    // Mock stubs - both fail
-    AstraServiceGrpc.AstraServiceFutureStub mockIndexerStub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
-    AstraServiceGrpc.AstraServiceFutureStub mockCacheStub =
-        mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      AstraDistributedQueryService distributedQueryService =
+          new AstraDistributedQueryService(
+              searchMetadataStore,
+              snapshotMetadataStore,
+              datasetMetadataStore,
+              metricsRegistry,
+              Duration.ofSeconds(30),
+              Duration.ofSeconds(30),
+              queryServiceConfig);
 
-    distributedQueryService.stubs.put(indexer1SearchContext.toUrl(), mockIndexerStub);
-    distributedQueryService.stubs.put(cache1SearchContext.toUrl(), mockCacheStub);
+      // Mock stubs - both fail
+      AstraServiceGrpc.AstraServiceFutureStub mockIndexerStub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
+      AstraServiceGrpc.AstraServiceFutureStub mockCacheStub =
+          mock(AstraServiceGrpc.AstraServiceFutureStub.class);
 
-    when(mockIndexerStub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
-        .thenReturn(mockIndexerStub);
-    when(mockIndexerStub.withInterceptors(any())).thenReturn(mockIndexerStub);
-    when(mockCacheStub.withDeadlineAfter(anyLong(), any(TimeUnit.class))).thenReturn(mockCacheStub);
-    when(mockCacheStub.withInterceptors(any())).thenReturn(mockCacheStub);
+      distributedQueryService.stubs.put(indexer1SearchContext.toUrl(), mockIndexerStub);
+      distributedQueryService.stubs.put(cache1SearchContext.toUrl(), mockCacheStub);
 
-    // Both calls fail
-    when(mockIndexerStub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(Futures.immediateFailedFuture(new RuntimeException("Indexer timeout")));
-    when(mockCacheStub.search(any(AstraSearch.SearchRequest.class)))
-        .thenReturn(Futures.immediateFailedFuture(new RuntimeException("Cache timeout")));
+      when(mockIndexerStub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
+          .thenReturn(mockIndexerStub);
+      when(mockIndexerStub.withInterceptors(any())).thenReturn(mockIndexerStub);
+      when(mockCacheStub.withDeadlineAfter(anyLong(), any(TimeUnit.class)))
+          .thenReturn(mockCacheStub);
+      when(mockCacheStub.withInterceptors(any())).thenReturn(mockCacheStub);
 
-    AstraSearch.SearchRequest request =
-        AstraSearch.SearchRequest.newBuilder()
-            .setDataset(indexName)
-            .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
-            .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
-            .setQuery(
-                """
-                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"* !astra.enableNextGenDistributedQueries"}}]}}
-                      """)
-            .setHowMany(100)
-            .build();
+      // Both calls fail
+      when(mockIndexerStub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(Futures.immediateFailedFuture(new RuntimeException("Indexer timeout")));
+      when(mockCacheStub.search(any(AstraSearch.SearchRequest.class)))
+          .thenReturn(Futures.immediateFailedFuture(new RuntimeException("Cache timeout")));
 
-    AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
-    // Should still return a result even if snapshot failed completely
-    assertThat(result.getHitsCount()).isEqualTo(0);
-    distributedQueryService.close();
+      AstraSearch.SearchRequest request =
+          AstraSearch.SearchRequest.newBuilder()
+              .setDataset(indexName)
+              .setStartTimeEpochMs(chunk1CreationTime.toEpochMilli())
+              .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
+              .setQuery(
+                  """
+                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                                      """)
+              .setHowMany(100)
+              .build();
+
+      AstraSearch.SearchResult result = distributedQueryService.doSearch(request);
+      // Should still return a result even if snapshot failed completely
+      assertThat(result.getHitsCount()).isEqualTo(0);
+      distributedQueryService.close();
+    } finally {
+      System.setProperty(AstraDistributedQueryService.ASTRA_ENABLE_DISTRIBUTED_QUERY_V2, "false");
+    }
   }
 
   @Test
