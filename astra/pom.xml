@@ -20,7 +20,7 @@
         <protobuf.version>3.25.8</protobuf.version>
         <grpc.version>1.75.0</grpc.version>
         <micrometer.version>1.15.4</micrometer.version>
-        <armeria.version>1.33.2</armeria.version>
+        <armeria.version>1.33.3</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.20.0</jackson.version>
@@ -30,8 +30,8 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
         <log4j.version>2.25.1</log4j.version>
-        <aws.sdk.version>2.33.9</aws.sdk.version>
-        <error.prone.version>2.41.0</error.prone.version>
+        <aws.sdk.version>2.34.0</aws.sdk.version>
+        <error.prone.version>2.42.0</error.prone.version>
         <junit.jupiter.version>5.13.4</junit.jupiter.version>
         <jetcd.version>0.8.5</jetcd.version>
     </properties>
@@ -278,7 +278,7 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
 
-            <version>33.4.8-jre</version>
+            <version>33.5.0-jre</version>
         </dependency>
 
         <dependency>
@@ -359,7 +359,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.38.13</version>
+            <version>0.39.0</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -438,7 +438,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.27.4</version>
+            <version>3.27.5</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -693,7 +693,7 @@
             <plugin>
                 <groupId>com.spotify.fmt</groupId>
                 <artifactId>fmt-maven-plugin</artifactId>
-                <version>2.27</version>
+                <version>2.29</version>
                 <configuration>
                     <sourceDirectory>src/main/java</sourceDirectory>
                     <testSourceDirectory>src/test/java</testSourceDirectory>
@@ -775,7 +775,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>3.11.3</version>
+                    <version>3.12.0</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-resources-plugin</artifactId>
@@ -791,7 +791,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.3</version>
+                    <version>3.5.4</version>
                     <configuration>
                         <argLine>--enable-preview</argLine>
                         <trimStackTrace>false</trimStackTrace>
