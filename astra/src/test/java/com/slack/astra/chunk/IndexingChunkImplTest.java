@@ -430,7 +430,7 @@ public class IndexingChunkImplTest {
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
       // Snapshot forces commit and refresh
-      chunk.preSnapshot();
+      chunk.preSnapshot(false);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot =
           chunk.query(
@@ -626,7 +626,7 @@ public class IndexingChunkImplTest {
       }
 
       // Initiate pre-snapshot
-      chunk.preSnapshot();
+      chunk.preSnapshot(false);
 
       SearchQuery searchQuery =
           new SearchQuery(
@@ -644,7 +644,7 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(2);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
@@ -737,7 +737,7 @@ public class IndexingChunkImplTest {
         chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset++);
       }
 
-      chunk.preSnapshot();
+      chunk.preSnapshot(true);
       assertThat(chunk.isReadOnly()).isTrue();
 
       // Create S3 bucket and BlobStore
@@ -784,7 +784,7 @@ public class IndexingChunkImplTest {
                 return null;
               })
           .when(spyBlobStore)
-          .uploadSequentially(any(), any());
+          .upload(any(), any());
 
       // Run snapshot — should fail due to missing schema.json
       boolean result = chunk.snapshotToS3(spyBlobStore);
@@ -803,7 +803,7 @@ public class IndexingChunkImplTest {
       }
 
       // Initiate pre-snapshot
-      chunk.preSnapshot();
+      chunk.preSnapshot(false);
 
       SearchQuery searchQuery =
           new SearchQuery(
@@ -821,7 +821,7 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(2);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);

@@ -368,6 +368,34 @@ public class LuceneIndexStoreImpl implements LogStore {
     }
   }
 
+  @Override
+  public void closeAllSearchers() {
+    if (astraSearcherManager != null) {
+      try {
+        astraSearcherManager.getLuceneSearcherManager().close();
+      } catch (Exception e) {
+        LOG.error("Error closing AstraSearcherManager for index {}", id, e);
+      }
+    }
+  }
+
+  @Override
+  public void closeAllWriters() {
+    indexWriterLock.lock();
+    try {
+      if (indexWriter.isPresent()) {
+        try {
+          indexWriter.get().close();
+        } catch (IllegalStateException | IOException | NoSuchElementException e) {
+          LOG.error("Error closing index {}", id, e);
+        }
+        indexWriter = Optional.empty();
+      }
+    } finally {
+      indexWriterLock.unlock();
+    }
+  }
+
   /**
    * This method closes the log store cleanly and cancels any ongoing tasks. This function cancels
    * the existing timer but doesn't run a commit or refresh. The users of this class are need to

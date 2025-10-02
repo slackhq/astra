@@ -205,13 +205,18 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   }
 
   // Snapshot methods
-  public void preSnapshot() {
+  public void preSnapshot(boolean closeReaderWriter) {
     logger.info("Started RW chunk pre-snapshot {}", chunkInfo);
     setReadOnly(true);
     logStore.refresh();
+    if (closeReaderWriter) {
+      logStore.closeAllSearchers();
+    }
     logStore.finalMerge();
     logStore.commit();
-    logStore.refresh();
+    if (closeReaderWriter) {
+      logStore.closeAllWriters();
+    }
     logger.info("Finished RW chunk pre-snapshot {}", chunkInfo);
   }
 
@@ -262,7 +267,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
 
       // blobstore.upload uploads everything in the directory, including write.lock if it exists.
-      blobStore.uploadSequentially(chunkInfo.chunkId, dirPath);
+      blobStore.upload(chunkInfo.chunkId, dirPath);
 
       long durationNanos = snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);

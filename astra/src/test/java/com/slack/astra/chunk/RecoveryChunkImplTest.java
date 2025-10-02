@@ -417,7 +417,7 @@ public class RecoveryChunkImplTest {
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
       // Snapshot forces commit and refresh
-      chunk.preSnapshot();
+      chunk.preSnapshot(false);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot =
           chunk.query(
@@ -612,7 +612,7 @@ public class RecoveryChunkImplTest {
       }
 
       // Initiate pre-snapshot
-      chunk.preSnapshot();
+      chunk.preSnapshot(false);
 
       SearchQuery searchQuery =
           new SearchQuery(
@@ -630,7 +630,7 @@ public class RecoveryChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(2);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
@@ -662,7 +662,7 @@ public class RecoveryChunkImplTest {
       }
 
       // Initiate pre-snapshot
-      chunk.preSnapshot();
+      chunk.preSnapshot(false);
 
       SearchQuery searchQuery =
           new SearchQuery(
@@ -680,7 +680,7 @@ public class RecoveryChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(2);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
