@@ -381,6 +381,8 @@ public class LuceneIndexStoreImpl implements LogStore {
 
   @Override
   public void closeAllWriters() {
+    scheduledCommit.close();
+    scheduledRefresh.close();
     indexWriterLock.lock();
     try {
       if (indexWriter.isPresent()) {
