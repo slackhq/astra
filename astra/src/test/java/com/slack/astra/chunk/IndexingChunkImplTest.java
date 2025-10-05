@@ -430,7 +430,7 @@ public class IndexingChunkImplTest {
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
       // Snapshot forces commit and refresh
-      chunk.preSnapshot(false);
+      chunk.preSnapshot();
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot =
           chunk.query(
@@ -626,7 +626,7 @@ public class IndexingChunkImplTest {
       }
 
       // Initiate pre-snapshot
-      chunk.preSnapshot(false);
+      chunk.preSnapshot();
 
       SearchQuery searchQuery =
           new SearchQuery(
@@ -737,7 +737,7 @@ public class IndexingChunkImplTest {
         chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset++);
       }
 
-      chunk.preSnapshot(true);
+      chunk.preSnapshot();
       assertThat(chunk.isReadOnly()).isTrue();
 
       // Create S3 bucket and BlobStore
@@ -803,7 +803,7 @@ public class IndexingChunkImplTest {
       }
 
       // Initiate pre-snapshot
-      chunk.preSnapshot(false);
+      chunk.preSnapshot();
 
       SearchQuery searchQuery =
           new SearchQuery(

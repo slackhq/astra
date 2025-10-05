@@ -52,7 +52,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
       LOG.debug("Start chunk roll over {}", chunk.info());
       rolloversInitiatedCounter.increment();
       // Run pre-snapshot and upload chunk to blob store.
-      chunk.preSnapshot(true);
+      chunk.preSnapshot();
       if (!chunk.snapshotToS3(blobStore)) {
         LOG.warn("Failed to snapshot the chunk to S3");
         rolloversFailedCounter.increment();

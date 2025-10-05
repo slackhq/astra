@@ -156,7 +156,7 @@ public class LuceneIndexStoreImpl implements LogStore {
           try {
             refresh();
           } catch (Exception e) {
-            LOG.error("Error running scheduled commit", e);
+            LOG.error("Error running scheduled refresh", e);
           }
         },
         config.refreshDuration.toMillis(),
@@ -376,25 +376,6 @@ public class LuceneIndexStoreImpl implements LogStore {
       } catch (Exception e) {
         LOG.error("Error closing AstraSearcherManager for index {}", id, e);
       }
-    }
-  }
-
-  @Override
-  public void closeAllWriters() {
-    scheduledCommit.close();
-    scheduledRefresh.close();
-    indexWriterLock.lock();
-    try {
-      if (indexWriter.isPresent()) {
-        try {
-          indexWriter.get().close();
-        } catch (IllegalStateException | IOException | NoSuchElementException e) {
-          LOG.error("Error closing index {}", id, e);
-        }
-        indexWriter = Optional.empty();
-      }
-    } finally {
-      indexWriterLock.unlock();
     }
   }
 

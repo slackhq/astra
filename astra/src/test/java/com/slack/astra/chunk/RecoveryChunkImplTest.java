@@ -417,7 +417,7 @@ public class RecoveryChunkImplTest {
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
       // Snapshot forces commit and refresh
-      chunk.preSnapshot(false);
+      chunk.preSnapshot();
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot =
           chunk.query(
@@ -612,7 +612,7 @@ public class RecoveryChunkImplTest {
       }
 
       // Initiate pre-snapshot
-      chunk.preSnapshot(false);
+      chunk.preSnapshot();
 
       SearchQuery searchQuery =
           new SearchQuery(
@@ -662,7 +662,7 @@ public class RecoveryChunkImplTest {
       }
 
       // Initiate pre-snapshot
-      chunk.preSnapshot(false);
+      chunk.preSnapshot();
 
       SearchQuery searchQuery =
           new SearchQuery(
