@@ -32,7 +32,7 @@
         <log4j.version>2.25.2</log4j.version>
         <aws.sdk.version>2.34.5</aws.sdk.version>
         <error.prone.version>2.42.0</error.prone.version>
-        <junit.jupiter.version>5.13.4</junit.jupiter.version>
+        <junit.jupiter.version>6.0.0</junit.jupiter.version>
         <jetcd.version>0.8.5</jetcd.version>
     </properties>
 
