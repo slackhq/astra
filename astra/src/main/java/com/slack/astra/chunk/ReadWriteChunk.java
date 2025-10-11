@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.commons.io.FileUtils;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
 
@@ -76,6 +77,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   private final LogStore logStore;
   private final String kafkaPartitionId;
   private final Logger logger;
+  private Path dataDirectory;
   private LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
   private final MeterRegistry meterRegistry;
@@ -205,13 +207,14 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   }
 
   // Snapshot methods
-  public void preSnapshot() {
+  public void preSnapshot() throws IOException {
     logger.info("Started RW chunk pre-snapshot {}", chunkInfo);
     setReadOnly(true);
     logStore.refresh();
     logStore.finalMerge();
     logStore.commit();
     logStore.refresh();
+    logStore.close();
     logger.info("Finished RW chunk pre-snapshot {}", chunkInfo);
   }
 
@@ -254,7 +257,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       // check if lucene index is valid and not corrupted
       boolean luceneStatus = isChunkClean(dirPath);
       if (!luceneStatus) {
-        logger.error("Lucene index is not clean. Found issues for chunk: {}.", chunkInfo);
+        logger.error("Lucene index is not clean before. Found issues for chunk: {}.", chunkInfo);
         return false;
       }
 
@@ -266,6 +269,26 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
 
       long durationNanos = snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);
+
+      // check if lucene index is valid and not corrupted
+      luceneStatus = isChunkClean(dirPath);
+      if (!luceneStatus) {
+        logger.error(
+            "Lucene index is not clean after upload. Found issues for chunk: {}.", chunkInfo);
+        return false;
+      }
+
+      dataDirectory = Path.of(String.format("%s/astra-chunk-%s", "/tmp", chunkInfo.chunkId));
+
+      blobStore.download(chunkInfo.chunkId, dataDirectory);
+
+      // check if lucene index is valid and not corrupted
+      luceneStatus = isChunkClean(dataDirectory);
+      if (!luceneStatus) {
+        logger.error("Lucene index is not clean. Found issues for chunk: {}", chunkInfo);
+        return false;
+      }
+      FileUtils.deleteDirectory(dataDirectory.toFile());
 
       Map<String, Long> filesWithSizeInS3 = blobStore.listFilesWithSize(chunkInfo.chunkId);
       List<String> filesUploaded = new ArrayList<>(filesWithSizeInS3.keySet().stream().toList());

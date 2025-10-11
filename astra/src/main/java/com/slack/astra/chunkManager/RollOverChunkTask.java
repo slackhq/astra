@@ -5,6 +5,7 @@ import com.slack.astra.chunk.ReadWriteChunk;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.concurrent.Callable;
 import org.slf4j.Logger;
@@ -64,7 +65,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
       chunk.info().setChunkSnapshotTimeEpochMs(Instant.now().toEpochMilli());
       LOG.debug("Finished chunk roll over {}", chunk.info());
       return true;
-    } catch (RuntimeException e) {
+    } catch (RuntimeException | IOException e) {
       rolloversFailedCounter.increment();
       LOG.error("Failed chunk roll over {}", chunk.info(), e);
     }

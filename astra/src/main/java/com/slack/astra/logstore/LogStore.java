@@ -31,10 +31,6 @@ public interface LogStore extends Closeable {
 
   FSDirectory getDirectory();
 
-  void closeAllSearchers();
-
-  void closeAllWriters();
-
   /**
    * After a commit, lucene may merge multiple segments into one in the background. So, getting a
    * listing of files in a lucene index will not return a stable set of files. To address this, we
