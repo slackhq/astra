@@ -18,7 +18,7 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.8</protobuf.version>
-        <grpc.version>1.75.0</grpc.version>
+        <grpc.version>1.76.0</grpc.version>
         <micrometer.version>1.15.4</micrometer.version>
         <armeria.version>1.33.4</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
