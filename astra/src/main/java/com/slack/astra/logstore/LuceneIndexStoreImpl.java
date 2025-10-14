@@ -402,6 +402,14 @@ public class LuceneIndexStoreImpl implements LogStore {
         LOG.error("Error closing index " + id, e);
       }
       indexWriter = Optional.empty();
+
+      if (astraSearcherManager != null) {
+        try {
+          astraSearcherManager.close();
+        } catch (Exception e) {
+          LOG.error("Error closing AstraSearcherManager for index " + id, e);
+        }
+      }
     } finally {
       indexWriterLock.unlock();
     }

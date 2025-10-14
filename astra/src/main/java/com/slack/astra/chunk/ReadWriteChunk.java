@@ -257,7 +257,8 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       // check if lucene index is valid and not corrupted
       boolean luceneStatus = isChunkClean(dirPath);
       if (!luceneStatus) {
-        logger.error("Lucene index is not clean before. Found issues for chunk: {}.", chunkInfo);
+        logger.error(
+            "Lucene index is not clean before upload. Found issues for chunk: {}.", chunkInfo);
         return false;
       }
 
@@ -285,7 +286,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       // check if lucene index is valid and not corrupted
       luceneStatus = isChunkClean(dataDirectory);
       if (!luceneStatus) {
-        logger.error("Lucene index is not clean. Found issues for chunk: {}", chunkInfo);
+        logger.error(
+            "Lucene index is not clean when downloaded on Index node. Found issues for chunk: {}",
+            chunkInfo);
         return false;
       }
       FileUtils.deleteDirectory(dataDirectory.toFile());
