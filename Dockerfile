@@ -1,4 +1,4 @@
-FROM maven:3-amazoncorretto-23 as build
+FROM maven:3-amazoncorretto-21 as build
 COPY . /work/
 RUN cd /work; mvn package -DskipTests
 
