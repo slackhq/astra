@@ -207,14 +207,13 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   }
 
   // Snapshot methods
-  public void preSnapshot() throws IOException {
+  public void preSnapshot() {
     logger.info("Started RW chunk pre-snapshot {}", chunkInfo);
     setReadOnly(true);
     logStore.refresh();
     logStore.finalMerge();
     logStore.commit();
     logStore.refresh();
-    logStore.close();
     logger.info("Finished RW chunk pre-snapshot {}", chunkInfo);
   }
 

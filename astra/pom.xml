@@ -14,7 +14,7 @@
             aligned with the Armeria included versions.
         -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <javac.target>21</javac.target>
+        <javac.target>23</javac.target>
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.8</protobuf.version>
