@@ -29,7 +29,7 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
         <log4j.version>2.24.3</log4j.version>
-        <aws.sdk.version>2.31.63</aws.sdk.version>
+        <aws.sdk.version>2.35.6</aws.sdk.version>
         <error.prone.version>2.38.0</error.prone.version>
         <junit.jupiter.version>5.13.1</junit.jupiter.version>
     </properties>
@@ -357,7 +357,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.38.5</version>
+            <version>0.39.0</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
