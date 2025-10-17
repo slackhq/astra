@@ -309,6 +309,7 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(1);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(0);
+    readOnlyChunk.close();
 
     cacheNodeAssignmentStore.close();
     cacheNodeMetadataStore.close();
@@ -427,6 +428,7 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(0);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(1);
+    readOnlyChunk.close();
 
     cacheNodeMetadataStore.close();
     cacheSlotMetadataStore.close();
@@ -544,6 +546,7 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(0);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(1);
+    readOnlyChunk.close();
 
     cacheNodeMetadataStore.close();
     cacheSlotMetadataStore.close();
@@ -872,6 +875,7 @@ public class ReadOnlyChunkImplTest {
     try (var files = java.nio.file.Files.list(readOnlyChunk.getDataDirectory())) {
       assertThat(files.findFirst().isPresent()).isFalse();
     }
+    readOnlyChunk.close();
 
     cacheNodeAssignmentStore.close();
     cacheNodeMetadataStore.close();
