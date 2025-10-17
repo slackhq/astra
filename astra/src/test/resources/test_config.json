@@ -5,6 +5,11 @@
     "CACHE",
     "MANAGER"
   ],
+  "luceneConfig" : {
+    "commitDurationSecs": 10,
+    "refreshDurationSecs": 11,
+    "enableFullTextSearch": true
+  },
   "s3Config": {
     "s3AccessKey": "access",
     "s3SecretKey": "secret",
@@ -24,11 +29,6 @@
     "maxBytesPerChunk": 100000,
     "maxChunksOnDisk": 3,
     "staleDurationSecs": 7200,
-    "luceneConfig" : {
-      "commitDurationSecs": 10,
-      "refreshDurationSecs": 11,
-      "enableFullTextSearch": true
-    },
     "dataDirectory": "/tmp",
     "maxOffsetDelayMessages" : 10002,
     "serverConfig": {
@@ -60,13 +60,39 @@
     "managerConnectString": "localhost:8083"
   },
   "metadataStoreConfig": {
-    "mode": "BOTH_READ_ZOOKEEPER_WRITE",
     "zookeeperConfig": {
+      "enabled": true,
       "zkConnectString": "1.2.3.4:9092",
       "zkPathPrefix": "zkPrefix",
       "zkSessionTimeoutMs": 1000,
       "zkConnectionTimeoutMs": 1500,
       "sleepBetweenRetriesMs": 500
+    },
+    "etcdConfig": {
+      "enabled": true,
+      "endpoints": ["http://localhost:2379"],
+      "namespace": "astra-test",
+      "connectionTimeoutMs": 5000,
+      "keepaliveTimeoutMs": 3000,
+      "retryDelayMs": 100,
+      "operationsTimeoutMs": 60000,
+      "operationsMaxRetries": 3,
+      "ephemeralNodeTtlMs": 60000,
+      "ephemeralNodeMaxRetries": 3
+    },
+    "storeModes": {
+      "DatasetMetadataStore": "ETCD_CREATES",
+      "SnapshotMetadataStore": "ETCD_CREATES",
+      "ReplicaMetadataStore": "ETCD_CREATES",
+      "HpaMetricMetadataStore": "ETCD_CREATES",
+      "SearchMetadataStore": "ETCD_CREATES",
+      "CacheSlotMetadataStore": "ETCD_CREATES",
+      "CacheNodeMetadataStore": "ETCD_CREATES",
+      "CacheNodeAssignmentStore": "ETCD_CREATES",
+      "FieldRedactionMetadataStore": "ETCD_CREATES",
+      "PreprocessorMetadataStore": "ETCD_CREATES",
+      "RecoveryNodeMetadataStore": "ETCD_CREATES",
+      "RecoveryTaskMetadataStore": "ETCD_CREATES"
     }
   },
   "cacheConfig": {

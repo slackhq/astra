@@ -1,6 +1,7 @@
 package com.slack.astra.testlib;
 
 import com.slack.astra.proto.config.AstraConfigs;
+import java.util.List;
 
 public class AstraConfigUtil {
 
@@ -13,11 +14,12 @@ public class AstraConfigUtil {
       String s3Bucket,
       int queryPort,
       String metadataZkConnectionString,
-      String metadataZkPathPrefix,
+      String metadataPathPrefix,
       AstraConfigs.NodeRole nodeRole,
       int maxOffsetDelay,
       int recoveryPort,
-      int maxMessagesPerChunk) {
+      int maxMessagesPerChunk,
+      List<String> etcdEndpoints) {
     AstraConfigs.KafkaConfig kafkaConfig =
         AstraConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -48,12 +50,6 @@ public class AstraConfigUtil {
                     .build())
             .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
             .setMaxMessagesPerChunk(maxMessagesPerChunk)
-            .setLuceneConfig(
-                AstraConfigs.LuceneConfig.newBuilder()
-                    .setCommitDurationSecs(10)
-                    .setRefreshDurationSecs(10)
-                    .setEnableFullTextSearch(true)
-                    .build())
             .setMaxChunksOnDisk(3)
             .setStaleDurationSecs(7200)
             .setMaxOffsetDelayMessages(maxOffsetDelay)
@@ -63,15 +59,46 @@ public class AstraConfigUtil {
 
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
+            .setEnabled(true)
             .setZkConnectString(metadataZkConnectionString)
-            .setZkPathPrefix(metadataZkPathPrefix)
+            .setZkPathPrefix(metadataPathPrefix)
             .setZkSessionTimeoutMs(15000)
             .setZkConnectionTimeoutMs(15000)
             .setSleepBetweenRetriesMs(1000)
             .setZkCacheInitTimeoutMs(1000)
             .build();
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .setEnabled(true)
+            .addAllEndpoints(
+                etcdEndpoints != null && !etcdEndpoints.isEmpty() ? etcdEndpoints : List.of(""))
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace(metadataPathPrefix) // Use same namespace as ZK pathPrefix for consistency
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
-        AstraConfigs.MetadataStoreConfig.newBuilder().setZookeeperConfig(zkConfig).build();
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .setZookeeperConfig(zkConfig)
+            .setEtcdConfig(etcdConfig)
+            .build();
 
     AstraConfigs.QueryServiceConfig queryConfig =
         AstraConfigs.QueryServiceConfig.newBuilder()
@@ -101,6 +128,13 @@ public class AstraConfigUtil {
             .setRedactionUpdateInitDelaySecs(1)
             .build();
 
+    AstraConfigs.LuceneConfig luceneConfig =
+        AstraConfigs.LuceneConfig.newBuilder()
+            .setCommitDurationSecs(10)
+            .setRefreshDurationSecs(10)
+            .setEnableFullTextSearch(true)
+            .build();
+
     return AstraConfigs.AstraConfig.newBuilder()
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
@@ -108,6 +142,7 @@ public class AstraConfigUtil {
         .setQueryConfig(queryConfig)
         .setMetadataStoreConfig(metadataStoreConfig)
         .setRedactionUpdateServiceConfig(redactionUpdateServiceConfig)
+        .setLuceneConfig(luceneConfig)
         .addNodeRoles(nodeRole)
         .build();
   }
@@ -131,12 +166,21 @@ public class AstraConfigUtil {
     return makeIndexerConfig(TEST_INDEXER_PORT, 1000, 100);
   }
 
+  public static AstraConfigs.IndexerConfig makeIndexerConfig(boolean enableFullTextSearch) {
+    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, 100, enableFullTextSearch);
+  }
+
   public static AstraConfigs.IndexerConfig makeIndexerConfig(int maxOffsetDelay) {
     return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, 100);
   }
 
   public static AstraConfigs.IndexerConfig makeIndexerConfig(
       int indexerPort, int maxOffsetDelay, int maxMessagesPerChunk) {
+    return makeIndexerConfig(indexerPort, maxOffsetDelay, maxMessagesPerChunk, true);
+  }
+
+  public static AstraConfigs.IndexerConfig makeIndexerConfig(
+      int indexerPort, int maxOffsetDelay, int maxMessagesPerChunk, boolean enableFullTextSearch) {
     return AstraConfigs.IndexerConfig.newBuilder()
         .setServerConfig(
             AstraConfigs.ServerConfig.newBuilder()
@@ -145,12 +189,6 @@ public class AstraConfigUtil {
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
         .setMaxMessagesPerChunk(maxMessagesPerChunk)
-        .setLuceneConfig(
-            AstraConfigs.LuceneConfig.newBuilder()
-                .setCommitDurationSecs(10)
-                .setRefreshDurationSecs(10)
-                .setEnableFullTextSearch(true)
-                .build())
         .setMaxChunksOnDisk(3)
         .setStaleDurationSecs(7200)
         .setMaxOffsetDelayMessages(maxOffsetDelay)
@@ -171,12 +209,6 @@ public class AstraConfigUtil {
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
         .setMaxMessagesPerChunk(maxMessagesPerChunk)
-        .setLuceneConfig(
-            AstraConfigs.LuceneConfig.newBuilder()
-                .setCommitDurationSecs(10)
-                .setRefreshDurationSecs(10)
-                .setEnableFullTextSearch(true)
-                .build())
         .setMaxChunksOnDisk(maxChunksOnDisk)
         .setStaleDurationSecs(staleDuration)
         .setMaxOffsetDelayMessages(maxOffsetDelay)

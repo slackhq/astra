@@ -2,10 +2,10 @@ package com.slack.astra.metadata.search;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.slack.astra.metadata.core.AstraMetadata;
+import com.slack.astra.metadata.core.AstraPartitionedMetadata;
 
 /** Search metadata contains the metadata needed to perform a search on a snapshot. */
-public class SearchMetadata extends AstraMetadata {
+public class SearchMetadata extends AstraPartitionedMetadata {
   public final String snapshotName;
   public final String url;
   private Boolean searchable;
@@ -86,5 +86,15 @@ public class SearchMetadata extends AstraMetadata {
         + ", searchable="
         + searchable
         + '}';
+  }
+
+  @Override
+  public String getPartition() {
+    // strip the beginning of the url
+    Integer index = url.lastIndexOf("/");
+    if (index == -1) {
+      return url;
+    }
+    return url.substring(index + 1);
   }
 }

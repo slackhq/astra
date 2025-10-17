@@ -11,6 +11,7 @@ import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.logstore.search.SearchResultAggregator;
 import com.slack.astra.logstore.search.SearchResultAggregatorImpl;
 import com.slack.astra.metadata.schema.FieldType;
+import com.slack.astra.util.RuntimeHalterImpl;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,10 +56,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
 
   /*
    * Query the chunks in the time range, aggregate the results per aggregation policy and return the results.
-   * We aggregate locally and then the query aggregator will aggregate again. This is OKAY for the current use-case we support
-   * 1. topK results sorted by timestamp
-   * 2. histogram over a fixed time range
-   * We will not aggregate locally for future use-cases that have complex group by etc
+   * We aggregate locally and then the query aggregator will aggregate again.
    */
   @Override
   public SearchResult<T> query(SearchQuery query, Duration queryTimeout) {
@@ -85,25 +84,27 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
 
     try {
       try (var scope = new StructuredTaskScope<SearchResult<T>>()) {
-        List<StructuredTaskScope.Subtask<SearchResult<T>>> chunkSubtasks =
+        List<Pair<String, StructuredTaskScope.Subtask<SearchResult<T>>>> chunkSubtasks =
             chunksMatchingQuery.stream()
                 .map(
                     (chunk) ->
-                        scope.fork(
-                            currentTraceContext.wrap(
-                                () -> {
-                                  ScopedSpan span =
-                                      Tracing.currentTracer()
-                                          .startScopedSpan("ChunkManagerBase.chunkQuery");
-                                  span.tag("chunkId", chunk.id());
-                                  concurrentQueries.acquire();
-                                  try {
-                                    return chunk.query(query);
-                                  } finally {
-                                    concurrentQueries.release();
-                                    span.finish();
-                                  }
-                                })))
+                        Pair.of(
+                            chunk.id(),
+                            scope.fork(
+                                currentTraceContext.wrap(
+                                    () -> {
+                                      ScopedSpan span =
+                                          Tracing.currentTracer()
+                                              .startScopedSpan("ChunkManagerBase.chunkQuery");
+                                      span.tag("chunkId", chunk.id());
+                                      try {
+                                        concurrentQueries.acquire();
+                                        return chunk.query(query);
+                                      } finally {
+                                        concurrentQueries.release();
+                                        span.finish();
+                                      }
+                                    }))))
                 .toList();
         try {
           scope.joinUntil(Instant.now().plusSeconds(queryTimeout.toSeconds()));
@@ -112,10 +113,15 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
           scope.join();
         }
 
+        List<String> hardFailedChunkIds = new ArrayList<>();
+        List<String> softFailedChunkIds = new ArrayList<>();
         List<SearchResult<T>> searchResults =
             chunkSubtasks.stream()
                 .map(
-                    searchResultSubtask -> {
+                    chunkIdSubTaskPair -> {
+                      String chunkId = chunkIdSubTaskPair.getKey();
+                      StructuredTaskScope.Subtask<SearchResult<T>> searchResultSubtask =
+                          chunkIdSubTaskPair.getValue();
                       try {
                         if (searchResultSubtask
                             .state()
@@ -125,16 +131,29 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                             .state()
                             .equals(StructuredTaskScope.Subtask.State.FAILED)) {
                           Throwable throwable = searchResultSubtask.exception();
-                          if (throwable instanceof IllegalArgumentException) {
+                          if (throwable instanceof OutOfMemoryError) {
+                            LOG.error(
+                                "OutOfMemoryError in chunk query - terminating process", throwable);
+                            new RuntimeHalterImpl().handleFatal(throwable);
+                          } else if (throwable instanceof IllegalArgumentException) {
                             // We catch IllegalArgumentException ( and any other exception that
                             // represents a parse failure ) and instead of returning an empty
                             // result we throw back an error to the user
+                            softFailedChunkIds.add(chunkId);
                             throw new IllegalArgumentException(throwable);
                           }
                           LOG.warn("Chunk Query Exception", throwable);
                         }
                         // else UNAVAILABLE (ie, timedout), return 0 snapshots
-                        return (SearchResult<T>) SearchResult.error();
+                        hardFailedChunkIds.add(chunkId);
+                        SearchResult<T> hardError = (SearchResult<T>) SearchResult.error().clone();
+                        hardError.setHardFailedChunkIds(hardFailedChunkIds);
+                        hardError.setSoftFailedChunkIds(softFailedChunkIds);
+                        return hardError;
+                      } catch (OutOfMemoryError oom) {
+                        LOG.error("OutOfMemoryError in chunk query - terminating process", oom);
+                        new RuntimeHalterImpl().handleFatal(oom);
+                        throw oom;
                       } catch (Exception err) {
                         if (err instanceof IllegalArgumentException) {
                           throw err;
@@ -145,7 +164,11 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                         // invalid queries are received
                         // return 1 snapshot, still searchable but user-side error cause
                         LOG.warn("Chunk Query Exception: {}", err.getMessage());
-                        return (SearchResult<T>) SearchResult.soft_error();
+                        SearchResult<T> softError =
+                            (SearchResult<T>) SearchResult.soft_error().clone();
+                        softError.setSoftFailedChunkIds(softFailedChunkIds);
+                        softError.setHardFailedChunkIds(hardFailedChunkIds);
+                        return softError;
                       }
                     })
                 .toList();

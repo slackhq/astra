@@ -15,6 +15,9 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.proto.config.AstraConfigs;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -39,11 +42,14 @@ public class ChunkManagerUtil<T> {
 
   private final File tempFolder;
   public S3AsyncClient s3AsyncClient;
-  public static final String ZK_PATH_PREFIX = "testZK";
+  public static final String METADATA_PATH_PREFIX = "testMetadata";
   public final IndexingChunkManager<T> chunkManager;
   private final TestingServer zkServer;
   private final AsyncCuratorFramework curatorFramework;
+  private final Client etcdClient;
+  private final boolean autoCloseResources;
 
+  @Deprecated // please use the non-static version
   public static ChunkManagerUtil<LogMessage> makeChunkManagerUtil(
       S3MockExtension s3MockExtension,
       String s3Bucket,
@@ -52,19 +58,58 @@ public class ChunkManagerUtil<T> {
       long maxMessagesPerChunk,
       AstraConfigs.IndexerConfig indexerConfig)
       throws Exception {
+
     TestingServer zkServer = new TestingServer();
+    EtcdCluster etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    Client etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(METADATA_PATH_PREFIX, java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace(METADATA_PATH_PREFIX)
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(zkServer.getConnectString())
-                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkPathPrefix(METADATA_PATH_PREFIX)
                     .setZkSessionTimeoutMs(30000)
                     .setZkConnectionTimeoutMs(30000)
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
     AsyncCuratorFramework curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
@@ -79,7 +124,10 @@ public class ChunkManagerUtil<T> {
         new SearchContext(TEST_HOST, TEST_PORT),
         curatorFramework,
         indexerConfig,
-        metadataStoreConfig);
+        metadataStoreConfig,
+        etcdCluster,
+        etcdClient,
+        true);
   }
 
   public ChunkManagerUtil(
@@ -92,10 +140,16 @@ public class ChunkManagerUtil<T> {
       SearchContext searchContext,
       AsyncCuratorFramework curatorFramework,
       AstraConfigs.IndexerConfig indexerConfig,
-      AstraConfigs.MetadataStoreConfig metadataStoreConfig)
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
+      EtcdCluster etcdCluster,
+      Client etcdClient,
+      boolean autoCloseResources)
       throws Exception {
 
-    tempFolder = Files.createTempDir(); // TODO: don't use beta func.
+    this.autoCloseResources = autoCloseResources;
+
+    tempFolder =
+        Files.createTempDir(); // TODO: replace with java.nio.file.Files.createTempDirectory
     s3AsyncClient = S3TestUtils.createS3CrtClient(s3MockExtension.getServiceEndpoint());
     BlobStore blobStore = new BlobStore(s3AsyncClient, s3Bucket);
 
@@ -108,6 +162,7 @@ public class ChunkManagerUtil<T> {
             meterRegistry, maxBytesPerChunk, maxMessagesPerChunk);
 
     this.curatorFramework = curatorFramework;
+    this.etcdClient = etcdClient;
 
     chunkManager =
         new IndexingChunkManager<>(
@@ -118,8 +173,14 @@ public class ChunkManagerUtil<T> {
             blobStore,
             MoreExecutors.newDirectExecutorService(),
             curatorFramework,
+            etcdClient,
             searchContext,
             indexerConfig,
+            AstraConfigs.LuceneConfig.newBuilder()
+                .setCommitDurationSecs(10)
+                .setRefreshDurationSecs(10)
+                .setEnableFullTextSearch(true)
+                .build(),
             metadataStoreConfig);
   }
 
@@ -127,8 +188,17 @@ public class ChunkManagerUtil<T> {
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     s3AsyncClient.close();
-    curatorFramework.unwrap().close();
-    zkServer.close();
+
+    if (autoCloseResources) {
+      // This is a hack around the fact we create closable resources in a static method
+      // and then lose references to them. Th
+      curatorFramework.unwrap().close();
+      zkServer.close();
+      if (etcdClient != null) {
+        etcdClient.close();
+      }
+    }
+
     FileUtils.deleteDirectory(tempFolder);
   }
 

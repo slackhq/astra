@@ -12,12 +12,15 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.x.async.modeled.ZPath;
 import org.apache.zookeeper.KeeperException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This is a collection of helpful methods for writing Astra tests that use the AstraMetadataStores
  * that cannot or should not exist in the production client.
  */
 public class AstraMetadataTestUtils {
+  private static final Logger LOG = LoggerFactory.getLogger(AstraMetadataTestUtils.class);
 
   /**
    * Listing an uncached directory is very expensive, and NOT recommended for production code. For a
@@ -30,37 +33,70 @@ public class AstraMetadataTestUtils {
    */
   public static <T extends AstraMetadata> List<T> listSyncUncached(AstraMetadataStore<T> store) {
     try {
-      List<T> zookeeperUncached =
-          store
-              .zkStore
-              .modeledClient
-              .withPath(ZPath.parse(store.zkStore.storeFolder))
-              .childrenAsZNodes()
-              .thenApply(
-                  (zNodes) ->
-                      zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()))
-              .toCompletableFuture()
-              .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      List<T> zookeeperUncached = new ArrayList<>();
+      List<T> etcdUncached = new ArrayList<>();
+
+      // Get uncached Zookeeper data
+      if (store.zkStore != null) {
+        try {
+          zookeeperUncached =
+              store
+                  .zkStore
+                  .modeledClient
+                  .withPath(ZPath.parse(store.zkStore.storeFolder))
+                  .childrenAsZNodes()
+                  .thenApply(
+                      (zNodes) ->
+                          zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()))
+                  .toCompletableFuture()
+                  .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+        } catch (Exception e) {
+          // In tests we want to keep going even if one store fails
+          // This is especially important for tests that might only be configured with one store
+        }
+      }
+
+      // Get uncached Etcd data
+      if (store.etcdStore != null) {
+        try {
+          etcdUncached = store.etcdStore.listSyncUncached();
+        } catch (Exception e) {
+          // In tests we want to keep going even if one store fails
+        }
+      }
 
       // Combine both lists, using name as identifier
       Map<String, T> combinedMap = new ConcurrentHashMap<>();
 
-      // Add items from primary store first
-      for (T item : zookeeperUncached) {
-        combinedMap.put(item.name, item);
-      }
-
-      try {
-        // Add items from secondary store if not already present
-        for (T item : store.listSync()) {
-          combinedMap.putIfAbsent(item.name, item);
-        }
-      } catch (UnsupportedOperationException ignored) {
+      // Add items based on the configured mode (primary first, then secondary)
+      switch (store.mode) {
+        case ZOOKEEPER_CREATES:
+          // ZK is primary, so add ZK items first
+          for (T item : zookeeperUncached) {
+            combinedMap.put(item.name, item);
+          }
+          // Then add Etcd items if not already present
+          for (T item : etcdUncached) {
+            combinedMap.putIfAbsent(item.name, item);
+          }
+          break;
+        case ETCD_CREATES:
+          // Etcd is primary, so add Etcd items first
+          for (T item : etcdUncached) {
+            combinedMap.put(item.name, item);
+          }
+          // Then add ZK items if not already present
+          for (T item : zookeeperUncached) {
+            combinedMap.putIfAbsent(item.name, item);
+          }
+          break;
+        default:
+          throw new IllegalArgumentException("Unknown metadata store mode: " + store.mode);
       }
 
       return new ArrayList<>(combinedMap.values());
-    } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error listing node", e);
+    } catch (Exception e) {
+      throw new InternalMetadataStoreException("Error listing nodes", e);
     }
   }
 
@@ -101,69 +137,60 @@ public class AstraMetadataTestUtils {
   public static <T extends AstraPartitionedMetadata> List<T> listSyncUncached(
       AstraPartitioningMetadataStore<T> store) {
     try {
-      List<String> children;
-      try {
-        children =
-            store
-                .zkStore
-                .curator
-                .getChildren()
-                .forPath(store.zkStore.storeFolder)
-                .toCompletableFuture()
-                .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      } catch (ExecutionException executionException) {
-        if (executionException.getCause() instanceof KeeperException.NoNodeException) {
-          return new ArrayList<>();
-        } else {
-          throw executionException;
+      List<T> zookeeperUncached = new ArrayList<>();
+      List<T> etcdUncached = new ArrayList<>();
+
+      // Get Zookeeper nodes if available
+      if (store.zkStore != null) {
+        try {
+          zookeeperUncached = listSyncUncached(store.zkStore);
+        } catch (Exception e) {
+          // In tests we want to keep going even if one store fails
+          LOG.warn("Error listing nodes from ZK: {}", e.getMessage());
         }
       }
 
-      List<T> zookeeperUncached = new ArrayList<>();
-      for (String child : children) {
-        String path = String.format("%s/%s", store.zkStore.storeFolder, child);
-        List<String> grandchildren =
-            store
-                .zkStore
-                .curator
-                .getChildren()
-                .forPath(path)
-                .toCompletableFuture()
-                .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-
-        for (String grandchild : grandchildren) {
-          String grandchildPath =
-              String.format("%s/%s/%s", store.zkStore.storeFolder, child, grandchild);
-          zookeeperUncached.add(
-              store.zkStore.modelSerializer.deserialize(
-                  store
-                      .zkStore
-                      .curator
-                      .getData()
-                      .forPath(grandchildPath)
-                      .toCompletableFuture()
-                      .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS)));
+      // Get Etcd nodes if available
+      if (store.etcdStore != null) {
+        try {
+          etcdUncached = store.etcdStore.listSyncUncached();
+        } catch (Exception e) {
+          // In tests we want to keep going even if one store fails
+          LOG.warn("Error listing nodes from etcd: {}", e.getMessage());
         }
       }
 
       // Combine both lists, using name as identifier
       Map<String, T> combinedMap = new ConcurrentHashMap<>();
 
-      // Add items from primary store first
-      for (T item : zookeeperUncached) {
-        combinedMap.put(item.name, item);
-      }
-
-      try {
-        // Add items from secondary store if not already present
-        for (T item : store.listSync()) {
-          combinedMap.putIfAbsent(item.name, item);
-        }
-      } catch (UnsupportedOperationException ignored) {
+      // Add items based on store configured mode
+      switch (store.mode) {
+        case ZOOKEEPER_CREATES:
+          // ZK is primary, add ZK items first
+          for (T item : zookeeperUncached) {
+            combinedMap.put(item.name, item);
+          }
+          // Then add Etcd items if not already present
+          for (T item : etcdUncached) {
+            combinedMap.putIfAbsent(item.name, item);
+          }
+          break;
+        case ETCD_CREATES:
+          // Etcd is primary, add Etcd items first
+          for (T item : etcdUncached) {
+            combinedMap.put(item.name, item);
+          }
+          // Then add ZK items if not already present
+          for (T item : zookeeperUncached) {
+            combinedMap.putIfAbsent(item.name, item);
+          }
+          break;
+        default:
+          throw new IllegalArgumentException("Unknown metadata store mode: " + store.mode);
       }
 
       return new ArrayList<>(combinedMap.values());
-    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+    } catch (Exception e) {
       throw new InternalMetadataStoreException("Error listing nodes", e);
     }
   }

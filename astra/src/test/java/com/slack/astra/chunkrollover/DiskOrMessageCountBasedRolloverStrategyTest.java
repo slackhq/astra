@@ -29,7 +29,11 @@ import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -68,9 +72,11 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
 
   private SimpleMeterRegistry metricsRegistry;
   private S3AsyncClient s3AsyncClient;
-  private static final String ZK_PATH_PREFIX = "testZK";
+  private static final String METADATA_PATH_PREFIX = "testMetadata";
   private BlobStore blobStore;
   private TestingServer localZkServer;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
   private AsyncCuratorFramework curatorFramework;
   private AstraConfigs.MetadataStoreConfig metadataStoreConfig;
 
@@ -96,18 +102,56 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     localZkServer = new TestingServer();
     localZkServer.start();
 
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(METADATA_PATH_PREFIX, java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace(METADATA_PATH_PREFIX)
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
+
     metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(localZkServer.getConnectString())
-                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkPathPrefix(METADATA_PATH_PREFIX)
                     .setZkSessionTimeoutMs(15000)
                     .setZkConnectionTimeoutMs(1500)
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
 
     curatorFramework =
@@ -123,6 +167,9 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     }
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
+    }
+    if (etcdClient != null) {
+      etcdClient.close();
     }
     if (s3AsyncClient != null) {
       s3AsyncClient.close();
@@ -146,8 +193,14 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             blobStore,
             listeningExecutorService,
             curatorFramework,
+            etcdClient,
             searchContext,
             AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100),
+            AstraConfigs.LuceneConfig.newBuilder()
+                .setCommitDurationSecs(10)
+                .setRefreshDurationSecs(10)
+                .setEnableFullTextSearch(true)
+                .build(),
             metadataStoreConfig);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);

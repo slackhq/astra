@@ -1,13 +1,14 @@
 nodeRoles: [${NODE_ROLES:-QUERY,INDEX,CACHE,MANAGER,RECOVERY,PREPROCESSOR}]
 
+luceneConfig:
+  commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
+  refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
+  enableFullTextSearch: ${INDEXER_ENABLE_FULL_TEXT_SEARCH:-false}
+
 indexerConfig:
   maxMessagesPerChunk: ${INDEXER_MAX_MESSAGES_PER_CHUNK:-100000}
   maxBytesPerChunk: ${INDEXER_MAX_BYTES_PER_CHUNK:-1000000}
   maxTimePerChunkSeconds: ${INDEXER_MAX_TIME_PER_CHUNK_SECONDS:-5400}
-  luceneConfig:
-    commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
-    refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
-    enableFullTextSearch: ${INDEXER_ENABLE_FULL_TEXT_SEARCH:-false}
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
   maxOffsetDelayMessages: ${INDEXER_MAX_OFFSET_DELAY_MESSAGES:-10000000}
@@ -48,19 +49,45 @@ queryConfig:
   serverConfig:
     serverPort: ${ASTRA_QUERY_SERVER_PORT:-8081}
     serverAddress: ${ASTRA_QUERY_SERVER_ADDRESS:-localhost}
-    requestTimeoutMs: ${ASTRA_QUERY_REQUEST_TIMEOUT_MS:-5000}
-  defaultQueryTimeoutMs: ${ASTRA_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-3000}
+    requestTimeoutMs: ${ASTRA_QUERY_REQUEST_TIMEOUT_MS:-10000}
+  defaultQueryTimeoutMs: ${ASTRA_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-7000}
   managerConnectString: ${ASTRA_MANAGER_CONNECTION_STRING:-localhost:8083}
+  maxSnapshotsQueriedPerBatch: ${ASTRA_QUERY_MAX_SNAPSHOTS_QUERIED_PER_BATCH:-30}
+  perBatchQueryTimeoutMs: ${ASTRA_QUERY_PER_BATCH_QUERY_TIMEOUT_MS:-5000}
 
 metadataStoreConfig:
-  mode: ${ASTRA_METADATA_MODE:-ZOOKEEPER_EXCLUSIVE}
   zookeeperConfig:
+    enabled: ${ASTRA_ZK_ENABLED:-true}
     zkConnectString: ${ASTRA_ZK_CONNECTION_STRING:-localhost:2181}
     zkPathPrefix: ${ASTRA_ZK_PATH_PREFIX:-ASTRA}
     zkSessionTimeoutMs: ${ASTRA_ZK_SESSION_TIMEOUT_MS:-5000}
     zkConnectionTimeoutMs: ${ASTRA_ZK_CONNECT_TIMEOUT_MS:-500}
     zkCacheInitTimeoutMs: ${ASTRA_ZK_CACHE_INIT_TIMEOUT_MS:-30000}
     sleepBetweenRetriesMs: ${ASTRA_ZK_SLEEP_RETRIES_MS:-100}
+  etcdConfig:
+    enabled: ${ASTRA_ETCD_ENABLED:-false}
+    endpoints: [${ASTRA_ETCD_ENDPOINTS:-http://localhost:2379}]
+    namespace: ${ASTRA_ETCD_NAMESPACE:-astra}
+    connectionTimeoutMs: ${ASTRA_ETCD_CONNECTION_TIMEOUT_MS:-5000}
+    keepaliveTimeoutMs: ${ASTRA_ETCD_KEEPALIVE_TIMEOUT_MS:-3000}
+    retryDelayMs: ${ASTRA_ETCD_RETRY_DELAY_MS:-100}
+    operationsTimeoutMs: ${ASTRA_ETCD_OPERATIONS_TIMEOUT_MS:-60000}
+    operationsMaxRetries: ${ASTRA_ETCD_OPERATIONS_MAX_RETRIES:-3}
+    ephemeralNodeTtlMs: ${ASTRA_ETCD_EPHEMERAL_NODE_TTL_MS:-60000}
+    ephemeralNodeMaxRetries: ${ASTRA_ETCD_EPHEMERAL_NODE_MAX_RETRIES:-3}
+  storeModes:
+    DatasetMetadataStore: ${ASTRA_DATASET_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    SnapshotMetadataStore: ${ASTRA_SNAPSHOT_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    ReplicaMetadataStore: ${ASTRA_REPLICA_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    HpaMetricMetadataStore: ${ASTRA_HPA_METRIC_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    SearchMetadataStore: ${ASTRA_SEARCH_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    CacheSlotMetadataStore: ${ASTRA_CACHE_SLOT_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    CacheNodeMetadataStore: ${ASTRA_CACHE_NODE_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    CacheNodeAssignmentStore: ${ASTRA_CACHE_NODE_ASSIGNMENT_STORE_MODE:-ZOOKEEPER_CREATES}
+    FieldRedactionMetadataStore: ${ASTRA_FIELD_REDACTION_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    PreprocessorMetadataStore: ${ASTRA_PREPROCESSOR_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    RecoveryNodeMetadataStore: ${ASTRA_RECOVERY_NODE_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
+    RecoveryTaskMetadataStore: ${ASTRA_RECOVERY_TASK_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
 
 cacheConfig:
   slotsPerInstance: ${ASTRA_CACHE_SLOTS_PER_INSTANCE:-10}

@@ -42,8 +42,12 @@ import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.util.QueryBuilderUtil;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -83,12 +87,14 @@ public class RecoveryChunkManagerTest {
   private SimpleMeterRegistry metricsRegistry;
   private S3AsyncClient s3AsyncClient;
 
-  private static final String ZK_PATH_PREFIX = "testZK";
+  private static final String METADATA_PATH_PREFIX = "testMetadata";
   private BlobStore blobStore;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
   private SearchMetadataStore searchMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   private AstraConfigs.AstraConfig AstraConfig;
 
@@ -103,10 +109,21 @@ public class RecoveryChunkManagerTest {
     localZkServer = new TestingServer();
     localZkServer.start();
 
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(METADATA_PATH_PREFIX, java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(localZkServer.getConnectString())
-            .setZkPathPrefix(ZK_PATH_PREFIX)
+            .setZkPathPrefix(METADATA_PATH_PREFIX)
             .setZkSessionTimeoutMs(15000)
             .setZkConnectionTimeoutMs(1500)
             .setSleepBetweenRetriesMs(1000)
@@ -115,15 +132,43 @@ public class RecoveryChunkManagerTest {
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .setEtcdConfig(
+                AstraConfigs.EtcdConfig.newBuilder()
+                    .addAllEndpoints(
+                        etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+                    .setConnectionTimeoutMs(5000)
+                    .setKeepaliveTimeoutMs(3000)
+                    .setOperationsMaxRetries(3)
+                    .setOperationsTimeoutMs(3000)
+                    .setRetryDelayMs(100)
+                    .setNamespace(METADATA_PATH_PREFIX)
+                    .setEnabled(true)
+                    .setEphemeralNodeTtlMs(3000)
+                    .setEphemeralNodeMaxRetries(3)
+                    .build())
             .setZookeeperConfig(zkConfig)
             .build();
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
     searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, false);
     snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
+        new SnapshotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry);
   }
 
   @AfterEach
@@ -136,6 +181,7 @@ public class RecoveryChunkManagerTest {
     searchMetadataStore.close();
     snapshotMetadataStore.close();
     curatorFramework.unwrap().close();
+    if (etcdClient != null) etcdClient.close();
     s3AsyncClient.close();
     localZkServer.stop();
   }
@@ -155,7 +201,10 @@ public class RecoveryChunkManagerTest {
             AstraConfigs.NodeRole.RECOVERY,
             10000,
             9003,
-            100);
+            100,
+            etcdCluster != null
+                ? etcdCluster.clientEndpoints().stream().map(Object::toString).toList()
+                : null);
 
     chunkManager =
         RecoveryChunkManager.fromConfig(
@@ -163,6 +212,7 @@ public class RecoveryChunkManagerTest {
             searchMetadataStore,
             snapshotMetadataStore,
             AstraConfig.getIndexerConfig(),
+            AstraConfig.getLuceneConfig(),
             blobStore);
 
     chunkManager.startAsync();

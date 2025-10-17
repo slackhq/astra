@@ -1,13 +1,14 @@
 nodeRoles: [ INDEX,QUERY,CACHE,MANAGER ]
 
+luceneConfig:
+  commitDurationSecs: 10
+  refreshDurationSecs: 11
+  enableFullTextSearch: true
+
 indexerConfig:
   maxMessagesPerChunk: 100
   maxBytesPerChunk: 100000
   maxTimePerChunkSeconds: 1800
-  luceneConfig:
-    commitDurationSecs: 10
-    refreshDurationSecs: 11
-    enableFullTextSearch: true
   staleDurationSecs: 7200
   dataDirectory: "/tmp"
   maxOffsetDelayMessages: 10001
@@ -48,13 +49,38 @@ tracingConfig:
     clusterName: "astra_local"
 
 metadataStoreConfig:
-  mode: ZOOKEEPER_EXCLUSIVE
   zookeeperConfig:
+    enabled: true
     zkConnectString: "1.2.3.4:9092"
     zkPathPrefix: "zkPrefix"
     zkSessionTimeoutMs: 1000
     zkConnectionTimeoutMs: 1500
     sleepBetweenRetriesMs: 500
+  etcdConfig:
+    enabled: false
+    endpoints:
+      - "http://localhost:2379"
+    namespace: "astra-test"
+    connectionTimeoutMs: 5000
+    keepaliveTimeoutMs: 3000
+    retryDelayMs: 100
+    operationsTimeoutMs: 60000
+    operationsMaxRetries: 3
+    ephemeralNodeTtlMs: 60000
+    ephemeralNodeMaxRetries: 3
+  storeModes:
+    DatasetMetadataStore: ETCD_CREATES
+    SnapshotMetadataStore: ETCD_CREATES
+    ReplicaMetadataStore: ETCD_CREATES
+    HpaMetricMetadataStore: ETCD_CREATES
+    SearchMetadataStore: ETCD_CREATES
+    CacheSlotMetadataStore: ETCD_CREATES
+    CacheNodeMetadataStore: ETCD_CREATES
+    CacheNodeAssignmentStore: ETCD_CREATES
+    FieldRedactionMetadataStore: ETCD_CREATES
+    PreprocessorMetadataStore: ETCD_CREATES
+    RecoveryNodeMetadataStore: ETCD_CREATES
+    RecoveryTaskMetadataStore: v
 
 cacheConfig:
   slotsPerInstance: 10

@@ -232,6 +232,8 @@ message SearchResult {
   int32 total_nodes = 7;
   int32 total_snapshots = 8;
   int32 snapshots_with_replicas = 9;
+  repeated string hard_failed_chunk_ids = 10;
+  repeated string soft_failed_chunk_ids = 11;
 }
 
 // Based off of https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/struct.proto

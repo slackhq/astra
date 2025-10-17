@@ -26,6 +26,7 @@ import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -63,8 +64,10 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private final BlobStore blobStore;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final AsyncCuratorFramework curatorFramework;
+  private final Client etcdClient;
   private final SearchContext searchContext;
   private final AstraConfigs.IndexerConfig indexerConfig;
+  private final AstraConfigs.LuceneConfig luceneConfig;
   private final AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private ReadWriteChunk<T> activeChunk;
 
@@ -120,8 +123,10 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       BlobStore blobStore,
       ListeningExecutorService rolloverExecutorService,
       AsyncCuratorFramework curatorFramework,
+      Client etcdClient,
       SearchContext searchContext,
       AstraConfigs.IndexerConfig indexerConfig,
+      AstraConfigs.LuceneConfig luceneConfig,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig) {
 
     ensureNonNullString(dataDirectory, "The data directory shouldn't be empty");
@@ -138,8 +143,10 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     this.rolloverExecutorService = rolloverExecutorService;
     this.rolloverFuture = null;
     this.curatorFramework = curatorFramework;
+    this.etcdClient = etcdClient;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
+    this.luceneConfig = luceneConfig;
     this.metadataStoreConfig = metadataStoreConfig;
 
     stopIngestion = true;
@@ -260,8 +267,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     if (activeChunk == null) {
       @SuppressWarnings("unchecked")
       LogStore logStore =
-          LuceneIndexStoreImpl.makeLogStore(
-              dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
+          LuceneIndexStoreImpl.makeLogStore(dataDirectory, luceneConfig, meterRegistry);
 
       chunkRollOverStrategy.setActiveChunkDirectory(logStore.getDirectory());
 
@@ -298,7 +304,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
   private void deleteChunksOverLimit(int limit) {
     if (limit < 0) {
-      throw new IllegalArgumentException("limit can't be negative");
+      LOG.warn("Limit is negative ({}), skipping deletion of chunks", limit);
+      return;
     }
 
     final List<Chunk<T>> unsortedChunks = this.getChunkList();
@@ -388,9 +395,10 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     LOG.info("Starting indexing chunk manager");
 
     searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, false);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, false);
     snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
     stopIngestion = false;
   }
@@ -448,7 +456,9 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   public static IndexingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       AsyncCuratorFramework curatorFramework,
+      Client etcdClient,
       AstraConfigs.IndexerConfig indexerConfig,
+      AstraConfigs.LuceneConfig luceneConfig,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       BlobStore blobStore,
       AstraConfigs.S3Config s3Config) {
@@ -464,8 +474,10 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
         blobStore,
         makeDefaultRollOverExecutor(),
         curatorFramework,
+        etcdClient,
         SearchContext.fromConfig(indexerConfig.getServerConfig()),
         indexerConfig,
+        luceneConfig,
         metadataStoreConfig);
   }
 }

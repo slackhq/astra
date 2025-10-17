@@ -27,7 +27,11 @@ import com.slack.astra.proto.manager_api.ManagerApi;
 import com.slack.astra.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.MetricsUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.util.GrpcCleanupExtension;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -63,18 +67,57 @@ public class ManagerApiGrpcTest {
   private ReplicaRestoreService replicaRestoreService;
   private FieldRedactionMetadataStore fieldRedactionMetadataStore;
   private ManagerApiServiceGrpc.ManagerApiServiceBlockingStub managerApiStub;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from("ManagerApiGrpcTest", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace("ManagerApiGrpcTest")
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setEnabled(true)
                     .setZkConnectString(testingServer.getConnectString())
                     .setZkPathPrefix("ManagerApiGrpcTest")
                     .setZkSessionTimeoutMs(30000)
@@ -82,20 +125,27 @@ public class ManagerApiGrpcTest {
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
 
     curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     datasetMetadataStore =
-        spy(new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true));
+        spy(
+            new DatasetMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true));
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new SnapshotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     replicaMetadataStore =
-        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new ReplicaMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     fieldRedactionMetadataStore =
         spy(
             new FieldRedactionMetadataStore(
-                curatorFramework, metadataStoreConfig, meterRegistry, true));
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true));
 
     AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         AstraConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
@@ -141,6 +191,9 @@ public class ManagerApiGrpcTest {
     datasetMetadataStore.close();
     fieldRedactionMetadataStore.close();
     curatorFramework.unwrap().close();
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
 
     testingServer.close();
     meterRegistry.close();
@@ -335,6 +388,156 @@ public class ManagerApiGrpcTest {
     assertThat(datasetMetadata.get().getOwner()).isEqualTo(updatedDatasetOwner);
     assertThat(datasetMetadata.get().getThroughputBytes()).isEqualTo(0);
     assertThat(datasetMetadata.get().getPartitionConfigs().size()).isEqualTo(0);
+  }
+
+  @Test
+  public void shouldMigrateExistingDataset() throws InterruptedException {
+    String datasetName = "testDataset";
+    String datasetOwner = "testOwner";
+    String serviceNamePattern = "serviceNamePattern";
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace("ManagerApiGrpcTest")
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
+
+    AstraConfigs.MetadataStoreConfig metadataStoreConfigWithEtcdCreates =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setEnabled(true)
+                    .setZkConnectString(testingServer.getConnectString())
+                    .setZkPathPrefix("ManagerApiGrpcTest")
+                    .setZkSessionTimeoutMs(30000)
+                    .setZkConnectionTimeoutMs(30000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
+            .setEtcdConfig(etcdConfig)
+            .build();
+
+    AstraConfigs.MetadataStoreConfig metadataStoreConfigWithZKCreates =
+        AstraConfigs.MetadataStoreConfig.newBuilder()
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ZOOKEEPER_CREATES)
+            .setZookeeperConfig(
+                AstraConfigs.ZookeeperConfig.newBuilder()
+                    .setEnabled(true)
+                    .setZkConnectString(testingServer.getConnectString())
+                    .setZkPathPrefix("ManagerApiGrpcTest")
+                    .setZkSessionTimeoutMs(30000)
+                    .setZkConnectionTimeoutMs(30000)
+                    .setSleepBetweenRetriesMs(1000)
+                    .setZkCacheInitTimeoutMs(1000)
+                    .build())
+            .setEtcdConfig(etcdConfig)
+            .build();
+
+    AsyncCuratorFramework localCuratorFramework =
+        CuratorBuilder.build(meterRegistry, metadataStoreConfigWithZKCreates.getZookeeperConfig());
+
+    // Create a dataset which will be stored in ZK (stored in ETCD first)
+    managerApiStub.createDatasetMetadata(
+        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+            .setName(datasetName)
+            .setOwner(datasetOwner)
+            .setServiceNamePattern(serviceNamePattern)
+            .build());
+
+    AtomicReference<DatasetMetadata> originalDataset = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              originalDataset.set(datasetMetadataStore.getSync(datasetName));
+              return originalDataset.get().getOwner().equals(datasetOwner);
+            });
+
+    assertThat(originalDataset.get().getName()).isEqualTo(datasetName);
+    assertThat(originalDataset.get().getServiceNamePattern()).isEqualTo(serviceNamePattern);
+    assertThat(originalDataset.get().getOwner()).isEqualTo(datasetOwner);
+    assertThat(originalDataset.get().getThroughputBytes()).isEqualTo(0);
+    assertThat(originalDataset.get().getPartitionConfigs().size()).isEqualTo(0);
+
+    // Create separate Zookeeper-only and Etcd-only stores to test individual stores
+    DatasetMetadataStore zkOnlyStore =
+        new DatasetMetadataStore(
+            localCuratorFramework, null, metadataStoreConfigWithZKCreates, meterRegistry, true);
+
+    DatasetMetadataStore etcdOnlyStore =
+        new DatasetMetadataStore(
+            null, etcdClient, metadataStoreConfigWithEtcdCreates, meterRegistry, true);
+
+    // For the migration test, we need to simulate having data in ZK first
+    // Since our test setup uses ETCD_CREATES mode, we need to manually create in ZK
+    zkOnlyStore.createSync(originalDataset.get());
+
+    // Verify dataset exists in ZK before migration
+    AtomicReference<DatasetMetadata> zkDataset = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              zkDataset.set(datasetMetadataStore.getSync(datasetName));
+              return zkDataset.get().getOwner().equals(datasetOwner);
+            });
+
+    assertThat(zkDataset.get().getName()).isEqualTo(datasetName);
+    assertThat(zkDataset.get().getServiceNamePattern()).isEqualTo(serviceNamePattern);
+    assertThat(zkDataset.get().getOwner()).isEqualTo(datasetOwner);
+    assertThat(zkDataset.get().getThroughputBytes()).isEqualTo(0);
+    assertThat(zkDataset.get().getPartitionConfigs().size()).isEqualTo(0);
+
+    etcdOnlyStore.deleteSync(originalDataset.get());
+    await().until(() -> etcdOnlyStore.listSync().isEmpty());
+
+    // try a dryrun
+    ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse migrateResponse =
+        managerApiStub.migrateZKDatasetMetadataStoreToEtcd(
+            ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest.newBuilder()
+                .setDryRun(true)
+                .build());
+
+    // Verify dryrun response
+    assertThat(migrateResponse.getStatus())
+        .isEqualTo("DRY RUN, would migrate the outputted data to ETCD");
+    assertThat(migrateResponse.getDatasetMetadataList()).hasSize(1);
+    assertThat(migrateResponse.getDatasetMetadata(0).getName()).isEqualTo(datasetName);
+
+    // Perform the migration
+    migrateResponse =
+        managerApiStub.migrateZKDatasetMetadataStoreToEtcd(
+            ManagerApi.MigrateZKDatasetMetadataStoreToEtcdRequest.newBuilder()
+                .setDryRun(false)
+                .build());
+
+    // Verify dataset was deleted from Zookeeper
+    await().until(() -> zkOnlyStore.listSync().isEmpty());
+    assertThat(zkOnlyStore.hasSync(datasetName)).isFalse();
+
+    // Verify migration response
+    assertThat(migrateResponse.getStatus()).isEqualTo("SUCCESS");
+    assertThat(migrateResponse.getDatasetMetadataList()).hasSize(1);
+    assertThat(migrateResponse.getDatasetMetadata(0).getName()).isEqualTo(datasetName);
+
+    // Verify dataset was added to Etcd
+    assertThat(etcdOnlyStore.hasSync(datasetName)).isTrue();
+    DatasetMetadata etcdDataset = etcdOnlyStore.getSync(datasetName);
+    assertThat(etcdDataset.getName()).isEqualTo(datasetName);
+    assertThat(etcdDataset.getOwner()).isEqualTo(datasetOwner);
+    assertThat(etcdDataset.getServiceNamePattern()).isEqualTo(serviceNamePattern);
+
+    // Clean up
+    localCuratorFramework.unwrap().close();
+    zkOnlyStore.close();
+    etcdOnlyStore.close();
   }
 
   @Test

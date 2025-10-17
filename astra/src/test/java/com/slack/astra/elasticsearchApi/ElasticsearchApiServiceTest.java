@@ -179,6 +179,70 @@ public class ElasticsearchApiServiceTest {
   }
 
   @Test
+  public void testResultsAreReturnedForValidQueryWithoutFullTextSearch() throws Exception {
+    Tracing.newBuilder().build();
+    SimpleMeterRegistry testMetricsRegistry = new SimpleMeterRegistry();
+    ChunkManagerUtil<LogMessage> testChunkManagerUtil =
+        ChunkManagerUtil.makeChunkManagerUtil(
+            S3_MOCK_EXTENSION,
+            S3_TEST_BUCKET,
+            testMetricsRegistry,
+            10 * 1024 * 1024 * 1024L,
+            1000000L,
+            AstraConfigUtil.makeIndexerConfig(false));
+    testChunkManagerUtil.chunkManager.startAsync();
+    testChunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+    AstraLocalQueryService<LogMessage> testSearcher =
+        new AstraLocalQueryService<>(testChunkManagerUtil.chunkManager, Duration.ofSeconds(3));
+    ElasticsearchApiService testElasticsearchApiService = new ElasticsearchApiService(testSearcher);
+
+    try {
+      IndexingChunkManager<LogMessage> testChunkManager = testChunkManagerUtil.chunkManager;
+      int offset = 1;
+      for (Trace.Span m : SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now())) {
+        testChunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
+      }
+      testChunkManager.getActiveChunk().commit();
+
+      String postBody =
+          Resources.toString(
+              Resources.getResource("elasticsearchApi/multisearch_query_500results.ndjson"),
+              Charset.defaultCharset());
+      HttpResponse response = testElasticsearchApiService.multiSearch(postBody);
+
+      // handle response
+      AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+      String body = aggregatedRes.content(StandardCharsets.UTF_8);
+      JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+      assertThat(aggregatedRes.status().code()).isEqualTo(200);
+      assertThat(jsonNode.findValue("hits").get("hits").size()).isEqualTo(100);
+      assertThat(
+              jsonNode
+                  .findValue("hits")
+                  .get("hits")
+                  .get(0)
+                  .findValue("message")
+                  .asText()
+                  .endsWith("Message100"))
+          .isTrue();
+      assertThat(
+              jsonNode
+                  .findValue("hits")
+                  .get("hits")
+                  .get(99)
+                  .findValue("message")
+                  .asText()
+                  .endsWith("Message1"))
+          .isTrue();
+    } finally {
+      testChunkManagerUtil.close();
+      testMetricsRegistry.close();
+    }
+  }
+
+  @Test
   public void testSearchStringWithOneResult() throws Exception {
     addMessagesToChunkManager(SpanUtil.makeSpansWithTimeDifference(1, 100, 1, Instant.now()));
 

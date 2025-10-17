@@ -27,6 +27,12 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.catchThrowable;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -63,8 +69,13 @@ import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.util.QueryBuilderUtil;
+import com.slack.astra.util.RuntimeHalterImpl;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -92,6 +103,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedConstruction;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 public class IndexingChunkManagerTest {
@@ -114,13 +126,15 @@ public class IndexingChunkManagerTest {
   private SimpleMeterRegistry metricsRegistry;
   private S3AsyncClient s3AsyncClient;
 
-  private static final String ZK_PATH_PREFIX = "testZK";
+  private static final String METADATA_PATH_PREFIX = "testMetadata";
   private BlobStore blobStore;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
   private AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -133,13 +147,50 @@ public class IndexingChunkManagerTest {
     localZkServer = new TestingServer();
     localZkServer.start();
 
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(METADATA_PATH_PREFIX, java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
     metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .setEtcdConfig(
+                AstraConfigs.EtcdConfig.newBuilder()
+                    .addAllEndpoints(
+                        etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+                    .setConnectionTimeoutMs(5000)
+                    .setKeepaliveTimeoutMs(3000)
+                    .setOperationsMaxRetries(3)
+                    .setOperationsTimeoutMs(3000)
+                    .setRetryDelayMs(100)
+                    .setNamespace(METADATA_PATH_PREFIX)
+                    .setEnabled(true)
+                    .setEphemeralNodeTtlMs(3000)
+                    .setEphemeralNodeMaxRetries(3)
+                    .build())
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(localZkServer.getConnectString())
-                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkPathPrefix(METADATA_PATH_PREFIX)
                     .setZkSessionTimeoutMs(15000)
                     .setZkConnectionTimeoutMs(1500)
                     .setSleepBetweenRetriesMs(1000)
@@ -150,9 +201,11 @@ public class IndexingChunkManagerTest {
     curatorFramework =
         CuratorBuilder.build(metricsRegistry, metadataStoreConfig.getZookeeperConfig());
     snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
+        new SnapshotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry);
     searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, false);
   }
 
   @AfterEach
@@ -162,7 +215,10 @@ public class IndexingChunkManagerTest {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
+    snapshotMetadataStore.close();
+    searchMetadataStore.close();
     curatorFramework.unwrap().close();
+    etcdClient.close();
     s3AsyncClient.close();
     localZkServer.stop();
   }
@@ -182,8 +238,14 @@ public class IndexingChunkManagerTest {
             blobStore,
             listeningExecutorService,
             curatorFramework,
+            etcdClient,
             searchContext,
             AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100),
+            AstraConfigs.LuceneConfig.newBuilder()
+                .setCommitDurationSecs(10)
+                .setRefreshDurationSecs(10)
+                .setEnableFullTextSearch(true)
+                .build(),
             metadataStoreConfig);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -205,8 +267,14 @@ public class IndexingChunkManagerTest {
             blobStore,
             listeningExecutorService,
             curatorFramework,
+            etcdClient,
             searchContext,
             indexerConfig,
+            AstraConfigs.LuceneConfig.newBuilder()
+                .setCommitDurationSecs(10)
+                .setRefreshDurationSecs(10)
+                .setEnableFullTextSearch(true)
+                .build(),
             metadataStoreConfig);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -1277,9 +1345,11 @@ public class IndexingChunkManagerTest {
 
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
+        new SnapshotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     List<SnapshotMetadata> snapshots =
         AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
@@ -1331,9 +1401,11 @@ public class IndexingChunkManagerTest {
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     // All ephemeral data is ZK is deleted and no data or metadata is persisted.
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry, false);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry, false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, metricsRegistry);
+        new SnapshotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, metricsRegistry);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     searchMetadataStore.close();
@@ -1615,6 +1687,81 @@ public class IndexingChunkManagerTest {
             .until(() -> getValue(LIVE_MESSAGES_INDEXED, metricsRegistry), (value) -> value == 0);
         await().until(() -> getValue(LIVE_BYTES_INDEXED, metricsRegistry), (value) -> value == 0);
       }
+    }
+  }
+
+  @Test
+  public void testQueryOOMInStructuredTaskScopeFailed() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new DiskOrMessageCountBasedRolloverStrategy(
+            metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
+
+    Chunk<LogMessage> mockChunk = mock(Chunk.class);
+    when(mockChunk.id()).thenReturn("oom-chunk");
+    when(mockChunk.query(any())).thenThrow(OutOfMemoryError.class);
+    chunkManager.chunkMap.put("oom-chunk", mockChunk);
+
+    SearchQuery searchQuery =
+        new SearchQuery(
+            MessageUtil.TEST_DATASET_NAME,
+            0,
+            MAX_TIME,
+            10,
+            List.of("oom-chunk"),
+            QueryBuilderUtil.generateQueryBuilder("Message103", 0L, MAX_TIME),
+            null,
+            createGenericDateHistogramAggregatorFactoriesBuilder());
+    try (MockedConstruction<RuntimeHalterImpl> mockHalterConstructor =
+        mockConstruction(RuntimeHalterImpl.class)) {
+      SearchResult<LogMessage> res = chunkManager.query(searchQuery, Duration.ofSeconds(1));
+      RuntimeHalterImpl mockHalter = mockHalterConstructor.constructed().get(0);
+      verify(mockHalter).handleFatal(isA(OutOfMemoryError.class));
+      assertThat(res).isNotNull();
+    }
+  }
+
+  @Test
+  public void testQueryMapperOOM() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new DiskOrMessageCountBasedRolloverStrategy(
+            metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
+    initChunkManager(chunkRollOverStrategy, blobStore, MoreExecutors.newDirectExecutorService());
+
+    Chunk<LogMessage> mockTimeoutChunk = mock(Chunk.class);
+    when(mockTimeoutChunk.id()).thenReturn("timeout");
+    when(mockTimeoutChunk.query(any()))
+        .thenAnswer(
+            inv -> {
+              Thread.sleep(1_000); // ensure it's still running when joinUntil returns
+              return mock(SearchResult.class);
+            });
+    chunkManager.chunkMap.put("timeout", mockTimeoutChunk);
+
+    SearchQuery searchQuery =
+        new SearchQuery(
+            MessageUtil.TEST_DATASET_NAME,
+            0,
+            MAX_TIME,
+            10,
+            List.of("timeout"),
+            QueryBuilderUtil.generateQueryBuilder("Message104", 0L, MAX_TIME),
+            null,
+            createGenericDateHistogramAggregatorFactoriesBuilder());
+
+    try (org.mockito.MockedStatic<SearchResult> staticResults =
+            org.mockito.Mockito.mockStatic(SearchResult.class);
+        org.mockito.MockedConstruction<RuntimeHalterImpl> mockHalterConstructor =
+            org.mockito.Mockito.mockConstruction(RuntimeHalterImpl.class)) {
+
+      staticResults
+          .when(SearchResult::error)
+          .thenThrow(new OutOfMemoryError("simulated OOM in SearchResult.error()"));
+
+      assertThatThrownBy(() -> chunkManager.query(searchQuery, Duration.ZERO))
+          .isInstanceOf(OutOfMemoryError.class);
+
+      verify(mockHalterConstructor.constructed().get(0)).handleFatal(isA(OutOfMemoryError.class));
     }
   }
 }

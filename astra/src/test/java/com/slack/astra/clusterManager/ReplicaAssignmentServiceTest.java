@@ -22,6 +22,10 @@ import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.testlib.MetricsUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -51,12 +55,26 @@ public class ReplicaAssignmentServiceTest {
   private AsyncCuratorFramework curatorFramework;
   private CacheSlotMetadataStore cacheSlotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(
+                    "ReplicaAssignmentServiceTest", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
 
     AstraConfigs.ZookeeperConfig zkConfig =
         AstraConfigs.ZookeeperConfig.newBuilder()
@@ -70,15 +88,45 @@ public class ReplicaAssignmentServiceTest {
 
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(zkConfig)
+            .setEtcdConfig(
+                AstraConfigs.EtcdConfig.newBuilder()
+                    .addAllEndpoints(
+                        etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+                    .setConnectionTimeoutMs(5000)
+                    .setKeepaliveTimeoutMs(3000)
+                    .setOperationsMaxRetries(3)
+                    .setOperationsTimeoutMs(3000)
+                    .setRetryDelayMs(100)
+                    .setNamespace("ReplicaAssignmentServiceTest")
+                    .setEnabled(true)
+                    .setEphemeralNodeTtlMs(3000)
+                    .setEphemeralNodeMaxRetries(3)
+                    .build())
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     cacheSlotMetadataStore =
-        spy(new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new CacheSlotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     replicaMetadataStore =
-        spy(new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new ReplicaMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
   }
 
   @AfterEach
@@ -87,6 +135,9 @@ public class ReplicaAssignmentServiceTest {
     replicaMetadataStore.close();
     curatorFramework.unwrap().close();
 
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
     testingServer.close();
     meterRegistry.close();
   }
@@ -928,6 +979,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
 
     timeoutServiceExecutor.shutdown();
+    timeoutServiceExecutor.close();
   }
 
   @Test
@@ -1403,7 +1455,7 @@ public class ReplicaAssignmentServiceTest {
             false);
     replicaMetadataStore.createAsync(expectedUnassignedMetadata);
 
-    await().until(() -> replicaMetadataStore.listSync().size() == 3);
+    await().until(() -> AstraMetadataTestUtils.listSyncUncached(replicaMetadataStore).size() == 3);
 
     // create a large amount of free slots
     for (int i = 0; i < 10; i++) {

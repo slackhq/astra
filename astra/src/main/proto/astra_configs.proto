@@ -30,6 +30,7 @@ message AstraConfig {
   PreprocessorConfig preprocessor_config = 11;
   ClusterConfig cluster_config = 12;
   RedactionUpdateServiceConfig redaction_update_service_config = 13;
+  LuceneConfig lucene_config = 14;
 }
 
 // Static configuration for the Astra cluster.
@@ -52,26 +53,52 @@ message KafkaConfig {
   map<string, string> additional_props = 8;
 }
 
+// The operation mode for metadata stores
 enum MetadataStoreMode {
-  ZOOKEEPER_EXCLUSIVE = 0;
-  ETCD_EXCLUSIVE = 1;
-  BOTH_READ_ZOOKEEPER_WRITE = 2;
-  BOTH_READ_ETCD_WRITE = 3;
+  ZOOKEEPER_CREATES = 0;
+  ETCD_CREATES = 1;
 }
 
 message MetadataStoreConfig {
   ZookeeperConfig zookeeper_config = 1;
-  MetadataStoreMode mode = 3;
+  EtcdConfig etcd_config = 2;
+  map<string, MetadataStoreMode> store_modes = 4;
+}
+
+// Configuration for etcd metadata store.
+message EtcdConfig {
+  // Whether to enable etcd client initialization
+  bool enabled = 1;
+  // Connection endpoints in the format http://hostname:port
+  repeated string endpoints = 2;
+  // Optional namespace prefix for all keys
+  string namespace = 3;
+  // Connection timeout in milliseconds
+  int32 connection_timeout_ms = 4;
+  // Keepalive timeout in milliseconds
+  int32 keepalive_timeout_ms = 5;
+  // Time between retries in milliseconds
+  int32 retry_delay_ms = 6;
+  // Operations timeout
+  int32 operations_timeout_ms = 9;
+  // Max number of retries for operations
+  int32 operations_max_retries = 10;
+  // TTL in seconds for ephemeral nodes
+  int32 ephemeral_node_ttl_ms = 11;
+  // Max number of retries for ephemeral nodes
+  int32 ephemeral_node_max_retries = 12;
 }
 
 // Configuration for Zookeeper metadata store.
 message ZookeeperConfig {
-  string zk_connect_string = 1;
-  string zk_path_prefix = 2;
-  int32 zk_session_timeout_ms = 3;
-  int32 zk_connection_timeout_ms = 4;
-  int32 sleep_between_retries_ms = 5;
-  int32 zk_cache_init_timeout_ms = 6;
+  // Whether to enable zookeeper client initialization
+  bool enabled = 1;
+  string zk_connect_string = 2;
+  string zk_path_prefix = 3;
+  int32 zk_session_timeout_ms = 4;
+  int32 zk_connection_timeout_ms = 5;
+  int32 sleep_between_retries_ms = 6;
+  int32 zk_cache_init_timeout_ms = 7;
 }
 
 // S3 Configuration.
@@ -95,11 +122,19 @@ message QueryServiceConfig {
   ServerConfig server_config = 1;
   int32 default_query_timeout_ms = 2;
   string managerConnectString = 3;
+
+  // The maximum number of snapshots to query in a single batch
+  int32 max_snapshots_queried_per_batch = 4;
+
+  // The timeout per query batch. This value should be far lower
+  // than the request timeout to allow for retries, processing
+  // of more batches, aggregations, etc.
+  int32 per_batch_query_timeout_ms = 5;
 }
 
 message RedactionUpdateServiceConfig {
   // Redaction update period is the amount of time between each
-  // refresh of the redactions list, whether or not a ZK event
+  // refresh of the redactions list, whether a ZK event
   // has triggered it
   int32 redaction_update_period_secs = 1;
 
@@ -118,9 +153,6 @@ message IndexerConfig {
   int64 max_messages_per_chunk = 1;
   int64 max_bytes_per_chunk = 2;
   int64 max_time_per_chunk_seconds = 14;
-
-  // Lucene config
-  LuceneConfig lucene_config = 3;
 
   // How long it's okay for a chunk to be on disk. If any chunks are found on
   // disk that were created longer than this many seconds ago, they will be

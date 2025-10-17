@@ -3,7 +3,7 @@ package com.slack.astra.server;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.astra.testlib.AstraSearchUtils.searchUsingGrpcApi;
-import static com.slack.astra.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
+import static com.slack.astra.testlib.ChunkManagerUtil.METADATA_PATH_PREFIX;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,7 +26,11 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.testlib.AstraConfigUtil;
 import com.slack.astra.testlib.MessageUtil;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
 import com.slack.astra.testlib.TestKafkaServer;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.io.IOException;
@@ -66,6 +70,8 @@ public class AstraTest {
   private FieldRedactionMetadataStore fieldRedactionMetadataStore;
   private AsyncCuratorFramework curatorFramework;
   private PrometheusMeterRegistry meterRegistry;
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   private static String getHealthCheckResponse(String url) {
     try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
@@ -115,28 +121,68 @@ public class AstraTest {
     kafkaServer = new TestKafkaServer();
     s3Client = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
 
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(
+                ByteSequence.from(METADATA_PATH_PREFIX, java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace(METADATA_PATH_PREFIX)
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
+
     // We side load a service metadata entry telling it to create an entry with the partitions that
     // we use in test
     meterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(zkServer.getConnectString())
-                    .setZkPathPrefix(ZK_PATH_PREFIX)
+                    .setZkPathPrefix(METADATA_PATH_PREFIX)
                     .setZkSessionTimeoutMs(1000)
                     .setZkConnectionTimeoutMs(1000)
                     .setSleepBetweenRetriesMs(1000)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
     curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     datasetMetadataStore =
-        new DatasetMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new DatasetMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     fieldRedactionMetadataStore =
-        new FieldRedactionMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, true);
+        new FieldRedactionMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
     final DatasetPartitionMetadata partition =
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
@@ -168,6 +214,11 @@ public class AstraTest {
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
     }
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
+    if (etcdCluster != null) {}
+
     if (zkServer != null) {
       zkServer.close();
     }
@@ -179,7 +230,7 @@ public class AstraTest {
       String kafkaTopic,
       int kafkaPartition,
       String clientName,
-      String zkPathPrefix,
+      String metadataPathPrefix,
       AstraConfigs.NodeRole nodeRole,
       int maxOffsetDelay,
       int recoveryPort) {
@@ -192,11 +243,14 @@ public class AstraTest {
         TEST_S3_BUCKET,
         queryPort,
         zkServer.getConnectString(),
-        zkPathPrefix,
+        metadataPathPrefix,
         nodeRole,
         maxOffsetDelay,
         recoveryPort,
-        100);
+        100,
+        etcdCluster != null
+            ? etcdCluster.clientEndpoints().stream().map(Object::toString).toList()
+            : null);
   }
 
   private Astra makeIndexerAndIndexMessages(
@@ -260,7 +314,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             0,
             ASTRA_TEST_CLIENT_1,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             AstraConfigs.NodeRole.QUERY,
             1000,
             -1);
@@ -283,7 +337,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             0,
             ASTRA_TEST_CLIENT_1,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             1,
             startTime,
             indexerMeterRegistry);
@@ -424,7 +478,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             0,
             ASTRA_TEST_CLIENT_1,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             AstraConfigs.NodeRole.QUERY,
             1000,
             -1);
@@ -444,7 +498,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             0,
             ASTRA_TEST_CLIENT_1,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             1,
             startTime,
             indexer1MeterRegistry);
@@ -462,7 +516,7 @@ public class AstraTest {
             TEST_KAFKA_TOPIC_1,
             1,
             ASTRA_TEST_CLIENT_2,
-            ZK_PATH_PREFIX,
+            METADATA_PATH_PREFIX,
             2,
             startTime2,
             indexer2MeterRegistry);

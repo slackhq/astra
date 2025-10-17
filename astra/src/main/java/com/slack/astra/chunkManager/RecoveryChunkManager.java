@@ -218,6 +218,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
       AstraConfigs.IndexerConfig indexerConfig,
+      AstraConfigs.LuceneConfig luceneConfig,
       BlobStore blobStore)
       throws Exception {
 
@@ -226,6 +227,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     RecoveryChunkFactoryImpl<LogMessage> recoveryChunkFactory =
         new RecoveryChunkFactoryImpl<>(
             indexerConfig,
+            luceneConfig,
             CHUNK_DATA_PREFIX,
             meterRegistry,
             searchMetadataStore,

@@ -28,6 +28,10 @@ import com.slack.astra.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.ByteSequence;
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
@@ -56,6 +60,8 @@ public class RecoveryTaskCreatorTest {
   private RecoveryTaskMetadataStore recoveryTaskStore;
   private AstraConfigs.IndexerConfig indexerConfig;
   private static final String partitionId = "1";
+  private static EtcdCluster etcdCluster;
+  private Client etcdClient;
 
   @BeforeEach
   public void startup() throws Exception {
@@ -63,9 +69,45 @@ public class RecoveryTaskCreatorTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
+    etcdCluster = TestEtcdClusterFactory.start();
+
+    // Create etcd client
+    etcdClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", java.nio.charset.StandardCharsets.UTF_8))
+            .build();
+
+    AstraConfigs.EtcdConfig etcdConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(3000)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEnabled(true)
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
+
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
-            .setMode(AstraConfigs.MetadataStoreMode.ZOOKEEPER_EXCLUSIVE)
+            .putStoreModes("DatasetMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SnapshotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("ReplicaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("HpaMetricMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheSlotMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes(
+                "FieldRedactionMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(
                 AstraConfigs.ZookeeperConfig.newBuilder()
                     .setZkConnectString(testingServer.getConnectString())
@@ -75,6 +117,7 @@ public class RecoveryTaskCreatorTest {
                     .setSleepBetweenRetriesMs(500)
                     .setZkCacheInitTimeoutMs(1000)
                     .build())
+            .setEtcdConfig(etcdConfig)
             .build();
 
     // Default behavior
@@ -89,11 +132,13 @@ public class RecoveryTaskCreatorTest {
     curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
     snapshotMetadataStore =
-        spy(new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry));
+        spy(
+            new SnapshotMetadataStore(
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry));
     recoveryTaskStore =
         spy(
             new RecoveryTaskMetadataStore(
-                curatorFramework, metadataStoreConfig, meterRegistry, true));
+                curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true));
   }
 
   @AfterEach
@@ -110,6 +155,10 @@ public class RecoveryTaskCreatorTest {
     if (testingServer != null) {
       testingServer.close();
     }
+    if (etcdClient != null) {
+      etcdClient.close();
+    }
+
     if (meterRegistry != null) {
       meterRegistry.close();
     }
@@ -208,7 +257,11 @@ public class RecoveryTaskCreatorTest {
       int deletedSnapshotSize,
       List<SnapshotMetadata> expectedSnapshots) {
     actualSnapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
-    await().until(() -> snapshotMetadataStore.listSync().containsAll(actualSnapshots));
+    await()
+        .until(
+            () ->
+                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)
+                    .containsAll(actualSnapshots));
 
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
@@ -381,6 +434,8 @@ public class RecoveryTaskCreatorTest {
                 || (actualSnapshots.contains(livePartition11)
                     && !actualSnapshots.contains(livePartition1)))
         .isTrue();
+
+    timeoutServiceExecutor.close();
   }
 
   @Test
@@ -1022,7 +1077,11 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, startTime, endTime, maxOffset, partitionId, 100);
     snapshotMetadataStore.createSync(partition1);
-    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
+    await()
+        .until(
+            () ->
+                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)
+                    .contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore),

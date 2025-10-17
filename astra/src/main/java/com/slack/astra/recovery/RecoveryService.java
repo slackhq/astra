@@ -23,6 +23,7 @@ import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.astra.writer.LogMessageWriterImpl;
 import com.slack.astra.writer.kafka.AstraKafkaConsumer;
+import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
@@ -58,6 +59,7 @@ public class RecoveryService extends AbstractIdleService {
 
   private final SearchContext searchContext;
   private final AsyncCuratorFramework curatorFramework;
+  private final Client etcdClient;
   private final MeterRegistry meterRegistry;
   private final BlobStore blobStore;
   private final AstraConfigs.AstraConfig AstraConfig;
@@ -91,9 +93,11 @@ public class RecoveryService extends AbstractIdleService {
   public RecoveryService(
       AstraConfigs.AstraConfig AstraConfig,
       AsyncCuratorFramework curatorFramework,
+      Client etcdClient,
       MeterRegistry meterRegistry,
       BlobStore blobStore) {
     this.curatorFramework = curatorFramework;
+    this.etcdClient = etcdClient;
     this.searchContext =
         SearchContext.fromConfig(AstraConfig.getRecoveryConfig().getServerConfig());
     this.meterRegistry = meterRegistry;
@@ -137,16 +141,28 @@ public class RecoveryService extends AbstractIdleService {
 
     recoveryNodeMetadataStore =
         new RecoveryNodeMetadataStore(
-            curatorFramework, AstraConfig.getMetadataStoreConfig(), meterRegistry, false);
+            curatorFramework,
+            etcdClient,
+            AstraConfig.getMetadataStoreConfig(),
+            meterRegistry,
+            false);
     recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(
-            curatorFramework, AstraConfig.getMetadataStoreConfig(), meterRegistry, false);
+            curatorFramework,
+            etcdClient,
+            AstraConfig.getMetadataStoreConfig(),
+            meterRegistry,
+            false);
     snapshotMetadataStore =
         new SnapshotMetadataStore(
-            curatorFramework, AstraConfig.getMetadataStoreConfig(), meterRegistry);
+            curatorFramework, etcdClient, AstraConfig.getMetadataStoreConfig(), meterRegistry);
     searchMetadataStore =
         new SearchMetadataStore(
-            curatorFramework, AstraConfig.getMetadataStoreConfig(), meterRegistry, false);
+            curatorFramework,
+            etcdClient,
+            AstraConfig.getMetadataStoreConfig(),
+            meterRegistry,
+            false);
 
     recoveryNodeMetadataStore.createSync(
         new RecoveryNodeMetadata(
@@ -159,6 +175,7 @@ public class RecoveryService extends AbstractIdleService {
     recoveryNodeListenerMetadataStore =
         new RecoveryNodeMetadataStore(
             curatorFramework,
+            etcdClient,
             AstraConfig.getMetadataStoreConfig(),
             meterRegistry,
             searchContext.hostname,
@@ -170,7 +187,8 @@ public class RecoveryService extends AbstractIdleService {
   protected void shutDown() throws Exception {
     LOG.info("Closing the recovery service");
 
-    recoveryNodeListenerMetadataStore.addListener(recoveryNodeListener);
+    recoveryNodeListenerMetadataStore.removeListener(recoveryNodeListener);
+    recoveryNodeListenerMetadataStore.close();
 
     recoveryNodeMetadataStore.close();
     recoveryTaskMetadataStore.close();
@@ -312,6 +330,7 @@ public class RecoveryService extends AbstractIdleService {
                 searchMetadataStore,
                 snapshotMetadataStore,
                 AstraConfig.getIndexerConfig(),
+                AstraConfig.getLuceneConfig(),
                 blobStore);
 
         // Ingest data in parallel

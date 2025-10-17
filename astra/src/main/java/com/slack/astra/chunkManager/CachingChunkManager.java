@@ -21,6 +21,7 @@ import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
 import com.slack.service.murron.trace.Trace;
+import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.util.Map;
@@ -52,15 +53,17 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private final AstraMetadataStoreChangeListener<CacheNodeAssignment>
       cacheNodeAssignmentChangeListener = this::onAssignmentHandler;
   private final long capacityBytes;
-  private ReplicaMetadataStore replicaMetadataStore;
-  private SnapshotMetadataStore snapshotMetadataStore;
-  private SearchMetadataStore searchMetadataStore;
-  private CacheSlotMetadataStore cacheSlotMetadataStore;
+  protected ReplicaMetadataStore replicaMetadataStore;
+  protected SnapshotMetadataStore snapshotMetadataStore;
+  protected SearchMetadataStore searchMetadataStore;
+  protected CacheSlotMetadataStore cacheSlotMetadataStore;
+  private Client etcdClient;
 
   // for flag "astra.ng.dynamicChunkSizes"
   private final String cacheNodeId;
-  private CacheNodeAssignmentStore cacheNodeAssignmentStore;
-  private CacheNodeMetadataStore cacheNodeMetadataStore;
+  private final AstraConfigs.LuceneConfig luceneConfig;
+  protected CacheNodeAssignmentStore cacheNodeAssignmentStore;
+  protected CacheNodeMetadataStore cacheNodeMetadataStore;
 
   private final ExecutorService executorService =
       Executors.newCachedThreadPool(
@@ -69,6 +72,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   public CachingChunkManager(
       MeterRegistry registry,
       AsyncCuratorFramework curatorFramework,
+      Client etcdClient,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       BlobStore blobStore,
       SearchContext searchContext,
@@ -76,9 +80,11 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       String dataDirectoryPrefix,
       String replicaSet,
       int slotCountPerInstance,
-      long capacityBytes) {
+      long capacityBytes,
+      AstraConfigs.LuceneConfig luceneConfig) {
     this.meterRegistry = registry;
     this.curatorFramework = curatorFramework;
+    this.etcdClient = etcdClient;
     this.metadataStoreConfig = metadataStoreConfig;
     this.blobStore = blobStore;
     this.searchContext = searchContext;
@@ -88,6 +94,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     this.slotCountPerInstance = slotCountPerInstance;
     this.cacheNodeId = UUID.randomUUID().toString();
     this.capacityBytes = capacityBytes;
+    this.luceneConfig = luceneConfig;
   }
 
   @Override
@@ -95,21 +102,28 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     LOG.info("Starting caching chunk manager");
 
     replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new ReplicaMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     searchMetadataStore =
-        new SearchMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry, false);
+        new SearchMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, false);
     cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheSlotMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     cacheNodeAssignmentStore =
         new CacheNodeAssignmentStore(
-            curatorFramework, metadataStoreConfig, meterRegistry, cacheNodeId);
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, cacheNodeId);
     cacheNodeMetadataStore =
-        new CacheNodeMetadataStore(curatorFramework, metadataStoreConfig, meterRegistry);
+        new CacheNodeMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
+      // cache node creates its own partition in cacheNodeAssignment store so the listener
+      // initializes
+      // this is necessary due to race condition bug found september 2025
+      cacheNodeAssignmentStore.createPartitionSync(cacheNodeId);
       cacheNodeMetadataStore.createSync(
           new CacheNodeMetadata(
               cacheNodeId, searchContext.hostname, capacityBytes, replicaSet, false));
@@ -130,7 +144,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                 replicaMetadataStore,
                 snapshotMetadataStore,
                 searchMetadataStore,
-                cacheNodeMetadataStore);
+                cacheNodeMetadataStore,
+                luceneConfig);
 
         chunkMap.put(newChunk.getSlotId(), newChunk);
       }
@@ -170,14 +185,17 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   public static CachingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       AsyncCuratorFramework curatorFramework,
+      Client etcdClient,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       AstraConfigs.S3Config s3Config,
       AstraConfigs.CacheConfig cacheConfig,
-      BlobStore blobStore)
+      BlobStore blobStore,
+      AstraConfigs.LuceneConfig luceneConfig)
       throws Exception {
     return new CachingChunkManager<>(
         meterRegistry,
         curatorFramework,
+        etcdClient,
         metadataStoreConfig,
         blobStore,
         SearchContext.fromConfig(cacheConfig.getServerConfig()),
@@ -185,7 +203,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
         cacheConfig.getDataDirectory(),
         cacheConfig.getReplicaSet(),
         cacheConfig.getSlotsPerInstance(),
-        cacheConfig.getCapacityBytes());
+        cacheConfig.getCapacityBytes(),
+        luceneConfig);
   }
 
   @Override
@@ -244,7 +263,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                     cacheNodeAssignmentStore,
                     assignment,
                     snapshotsBySnapshotId.get(assignment.snapshotId),
-                    cacheNodeMetadataStore);
+                    cacheNodeMetadataStore,
+                    luceneConfig);
             executorService.submit(newChunk::downloadChunkData);
             chunkMap.put(assignment.assignmentId, newChunk);
           }

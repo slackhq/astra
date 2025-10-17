@@ -18,20 +18,22 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.8</protobuf.version>
-        <grpc.version>1.73.0</grpc.version>
-        <micrometer.version>1.15.1</micrometer.version>
-        <armeria.version>1.32.5</armeria.version>
+        <grpc.version>1.76.0</grpc.version>
+        <micrometer.version>1.15.4</micrometer.version>
+        <armeria.version>1.33.4</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
-        <jackson.version>2.19.1</jackson.version>
-        <jackson.databind.version>2.19.1</jackson.databind.version>
+        <jackson.version>2.20.0</jackson.version>
+        <jackson.annotations.version>2.20</jackson.annotations.version>
+        <jackson.databind.version>2.20.0</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
-        <log4j.version>2.24.3</log4j.version>
+        <log4j.version>2.25.2</log4j.version>
         <aws.sdk.version>2.35.6</aws.sdk.version>
-        <error.prone.version>2.38.0</error.prone.version>
-        <junit.jupiter.version>5.13.1</junit.jupiter.version>
+        <error.prone.version>2.42.0</error.prone.version>
+        <junit.jupiter.version>6.0.0</junit.jupiter.version>
+        <jetcd.version>0.8.5</jetcd.version>
     </properties>
 
     <repositories>
@@ -116,7 +118,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-http</artifactId>
-            <version>4.2.2.Final</version>
+            <version>4.2.6.Final</version>
         </dependency>
 
         <!-- Apache curator dependencies -->
@@ -226,7 +228,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>${jackson.version}</version>
+            <version>${jackson.annotations.version}</version>
         </dependency>
 
         <dependency>
@@ -264,31 +266,31 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20250107</version>
+            <version>20250517</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
-            <version>1.13.1</version>
+            <version>1.14.0</version>
         </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
 
-            <version>33.4.8-jre</version>
+            <version>33.5.0-jre</version>
         </dependency>
 
         <dependency>
             <groupId>org.checkerframework</groupId>
             <artifactId>checker-qual</artifactId>
-            <version>3.49.4</version>
+            <version>3.51.1</version>
         </dependency>
 
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
-            <version>3.2.1</version>
+            <version>3.2.2</version>
         </dependency>
 
         <dependency>
@@ -413,7 +415,7 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>1.13.1</version>
+            <version>6.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
@@ -436,7 +438,13 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.27.3</version>
+            <version>3.27.6</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.etcd</groupId>
+            <artifactId>jetcd-launcher</artifactId>
+            <version>${jetcd.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- Note: next time we upgrade this, check if mockito-core depends on 1.14.8+ version of bytebuddy -->
@@ -445,7 +453,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.18.0</version>
+            <version>5.20.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -458,14 +466,14 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.17.5</version>
+            <version>1.17.8</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.19.0</version>
+            <version>2.20.0</version>
         </dependency>
         <dependency>
             <groupId>com.adobe.testing</groupId>
@@ -551,6 +559,13 @@
             <version>2.17.2</version>
         </dependency>
 
+        <!-- etcd client dependencies -->
+        <dependency>
+            <groupId>io.etcd</groupId>
+            <artifactId>jetcd-core</artifactId>
+            <version>${jetcd.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -566,7 +581,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.0</version>
+                <version>3.14.1</version>
                 <configuration>
                     <compilerVersion>${javac.target}</compilerVersion>
                     <source>${javac.target}</source>
@@ -625,7 +640,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
+                <version>3.6.1</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.apache.logging.log4j</groupId>
@@ -678,7 +693,7 @@
             <plugin>
                 <groupId>com.spotify.fmt</groupId>
                 <artifactId>fmt-maven-plugin</artifactId>
-                <version>2.27</version>
+                <version>2.29</version>
                 <configuration>
                     <sourceDirectory>src/main/java</sourceDirectory>
                     <testSourceDirectory>src/test/java</testSourceDirectory>
@@ -695,7 +710,7 @@
                     <dependency>
                         <groupId>com.google.googlejavaformat</groupId>
                         <artifactId>google-java-format</artifactId>
-                        <version>1.27.0</version>
+                        <version>1.29.0</version>
                     </dependency>
                 </dependencies>
                 <executions>
@@ -736,7 +751,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>3.6.2</version>
                 <configuration>
                     <rules>
                         <dependencyConvergence/>
@@ -760,7 +775,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>3.11.2</version>
+                    <version>3.12.0</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-resources-plugin</artifactId>
@@ -776,7 +791,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.3</version>
+                    <version>3.5.4</version>
                     <configuration>
                         <argLine>--enable-preview</argLine>
                         <trimStackTrace>false</trimStackTrace>
