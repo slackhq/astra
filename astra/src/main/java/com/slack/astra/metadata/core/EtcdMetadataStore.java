@@ -53,8 +53,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
             return t;
           });
 
-  /** Shared lease ID for all ephemeral nodes. Only valid if createMode is EPHEMERAL. */
-  private volatile long sharedLeaseId = -1;
+  /**
+   * Map of node names to their individual lease IDs. Only used when createMode is EPHEMERAL. This
+   * replaces the previous shared lease approach to avoid single point of failure.
+   */
+  private final ConcurrentHashMap<String, Long> nodeLeases = new ConcurrentHashMap<>();
 
   /** Used for refreshing ephemeral node leases. */
   private final ScheduledExecutorService leaseRefreshExecutor;
@@ -205,27 +208,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       // Calculate the refresh interval - currently 1/3 of the TTL
       long refreshIntervalMs = ephemeralTtlMs / 3;
 
-      // Create a single shared lease for all ephemeral nodes synchronously
-      try {
-        sharedLeaseId =
-            etcdClient
-                .getLeaseClient()
-                .grant(ephemeralTtlMs / 1000) // grant ttl is in seconds
-                .get(ephemeralTtlMs, TimeUnit.MILLISECONDS)
-                .getID();
-      } catch (InterruptedException | ExecutionException | TimeoutException e) {
-        throw new RuntimeException(e);
-      }
-
       LOG.info(
-          "Created shared lease {} (HEX: {}) with TTL {} milliseconds for all ephemeral nodes",
-          sharedLeaseId,
-          Long.toHexString(sharedLeaseId),
-          ephemeralTtlMs);
+          "Initializing per-node lease management with TTL {} ms and refresh interval {} ms",
+          ephemeralTtlMs,
+          refreshIntervalMs);
 
-      LOG.info("Starting lease refresh thread with interval: {} ms", refreshIntervalMs);
-
-      // Start the refresh task
+      // Start the refresh task for all individual leases
       leaseRefreshExecutor.scheduleWithFixedDelay(
           this::refreshAllLeases, refreshIntervalMs, refreshIntervalMs, TimeUnit.MILLISECONDS);
     } else {
@@ -331,30 +319,54 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                             return metadataNode.getName();
                           });
                 } else {
-                  // For ephemeral nodes, use the shared lease directly
-                  // Create a put option that associates the key with the shared lease
-                  PutOption putOption = PutOption.builder().withLeaseId(sharedLeaseId).build();
-
-                  // Use the shared lease to put the key in etcd
+                  // For ephemeral nodes, create an individual lease for this node
                   return etcdClient
-                      .getKVClient()
-                      .put(key, value, putOption)
+                      .getLeaseClient()
+                      .grant(ephemeralTtlMs / 1000) // grant ttl is in seconds
                       .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
-                      .thenApplyAsync(
-                          putResponse -> {
+                      .thenComposeAsync(
+                          leaseGrantResponse -> {
+                            long leaseId = leaseGrantResponse.getID();
                             LOG.debug(
-                                "Created ephemeral node {} with shared lease ID {}, TTL {} milliseconds",
-                                metadataNode.getName(),
-                                sharedLeaseId,
-                                ephemeralTtlMs);
+                                "Created individual lease {} (HEX: {}) with TTL {} ms for ephemeral node {}",
+                                leaseId,
+                                Long.toHexString(leaseId),
+                                ephemeralTtlMs,
+                                metadataNode.getName());
 
-                            // Always update the cache for consistency
-                            if (shouldCache) {
-                              cache.put(metadataNode.getName(), metadataNode);
-                            }
-                            // Return just the name (not the full path) to match
-                            // ZookeeperMetadataStore behavior
-                            return metadataNode.getName();
+                            // Store the lease ID for this node
+                            nodeLeases.put(metadataNode.getName(), leaseId);
+
+                            // Create a put option that associates the key with the individual lease
+                            PutOption putOption = PutOption.builder().withLeaseId(leaseId).build();
+
+                            // Use the individual lease to put the key in etcd
+                            return etcdClient
+                                .getKVClient()
+                                .put(key, value, putOption)
+                                .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
+                                .thenApplyAsync(
+                                    putResponse -> {
+                                      LOG.debug(
+                                          "Created ephemeral node {} with individual lease ID {}",
+                                          metadataNode.getName(),
+                                          leaseId);
+
+                                      // Always update the cache for consistency
+                                      if (shouldCache) {
+                                        cache.put(metadataNode.getName(), metadataNode);
+                                      }
+                                      // Return just the name (not the full path) to match
+                                      // ZookeeperMetadataStore behavior
+                                      return metadataNode.getName();
+                                    });
+                          })
+                      .exceptionallyAsync(
+                          throwable -> {
+                            // Clean up the lease tracking on failure
+                            nodeLeases.remove(metadataNode.getName());
+                            throw new InternalMetadataStoreException(
+                                "Failed to create ephemeral node with lease", throwable);
                           });
                 }
               });
@@ -545,14 +557,27 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                   existingLeaseId = existingKv.getLease();
                 }
 
+                // Also check our local tracking of node leases
+                Long trackedLeaseId = nodeLeases.get(metadataNode.getName());
+                if (trackedLeaseId != null && existingLeaseId != trackedLeaseId) {
+                  LOG.warn(
+                      "Lease ID mismatch for node {}: tracked={}, etcd={}. Using tracked lease.",
+                      metadataNode.getName(),
+                      trackedLeaseId,
+                      existingLeaseId);
+                  existingLeaseId = trackedLeaseId;
+                }
+
                 // Determine which lease to use for the update
                 PutOption putOption = null;
                 if (existingLeaseId > 0) {
                   // Preserve existing lease
                   putOption = PutOption.builder().withLeaseId(existingLeaseId).build();
-                } else if (createMode == EtcdCreateMode.EPHEMERAL && sharedLeaseId > 0) {
-                  // Apply shared lease for ephemeral nodes that don't have a lease
-                  putOption = PutOption.builder().withLeaseId(sharedLeaseId).build();
+                } else if (createMode == EtcdCreateMode.EPHEMERAL) {
+                  // This shouldn't happen for ephemeral nodes - they should always have a lease
+                  LOG.warn(
+                      "Ephemeral node {} has no lease during update. This may indicate a problem.",
+                      metadataNode.getName());
                 }
 
                 // Perform the put with appropriate lease option
@@ -615,7 +640,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         .getKVClient()
         .delete(key)
         .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
-        .thenAcceptAsync(
+        .thenComposeAsync(
             deleteResponse -> {
               // Note: deleteResponse.getDeleted() tells us how many keys were deleted
               if (deleteResponse.getDeleted() == 0) {
@@ -627,8 +652,34 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 cache.remove(path);
               }
 
-              // We don't need to take any special action for ephemeral nodes
-              // since we're using a shared lease that will be revoked on close()
+              // For ephemeral nodes, revoke the individual lease
+              if (createMode == EtcdCreateMode.EPHEMERAL) {
+                Long leaseId = nodeLeases.remove(path);
+                if (leaseId != null) {
+                  LOG.debug("Revoking individual lease {} for deleted node {}", leaseId, path);
+                  return etcdClient
+                      .getLeaseClient()
+                      .revoke(leaseId)
+                      .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
+                      .thenApply(
+                          revokeResponse -> {
+                            LOG.debug("Successfully revoked lease {} for node {}", leaseId, path);
+                            return (Void) null;
+                          })
+                      .exceptionally(
+                          throwable -> {
+                            LOG.warn(
+                                "Failed to revoke lease {} for node {}: {}",
+                                leaseId,
+                                path,
+                                throwable.getMessage());
+                            // Don't fail the delete operation if lease revocation fails
+                            return null;
+                          });
+                }
+              }
+
+              return CompletableFuture.<Void>completedFuture(null);
             });
   }
 
@@ -1091,43 +1142,91 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // as initialized on success or interruption, not on errors.
   }
 
-  /** Refreshes the shared lease for all ephemeral nodes to prevent them from expiring. */
+  /**
+   * Refreshes all individual leases for ephemeral nodes to prevent them from expiring. This method
+   * iterates through all tracked leases and refreshes them independently, which prevents a single
+   * point of failure.
+   */
   private void refreshAllLeases() {
-    // Skip if lease hasn't been initialized (though with synchronous initialization this shouldn't
-    // happen)
-    if (sharedLeaseId == -1) {
-      LOG.debug("Skipping lease refresh - lease not yet initialized");
+    if (nodeLeases.isEmpty()) {
+      LOG.trace("No leases to refresh for store {}", storeFolder);
       return;
     }
 
-    LOG.debug("Refreshing shared lease {} for store {}", sharedLeaseId, storeFolder);
+    LOG.debug("Refreshing {} individual leases for store {}", nodeLeases.size(), storeFolder);
 
     long retryTimeoutMs = ephemeralTtlMs / ephemeralMaxRetries;
-    int retryCounter = 0;
-    while (retryCounter <= ephemeralMaxRetries) {
-      try {
-        etcdClient
-            .getLeaseClient()
-            .keepAliveOnce(sharedLeaseId)
-            .get(retryTimeoutMs, TimeUnit.MILLISECONDS);
-        LOG.trace("Successfully refreshed shared lease {}", sharedLeaseId);
-        this.leaseRefreshHandlerFired.increment();
-        break;
-      } catch (InterruptedException e) {
-        LOG.warn("Interrupted while refreshing shared lease {}", sharedLeaseId, e);
-        Thread.currentThread().interrupt(); // Preserve interrupt status
-      } catch (Exception e) {
-        retryCounter++;
-        if (retryCounter >= ephemeralMaxRetries) {
-          LOG.error(
-              "Failed to refresh shared lease max times, fataling {}: {}",
-              sharedLeaseId,
-              e.getMessage());
-          // This is a critical error since it affects all ephemeral nodes
-          new RuntimeHalterImpl().handleFatal(e);
+    int successCount = 0;
+    int failureCount = 0;
+
+    // Create a snapshot of current leases to avoid ConcurrentModificationException
+    // and to handle nodes being added/removed during refresh
+    for (var entry : nodeLeases.entrySet()) {
+      String nodeName = entry.getKey();
+      Long leaseId = entry.getValue();
+
+      int retryCounter = 0;
+      boolean refreshed = false;
+
+      while (retryCounter < ephemeralMaxRetries && !refreshed) {
+        try {
+          etcdClient
+              .getLeaseClient()
+              .keepAliveOnce(leaseId)
+              .get(retryTimeoutMs, TimeUnit.MILLISECONDS);
+          LOG.trace("Successfully refreshed lease {} for node {}", leaseId, nodeName);
+          successCount++;
+          refreshed = true;
+        } catch (InterruptedException e) {
+          LOG.warn("Interrupted while refreshing lease {} for node {}", leaseId, nodeName, e);
+          Thread.currentThread().interrupt(); // Preserve interrupt status
+          return; // Exit early on interruption
+        } catch (Exception e) {
+          retryCounter++;
+          if (retryCounter >= ephemeralMaxRetries) {
+            LOG.error(
+                "Failed to refresh lease {} for node {} after {} retries: {}",
+                leaseId,
+                nodeName,
+                ephemeralMaxRetries,
+                e.getMessage());
+            failureCount++;
+
+            // Remove the failed lease from tracking
+            nodeLeases.remove(nodeName, leaseId);
+
+            // For individual lease failures, we don't halt the entire system
+            // but we log prominently as this means the node will be lost
+            LOG.error(
+                "Node {} will be lost due to lease refresh failure. "
+                    + "The node should be recreated by the owning process.",
+                nodeName);
+          } else {
+            LOG.warn(
+                "Failed to refresh lease {} for node {} (attempt {}/{}): {}",
+                leaseId,
+                nodeName,
+                retryCounter,
+                ephemeralMaxRetries,
+                e.getMessage());
+          }
         }
-        LOG.error("Failed to refresh shared lease, retrying {}: {}", sharedLeaseId, e.getMessage());
       }
+    }
+
+    this.leaseRefreshHandlerFired.increment();
+    LOG.debug(
+        "Lease refresh completed for store {}: {} succeeded, {} failed",
+        storeFolder,
+        successCount,
+        failureCount);
+
+    // If ALL leases failed and we have leases, this might indicate a systemic problem
+    if (failureCount > 0 && successCount == 0 && !nodeLeases.isEmpty()) {
+      LOG.error(
+          "All lease refreshes failed for store {}. This indicates a critical etcd connectivity issue.",
+          storeFolder);
+      // You may want to implement additional alerting or handling here
     }
   }
 
@@ -1174,16 +1273,33 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       } catch (InterruptedException ignored) {
       }
 
-      // Revoke the shared lease if we have one
-      if (sharedLeaseId != -1) {
-        try {
-          LOG.info("Revoking shared lease {}", sharedLeaseId);
-          etcdClient.getLeaseClient().revoke(sharedLeaseId).get(5, TimeUnit.SECONDS);
-        } catch (Exception e) {
-          LOG.warn("Failed to revoke shared lease {}: {}", sharedLeaseId, e.getMessage());
-        } finally {
-          sharedLeaseId = -1;
+      // Revoke all individual leases if we have any
+      if (!nodeLeases.isEmpty()) {
+        LOG.info("Revoking {} individual leases for store {}", nodeLeases.size(), storeFolder);
+        int revokedCount = 0;
+        int failedCount = 0;
+
+        for (var entry : nodeLeases.entrySet()) {
+          String nodeName = entry.getKey();
+          Long leaseId = entry.getValue();
+
+          try {
+            LOG.debug("Revoking lease {} for node {}", leaseId, nodeName);
+            etcdClient.getLeaseClient().revoke(leaseId).get(5, TimeUnit.SECONDS);
+            revokedCount++;
+          } catch (Exception e) {
+            LOG.warn(
+                "Failed to revoke lease {} for node {}: {}", leaseId, nodeName, e.getMessage());
+            failedCount++;
+          }
         }
+
+        nodeLeases.clear();
+        LOG.info(
+            "Lease revocation completed for store {}: {} revoked, {} failed",
+            storeFolder,
+            revokedCount,
+            failedCount);
       }
     }
 
