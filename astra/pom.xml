@@ -23,7 +23,7 @@
         <armeria.version>1.33.4</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
-        <jackson.version>2.20.0</jackson.version>
+        <jackson.version>2.20.1</jackson.version>
         <jackson.annotations.version>2.20</jackson.annotations.version>
         <jackson.databind.version>2.20.1</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
