@@ -199,6 +199,12 @@
             <groupId>org.opensearch.plugin</groupId>
             <artifactId>lang-painless</artifactId>
             <version>${opensearch.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.antlr</groupId>
+                    <artifactId>antlr4-runtime</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.antlr</groupId>
