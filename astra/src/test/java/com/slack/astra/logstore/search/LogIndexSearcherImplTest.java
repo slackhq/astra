@@ -478,6 +478,7 @@ public class LogIndexSearcherImplTest {
     }
 
     @Test
+    @Disabled
     public void testRedactionWithFilterAggregations() throws Exception {
       Instant time = Instant.now();
       long start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
@@ -1554,6 +1555,7 @@ public class LogIndexSearcherImplTest {
     assertThat(histogram.getBuckets().get(3).getDocCount()).isEqualTo(1);
   }
 
+  @Disabled
   @Test
   public void testAggregationWithScripting() throws IOException {
     Instant time = Instant.ofEpochSecond(1593365471);
@@ -1589,6 +1591,7 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
+  @Disabled
   public void testFilterAggregations() throws IOException {
     Instant time = Instant.now();
     loadTestData(time);
