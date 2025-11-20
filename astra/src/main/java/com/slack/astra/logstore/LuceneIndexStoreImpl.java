@@ -277,7 +277,12 @@ public class LuceneIndexStoreImpl implements LogStore {
       if (indexWriter.isPresent()) {
         astraSearcherManager.getLuceneSearcherManager().maybeRefresh();
       }
-    } finally {
+    } catch (OutOfMemoryError oom) {
+      LOG.error("OutOfMemoryError in indexer sync fresh - terminating process", oom);
+      new RuntimeHalterImpl().handleFatal(oom);
+      throw oom;
+    } 
+    finally {
       indexWriterLock.unlock();
     }
   }
