@@ -281,8 +281,7 @@ public class LuceneIndexStoreImpl implements LogStore {
       LOG.error("OutOfMemoryError in indexer sync fresh - terminating process", oom);
       new RuntimeHalterImpl().handleFatal(oom);
       throw oom;
-    } 
-    finally {
+    } finally {
       indexWriterLock.unlock();
     }
   }
