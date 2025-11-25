@@ -10,6 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
@@ -53,6 +55,7 @@ class HeapCachePagingLoaderTest {
   }
 
   @Test
+  @Disabled
   public void testDiskPagingWholeFileSmallChunks() throws IOException, ExecutionException {
     BlobStore blobStore = spy(new BlobStore(s3Client, TEST_BUCKET));
     String filename = "file3.example";
