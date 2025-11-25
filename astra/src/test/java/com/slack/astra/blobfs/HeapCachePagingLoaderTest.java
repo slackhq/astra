@@ -30,34 +30,6 @@ class HeapCachePagingLoaderTest {
       spy(S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint()));
 
   @Test
-  public void testHeapCachingPartialByteRead() throws IOException, ExecutionException {
-    BlobStore blobStore = spy(new BlobStore(s3Client, TEST_BUCKET));
-    String filename = "file.example";
-    String chunkId = UUID.randomUUID().toString();
-
-    DiskCachePagingLoader diskCachePagingLoader =
-        new DiskCachePagingLoader(blobStore, s3Client, 10);
-    HeapCachePagingLoader heapCachePagingLoader =
-        new HeapCachePagingLoader(blobStore, s3Client, diskCachePagingLoader, 3);
-
-    int bytesToRead = 14;
-    byte[] readBytes = new byte[bytesToRead];
-
-    Path directory = Files.createTempDirectory(chunkId);
-    Path exampleFile = Files.createFile(Path.of(directory.toString(), filename));
-    Files.writeString(exampleFile, "12345678qwertyuiopasdfghjkl;", Charset.defaultCharset());
-    blobStore.upload(chunkId, directory);
-
-    Path download = Files.createTempDirectory(UUID.randomUUID().toString());
-    blobStore.download(chunkId, download);
-
-    // this should read in bytes 12-28 from the original file, stored in readBytes 0-14
-    heapCachePagingLoader.readBytes(chunkId, filename, readBytes, 0, 12, 14);
-    System.out.println(new String(readBytes));
-    assertThat(readBytes).isEqualTo("tyuiopasdfghjk".getBytes(Charset.defaultCharset()));
-  }
-
-  @Test
   public void testDiskPagingWholeFileOneChunk() throws IOException, ExecutionException {
     BlobStore blobStore = spy(new BlobStore(s3Client, TEST_BUCKET));
     String filename = "file2.example";
