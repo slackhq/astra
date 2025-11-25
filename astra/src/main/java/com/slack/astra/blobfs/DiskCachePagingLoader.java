@@ -111,12 +111,23 @@ public class DiskCachePagingLoader {
               String.format(
                   "astra-cache-%s-%s-%s-%s.tmp",
                   key.getChunkId(), key.getFilename(), key.getFromOffset(), key.getToOffset()));
+
+      // First get the object metadata to determine actual file size
+      long fileSize =
+          s3AsyncClient
+              .headObject(builder -> builder.bucket(blobStore.bucketName).key(key.getPath()))
+              .get()
+              .contentLength();
+
+      // Cap the toOffset to not exceed the actual file size (0-indexed, so fileSize-1)
+      long actualToOffset = Math.min(key.getToOffset(), fileSize - 1);
+
       s3AsyncClient
           .getObject(
               GetObjectRequest.builder()
                   .bucket(blobStore.bucketName)
                   .key(key.getPath())
-                  .range(String.format("bytes=%s-%s", key.getFromOffset(), key.getToOffset()))
+                  .range(String.format("bytes=%s-%s", key.getFromOffset(), actualToOffset))
                   .build(),
               AsyncResponseTransformer.toFile(
                   filePath,
