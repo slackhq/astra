@@ -1107,33 +1107,34 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // If the connection was reset (due to error or completion), re-establish it
     if (leaseRenewalConnection == null) {
       LOG.warn("Lease renewal connection is null, re-establishing for lease {}", sharedLeaseId);
-      leaseRenewalConnection = new StreamObserver<LeaseKeepAliveResponse>() {
-        @Override
-        public void onNext(LeaseKeepAliveResponse response) {
-          LOG.trace(
-              "Received keepAlive response for lease {}, TTL: {}",
-              response.getID(),
-              response.getTTL());
-          leaseRefreshHandlerFired.increment();
-        }
+      leaseRenewalConnection =
+          new StreamObserver<LeaseKeepAliveResponse>() {
+            @Override
+            public void onNext(LeaseKeepAliveResponse response) {
+              LOG.trace(
+                  "Received keepAlive response for lease {}, TTL: {}",
+                  response.getID(),
+                  response.getTTL());
+              leaseRefreshHandlerFired.increment();
+            }
 
-        @Override
-        public void onError(Throwable t) {
-          LOG.error(
-              "Error in keepAlive stream for shared lease {}: {}",
-              sharedLeaseId,
-              t.getMessage());
-          // Reset the connection so it can be re-established
-          leaseRenewalConnection = null;
-        }
+            @Override
+            public void onError(Throwable t) {
+              LOG.error(
+                  "Error in keepAlive stream for shared lease {}: {}",
+                  sharedLeaseId,
+                  t.getMessage());
+              // Reset the connection so it can be re-established
+              leaseRenewalConnection = null;
+            }
 
-        @Override
-        public void onCompleted() {
-          LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
-          // Reset the connection so it can be re-established
-          leaseRenewalConnection = null;
-        }
-      };
+            @Override
+            public void onCompleted() {
+              LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
+              // Reset the connection so it can be re-established
+              leaseRenewalConnection = null;
+            }
+          };
     }
 
     LOG.debug("Refreshing shared lease {} for store {}", sharedLeaseId, storeFolder);
@@ -1143,9 +1144,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     while (retryCounter <= ephemeralMaxRetries) {
       try {
         // Use keepAlive with the persistent StreamObserver connection
-        etcdClient
-            .getLeaseClient()
-            .keepAlive(sharedLeaseId, leaseRenewalConnection);
+        etcdClient.getLeaseClient().keepAlive(sharedLeaseId, leaseRenewalConnection);
         LOG.trace("Successfully sent keepAlive request for shared lease {}", sharedLeaseId);
         break;
       } catch (Exception e) {
