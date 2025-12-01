@@ -31,7 +31,7 @@
         <curator.version>5.8.0</curator.version>
         <log4j.version>2.25.2</log4j.version>
         <aws.sdk.version>2.39.2</aws.sdk.version>
-        <error.prone.version>2.44.0</error.prone.version>
+        <error.prone.version>2.45.0</error.prone.version>
         <junit.jupiter.version>6.0.1</junit.jupiter.version>
         <jetcd.version>0.8.6</jetcd.version>
     </properties>
