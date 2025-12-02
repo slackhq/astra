@@ -58,10 +58,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   /** Shared lease ID for all ephemeral nodes. Only valid if createMode is EPHEMERAL. */
   private volatile long sharedLeaseId = -1;
 
-  private StreamObserver leaseRenewalConnection = null;
-
-  /** Used for refreshing ephemeral node leases. */
-  private final ScheduledExecutorService leaseRefreshExecutor;
+  private StreamObserver<LeaseKeepAliveResponse> leaseRenewalConnection = null;
 
   /** Used for watch retry operations with delays. */
   private final ScheduledExecutorService watchRetryExecutor;
@@ -104,8 +101,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private final String ASTRA_ETCD_ADDED_LISTENER = "astra_etcd_added_listener";
   private final String ASTRA_ETCD_REMOVED_LISTENER = "astra_etcd_removed_listener";
   private final String ASTRA_ETCD_CACHE_INIT_HANDLER_FIRED = "astra_etcd_cache_init_handler_fired";
-  private final String ASTRA_ETCD_LEASE_REFRESH_HANDLER_FIRED =
-      "astra_etcd_lease_refresh_handler_fired";
+  private final String ASTRA_ETCD_LEASE_KEEPALIVE_RESPONSE_RECEIVED =
+      "astra_etcd_lease_keepalive_response_received";
 
   private final Counter createCall;
   private final Counter hasCall;
@@ -116,7 +113,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private final Counter addedListener;
   private final Counter removedListener;
   private final Counter cacheInitHandlerFired;
-  private final Counter leaseRefreshHandlerFired;
+  private final Counter leaseKeepAliveResponseReceived;
 
   /** Constructor that accepts an external etcd client instance with default persistent mode. */
   public EtcdMetadataStore(
@@ -171,8 +168,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.removedListener = this.meterRegistry.counter(ASTRA_ETCD_REMOVED_LISTENER, "store", store);
     this.cacheInitHandlerFired =
         this.meterRegistry.counter(ASTRA_ETCD_CACHE_INIT_HANDLER_FIRED, "store", store);
-    this.leaseRefreshHandlerFired =
-        this.meterRegistry.counter(ASTRA_ETCD_LEASE_REFRESH_HANDLER_FIRED, "store", store);
+    this.leaseKeepAliveResponseReceived =
+        this.meterRegistry.counter(ASTRA_ETCD_LEASE_KEEPALIVE_RESPONSE_RECEIVED, "store", store);
 
     if (etcClient == null) {
       throw new IllegalArgumentException("External etcd client must be provided");
@@ -195,20 +192,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
               return t;
             });
 
-    // Initialize lease refresh executor if we're creating ephemeral nodes
+    // Initialize lease keepAlive if we're creating ephemeral nodes
     if (createMode == EtcdCreateMode.EPHEMERAL) {
-      this.leaseRefreshExecutor =
-          Executors.newSingleThreadScheduledExecutor(
-              r -> {
-                Thread t = new Thread(r);
-                t.setDaemon(true);
-                t.setName("etcd-lease-refresh-" + storeFolder);
-                return t;
-              });
-
-      // Calculate the refresh interval - currently 1/3 of the TTL
-      long refreshIntervalMs = ephemeralTtlMs / 3;
-
       // Create a single shared lease for all ephemeral nodes synchronously
       try {
         sharedLeaseId =
@@ -227,13 +212,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           Long.toHexString(sharedLeaseId),
           ephemeralTtlMs);
 
-      LOG.info("Starting lease refresh thread with interval: {} ms", refreshIntervalMs);
-
-      // Start the refresh task
-      leaseRefreshExecutor.scheduleWithFixedDelay(
-          this::refreshAllLeases, refreshIntervalMs, refreshIntervalMs, TimeUnit.MILLISECONDS);
-    } else {
-      leaseRefreshExecutor = null;
+      // Establish the keepAlive stream for the shared lease
+      // This will automatically send keepAlive requests periodically
+      establishLeaseKeepAlive();
     }
 
     // Initialize cache if needed
@@ -1095,69 +1076,82 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // as initialized on success or interruption, not on errors.
   }
 
-  /** Refreshes the shared lease for all ephemeral nodes to prevent them from expiring. */
-  private void refreshAllLeases() {
-    // Skip if lease hasn't been initialized (though with synchronous initialization this shouldn't
-    // happen)
+  /**
+   * Establishes a keepAlive stream for the shared lease. The etcd client library will automatically
+   * send keepAlive requests periodically to keep the lease alive. If the stream fails, we mark it
+   * as null so it can be re-established if needed.
+   */
+  private void establishLeaseKeepAlive() {
     if (sharedLeaseId == -1) {
-      LOG.debug("Skipping lease refresh - lease not yet initialized");
+      LOG.warn("Cannot establish keepAlive - lease not yet initialized");
       return;
     }
 
-    // If the connection was reset (due to error or completion), re-establish it
-    if (leaseRenewalConnection == null) {
-      LOG.warn("Lease renewal connection is null, re-establishing for lease {}", sharedLeaseId);
-      leaseRenewalConnection =
-          new StreamObserver<LeaseKeepAliveResponse>() {
-            @Override
-            public void onNext(LeaseKeepAliveResponse response) {
-              LOG.trace(
-                  "Received keepAlive response for lease {}, TTL: {}",
-                  response.getID(),
-                  response.getTTL());
-              leaseRefreshHandlerFired.increment();
-            }
-
-            @Override
-            public void onError(Throwable t) {
-              LOG.error(
-                  "Error in keepAlive stream for shared lease {}: {}",
-                  sharedLeaseId,
-                  t.getMessage());
-              // Reset the connection so it can be re-established
-              leaseRenewalConnection = null;
-            }
-
-            @Override
-            public void onCompleted() {
-              LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
-              // Reset the connection so it can be re-established
-              leaseRenewalConnection = null;
-            }
-          };
+    if (leaseRenewalConnection != null) {
+      LOG.debug("KeepAlive stream already established for lease {}", sharedLeaseId);
+      return;
     }
 
-    LOG.debug("Refreshing shared lease {} for store {}", sharedLeaseId, storeFolder);
+    LOG.info("Establishing keepAlive stream for shared lease {}", sharedLeaseId);
 
-    long retryTimeoutMs = ephemeralTtlMs / ephemeralMaxRetries;
+    leaseRenewalConnection =
+        new StreamObserver<LeaseKeepAliveResponse>() {
+          @Override
+          public void onNext(LeaseKeepAliveResponse response) {
+            LOG.trace(
+                "Received keepAlive response for lease {}, TTL: {}",
+                response.getID(),
+                response.getTTL());
+            leaseKeepAliveResponseReceived.increment();
+          }
+
+          @Override
+          public void onError(Throwable t) {
+            LOG.error(
+                "Error in keepAlive stream for shared lease {}: {}", sharedLeaseId, t.getMessage());
+            // Reset the connection so it can be re-established
+            leaseRenewalConnection = null;
+            // Try to re-establish the connection
+            establishLeaseKeepAlive();
+          }
+
+          @Override
+          public void onCompleted() {
+            LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
+            // Reset the connection so it can be re-established
+            leaseRenewalConnection = null;
+            // Try to re-establish the connection
+            establishLeaseKeepAlive();
+          }
+        };
+
     int retryCounter = 0;
     while (retryCounter <= ephemeralMaxRetries) {
       try {
-        // Use keepAlive with the persistent StreamObserver connection
+        // Establish the keepAlive stream - this will continuously send keepAlive requests
         etcdClient.getLeaseClient().keepAlive(sharedLeaseId, leaseRenewalConnection);
-        LOG.trace("Successfully sent keepAlive request for shared lease {}", sharedLeaseId);
+        LOG.info("Successfully established keepAlive stream for shared lease {}", sharedLeaseId);
         break;
       } catch (Exception e) {
         retryCounter++;
         if (retryCounter >= ephemeralMaxRetries) {
           LOG.error(
-              "Failed to refresh shared lease max times, fataling {}: {}",
-              sharedLeaseId,
+              "Failed to establish keepAlive stream after {} attempts, fataling: {}",
+              ephemeralMaxRetries,
               e.getMessage());
           // This is a critical error since it affects all ephemeral nodes
           new RuntimeHalterImpl().handleFatal(e);
         }
-        LOG.error("Failed to refresh shared lease, retrying {}: {}", sharedLeaseId, e.getMessage());
+        LOG.warn(
+            "Failed to establish keepAlive stream (attempt {}), retrying: {}",
+            retryCounter,
+            e.getMessage());
+        try {
+          Thread.sleep(1000); // Wait a bit before retrying
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          break;
+        }
       }
     }
   }
@@ -1197,30 +1191,20 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       }
     }
 
-    // Clear the lease renewal connection reference
+    // Clear the lease renewal connection reference and revoke the lease if we have one
     if (leaseRenewalConnection != null) {
       LOG.info("Clearing lease renewal connection for shared lease {}", sharedLeaseId);
       leaseRenewalConnection = null;
     }
 
-    // Shut down lease refresh executor if it exists
-    if (leaseRefreshExecutor != null) {
-      leaseRefreshExecutor.shutdownNow();
+    if (sharedLeaseId != -1) {
       try {
-        leaseRefreshExecutor.awaitTermination(5, TimeUnit.SECONDS);
-      } catch (InterruptedException ignored) {
-      }
-
-      // Revoke the shared lease if we have one
-      if (sharedLeaseId != -1) {
-        try {
-          LOG.info("Revoking shared lease {}", sharedLeaseId);
-          etcdClient.getLeaseClient().revoke(sharedLeaseId).get(5, TimeUnit.SECONDS);
-        } catch (Exception e) {
-          LOG.warn("Failed to revoke shared lease {}: {}", sharedLeaseId, e.getMessage());
-        } finally {
-          sharedLeaseId = -1;
-        }
+        LOG.info("Revoking shared lease {}", sharedLeaseId);
+        etcdClient.getLeaseClient().revoke(sharedLeaseId).get(5, TimeUnit.SECONDS);
+      } catch (Exception e) {
+        LOG.warn("Failed to revoke shared lease {}: {}", sharedLeaseId, e.getMessage());
+      } finally {
+        sharedLeaseId = -1;
       }
     }
 

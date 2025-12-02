@@ -496,12 +496,16 @@ public class EtcdMetadataStoreTest {
       // Verify the node still exists after lease refresh
       assertThat(ephemeralStore.hasSync("ephemeral1")).isTrue();
 
-      // Check that the lease refresh counter incremented (indicating successful refreshes)
-      double leaseRefreshCount =
-          ephemeralMeterRegistry.get("astra_etcd_lease_refresh_handler_fired").counter().count();
+      // Check that the lease keepAlive response counter incremented (indicating successful
+      // keepAlive responses)
+      double leaseKeepAliveCount =
+          ephemeralMeterRegistry
+              .get("astra_etcd_lease_keepalive_response_received")
+              .counter()
+              .count();
 
-      // Should have fired at least once
-      assertThat(leaseRefreshCount).isGreaterThanOrEqualTo(1.0);
+      // Should have received at least one keepAlive response
+      assertThat(leaseKeepAliveCount).isGreaterThanOrEqualTo(1.0);
 
     } finally {
       if (ephemeralStore != null) {
@@ -641,8 +645,7 @@ public class EtcdMetadataStoreTest {
       interruptStore = null; // Set to null so finally block doesn't try to close again
 
       // Test passes if we don't hang or throw unexpected exceptions
-      // The close() method should properly interrupt the lease refresh thread
-      // and handle the InterruptedException in refreshAllLeases()
+      // The close() method should properly clean up the keepAlive stream
 
     } finally {
       if (interruptStore != null) {
