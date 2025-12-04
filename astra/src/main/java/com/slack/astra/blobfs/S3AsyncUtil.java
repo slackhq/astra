@@ -74,19 +74,17 @@ public class S3AsyncUtil {
                       .build());
       s3AsyncClient.httpConfiguration(httpConfigurationBuilder.build());
 
-
       // You cannot set the endpoint if AWS_USE_FIPS_ENDPOINT is set to `true`
       if (!System.getenv().getOrDefault("AWS_USE_FIPS_ENDPOINT", "false").equals("true")) {
-          if (notNullOrEmpty(config.getS3EndPoint())) {
-              String endpoint = config.getS3EndPoint();
-              try {
-                  s3AsyncClient.endpointOverride(new URI(endpoint));
-              } catch (URISyntaxException e) {
-                  throw new RuntimeException(e);
-              }
+        if (notNullOrEmpty(config.getS3EndPoint())) {
+          String endpoint = config.getS3EndPoint();
+          try {
+            s3AsyncClient.endpointOverride(new URI(endpoint));
+          } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
           }
+        }
       }
-
 
       return s3AsyncClient.build();
     } catch (S3Exception e) {
