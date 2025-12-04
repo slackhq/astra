@@ -76,9 +76,7 @@ public class S3AsyncUtil {
 
 
       // You cannot set the endpoint if AWS_USE_FIPS_ENDPOINT is set to `true`
-      String fipsEnvVar = System.getenv().get("AWS_USE_FIPS_ENDPOINT");
-
-      if (fipsEnvVar == null || !fipsEnvVar.equals("true")) {
+      if (!System.getenv().getOrDefault("AWS_USE_FIPS_ENDPOINT", "false").equals("true")) {
           if (notNullOrEmpty(config.getS3EndPoint())) {
               String endpoint = config.getS3EndPoint();
               try {
