@@ -74,14 +74,22 @@ public class S3AsyncUtil {
                       .build());
       s3AsyncClient.httpConfiguration(httpConfigurationBuilder.build());
 
-      if (notNullOrEmpty(config.getS3EndPoint())) {
-        String endpoint = config.getS3EndPoint();
-        try {
-          s3AsyncClient.endpointOverride(new URI(endpoint));
-        } catch (URISyntaxException e) {
-          throw new RuntimeException(e);
-        }
+
+      // You cannot set the endpoint if AWS_USE_FIPS_ENDPOINT is set to `true`
+      String fipsEnvVar = System.getenv().get("AWS_AWS_USE_FIPS_ENDPOINT");
+
+      if (fipsEnvVar == null || !fipsEnvVar.equals("true")) {
+          if (notNullOrEmpty(config.getS3EndPoint())) {
+              String endpoint = config.getS3EndPoint();
+              try {
+                  s3AsyncClient.endpointOverride(new URI(endpoint));
+              } catch (URISyntaxException e) {
+                  throw new RuntimeException(e);
+              }
+          }
       }
+
+
       return s3AsyncClient.build();
     } catch (S3Exception e) {
       throw new RuntimeException("Could not initialize S3blobFs", e);
