@@ -8,10 +8,12 @@ import io.etcd.jetcd.Client;
 import io.etcd.jetcd.KeyValue;
 import io.etcd.jetcd.Watch.Watcher;
 import io.etcd.jetcd.kv.GetResponse;
+import io.etcd.jetcd.lease.LeaseKeepAliveResponse;
 import io.etcd.jetcd.options.GetOption;
 import io.etcd.jetcd.options.PutOption;
 import io.etcd.jetcd.options.WatchOption;
 import io.etcd.jetcd.watch.WatchEvent;
+import io.grpc.stub.StreamObserver;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
@@ -56,9 +58,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   /** Shared lease ID for all ephemeral nodes. Only valid if createMode is EPHEMERAL. */
   private volatile long sharedLeaseId = -1;
 
-  /** Used for refreshing ephemeral node leases. */
-  private final ScheduledExecutorService leaseRefreshExecutor;
-
   /** Used for watch retry operations with delays. */
   private final ScheduledExecutorService watchRetryExecutor;
 
@@ -67,8 +66,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
   /** TTL in milliseconds for ephemeral nodes. */
   private final long ephemeralTtlMs;
-
-  private final int ephemeralMaxRetries;
 
   private static final Logger LOG = LoggerFactory.getLogger(EtcdMetadataStore.class);
 
@@ -149,7 +146,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.watchers = new ConcurrentHashMap<>();
     this.createMode = createMode;
     this.ephemeralTtlMs = config.getEphemeralNodeTtlMs();
-    this.ephemeralMaxRetries = config.getEphemeralNodeMaxRetries();
     this.etcdOperationTimeoutMs = config.getOperationsTimeoutMs();
 
     // Store retry configuration for watch operations
@@ -191,20 +187,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
               return t;
             });
 
-    // Initialize lease refresh executor if we're creating ephemeral nodes
     if (createMode == EtcdCreateMode.EPHEMERAL) {
-      this.leaseRefreshExecutor =
-          Executors.newSingleThreadScheduledExecutor(
-              r -> {
-                Thread t = new Thread(r);
-                t.setDaemon(true);
-                t.setName("etcd-lease-refresh-" + storeFolder);
-                return t;
-              });
-
-      // Calculate the refresh interval - currently 1/3 of the TTL
-      long refreshIntervalMs = ephemeralTtlMs / 3;
-
       // Create a single shared lease for all ephemeral nodes synchronously
       try {
         sharedLeaseId =
@@ -213,6 +196,27 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 .grant(ephemeralTtlMs / 1000) // grant ttl is in seconds
                 .get(ephemeralTtlMs, TimeUnit.MILLISECONDS)
                 .getID();
+        etcdClient.getLeaseClient().keepAlive(sharedLeaseId, new StreamObserver<LeaseKeepAliveResponse>() {
+            @Override
+            public void onNext(LeaseKeepAliveResponse response) {
+                LOG.trace(
+                        "Received keepAlive response for lease {}, TTL: {}",
+                        response.getID(),
+                        response.getTTL());
+                leaseRefreshHandlerFired.increment();
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                LOG.error(
+                        "Error in keepAlive stream for shared lease {}: {}", sharedLeaseId, t.getMessage());
+            }
+
+            @Override
+            public void onCompleted() {
+                LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
+            }
+        });
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new RuntimeException(e);
       }
@@ -223,13 +227,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           Long.toHexString(sharedLeaseId),
           ephemeralTtlMs);
 
-      LOG.info("Starting lease refresh thread with interval: {} ms", refreshIntervalMs);
-
-      // Start the refresh task
-      leaseRefreshExecutor.scheduleWithFixedDelay(
-          this::refreshAllLeases, refreshIntervalMs, refreshIntervalMs, TimeUnit.MILLISECONDS);
-    } else {
-      leaseRefreshExecutor = null;
     }
 
     // Initialize cache if needed
@@ -1091,46 +1088,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // as initialized on success or interruption, not on errors.
   }
 
-  /** Refreshes the shared lease for all ephemeral nodes to prevent them from expiring. */
-  private void refreshAllLeases() {
-    // Skip if lease hasn't been initialized (though with synchronous initialization this shouldn't
-    // happen)
-    if (sharedLeaseId == -1) {
-      LOG.debug("Skipping lease refresh - lease not yet initialized");
-      return;
-    }
-
-    LOG.debug("Refreshing shared lease {} for store {}", sharedLeaseId, storeFolder);
-
-    long retryTimeoutMs = ephemeralTtlMs / ephemeralMaxRetries;
-    int retryCounter = 0;
-    while (retryCounter <= ephemeralMaxRetries) {
-      try {
-        etcdClient
-            .getLeaseClient()
-            .keepAliveOnce(sharedLeaseId)
-            .get(retryTimeoutMs, TimeUnit.MILLISECONDS);
-        LOG.trace("Successfully refreshed shared lease {}", sharedLeaseId);
-        this.leaseRefreshHandlerFired.increment();
-        break;
-      } catch (InterruptedException e) {
-        LOG.warn("Interrupted while refreshing shared lease {}", sharedLeaseId, e);
-        Thread.currentThread().interrupt(); // Preserve interrupt status
-      } catch (Exception e) {
-        retryCounter++;
-        if (retryCounter >= ephemeralMaxRetries) {
-          LOG.error(
-              "Failed to refresh shared lease max times, fataling {}: {}",
-              sharedLeaseId,
-              e.getMessage());
-          // This is a critical error since it affects all ephemeral nodes
-          new RuntimeHalterImpl().handleFatal(e);
-        }
-        LOG.error("Failed to refresh shared lease, retrying {}: {}", sharedLeaseId, e.getMessage());
-      }
-    }
-  }
-
   @Override
   public void close() {
     LOG.info("Closing etcd clients and watchers");
@@ -1166,14 +1123,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       }
     }
 
-    // Shut down lease refresh executor if it exists
-    if (leaseRefreshExecutor != null) {
-      leaseRefreshExecutor.shutdownNow();
-      try {
-        leaseRefreshExecutor.awaitTermination(5, TimeUnit.SECONDS);
-      } catch (InterruptedException ignored) {
-      }
-
       // Revoke the shared lease if we have one
       if (sharedLeaseId != -1) {
         try {
@@ -1184,7 +1133,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         } finally {
           sharedLeaseId = -1;
         }
-      }
     }
 
     // Note: We intentionally don't shut down the WATCH_EVENT_EXECUTOR here as it's static and
