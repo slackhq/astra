@@ -196,27 +196,33 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 .grant(ephemeralTtlMs / 1000) // grant ttl is in seconds
                 .get(ephemeralTtlMs, TimeUnit.MILLISECONDS)
                 .getID();
-        etcdClient.getLeaseClient().keepAlive(sharedLeaseId, new StreamObserver<LeaseKeepAliveResponse>() {
-            @Override
-            public void onNext(LeaseKeepAliveResponse response) {
-                LOG.trace(
+        etcdClient
+            .getLeaseClient()
+            .keepAlive(
+                sharedLeaseId,
+                new StreamObserver<LeaseKeepAliveResponse>() {
+                  @Override
+                  public void onNext(LeaseKeepAliveResponse response) {
+                    LOG.trace(
                         "Received keepAlive response for lease {}, TTL: {}",
                         response.getID(),
                         response.getTTL());
-                leaseRefreshHandlerFired.increment();
-            }
+                    leaseRefreshHandlerFired.increment();
+                  }
 
-            @Override
-            public void onError(Throwable t) {
-                LOG.error(
-                        "Error in keepAlive stream for shared lease {}: {}", sharedLeaseId, t.getMessage());
-            }
+                  @Override
+                  public void onError(Throwable t) {
+                    LOG.error(
+                        "Error in keepAlive stream for shared lease {}: {}",
+                        sharedLeaseId,
+                        t.getMessage());
+                  }
 
-            @Override
-            public void onCompleted() {
-                LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
-            }
-        });
+                  @Override
+                  public void onCompleted() {
+                    LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
+                  }
+                });
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new RuntimeException(e);
       }
@@ -226,7 +232,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           sharedLeaseId,
           Long.toHexString(sharedLeaseId),
           ephemeralTtlMs);
-
     }
 
     // Initialize cache if needed
@@ -1123,16 +1128,16 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       }
     }
 
-      // Revoke the shared lease if we have one
-      if (sharedLeaseId != -1) {
-        try {
-          LOG.info("Revoking shared lease {}", sharedLeaseId);
-          etcdClient.getLeaseClient().revoke(sharedLeaseId).get(5, TimeUnit.SECONDS);
-        } catch (Exception e) {
-          LOG.warn("Failed to revoke shared lease {}: {}", sharedLeaseId, e.getMessage());
-        } finally {
-          sharedLeaseId = -1;
-        }
+    // Revoke the shared lease if we have one
+    if (sharedLeaseId != -1) {
+      try {
+        LOG.info("Revoking shared lease {}", sharedLeaseId);
+        etcdClient.getLeaseClient().revoke(sharedLeaseId).get(5, TimeUnit.SECONDS);
+      } catch (Exception e) {
+        LOG.warn("Failed to revoke shared lease {}: {}", sharedLeaseId, e.getMessage());
+      } finally {
+        sharedLeaseId = -1;
+      }
     }
 
     // Note: We intentionally don't shut down the WATCH_EVENT_EXECUTOR here as it's static and
