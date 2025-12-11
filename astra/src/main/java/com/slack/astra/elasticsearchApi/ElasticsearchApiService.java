@@ -70,7 +70,7 @@ public class ElasticsearchApiService {
     this.config = config;
     this.astraSearchRequestCache =
         CacheBuilder.newBuilder()
-            .maximumSize(config.getQueryRequestCacheMaxSize()) // TODO: MAKE CONFIG VALUES
+            .maximumSize(config.getQueryRequestCacheMaxSize())
             .expireAfterWrite(config.getQueryRequestCacheExpireSeconds(), TimeUnit.SECONDS)
             .build(
                 new CacheLoader<>() {
