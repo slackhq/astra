@@ -6,6 +6,10 @@ import brave.propagation.CurrentTraceContext;
 import brave.propagation.TraceContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.Http;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.linecorp.armeria.common.HttpResponse;
@@ -24,6 +28,7 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchInternalAggregation;
 import com.slack.astra.logstore.search.SearchResultUtils;
 import com.slack.astra.metadata.schema.FieldType;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.service.AstraSearch;
 import com.slack.astra.server.AstraQueryServiceBase;
 import com.slack.astra.util.JsonUtil;
@@ -37,6 +42,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.TimeUnit;
+
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,9 +63,22 @@ public class ElasticsearchApiService {
 
   private final OpenSearchRequest openSearchRequest = new OpenSearchRequest();
   private final ObjectMapper objectMapper = new ObjectMapper();
+  private final LoadingCache<String, HttpResponse> astraSearchRequestCache;
+  private final AstraConfigs.QueryServiceConfig config;
 
-  public ElasticsearchApiService(AstraQueryServiceBase searcher) {
+  public ElasticsearchApiService(AstraQueryServiceBase searcher, AstraConfigs.QueryServiceConfig config) {
     this.searcher = searcher;
+    this.config = config;
+    this.astraSearchRequestCache =CacheBuilder.newBuilder()
+            .maximumSize(config.getQueryRequestCacheMaxSize()) // TODO: MAKE CONFIG VALUES
+            .expireAfterWrite(config.getQueryRequestCacheExpireSeconds(), TimeUnit.SECONDS)
+            .build(
+                    new CacheLoader<>() {
+                        public HttpResponse load(String postBody) {
+                            return doMultiSearch(postBody);
+                        }
+                    }
+            );
   }
 
   /** Returns metadata about the cluster */
@@ -83,8 +103,8 @@ public class ElasticsearchApiService {
   }
 
   /**
-   * Multisearch API
-   *
+   {}* Multisearch API
+   {}*
    * @see <a
    *     href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-multi-search.html">API
    *     doc</a>
@@ -94,6 +114,14 @@ public class ElasticsearchApiService {
   @Path("/_msearch")
   public HttpResponse multiSearch(String postBody) throws Exception {
     LOG.debug("Search request: {}", postBody);
+    if (this.config.getQueryRequestCacheEnabled()) {
+      return this.astraSearchRequestCache.get(postBody);
+    } else {
+      return this.doMultiSearch(postBody);
+    }
+  }
+
+  private HttpResponse doMultiSearch(String postBody) {
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
     try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
