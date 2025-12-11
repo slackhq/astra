@@ -91,7 +91,8 @@ public class ElasticsearchApiServiceTest {
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     AstraLocalQueryService<LogMessage> searcher =
         new AstraLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(3));
-    elasticsearchApiService = new ElasticsearchApiService(searcher, AstraConfigUtil.makeQueryConfig());
+    elasticsearchApiService =
+        new ElasticsearchApiService(searcher, AstraConfigUtil.makeQueryConfig());
   }
 
   @AfterEach
@@ -194,7 +195,8 @@ public class ElasticsearchApiServiceTest {
     testChunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     AstraLocalQueryService<LogMessage> testSearcher =
         new AstraLocalQueryService<>(testChunkManagerUtil.chunkManager, Duration.ofSeconds(3));
-    ElasticsearchApiService testElasticsearchApiService = new ElasticsearchApiService(testSearcher, AstraConfigUtil.makeQueryConfig());
+    ElasticsearchApiService testElasticsearchApiService =
+        new ElasticsearchApiService(testSearcher, AstraConfigUtil.makeQueryConfig());
 
     try {
       IndexingChunkManager<LogMessage> testChunkManager = testChunkManagerUtil.chunkManager;
@@ -339,10 +341,12 @@ public class ElasticsearchApiServiceTest {
         spy(new AstraLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(5)));
 
     // warmup to load OpenSearch plugins
-    ElasticsearchApiService slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher, AstraConfigUtil.makeQueryConfig());
+    ElasticsearchApiService slowElasticsearchApiService =
+        new ElasticsearchApiService(slowSearcher, AstraConfigUtil.makeQueryConfig());
     slowElasticsearchApiService.multiSearch(postBody);
 
-    slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher, AstraConfigUtil.makeQueryConfig());
+    slowElasticsearchApiService =
+        new ElasticsearchApiService(slowSearcher, AstraConfigUtil.makeQueryConfig());
     HttpResponse response = slowElasticsearchApiService.multiSearch(postBody.repeat(100));
 
     // handle response
@@ -393,7 +397,8 @@ public class ElasticsearchApiServiceTest {
   @Test
   public void testIndexMapping() throws IOException {
     AstraQueryServiceBase searcher = mock(AstraQueryServiceBase.class);
-    ElasticsearchApiService serviceUnderTest = new ElasticsearchApiService(searcher, AstraConfigUtil.makeQueryConfig());
+    ElasticsearchApiService serviceUnderTest =
+        new ElasticsearchApiService(searcher, AstraConfigUtil.makeQueryConfig());
 
     Instant start = Instant.now();
     Instant end = start.minusSeconds(60);

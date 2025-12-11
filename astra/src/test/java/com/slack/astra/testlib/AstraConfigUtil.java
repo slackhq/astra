@@ -1,8 +1,6 @@
 package com.slack.astra.testlib;
 
 import com.slack.astra.proto.config.AstraConfigs;
-import org.testcontainers.shaded.org.bouncycastle.asn1.x509.IssuerSerial;
-
 import java.util.List;
 
 public class AstraConfigUtil {
@@ -185,18 +183,23 @@ public class AstraConfigUtil {
     return makeQueryConfig(5555, "localhost", 5000, 3000, false);
   }
 
-  public static AstraConfigs.QueryServiceConfig makeQueryConfig(int queryPort, String serverAddress, int requestTimeoutMs, int defaultQueryTimeout, boolean cacheEnabled) {
+  public static AstraConfigs.QueryServiceConfig makeQueryConfig(
+      int queryPort,
+      String serverAddress,
+      int requestTimeoutMs,
+      int defaultQueryTimeout,
+      boolean cacheEnabled) {
     AstraConfigs.QueryServiceConfig queryConfig =
-            AstraConfigs.QueryServiceConfig.newBuilder()
-                    .setServerConfig(
-                            AstraConfigs.ServerConfig.newBuilder()
-                                    .setServerPort(queryPort)
-                                    .setServerAddress(serverAddress)
-                                    .setRequestTimeoutMs(requestTimeoutMs)
-                                    .build())
-                    .setDefaultQueryTimeoutMs(defaultQueryTimeout)
-                    .setQueryRequestCacheEnabled(cacheEnabled)
-                    .build();
+        AstraConfigs.QueryServiceConfig.newBuilder()
+            .setServerConfig(
+                AstraConfigs.ServerConfig.newBuilder()
+                    .setServerPort(queryPort)
+                    .setServerAddress(serverAddress)
+                    .setRequestTimeoutMs(requestTimeoutMs)
+                    .build())
+            .setDefaultQueryTimeoutMs(defaultQueryTimeout)
+            .setQueryRequestCacheEnabled(cacheEnabled)
+            .build();
   }
 
   public static AstraConfigs.IndexerConfig makeIndexerConfig(
