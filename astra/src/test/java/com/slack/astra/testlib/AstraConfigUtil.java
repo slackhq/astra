@@ -200,6 +200,7 @@ public class AstraConfigUtil {
             .setDefaultQueryTimeoutMs(defaultQueryTimeout)
             .setQueryRequestCacheEnabled(cacheEnabled)
             .build();
+    return queryConfig;
   }
 
   public static AstraConfigs.IndexerConfig makeIndexerConfig(

@@ -74,8 +74,15 @@ public class ElasticsearchApiService {
             .expireAfterWrite(config.getQueryRequestCacheExpireSeconds(), TimeUnit.SECONDS)
             .build(
                 new CacheLoader<>() {
+
+                  @Override
                   public HttpResponse load(String postBody) {
-                    return doMultiSearch(postBody);
+                    try {
+                      return doMultiSearch(postBody);
+                    } catch (Exception e) {
+                      LOG.error("Error fulfilling request for multisearch query", e);
+                      return HttpResponse.of(HttpStatus.INTERNAL_SERVER_ERROR);
+                    }
                   }
                 });
   }
@@ -120,7 +127,7 @@ public class ElasticsearchApiService {
     }
   }
 
-  private HttpResponse doMultiSearch(String postBody) {
+  private HttpResponse doMultiSearch(String postBody) throws Exception {
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
     try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
