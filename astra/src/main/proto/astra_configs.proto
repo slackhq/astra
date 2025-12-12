@@ -130,6 +130,10 @@ message QueryServiceConfig {
   // than the request timeout to allow for retries, processing
   // of more batches, aggregations, etc.
   int32 per_batch_query_timeout_ms = 5;
+
+  bool query_request_cache_enabled = 6;
+  int32 query_request_cache_max_size = 7;
+  int32 query_request_cache_expire_seconds = 8;
 }
 
 message RedactionUpdateServiceConfig {
