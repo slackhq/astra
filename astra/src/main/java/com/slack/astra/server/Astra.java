@@ -295,7 +295,6 @@ public class Astra {
               curatorFramework,
               etcdClient,
               astraConfig.getMetadataStoreConfig(),
-              astraConfig.getS3Config(),
               astraConfig.getCacheConfig(),
               blobStore,
               astraConfig.getLuceneConfig());
@@ -459,7 +458,6 @@ public class Astra {
       ClusterHpaMetricService clusterHpaMetricService =
           new ClusterHpaMetricService(
               replicaMetadataStore,
-              cacheSlotMetadataStore,
               hpaMetricMetadataStore,
               cacheNodeMetadataStore,
               snapshotMetadataStore);

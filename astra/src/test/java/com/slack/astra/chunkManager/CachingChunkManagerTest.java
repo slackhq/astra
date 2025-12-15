@@ -1,7 +1,6 @@
 package com.slack.astra.chunkManager;
 
 import static com.slack.astra.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
-import static com.slack.astra.chunkManager.CachingChunkManager.ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.astra.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -16,8 +15,6 @@ import static org.awaitility.Awaitility.await;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
-import com.slack.astra.chunk.Chunk;
-import com.slack.astra.chunk.ReadOnlyChunkImpl;
 import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
@@ -105,7 +102,6 @@ public class CachingChunkManagerTest {
     }
     testingServer.close();
     meterRegistry.close();
-    disableDynamicChunksFlag();
   }
 
   private CachingChunkManager<LogMessage> initChunkManager() throws TimeoutException {
@@ -199,10 +195,8 @@ public class CachingChunkManagerTest {
             metadataStoreConfig,
             blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),
-            AstraConfig.getS3Config().getS3Bucket(),
             AstraConfig.getCacheConfig().getDataDirectory(),
             AstraConfig.getCacheConfig().getReplicaSet(),
-            AstraConfig.getCacheConfig().getSlotsPerInstance(),
             AstraConfig.getCacheConfig().getCapacityBytes(),
             AstraConfig.getLuceneConfig());
 
@@ -264,33 +258,6 @@ public class CachingChunkManagerTest {
   }
 
   @Test
-  public void shouldHandleLifecycle() throws Exception {
-    cachingChunkManager = initChunkManager();
-
-    assertThat(cachingChunkManager.getChunkList().size()).isEqualTo(3);
-
-    List<Chunk<LogMessage>> readOnlyChunks = cachingChunkManager.getChunkList();
-    await()
-        .until(
-            () ->
-                ((ReadOnlyChunkImpl<?>) readOnlyChunks.get(0))
-                    .getChunkMetadataState()
-                    .equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE));
-    await()
-        .until(
-            () ->
-                ((ReadOnlyChunkImpl<?>) readOnlyChunks.get(1))
-                    .getChunkMetadataState()
-                    .equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE));
-    await()
-        .until(
-            () ->
-                ((ReadOnlyChunkImpl<?>) readOnlyChunks.get(2))
-                    .getChunkMetadataState()
-                    .equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE));
-  }
-
-  @Test
   public void testAddMessageIsUnsupported() throws TimeoutException {
     cachingChunkManager = initChunkManager();
     assertThatThrownBy(() -> cachingChunkManager.addMessage(SpanUtil.makeSpan(1), 10, "1", 1))
@@ -299,7 +266,6 @@ public class CachingChunkManagerTest {
 
   @Test
   public void testCreatesChunksOnAssignment() throws Exception {
-    enableDynamicChunksFlag();
     String snapshotId = "abcd";
 
     cachingChunkManager = initChunkManager();
@@ -322,8 +288,6 @@ public class CachingChunkManagerTest {
 
   @Test
   public void testChunkManagerRegistration() throws Exception {
-    enableDynamicChunksFlag();
-
     cachingChunkManager = initChunkManager();
     CacheNodeMetadataStore cacheNodeMetadataStore =
         new CacheNodeMetadataStore(
@@ -341,7 +305,6 @@ public class CachingChunkManagerTest {
 
   @Test
   public void testBasicChunkEviction() throws Exception {
-    enableDynamicChunksFlag();
     String snapshotId = "abcd";
 
     cachingChunkManager = initChunkManager();
@@ -370,14 +333,6 @@ public class CachingChunkManagerTest {
         .timeout(10000, TimeUnit.MILLISECONDS)
         .until(() -> cachingChunkManager.getChunksMap().isEmpty());
     assertThat(cachingChunkManager.cacheNodeAssignmentStore.listSync().size()).isEqualTo(0);
-  }
-
-  private static void enableDynamicChunksFlag() {
-    System.setProperty(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG, "true");
-  }
-
-  private static void disableDynamicChunksFlag() {
-    System.setProperty(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG, "false");
   }
 
   // TODO: Add a unit test to ensure caching chunk manager can search messages.

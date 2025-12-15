@@ -6,7 +6,6 @@ import static com.slack.astra.clusterManager.CacheNodeAssignmentService.snapshot
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
-import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.hpa.HpaMetricMetadata;
 import com.slack.astra.metadata.hpa.HpaMetricMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadata;
@@ -45,7 +44,6 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
   protected Duration CACHE_SCALEDOWN_LOCK = Duration.of(15, ChronoUnit.MINUTES);
 
   private final ReplicaMetadataStore replicaMetadataStore;
-  private final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final HpaMetricMetadataStore hpaMetricMetadataStore;
   private final CacheNodeMetadataStore cacheNodeMetadataStore;
   protected final Map<String, Instant> cacheScalingLock = new ConcurrentHashMap<>();
@@ -53,12 +51,10 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
 
   public ClusterHpaMetricService(
       ReplicaMetadataStore replicaMetadataStore,
-      CacheSlotMetadataStore cacheSlotMetadataStore,
       HpaMetricMetadataStore hpaMetricMetadataStore,
       CacheNodeMetadataStore cacheNodeMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore) {
     this.replicaMetadataStore = replicaMetadataStore;
-    this.cacheSlotMetadataStore = cacheSlotMetadataStore;
     this.hpaMetricMetadataStore = hpaMetricMetadataStore;
     this.cacheNodeMetadataStore = cacheNodeMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
@@ -111,15 +107,6 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
     Collections.shuffle(replicaSets);
 
     for (String replicaSet : replicaSets) {
-      long totalCacheSlotCapacity =
-          cacheSlotMetadataStore.listSync().stream()
-              .filter(cacheSlotMetadata -> cacheSlotMetadata.replicaSet.equals(replicaSet))
-              .count();
-      long totalReplicaDemand =
-          replicaMetadataStore.listSync().stream()
-              .filter(replicaMetadata -> replicaMetadata.getReplicaSet().equals(replicaSet))
-              .count();
-
       long totalCacheNodeCapacityBytes =
           cacheNodeMetadataStore.listSync().stream()
               .filter(metadata -> metadata.getReplicaSet().equals(replicaSet))
@@ -136,12 +123,7 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
               .mapToLong(snapshot -> snapshot.sizeInBytesOnDisk)
               .sum();
 
-      double demandFactor =
-          calculateDemandFactor(
-              totalCacheSlotCapacity,
-              totalReplicaDemand,
-              totalCacheNodeCapacityBytes,
-              totalDemandBytes);
+      double demandFactor = calculateDemandFactor(totalDemandBytes, totalCacheNodeCapacityBytes);
       String action;
       if (demandFactor > 1) {
         // scale-up
@@ -169,50 +151,17 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
       }
 
       LOG.info(
-          "Cache autoscaler for replicaset '{}' took action '{}', demandFactor: '{}', totalReplicaDemand: '{}', totalCacheSlotCapacity: '{}'",
+          "Cache autoscaler for replicaset '{}' took action '{}', demandFactor: '{}', totalDemandBytes: '{}', totalCacheNodeCapacityBytes: '{}'",
           replicaSet,
           action,
           demandFactor,
-          totalReplicaDemand,
-          totalCacheSlotCapacity);
+          totalDemandBytes,
+          totalCacheNodeCapacityBytes);
     }
-  }
-
-  private static double calculateDemandFactor(
-      long totalCacheSlotCapacity,
-      long totalReplicaDemand,
-      long totalCacheNodeCapacityBytes,
-      long totalAssignedBytes) {
-    // Attempt to calculate hpa value from ng dynamic chunk cache nodes if no cache slot capacity
-    if (totalCacheSlotCapacity == 0) {
-      LOG.info(
-          "Cache slot capacity is 0, attempting to calculate HPA value from dynamic chunk cache node capacities");
-      return calculateDemandFactorFromCacheNodeCapacity(
-          totalAssignedBytes, totalCacheNodeCapacityBytes);
-    }
-
-    // Fallback to old cache slot calculation
-    return calculateDemandFactor(totalCacheSlotCapacity, totalReplicaDemand);
   }
 
   @VisibleForTesting
   protected static double calculateDemandFactor(
-      long totalCacheSlotCapacity, long totalReplicaDemand) {
-    if (totalCacheSlotCapacity == 0) {
-      // we have no provisioned capacity, so cannot determine a value
-      // this should never happen unless the user misconfigured the HPA with a minimum instance
-      // count of 0
-      LOG.error(
-          "No cache slot capacity is detected, this indicates a misconfiguration of the HPA minimum instance count which must be at least 1");
-      return 1;
-    }
-    // demand factor will be < 1 indicating a scale-down demand, and > 1 indicating a scale-up
-    double rawDemandFactor = (double) totalReplicaDemand / totalCacheSlotCapacity;
-    // round up to 2 decimals
-    return Math.ceil(rawDemandFactor * 100) / 100;
-  }
-
-  private static double calculateDemandFactorFromCacheNodeCapacity(
       long totalBytesRequiringAssignment, long totalCacheNodeCapacityBytes) {
     if (totalCacheNodeCapacityBytes == 0) {
       LOG.error("No cache node capacity is detected");
@@ -220,11 +169,7 @@ public class ClusterHpaMetricService extends AbstractScheduledService {
     }
 
     double rawDemandFactor = (double) totalBytesRequiringAssignment / totalCacheNodeCapacityBytes;
-    LOG.info(
-        "Calculating demand factor from ng cache nodes: bytes needed: {}, capacity: {}, demandFactor: {}",
-        totalBytesRequiringAssignment,
-        totalCacheNodeCapacityBytes,
-        Math.ceil(rawDemandFactor * 100) / 100);
+    // round up to 2 decimals
     return Math.ceil(rawDemandFactor * 100) / 100;
   }
 
