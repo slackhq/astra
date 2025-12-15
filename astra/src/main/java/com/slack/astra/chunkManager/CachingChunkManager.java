@@ -39,7 +39,6 @@ import org.slf4j.LoggerFactory;
  */
 public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private static final Logger LOG = LoggerFactory.getLogger(CachingChunkManager.class);
-  public static final String ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG = "astra.ng.dynamicChunkSizes";
 
   private final MeterRegistry meterRegistry;
   private final AsyncCuratorFramework curatorFramework;
@@ -49,7 +48,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private final String s3Bucket;
   private final String dataDirectoryPrefix;
   private final String replicaSet;
-  private final int slotCountPerInstance;
   private final AstraMetadataStoreChangeListener<CacheNodeAssignment>
       cacheNodeAssignmentChangeListener = this::onAssignmentHandler;
   private final long capacityBytes;
@@ -59,7 +57,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   protected CacheSlotMetadataStore cacheSlotMetadataStore;
   private Client etcdClient;
 
-  // for flag "astra.ng.dynamicChunkSizes"
   private final String cacheNodeId;
   private final AstraConfigs.LuceneConfig luceneConfig;
   protected CacheNodeAssignmentStore cacheNodeAssignmentStore;
@@ -79,7 +76,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       String s3Bucket,
       String dataDirectoryPrefix,
       String replicaSet,
-      int slotCountPerInstance,
       long capacityBytes,
       AstraConfigs.LuceneConfig luceneConfig) {
     this.meterRegistry = registry;
@@ -91,7 +87,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.replicaSet = replicaSet;
-    this.slotCountPerInstance = slotCountPerInstance;
     this.cacheNodeId = UUID.randomUUID().toString();
     this.capacityBytes = capacityBytes;
     this.luceneConfig = luceneConfig;
@@ -118,38 +113,16 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
         new CacheNodeMetadataStore(
             curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
-    if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
-      cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
-      // cache node creates its own partition in cacheNodeAssignment store so the listener
-      // initializes
-      // this is necessary due to race condition bug found september 2025
-      cacheNodeAssignmentStore.createPartitionSync(cacheNodeId);
-      cacheNodeMetadataStore.createSync(
-          new CacheNodeMetadata(
-              cacheNodeId, searchContext.hostname, capacityBytes, replicaSet, false));
-      LOG.info(
-          "New cache node registered with {} bytes capacity and ID {}", capacityBytes, cacheNodeId);
-    } else {
-      for (int i = 0; i < slotCountPerInstance; i++) {
-        ReadOnlyChunkImpl<T> newChunk =
-            new ReadOnlyChunkImpl<>(
-                curatorFramework,
-                meterRegistry,
-                blobStore,
-                searchContext,
-                s3Bucket,
-                dataDirectoryPrefix,
-                replicaSet,
-                cacheSlotMetadataStore,
-                replicaMetadataStore,
-                snapshotMetadataStore,
-                searchMetadataStore,
-                cacheNodeMetadataStore,
-                luceneConfig);
-
-        chunkMap.put(newChunk.getSlotId(), newChunk);
-      }
-    }
+    cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
+    // cache node creates its own partition in cacheNodeAssignment store so the listener
+    // initializes
+    // this is necessary due to race condition bug found september 2025
+    cacheNodeAssignmentStore.createPartitionSync(cacheNodeId);
+    cacheNodeMetadataStore.createSync(
+        new CacheNodeMetadata(
+            cacheNodeId, searchContext.hostname, capacityBytes, replicaSet, false));
+    LOG.info(
+        "New cache node registered with {} bytes capacity and ID {}", capacityBytes, cacheNodeId);
   }
 
   @Override
@@ -167,10 +140,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
               }
             });
 
-    if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
-      cacheNodeAssignmentStore.removeListener(cacheNodeAssignmentChangeListener);
-      cacheNodeMetadataStore.deleteSync(cacheNodeId);
-    }
+    cacheNodeAssignmentStore.removeListener(cacheNodeAssignmentChangeListener);
+    cacheNodeMetadataStore.deleteSync(cacheNodeId);
 
     cacheNodeMetadataStore.close();
     cacheNodeAssignmentStore.close();
@@ -202,7 +173,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
         s3Config.getS3Bucket(),
         cacheConfig.getDataDirectory(),
         cacheConfig.getReplicaSet(),
-        cacheConfig.getSlotsPerInstance(),
         cacheConfig.getCapacityBytes(),
         luceneConfig);
   }
@@ -257,8 +227,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                     dataDirectoryPrefix,
                     replicaSet,
                     cacheSlotMetadataStore,
-                    replicaMetadataStore,
-                    snapshotMetadataStore,
                     searchMetadataStore,
                     cacheNodeAssignmentStore,
                     assignment,

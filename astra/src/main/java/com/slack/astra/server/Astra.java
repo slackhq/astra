@@ -459,7 +459,6 @@ public class Astra {
       ClusterHpaMetricService clusterHpaMetricService =
           new ClusterHpaMetricService(
               replicaMetadataStore,
-              cacheSlotMetadataStore,
               hpaMetricMetadataStore,
               cacheNodeMetadataStore,
               snapshotMetadataStore);
