@@ -262,23 +262,6 @@ public class OpenSearchRequest {
     return body.get("aggs").toString();
   }
 
-  /**
-   * Parses sort fields from OpenSearch/Elasticsearch request body.
-   *
-   * <p>Supports standard Elasticsearch sort formats:
-   *
-   * <ul>
-   *   <li>Array of objects (full): "sort": [{ "timestamp": { "order": "desc" } }, { "field2": {
-   *       "order": "asc" } }]
-   *   <li>Array of objects (short): "sort": [{ "timestamp": "desc" }, { "field2": "asc" }]
-   *   <li>Array of field names: "sort": ["timestamp", "field2"] (defaults to asc)
-   *   <li>Single object: "sort": { "timestamp": "desc" }
-   *   <li>Single field name: "sort": "timestamp" (defaults to asc)
-   * </ul>
-   *
-   * @param body The request body JSON node
-   * @return List of SortField protobuf objects (empty list if no sort specified)
-   */
   private static List<AstraSearch.SortField> parseSort(JsonNode body) {
     List<AstraSearch.SortField> sortFields = new ArrayList<>();
 
@@ -301,45 +284,6 @@ public class OpenSearchRequest {
     return sortFields;
   }
 
-  /**
-   * Parses a single sort field from various formats and adds it to the list.
-   *
-   * <p>Examples of supported formats:
-   *
-   * <p><b>isTextual() - Simple string field names:</b>
-   *
-   * <pre>
-   * "sort": "severity"
-   * "sort": ["@timestamp", "priority", "severity"]
-   * </pre>
-   *
-   * <p><b>isObject() - Short form (field: order):</b>
-   *
-   * <pre>
-   * "sort": { "@timestamp": "desc" }
-   * "sort": [{ "@timestamp": "desc" }, { "priority": "asc" }]
-   * </pre>
-   *
-   * <p><b>isObject() - Full form (field: { order: ..., unmapped_type: ... }):</b>
-   *
-   * <pre>
-   * "sort": { "@timestamp": { "order": "desc" } }
-   * "sort": { "@timestamp": { "order": "desc", "unmapped_type": "boolean" } }
-   * </pre>
-   *
-   * <p><b>Mixed formats in array:</b>
-   *
-   * <pre>
-   * "sort": [
-   *   { "@timestamp": { "order": "desc", "unmapped_type": "boolean" } },
-   *   { "priority": "asc" },
-   *   "severity"
-   * ]
-   * </pre>
-   *
-   * @param sortFieldNode The JSON node representing a single sort field specification
-   * @param sortFields The list to add the parsed SortField to
-   */
   private static void parseSingleSortField(
       JsonNode sortFieldNode, List<AstraSearch.SortField> sortFields) {
     if (sortFieldNode.isTextual()) {

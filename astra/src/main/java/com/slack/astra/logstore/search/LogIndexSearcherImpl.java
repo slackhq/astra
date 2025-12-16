@@ -102,7 +102,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       int howMany,
       QueryBuilder queryBuilder,
       SourceFieldFilter sourceFieldFilter,
-      AggregatorFactories.Builder aggregatorFactoriesBuilder) {
+      AggregatorFactories.Builder aggregatorFactoriesBuilder,
+      List<SearchQuery.SortSpec> sortFields) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureTrue(howMany >= 0, "hits requested should not be negative.");

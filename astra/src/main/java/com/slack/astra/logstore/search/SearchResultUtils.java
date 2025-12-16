@@ -15,10 +15,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.lucene.search.SortField;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContentParser;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -27,11 +25,8 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchModule;
 import org.opensearch.search.aggregations.AggregatorFactories;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class SearchResultUtils {
-  private static final Logger LOG = LoggerFactory.getLogger(SearchResultUtils.class);
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private static final SearchModule searchModule = new SearchModule(Settings.EMPTY, List.of());
   private static final NamedXContentRegistry namedXContentRegistry =
@@ -105,8 +100,8 @@ public class SearchResultUtils {
   }
 
   /**
-   * Converts a protobuf SortField to an internal SortSpec. Uses unmapped_type as a hint for field
-   * type when available. In the future this should look up the actual field type from the schema.
+   * Converts a protobuf SortField to an internal SortSpec. The actual field type will be resolved
+   * at query execution time by looking up the field in the schema.
    */
   private static SearchQuery.SortSpec fromProtoSortField(AstraSearch.SortField protoSortField) {
     boolean isDescending = protoSortField.getOrder() == AstraSearch.SortOrder.DESC;
@@ -116,50 +111,7 @@ public class SearchResultUtils {
       unmappedType = null;
     }
 
-    // TODO: Look up the actual field type from schema instead of using unmapped_type hint
-    // For timestamp field, always use LONG type
-    SortField.Type luceneType;
-    if (protoSortField.getFieldName().equals("_timesinceepoch")) {
-      luceneType = SortField.Type.LONG;
-    } else if (unmappedType != null && !unmappedType.isEmpty()) {
-      // Use unmapped_type hint to determine Lucene type
-      luceneType = elasticsearchTypeToLuceneType(unmappedType);
-    } else {
-      // Default to STRING when no type information available
-      luceneType = SortField.Type.STRING;
-    }
-
-    return new SearchQuery.SortSpec(
-        protoSortField.getFieldName(), isDescending, luceneType, unmappedType);
-  }
-
-  /**
-   * Maps Elasticsearch field types to Lucene SortField types.
-   *
-   * @param esType Elasticsearch type string (e.g., "long", "keyword", "boolean")
-   * @return Corresponding Lucene SortField.Type
-   */
-  private static SortField.Type elasticsearchTypeToLuceneType(String esType) {
-    if (esType == null || esType.isEmpty()) {
-      return SortField.Type.STRING;
-    }
-
-    // Normalize to lowercase for comparison
-    String normalizedType = esType.toLowerCase(Locale.ROOT);
-
-    return switch (normalizedType) {
-      case "long", "date" -> SortField.Type.LONG; // dates are stored as epoch millis
-      case "integer", "short", "byte" -> SortField.Type.INT;
-      case "double", "scaled_float" -> SortField.Type.DOUBLE;
-      case "float", "half_float" -> SortField.Type.FLOAT;
-      case "boolean" -> SortField.Type.INT; // Lucene uses int for booleans (0/1)
-      case "keyword", "text", "string" -> SortField.Type.STRING;
-      default -> {
-        LOG.warn(
-            "Unknown Elasticsearch type '{}' for sorting, defaulting to STRING", normalizedType);
-        yield SortField.Type.STRING;
-      }
-    };
+    return new SearchQuery.SortSpec(protoSortField.getFieldName(), isDescending, unmappedType);
   }
 
   public static SearchQuery fromSearchRequest(AstraSearch.SearchRequest searchRequest) {

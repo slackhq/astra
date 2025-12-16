@@ -1,7 +1,6 @@
 package com.slack.astra.logstore.search;
 
 import java.util.List;
-import org.apache.lucene.search.SortField;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
 
@@ -19,28 +18,15 @@ public class SearchQuery {
   public final long endTimeEpochMs;
   public final List<SortSpec> sortFields;
 
-  /**
-   * Represents a single sort field specification. Contains the field name, sort order
-   * (ascending/descending), Lucene sort field type, and optional unmapped type hint from
-   * Elasticsearch.
-   */
   public static class SortSpec {
     public final String fieldName;
     public final boolean isDescending;
-    public final SortField.Type luceneType;
     public final String unmappedType; // Optional Elasticsearch type hint for missing fields
 
-    public SortSpec(
-        String fieldName, boolean isDescending, SortField.Type luceneType, String unmappedType) {
+    public SortSpec(String fieldName, boolean isDescending, String unmappedType) {
       this.fieldName = fieldName;
       this.isDescending = isDescending;
-      this.luceneType = luceneType;
       this.unmappedType = unmappedType;
-    }
-
-    // Backward-compatible constructor without unmappedType
-    public SortSpec(String fieldName, boolean isDescending, SortField.Type luceneType) {
-      this(fieldName, isDescending, luceneType, null);
     }
 
     @Override
@@ -51,8 +37,6 @@ public class SearchQuery {
           + '\''
           + ", isDescending="
           + isDescending
-          + ", luceneType="
-          + luceneType
           + ", unmappedType='"
           + unmappedType
           + '\''
