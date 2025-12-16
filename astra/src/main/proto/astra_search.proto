@@ -287,6 +287,7 @@ message SchemaDefinition {
 message SortField {
   string field_name = 1;
   SortOrder order = 2;
+  string unmapped_type = 3;
 }
 
 enum SortOrder {
