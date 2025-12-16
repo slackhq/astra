@@ -61,7 +61,7 @@ public class ElasticsearchApiService {
 
   private final OpenSearchRequest openSearchRequest = new OpenSearchRequest();
   private final ObjectMapper objectMapper = new ObjectMapper();
-  private final LoadingCache<String, HttpResponse> astraSearchRequestCache;
+  private final LoadingCache<String, String> astraSearchRequestCache;
   private final AstraConfigs.QueryServiceConfig config;
 
   public ElasticsearchApiService(
@@ -76,12 +76,12 @@ public class ElasticsearchApiService {
                 new CacheLoader<>() {
 
                   @Override
-                  public HttpResponse load(String postBody) {
+                  public String load(String postBody) {
                     try {
                       return doMultiSearch(postBody);
                     } catch (Exception e) {
                       LOG.error("Error fulfilling request for multisearch query", e);
-                      return HttpResponse.of(HttpStatus.INTERNAL_SERVER_ERROR);
+                      return null;
                     }
                   }
                 });
@@ -120,14 +120,22 @@ public class ElasticsearchApiService {
   @Path("/_msearch")
   public HttpResponse multiSearch(String postBody) throws Exception {
     LOG.debug("Search request: {}", postBody);
+    String response;
     if (this.config.getQueryRequestCacheEnabled()) {
-      return this.astraSearchRequestCache.get(postBody);
+      response = this.astraSearchRequestCache.get(postBody);
     } else {
-      return this.doMultiSearch(postBody);
+      response = this.doMultiSearch(postBody);
     }
+
+    if (response == null) {
+      return HttpResponse.of(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return HttpResponse.of(
+            HttpStatus.OK, MediaType.JSON_UTF_8, response);
   }
 
-  private HttpResponse doMultiSearch(String postBody) throws Exception {
+  private String doMultiSearch(String postBody) throws Exception {
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
     try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
@@ -142,8 +150,7 @@ public class ElasticsearchApiService {
               0,
               requestSubtasks.stream().map(StructuredTaskScope.Subtask::get).toList(),
               Map.of("traceId", getTraceId()));
-      return HttpResponse.of(
-          HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
+      return JsonUtil.writeAsString(responseMetadata);
     }
   }
 
