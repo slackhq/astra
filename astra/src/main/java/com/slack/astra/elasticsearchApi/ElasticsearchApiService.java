@@ -131,8 +131,7 @@ public class ElasticsearchApiService {
       return HttpResponse.of(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    return HttpResponse.of(
-            HttpStatus.OK, MediaType.JSON_UTF_8, response);
+    return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, response);
   }
 
   private String doMultiSearch(String postBody) throws Exception {
