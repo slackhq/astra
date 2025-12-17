@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -84,6 +85,10 @@ public class OpenSearchAdapter {
     this.indexSettings = AstraIndexSettings.getInstance(luceneConfig);
     this.mapperService = buildMapperService(this.indexSettings);
     this.chunkSchema = chunkSchema;
+  }
+
+  public Map<String, LuceneFieldDef> getSchema() {
+    return Collections.unmodifiableMap(chunkSchema);
   }
 
   public Aggregator buildAggregatorFromFactory(
