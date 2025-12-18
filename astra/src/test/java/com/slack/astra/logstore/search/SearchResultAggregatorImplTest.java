@@ -560,7 +560,8 @@ public class SearchResultAggregatorImplTest {
                 interval,
                 0,
                 histogramStartMs,
-                histogramEndMs));
+                histogramEndMs),
+            List.of());
 
     try {
       return messageSearchResult.internalAggregation;
