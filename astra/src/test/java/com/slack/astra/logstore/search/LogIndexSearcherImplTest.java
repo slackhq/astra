@@ -2450,4 +2450,133 @@ public class LogIndexSearcherImplTest {
             List.of());
     assertThat(index.hits.size()).isEqualTo(1);
   }
+
+  @Test
+  public void testSortByLongFieldAscending() throws IOException {
+    Instant time = Instant.now();
+    // makeSpan creates TEST_SOURCE_LONG_PROPERTY with value = i
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, time)); // longproperty = 3
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time)); // longproperty = 1
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time)); // longproperty = 2
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec(TEST_SOURCE_LONG_PROPERTY, false, "boolean")));
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1");
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message2");
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message3");
+  }
+
+  @Test
+  public void testSortByLongFieldDescending() throws IOException {
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec(TEST_SOURCE_LONG_PROPERTY, true, "boolean")));
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message3");
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message2");
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message1");
+  }
+
+  @Test
+  public void testSortByStringFieldAscending() throws IOException {
+    Instant time = Instant.now();
+    // makeSpan creates TEST_SOURCE_STRING_PROPERTY with value = "String-{i}"
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec(TEST_SOURCE_STRING_PROPERTY, false, "boolean")));
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1");
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message2");
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message3");
+  }
+
+  @Test
+  public void testSortByMultipleFields() throws IOException {
+    Instant time = Instant.now();
+    // Create documents - lexicographic string sort then numeric
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time)); // String-1, long=1
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(10, time)); // String-10, long=10
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time)); // String-2, long=2
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(20, time)); // String-20, long=20
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    // Sort by string ascending, then by long descending
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(
+                new SearchQuery.SortSpec(TEST_SOURCE_STRING_PROPERTY, false, "boolean"),
+                new SearchQuery.SortSpec(TEST_SOURCE_LONG_PROPERTY, true, "boolean")));
+
+    assertThat(results.hits.size()).isEqualTo(4);
+    // Lexicographic order: "String-1", "String-10", "String-2", "String-20"
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1");
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message10");
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message2");
+    assertThat(results.hits.get(3).getId()).isEqualTo("Message20");
+  }
+
+  @Test
+  public void testSortByUnmappedFieldWithUnmappedType() throws IOException {
+    Instant time = Instant.now();
+    // Sort by field not in any document
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    // Sort by field not in schema, using unmapped_type
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec("nonexistent_field", false, "boolean")));
+
+    // All documents returned (all have missing values)
+    assertThat(results.hits.size()).isEqualTo(3);
+  }
 }

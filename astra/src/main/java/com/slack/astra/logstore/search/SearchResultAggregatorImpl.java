@@ -56,8 +56,23 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
   private Comparator<T> buildFieldComparator(SearchQuery.SortSpec spec) {
     Comparator<T> comparator =
         (T m1, T m2) -> {
-          Object value1 = m1.getSource().get(spec.fieldName);
-          Object value2 = m2.getSource().get(spec.fieldName);
+          Object value1;
+          Object value2;
+
+          // Handle system fields specially
+          if (LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName.equals(spec.fieldName)) {
+            // For timestamp field, use getTimestamp() instead of source map
+            value1 = m1.getTimestamp().toEpochMilli();
+            value2 = m2.getTimestamp().toEpochMilli();
+          } else if (LogMessage.SystemField.ID.fieldName.equals(spec.fieldName)) {
+            // For ID field, use getId() instead of source map
+            value1 = m1.getId();
+            value2 = m2.getId();
+          } else {
+            // For regular fields, get from source map
+            value1 = m1.getSource().get(spec.fieldName);
+            value2 = m2.getSource().get(spec.fieldName);
+          }
 
           // Handle nulls - always put them last
           if (value1 == null && value2 == null) return 0;
