@@ -1044,8 +1044,7 @@ public class AstraDistributedQueryServiceTest {
                       .setTotalSnapshots(1)
                       .setTotalNodes(1)
                       .setInternalAggregations(
-                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)),
-                          List.of())
+                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
                       .build()));
 
       AstraSearch.SearchRequest request =
@@ -1136,8 +1135,7 @@ public class AstraDistributedQueryServiceTest {
                       .setTotalSnapshots(0)
                       .setFailedNodes(1)
                       .setInternalAggregations(
-                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)),
-                          List.of())
+                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
                       .build()));
 
       LogWireMessage successLogWireMessage =
@@ -1151,8 +1149,7 @@ public class AstraDistributedQueryServiceTest {
                       .setTotalSnapshots(1)
                       .setTotalNodes(1)
                       .setInternalAggregations(
-                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)),
-                          List.of())
+                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
                       .build()));
 
       AstraSearch.SearchRequest request =
@@ -1390,8 +1387,7 @@ public class AstraDistributedQueryServiceTest {
                       .setTotalSnapshots(1)
                       .setTotalNodes(1)
                       .setInternalAggregations(
-                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)),
-                          List.of())
+                          ByteString.copyFrom(OpenSearchInternalAggregation.toByteArray(null)))
                       .build()));
 
       AstraSearch.SearchRequest request =
