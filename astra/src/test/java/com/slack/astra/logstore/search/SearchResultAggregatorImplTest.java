@@ -83,7 +83,8 @@ public class SearchResultAggregatorImplTest {
             QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null,
             createDateHistogramAggregatorFactoriesBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1),
+            List.of());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -154,7 +155,8 @@ public class SearchResultAggregatorImplTest {
             QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null,
             createDateHistogramAggregatorFactoriesBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m", 1));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m", 1),
+            List.of());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -247,7 +249,8 @@ public class SearchResultAggregatorImplTest {
             QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null,
             createDateHistogramAggregatorFactoriesBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1),
+            List.of());
     List<SearchResult<LogMessage>> searchResults =
         List.of(searchResult1, searchResult4, searchResult3, searchResult2);
     SearchResult<LogMessage> aggSearchResult =
@@ -302,7 +305,8 @@ public class SearchResultAggregatorImplTest {
             QueryBuilderUtil.generateQueryBuilder("Message1", searchStartMs, searchEndMs),
             null,
             createDateHistogramAggregatorFactoriesBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1),
+            List.of());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -366,7 +370,8 @@ public class SearchResultAggregatorImplTest {
             QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null,
             createDateHistogramAggregatorFactoriesBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1),
+            List.of());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -426,7 +431,8 @@ public class SearchResultAggregatorImplTest {
             QueryBuilderUtil.generateQueryBuilder("Message1", startTimeMs, endTimeMs),
             null,
             createDateHistogramAggregatorFactoriesBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m", 1),
+            List.of());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -492,7 +498,8 @@ public class SearchResultAggregatorImplTest {
             QueryBuilderUtil.generateQueryBuilder("Message1", histogramStartMs, histogramEndMs),
             null,
             createDateHistogramAggregatorFactoriesBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m", 1));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m", 1),
+            List.of());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);

@@ -44,7 +44,6 @@ public class SearchQuery {
     }
   }
 
-  /** Constructor with custom sort fields. */
   public SearchQuery(
       String dataset,
       long startTimeEpochMs,
@@ -64,31 +63,6 @@ public class SearchQuery {
     this.endTimeEpochMs = endTimeEpochMs;
     this.aggregatorFactoriesBuilder = aggregatorFactoriesBuilder;
     this.sortFields = sortFields;
-  }
-
-  /**
-   * Backward-compatible constructor that defaults to empty sort fields (will use default timestamp
-   * descending sort).
-   */
-  public SearchQuery(
-      String dataset,
-      long startTimeEpochMs,
-      long endTimeEpochMs,
-      int howMany,
-      List<String> chunkIds,
-      QueryBuilder queryBuilder,
-      SourceFieldFilter sourceFieldFilter,
-      AggregatorFactories.Builder aggregatorFactoriesBuilder) {
-    this(
-        dataset,
-        startTimeEpochMs,
-        endTimeEpochMs,
-        howMany,
-        chunkIds,
-        queryBuilder,
-        sourceFieldFilter,
-        aggregatorFactoriesBuilder,
-        List.of()); // Default to empty list for backward compatibility
   }
 
   @Override
