@@ -1,0 +1,2 @@
+{"search_type":"query_then_fetch","ignore_unavailable":true,"index":"_all"}
+{"size":100,"query":{"bool":{"filter":[{"range":{"_timesinceepoch":{"gte":1680551083859,"lte":1680554683859,"format":"epoch_millis"}}}]}},"sort":{"@timestamp":{"order":"desc"}}}

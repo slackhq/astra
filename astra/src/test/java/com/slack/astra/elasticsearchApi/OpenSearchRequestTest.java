@@ -251,4 +251,129 @@ public class OpenSearchRequestTest {
     JsonNode parsedRequest = objectMapper.readTree(rawRequest.split("\n")[1]);
     assertThat(request.getQuery()).isEqualTo(parsedRequest.get("query").toString());
   }
+
+  @Test
+  public void testSortMissing() throws Exception {
+    String rawRequest = getRawQueryString("sort_missing");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getSortList()).isEmpty();
+  }
+
+  @Test
+  public void testSortNull() throws Exception {
+    String rawRequest = getRawQueryString("sort_null");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getSortList()).isEmpty();
+  }
+
+  @Test
+  public void testSortSingleString() throws Exception {
+    String rawRequest = getRawQueryString("sort_single_string");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getSortList()).hasSize(1);
+    assertThat(request.getSort(0).getFieldName()).isEqualTo("response_time");
+    assertThat(request.getSort(0).getOrder()).isEqualTo(AstraSearch.SortOrder.ASC);
+    assertThat(request.getSort(0).getUnmappedType()).isEmpty();
+  }
+
+  @Test
+  public void testSortSingleObjectShort() throws Exception {
+    String rawRequest = getRawQueryString("sort_single_object_short");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getSortList()).hasSize(1);
+    assertThat(request.getSort(0).getFieldName()).isEqualTo("response_time");
+    assertThat(request.getSort(0).getOrder()).isEqualTo(AstraSearch.SortOrder.DESC);
+    assertThat(request.getSort(0).getUnmappedType()).isEmpty();
+  }
+
+  @Test
+  public void testSortSingleObjectFull() throws Exception {
+    String rawRequest = getRawQueryString("sort_single_object_full");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getSortList()).hasSize(1);
+    assertThat(request.getSort(0).getFieldName()).isEqualTo("response_time");
+    assertThat(request.getSort(0).getOrder()).isEqualTo(AstraSearch.SortOrder.DESC);
+    assertThat(request.getSort(0).getUnmappedType()).isEqualTo("long");
+  }
+
+  @Test
+  public void testSortArrayMultiple() throws Exception {
+    String rawRequest = getRawQueryString("sort_array_multiple");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getSortList()).hasSize(3);
+
+    // First field: {"severity": "asc"}
+    assertThat(request.getSort(0).getFieldName()).isEqualTo("severity");
+    assertThat(request.getSort(0).getOrder()).isEqualTo(AstraSearch.SortOrder.ASC);
+    assertThat(request.getSort(0).getUnmappedType()).isEmpty();
+
+    // Second field: "response_time" (defaults to ASC)
+    assertThat(request.getSort(1).getFieldName()).isEqualTo("response_time");
+    assertThat(request.getSort(1).getOrder()).isEqualTo(AstraSearch.SortOrder.ASC);
+    assertThat(request.getSort(1).getUnmappedType()).isEmpty();
+
+    // Third field: {"@timestamp": {"order": "desc", "unmapped_type": "boolean"}}
+    assertThat(request.getSort(2).getFieldName()).isEqualTo("_timesinceepoch");
+    assertThat(request.getSort(2).getOrder()).isEqualTo(AstraSearch.SortOrder.DESC);
+    assertThat(request.getSort(2).getUnmappedType()).isEqualTo("boolean");
+  }
+
+  @Test
+  public void testSortTimestampConversion() throws Exception {
+    String rawRequest = getRawQueryString("sort_timestamp_conversion");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<AstraSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    AstraSearch.SearchRequest request = parsedRequestList.get(0);
+    assertThat(request.getSortList()).hasSize(1);
+    assertThat(request.getSort(0).getFieldName()).isEqualTo("_timesinceepoch");
+    assertThat(request.getSort(0).getOrder()).isEqualTo(AstraSearch.SortOrder.DESC);
+    assertThat(request.getSort(0).getUnmappedType()).isEmpty();
+  }
 }
