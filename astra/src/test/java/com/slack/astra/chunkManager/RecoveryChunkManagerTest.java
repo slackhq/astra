@@ -255,7 +255,8 @@ public class RecoveryChunkManagerTest {
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     SearchResult<LogMessage> results = chunkManager.getActiveChunk().query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -297,7 +298,8 @@ public class RecoveryChunkManagerTest {
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message101", 0L, MAX_TIME),
                         null,
-                        createGenericDateHistogramAggregatorFactoriesBuilder()))
+                        createGenericDateHistogramAggregatorFactoriesBuilder(),
+                        List.of()))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -327,7 +329,8 @@ public class RecoveryChunkManagerTest {
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message102", 0L, MAX_TIME),
                         null,
-                        createGenericDateHistogramAggregatorFactoriesBuilder()))
+                        createGenericDateHistogramAggregatorFactoriesBuilder(),
+                        List.of()))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -400,7 +403,8 @@ public class RecoveryChunkManagerTest {
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder(searchString, 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);

@@ -17,6 +17,7 @@ import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
 import com.slack.astra.util.QueryBuilderUtil;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +54,8 @@ public class StatsCollectorTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "", time.toEpochMilli(), time.plusSeconds(4 * 60).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
 

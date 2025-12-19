@@ -726,7 +726,8 @@ public class AstraIndexerTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000)),
                 null,
-                createGenericDateHistogramAggregatorFactoriesBuilder()),
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of()),
             Duration.ofMillis(3000));
 
     // Validate search response
