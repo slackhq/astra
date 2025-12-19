@@ -265,7 +265,7 @@ public class OpenSearchRequest {
   private static List<AstraSearch.SortField> parseSort(JsonNode body) {
     List<AstraSearch.SortField> sortFields = new ArrayList<>();
 
-    if (!body.has("sort") || body.get("sort") == null || body.get("sort").isNull()) {
+    if (!body.has("sort") || body.get("sort").isNull()) {
       return sortFields; // No sort specified, return empty list (will use default)
     }
 
