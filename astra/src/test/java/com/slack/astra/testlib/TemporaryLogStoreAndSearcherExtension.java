@@ -64,7 +64,8 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
             howMany,
             queryBuilder,
             null,
-            new AggregatorFactories.Builder().addAggregator(dateHistogramAggregationBuilder));
+            new AggregatorFactories.Builder().addAggregator(dateHistogramAggregationBuilder),
+            List.of());
     return results.hits;
   }
 
