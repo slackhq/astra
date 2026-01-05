@@ -58,6 +58,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   /** Shared lease ID for all ephemeral nodes. Only valid if createMode is EPHEMERAL. */
   private volatile long sharedLeaseId = -1;
 
+  /** Flag to track if the store is being closed to prevent keepalive restarts during shutdown. */
+  private volatile boolean isClosing = false;
+
   /** Used for watch retry operations with delays. */
   private final ScheduledExecutorService watchRetryExecutor;
 
@@ -137,7 +140,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       MeterRegistry meterRegistry,
       MetadataSerializer<T> serializer,
       EtcdCreateMode createMode,
-      Client etcClient) {
+      Client etcdClient) {
     this.storeFolder = storeFolder;
     this.namespace = config.getNamespace();
     this.meterRegistry = meterRegistry;
@@ -166,7 +169,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.leaseRefreshHandlerFired =
         this.meterRegistry.counter(ASTRA_ETCD_LEASE_REFRESH_HANDLER_FIRED, "store", store);
 
-    if (etcClient == null) {
+    if (etcdClient == null) {
       throw new IllegalArgumentException("External etcd client must be provided");
     }
 
@@ -174,7 +177,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         "Using provided external etcd client for store folder: {} with mode: {}",
         storeFolder,
         createMode);
-    this.etcdClient = etcClient;
+    this.etcdClient = etcdClient;
 
     // Initialize watch retry executor - scheduled cached thread pool that scales to 0
     this.watchRetryExecutor =
@@ -191,38 +194,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       // Create a single shared lease for all ephemeral nodes synchronously
       try {
         sharedLeaseId =
-            etcdClient
+            this.etcdClient
                 .getLeaseClient()
                 .grant(ephemeralTtlMs / 1000) // grant ttl is in seconds
                 .get(ephemeralTtlMs, TimeUnit.MILLISECONDS)
                 .getID();
-        etcdClient
-            .getLeaseClient()
-            .keepAlive(
-                sharedLeaseId,
-                new StreamObserver<LeaseKeepAliveResponse>() {
-                  @Override
-                  public void onNext(LeaseKeepAliveResponse response) {
-                    LOG.trace(
-                        "Received keepAlive response for lease {}, TTL: {}",
-                        response.getID(),
-                        response.getTTL());
-                    leaseRefreshHandlerFired.increment();
-                  }
-
-                  @Override
-                  public void onError(Throwable t) {
-                    LOG.error(
-                        "Error in keepAlive stream for shared lease {}: {}",
-                        sharedLeaseId,
-                        t.getMessage());
-                  }
-
-                  @Override
-                  public void onCompleted() {
-                    LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
-                  }
-                });
+        startKeepAlive();
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new RuntimeException(e);
       }
@@ -247,6 +224,52 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
       LOG.info("Default cache watcher started for store: {}", storeFolder);
     }
+  }
+
+  /** Creates KeepAlive GRPC connection and handles error and completed cases */
+  private void startKeepAlive() {
+    this.etcdClient
+        .getLeaseClient()
+        .keepAlive(
+            sharedLeaseId,
+            new StreamObserver<LeaseKeepAliveResponse>() {
+              @Override
+              public void onNext(LeaseKeepAliveResponse response) {
+                LOG.info(
+                    "Received keepAlive response for lease {}, TTL: {}",
+                    response.getID(),
+                    response.getTTL());
+                leaseRefreshHandlerFired.increment();
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                if (isClosing) {
+                  LOG.debug(
+                      "KeepAlive stream error during shutdown for lease {}, not restarting",
+                      sharedLeaseId);
+                  return;
+                }
+                LOG.error(
+                    "Error in keepAlive stream for shared lease {}: {}",
+                    sharedLeaseId,
+                    t.getMessage());
+                startKeepAlive();
+              }
+
+              @Override
+              public void
+                  onCompleted() { // not the same as a shutdown, we want to restart the connection
+                if (isClosing) {
+                  LOG.debug(
+                      "KeepAlive stream completed during shutdown for lease {}, not restarting",
+                      sharedLeaseId);
+                  return;
+                }
+                LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
+                startKeepAlive();
+              }
+            });
   }
 
   /**
@@ -1096,6 +1119,9 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   @Override
   public void close() {
     LOG.info("Closing etcd clients and watchers");
+    // Set closing flag to prevent keepalive restarts during shutdown
+    isClosing = true;
+
     // Close all active watchers
     watchers.values().forEach(Watcher::close);
     watchers.clear();
