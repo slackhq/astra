@@ -235,7 +235,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
             new StreamObserver<LeaseKeepAliveResponse>() {
               @Override
               public void onNext(LeaseKeepAliveResponse response) {
-                LOG.info(
+                LOG.debug(
                     "Received keepAlive response for lease {}, TTL: {}",
                     response.getID(),
                     response.getTTL());
