@@ -88,14 +88,16 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
             if (dirSize > 0) {
               approximateDirectoryBytes.set(dirSize);
             }
-            if (!maxTimePerChunksMinsReached.get()
-                && Instant.now()
-                    .isAfter(rolloverStartTime.plus(maxTimePerChunksSeconds, ChronoUnit.SECONDS))) {
-              LOG.info(
-                  "Max time per chunk reached. chunkStartTime: {} currentTime: {}",
-                  rolloverStartTime,
-                  Instant.now());
-              maxTimePerChunksMinsReached.set(true);
+            // Only check max time if it's not Long.MAX_VALUE (which would cause overflow)
+            if (!maxTimePerChunksMinsReached.get() && maxTimePerChunksSeconds < Long.MAX_VALUE) {
+              if (Instant.now()
+                  .isAfter(rolloverStartTime.plus(maxTimePerChunksSeconds, ChronoUnit.SECONDS))) {
+                LOG.info(
+                    "Max time per chunk reached. chunkStartTime: {} currentTime: {}",
+                    rolloverStartTime,
+                    Instant.now());
+                maxTimePerChunksMinsReached.set(true);
+              }
             }
           } catch (Exception e) {
             LOG.error("Error calculating directory size", e);
