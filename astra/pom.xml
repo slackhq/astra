@@ -465,6 +465,11 @@
             <version>${jetcd.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- testcontainers version uses version from <dependencyManagement> -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+        </dependency>
         <!-- Note: next time we upgrade this, check if mockito-core depends on 1.14.8+ version of bytebuddy -->
         <!-- if it does then we don't need to define bytebuddy explicitly anymore -->
         <!-- Run mvn dependency:tree to verify. armeria also has a runtime dependency on bytebuddy so we need to check that as well -->
@@ -585,6 +590,16 @@
         </dependency>
 
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>2.0.2</version>
+        </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <defaultGoal>clean install</defaultGoal>
