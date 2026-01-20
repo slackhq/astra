@@ -227,15 +227,15 @@ public class BulkIngestApiTest {
       bulkIngestKafkaProducer.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     kafkaServer.close();
-    if (etcdClient != null) {
-      etcdClient.close();
-    }
 
     datasetMetadataStore.close();
     preprocessorMetadataStore.close();
     curatorFramework.unwrap().close();
     zkServer.close();
     meterRegistry.close();
+    if (etcdClient != null) {
+        etcdClient.close();
+    }
   }
 
   public KafkaConsumer getTestKafkaConsumer() {
