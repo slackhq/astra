@@ -234,7 +234,7 @@ public class BulkIngestApiTest {
     zkServer.close();
     meterRegistry.close();
     if (etcdClient != null) {
-        etcdClient.close();
+      etcdClient.close();
     }
   }
 
