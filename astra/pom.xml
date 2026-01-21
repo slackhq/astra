@@ -18,21 +18,21 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.8</protobuf.version>
-        <grpc.version>1.77.0</grpc.version>
-        <micrometer.version>1.16.1</micrometer.version>
-        <armeria.version>1.34.1</armeria.version>
+        <grpc.version>1.78.0</grpc.version>
+        <micrometer.version>1.16.2</micrometer.version>
+        <armeria.version>1.35.0</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
-        <jackson.version>2.20.1</jackson.version>
-        <jackson.annotations.version>2.20</jackson.annotations.version>
-        <jackson.databind.version>2.20.1</jackson.databind.version>
+        <jackson.version>2.21.0</jackson.version>
+        <jackson.annotations.version>2.21</jackson.annotations.version>
+        <jackson.databind.version>2.21.0</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
-        <log4j.version>2.25.2</log4j.version>
-        <aws.sdk.version>2.40.8</aws.sdk.version>
-        <error.prone.version>2.44.0</error.prone.version>
-        <junit.jupiter.version>6.0.1</junit.jupiter.version>
+        <log4j.version>2.25.3</log4j.version>
+        <aws.sdk.version>2.41.10</aws.sdk.version>
+        <error.prone.version>2.46.0</error.prone.version>
+        <junit.jupiter.version>6.0.2</junit.jupiter.version>
         <jetcd.version>0.8.6</jetcd.version>
     </properties>
 
@@ -118,7 +118,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-http</artifactId>
-            <version>4.2.8.Final</version>
+            <version>4.2.9.Final</version>
         </dependency>
 
         <!-- Apache curator dependencies -->
@@ -284,7 +284,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20250517</version>
+            <version>20251224</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -302,7 +302,7 @@
         <dependency>
             <groupId>org.checkerframework</groupId>
             <artifactId>checker-qual</artifactId>
-            <version>3.52.1</version>
+            <version>3.53.0</version>
         </dependency>
 
         <dependency>
@@ -433,7 +433,7 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>6.0.1</version>
+            <version>6.0.2</version>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
@@ -465,6 +465,11 @@
             <version>${jetcd.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- testcontainers version uses version from <dependencyManagement> -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+        </dependency>
         <!-- Note: next time we upgrade this, check if mockito-core depends on 1.14.8+ version of bytebuddy -->
         <!-- if it does then we don't need to define bytebuddy explicitly anymore -->
         <!-- Run mvn dependency:tree to verify. armeria also has a runtime dependency on bytebuddy so we need to check that as well -->
@@ -484,7 +489,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.18.2</version>
+            <version>1.18.4</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
@@ -586,6 +591,17 @@
 
     </dependencies>
 
+    <dependencyManagement>
+        <dependencies>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>2.0.2</version>
+            <scope>test</scope>
+        </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <build>
         <defaultGoal>clean install</defaultGoal>
         <extensions>
@@ -608,6 +624,7 @@
                     <fork>true</fork>
                     <compilerArgs>
                         <arg>-XDcompilePolicy=simple</arg>
+                        <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
                         <arg>--enable-preview</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
