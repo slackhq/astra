@@ -492,7 +492,8 @@ public class IndexingChunkManagerTest {
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     SearchResult<LogMessage> results = chunkManager.query(searchQuery, Duration.ofMillis(3000));
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -551,7 +552,8 @@ public class IndexingChunkManagerTest {
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message101", 0L, MAX_TIME),
                         null,
-                        createGenericDateHistogramAggregatorFactoriesBuilder()),
+                        createGenericDateHistogramAggregatorFactoriesBuilder(),
+                        List.of()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())
@@ -581,7 +583,8 @@ public class IndexingChunkManagerTest {
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("Message102", 0L, MAX_TIME),
                         null,
-                        createGenericDateHistogramAggregatorFactoriesBuilder()),
+                        createGenericDateHistogramAggregatorFactoriesBuilder(),
+                        List.of()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())
@@ -664,7 +667,8 @@ public class IndexingChunkManagerTest {
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder(searchString, startTimeEpochMs, endTimeEpochMs),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     return chunkManager.query(searchQuery, Duration.ofMillis(3000)).hits.size();
   }
 
@@ -1711,7 +1715,8 @@ public class IndexingChunkManagerTest {
             List.of("oom-chunk"),
             QueryBuilderUtil.generateQueryBuilder("Message103", 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     try (MockedConstruction<RuntimeHalterImpl> mockHalterConstructor =
         mockConstruction(RuntimeHalterImpl.class)) {
       SearchResult<LogMessage> res = chunkManager.query(searchQuery, Duration.ofSeconds(1));
@@ -1747,7 +1752,8 @@ public class IndexingChunkManagerTest {
             List.of("timeout"),
             QueryBuilderUtil.generateQueryBuilder("Message104", 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
 
     try (org.mockito.MockedStatic<SearchResult> staticResults =
             org.mockito.Mockito.mockStatic(SearchResult.class);

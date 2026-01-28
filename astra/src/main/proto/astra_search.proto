@@ -28,6 +28,8 @@ message SearchRequest {
   // The full agg JSON object, to be used in the leaf and query nodes and parsed by OpenSearch
   string aggregation_json = 10;
 
+  repeated SortField sort = 11;
+
   message SourceFieldFilter {
     // Whether or not to include/exclude _all_ fields
     optional bool includeAll = 1;
@@ -280,6 +282,17 @@ message SchemaDefinition {
   slack.proto.astra.schema.SchemaFieldType type = 1;
   // Any field-specific metadata to be included
   // map<string, Value> metadata = 2;
+}
+
+message SortField {
+  string field_name = 1;
+  SortOrder order = 2;
+  string unmapped_type = 3;
+}
+
+enum SortOrder {
+  ASC = 0;
+  DESC = 1;
 }
 
 service AstraService {

@@ -102,7 +102,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       int howMany,
       QueryBuilder queryBuilder,
       SourceFieldFilter sourceFieldFilter,
-      AggregatorFactories.Builder aggregatorFactoriesBuilder) {
+      AggregatorFactories.Builder aggregatorFactoriesBuilder,
+      List<SearchQuery.SortSpec> sortFields) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureTrue(howMany >= 0, "hits requested should not be negative.");
@@ -125,10 +126,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         InternalAggregation internalAggregation = null;
         Query query = openSearchAdapter.buildQuery(searcher, queryBuilder);
 
+        // Build sort from query sort specifications
+        Sort sort = buildSort(sortFields);
+
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
               buildTopFieldCollector(
-                  howMany, aggregatorFactoriesBuilder != null ? Integer.MAX_VALUE : howMany);
+                  sort, howMany, aggregatorFactoriesBuilder != null ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
 
           if (aggregatorFactoriesBuilder != null) {
@@ -207,18 +211,137 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   }
 
   /**
+   * Converts a type name (from FieldType enum or unmapped_type string) to Lucene's SortField.Type
+   * for sorting. This handles both fields that exist in the schema (using their FieldType.name) and
+   * unmapped fields (using the unmapped_type hint from the query).
+   *
+   * @param esType The type name (e.g., "long", "keyword", "date", "text")
+   * @return Corresponding Lucene sort field type, or LONG if type is unknown
+   */
+  private static SortField.Type esTypeToLuceneSortType(String esType) {
+    if (esType == null || esType.isEmpty()) {
+      return SortField.Type.LONG; // Default to LONG (DATE semantics)
+    }
+
+    // Normalize type name (case-insensitive, trimmed)
+    String normalizedType = esType.toLowerCase().trim();
+
+    // Map type names to Lucene sort types
+    return switch (normalizedType) {
+      case "text", "string", "keyword", "id" -> SortField.Type.STRING;
+      case "integer", "short", "byte" -> SortField.Type.INT;
+      case "long", "date", "scaled_long", "scaledlong" -> SortField.Type.LONG;
+      case "double" -> SortField.Type.DOUBLE;
+      case "float", "half_float" -> SortField.Type.FLOAT;
+      case "boolean" -> SortField.Type.INT; // Booleans stored as 0/1
+      case "ip" -> SortField.Type.STRING; // IP addresses sorted as strings
+      case "binary" -> SortField.Type.STRING; // Binary fields default to string sorting
+      default -> {
+        LOG.warn("Unknown type '{}', defaulting to LONG", esType);
+        yield SortField.Type.LONG;
+      }
+    };
+  }
+
+  /**
+   * Sets the appropriate missing value on a SortField based on its type and sort order. Missing
+   * values are always placed at the end of results (bottom), regardless of sort direction.
+   *
+   * @param sortField The SortField to configure
+   * @param isDescending Whether the sort is descending
+   */
+  private static void setMissingValue(SortField sortField, boolean isDescending) {
+    SortField.Type type = sortField.getType();
+
+    // For descending sorts: missing values should be "less than" all real values
+    // For ascending sorts: missing values should be "greater than" all real values
+    // This ensures missing values always appear at the bottom of results
+    switch (type) {
+      case INT:
+        sortField.setMissingValue(isDescending ? Integer.MIN_VALUE : Integer.MAX_VALUE);
+        break;
+      case LONG:
+        sortField.setMissingValue(isDescending ? Long.MIN_VALUE : Long.MAX_VALUE);
+        break;
+      case FLOAT:
+        sortField.setMissingValue(isDescending ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY);
+        break;
+      case DOUBLE:
+        sortField.setMissingValue(
+            isDescending ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY);
+        break;
+      case STRING:
+        // For strings, SortField.STRING_LAST places missing values at the end
+        sortField.setMissingValue(SortField.STRING_LAST);
+        break;
+      default:
+        // Other types don't support missing values or don't need special handling
+        break;
+    }
+  }
+
+  /**
+   * Builds a Lucene Sort object from a list of SortSpec objects. For fields not in the schema,
+   * treats them as DATE fields (effectively grouping unmapped documents together).
+   *
+   * @param sortSpecs List of sort specifications from the query
+   * @return Lucene Sort object, or default timestamp descending sort if list is empty
+   */
+  private Sort buildSort(List<SearchQuery.SortSpec> sortSpecs) {
+    // Default to timestamp descending if no sort fields provided
+    if (sortSpecs == null || sortSpecs.isEmpty()) {
+      SortField defaultSort =
+          new SortField(SystemField.TIME_SINCE_EPOCH.fieldName, Type.LONG, true);
+      return new Sort(defaultSort);
+    }
+
+    Map<String, LuceneFieldDef> schema = openSearchAdapter.getSchema();
+    SortField[] sortFields = new SortField[sortSpecs.size()];
+
+    for (int i = 0; i < sortSpecs.size(); i++) {
+      SearchQuery.SortSpec spec = sortSpecs.get(i);
+      LuceneFieldDef fieldDef = schema.get(spec.fieldName);
+
+      // Determine type name: use schema type if available, otherwise use unmappedType
+      String esType = fieldDef != null ? fieldDef.fieldType.name : spec.unmappedType;
+      SortField.Type luceneType = esTypeToLuceneSortType(esType);
+
+      if (fieldDef == null) {
+        LOG.debug(
+            "Sort field '{}' not found in schema, using unmapped_type '{}' (Lucene type: {})",
+            spec.fieldName,
+            spec.unmappedType != null ? spec.unmappedType : "null (defaulting to date)",
+            luceneType);
+      }
+
+      // Create sort field with reversed flag (true = descending)
+      SortField sortField = new SortField(spec.fieldName, luceneType, spec.isDescending);
+
+      // Set missing value to ensure consistent sorting of documents without this field
+      setMissingValue(sortField, spec.isDescending);
+
+      sortFields[i] = sortField;
+    }
+
+    return new Sort(sortFields);
+  }
+
+  /**
    * Builds a top field collector for the requested amount of results, with the option to set the
    * totalHitsThreshold. If the totalHitsThreshold is set to Integer.MAX_VALUE it will force a
    * ScoreMode.COMPLETE, iterating over all documents at the expense of a longer query time. This
    * value can be set to equal howMany to allow early exiting (ScoreMode.TOP_SCORES), but should
    * only be done when all collectors are tolerant of an early exit.
+   *
+   * @param sort The Lucene Sort object defining the sort order
+   * @param howMany Number of results to collect
+   * @param totalHitsThreshold Threshold for total hits counting
+   * @return CollectorManager for TopFieldCollector, or null if howMany is 0
    */
   private CollectorManager<TopFieldCollector, TopFieldDocs> buildTopFieldCollector(
-      int howMany, int totalHitsThreshold) {
+      Sort sort, int howMany, int totalHitsThreshold) {
     if (howMany > 0) {
-      SortField sortField = new SortField(SystemField.TIME_SINCE_EPOCH.fieldName, Type.LONG, true);
-      return TopFieldCollector.createSharedManager(
-          new Sort(sortField), howMany, null, totalHitsThreshold);
+      return TopFieldCollector.createSharedManager(sort, howMany, null, totalHitsThreshold);
     } else {
       return null;
     }
