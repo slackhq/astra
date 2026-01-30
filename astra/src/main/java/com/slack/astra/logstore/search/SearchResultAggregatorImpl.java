@@ -27,6 +27,70 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     this.searchQuery = searchQuery;
   }
 
+  /**
+   * Builds a comparator for sorting LogMessages based on the provided sort specifications. Defaults
+   * to timestamp descending if no sort fields are specified.
+   */
+  private Comparator<T> buildComparator(List<SearchQuery.SortSpec> sortFields) {
+    // Default to timestamp descending if no sort fields provided
+    if (sortFields == null || sortFields.isEmpty()) {
+      return Comparator.comparing(
+          (T m) -> m.getTimestamp().toEpochMilli(), Comparator.reverseOrder());
+    }
+
+    // Build chained comparator from sort fields
+    Comparator<T> comparator = null;
+    for (SearchQuery.SortSpec spec : sortFields) {
+      Comparator<T> fieldComparator = buildFieldComparator(spec);
+      comparator =
+          (comparator == null) ? fieldComparator : comparator.thenComparing(fieldComparator);
+    }
+    return comparator;
+  }
+
+  /**
+   * Builds a comparator for a single sort field. Extracts the field value from the LogMessage
+   * source and compares using natural ordering. Handles nulls by placing them at the end.
+   */
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private Comparator<T> buildFieldComparator(SearchQuery.SortSpec spec) {
+    Comparator<T> comparator =
+        (T m1, T m2) -> {
+          Object value1;
+          Object value2;
+
+          // Handle system fields specially
+          if (LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName.equals(spec.fieldName)) {
+            // For timestamp field, use getTimestamp() instead of source map
+            value1 = m1.getTimestamp().toEpochMilli();
+            value2 = m2.getTimestamp().toEpochMilli();
+          } else if (LogMessage.SystemField.ID.fieldName.equals(spec.fieldName)) {
+            // For ID field, use getId() instead of source map
+            value1 = m1.getId();
+            value2 = m2.getId();
+          } else {
+            // For regular fields, get from source map
+            value1 = m1.getSource().get(spec.fieldName);
+            value2 = m2.getSource().get(spec.fieldName);
+          }
+
+          // Handle nulls - always put them last
+          if (value1 == null && value2 == null) return 0;
+          if (value1 == null) return 1; // null goes after non-null
+          if (value2 == null) return -1; // non-null goes before null
+
+          // Compare using natural ordering if comparable
+          if (value1 instanceof Comparable && value2 instanceof Comparable) {
+            return ((Comparable) value1).compareTo(value2);
+          }
+
+          // Fallback to string comparison
+          return String.valueOf(value1).compareTo(String.valueOf(value2));
+        };
+
+    return spec.isDescending ? comparator.reversed() : comparator;
+  }
+
   @Override
   public SearchResult<T> aggregate(List<SearchResult<T>> searchResults, boolean finalAggregation) {
     ScopedSpan span =
@@ -103,12 +167,13 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     }
 
     // TODO: Instead of sorting all hits using a bounded priority queue of size k is more efficient.
+    // Build comparator from sort fields, defaulting to timestamp descending
+    Comparator<T> comparator = buildComparator(searchQuery.sortFields);
+
     List<T> resultHits =
         searchResults.stream()
             .flatMap(r -> r.hits.stream())
-            .sorted(
-                Comparator.comparing(
-                    (T m) -> m.getTimestamp().toEpochMilli(), Comparator.reverseOrder()))
+            .sorted(comparator)
             .limit(searchQuery.howMany)
             .collect(Collectors.toList());
 

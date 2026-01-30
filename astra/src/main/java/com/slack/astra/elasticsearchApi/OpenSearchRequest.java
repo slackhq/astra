@@ -139,6 +139,7 @@ public class OpenSearchRequest {
               .setAggregationJson(getAggregationJson(body))
               .setStartTimeEpochMs(startTimeEpochMs)
               .setEndTimeEpochMs(endTimeEpochMs)
+              .addAllSort(parseSort(body))
               .build());
     }
     return searchRequests;
@@ -259,5 +260,99 @@ public class OpenSearchRequest {
           "Only exactly one top level aggregators is currently supported");
     }
     return body.get("aggs").toString();
+  }
+
+  private static List<AstraSearch.SortField> parseSort(JsonNode body) {
+    List<AstraSearch.SortField> sortFields = new ArrayList<>();
+
+    if (!body.has("sort") || body.get("sort").isNull()) {
+      return sortFields; // No sort specified, return empty list (will use default)
+    }
+
+    JsonNode sortNode = body.get("sort");
+
+    if (sortNode.isArray()) {
+      // Array format: [{ "field1": { "order": "desc" } }, "field2", ...]
+      for (JsonNode element : sortNode) {
+        parseSingleSortField(element, sortFields);
+      }
+    } else {
+      // Single value: { "field": "desc" } or "field"
+      parseSingleSortField(sortNode, sortFields);
+    }
+
+    return sortFields;
+  }
+
+  private static void parseSingleSortField(
+      JsonNode sortFieldNode, List<AstraSearch.SortField> sortFields) {
+    if (sortFieldNode.isTextual()) {
+      // String format: just field name, defaults to ascending (Elasticsearch standard)
+      // Example: "severity"
+      String fieldName = sortFieldNode.asText();
+      sortFields.add(
+          AstraSearch.SortField.newBuilder()
+              // Convert Elasticsearch/Grafana @timestamp to Astra's internal _timesinceepoch
+              .setFieldName(
+                  fieldName.equals("@timestamp")
+                      ? LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName
+                      : fieldName)
+              .setOrder(AstraSearch.SortOrder.ASC) // Elasticsearch default is ASC
+              .build());
+    } else if (sortFieldNode.isObject()) {
+      // Object format: { "fieldName": "desc" } or { "fieldName": { "order": "desc" } }
+      // May also include additional ES fields like unmapped_type
+      // Example: { "@timestamp": { "order": "desc", "unmapped_type": "boolean" } }
+      sortFieldNode
+          .fieldNames()
+          .forEachRemaining(
+              fieldName -> {
+                // fieldName = "@timestamp" (or "priority", etc.)
+                JsonNode fieldValue = sortFieldNode.get(fieldName);
+                AstraSearch.SortOrder order = AstraSearch.SortOrder.ASC; // Elasticsearch default
+                String unmappedType = null;
+
+                if (fieldValue.isTextual()) {
+                  // Short form: { "fieldName": "desc" }
+                  // fieldValue = "desc"
+                  order = parseSortOrder(fieldValue.asText());
+                } else if (fieldValue.isObject()) {
+                  // Full form: { "fieldName": { "order": "desc", "unmapped_type": "boolean" } }
+                  // fieldValue = { "order": "desc", "unmapped_type": "boolean" }
+                  if (fieldValue.has("order")) {
+                    order = parseSortOrder(fieldValue.get("order").asText());
+                  }
+                  if (fieldValue.has("unmapped_type")) {
+                    unmappedType = fieldValue.get("unmapped_type").asText();
+                  }
+                }
+
+                // Convert Elasticsearch/Grafana @timestamp to Astra's internal _timesinceepoch
+                AstraSearch.SortField.Builder sortFieldBuilder =
+                    AstraSearch.SortField.newBuilder()
+                        .setFieldName(
+                            fieldName.equals("@timestamp")
+                                ? LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName
+                                : fieldName)
+                        .setOrder(order);
+
+                if (unmappedType != null && !unmappedType.isEmpty()) {
+                  sortFieldBuilder.setUnmappedType(unmappedType);
+                }
+
+                sortFields.add(sortFieldBuilder.build());
+              });
+    }
+  }
+
+  /** Converts order string to protobuf enum. Defaults to ASC per Elasticsearch standard. */
+  private static AstraSearch.SortOrder parseSortOrder(String orderStr) {
+    if (orderStr == null || orderStr.isEmpty()) {
+      return AstraSearch.SortOrder.ASC; // Elasticsearch default
+    }
+    // "desc" or "DESC" -> DESC, everything else -> ASC
+    return orderStr.equalsIgnoreCase("desc")
+        ? AstraSearch.SortOrder.DESC
+        : AstraSearch.SortOrder.ASC;
   }
 }

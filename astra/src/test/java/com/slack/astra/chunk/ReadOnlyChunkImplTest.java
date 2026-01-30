@@ -243,7 +243,8 @@ public class ReadOnlyChunkImplTest {
                     Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                     Instant.now().toEpochMilli()),
                 null,
-                createGenericDateHistogramAggregatorFactoriesBuilder()));
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of()));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
     await()
@@ -297,7 +298,8 @@ public class ReadOnlyChunkImplTest {
                     Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                     Instant.now().toEpochMilli()),
                 null,
-                createGenericDateHistogramAggregatorFactoriesBuilder()));
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of()));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
 
@@ -681,7 +683,8 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
@@ -857,7 +860,8 @@ public class ReadOnlyChunkImplTest {
                     Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                     Instant.now().toEpochMilli()),
                 null,
-                createGenericDateHistogramAggregatorFactoriesBuilder()));
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of()));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
     // ensure we registered a search node for this cache assignment

@@ -98,7 +98,8 @@ public class LogMessageWriterImplTest {
             Collections.emptyList(),
             QueryBuilderUtil.generateQueryBuilder(queryString, 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder()),
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of()),
         Duration.ofMillis(3000));
   }
 
@@ -180,7 +181,8 @@ public class LogMessageWriterImplTest {
                         Collections.emptyList(),
                         QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
                         null,
-                        createGenericDateHistogramAggregatorFactoriesBuilder()),
+                        createGenericDateHistogramAggregatorFactoriesBuilder(),
+                        List.of()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())

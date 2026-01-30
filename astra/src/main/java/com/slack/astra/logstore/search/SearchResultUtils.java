@@ -99,6 +99,21 @@ public class SearchResultUtils {
     return valueBuilder.build();
   }
 
+  /**
+   * Converts a protobuf SortField to an internal SortSpec. The actual field type will be resolved
+   * at query execution time by looking up the field in the schema.
+   */
+  private static SearchQuery.SortSpec fromProtoSortField(AstraSearch.SortField protoSortField) {
+    boolean isDescending = protoSortField.getOrder() == AstraSearch.SortOrder.DESC;
+    String unmappedType = protoSortField.getUnmappedType();
+    // In proto3, empty string is the default value
+    if (unmappedType != null && unmappedType.isEmpty()) {
+      unmappedType = null;
+    }
+
+    return new SearchQuery.SortSpec(protoSortField.getFieldName(), isDescending, unmappedType);
+  }
+
   public static SearchQuery fromSearchRequest(AstraSearch.SearchRequest searchRequest) {
     QueryBuilder queryBuilder = null;
 
@@ -131,6 +146,12 @@ public class SearchResultUtils {
       }
     }
 
+    // Convert protobuf sort fields to internal SortSpec list
+    List<SearchQuery.SortSpec> sortFields =
+        searchRequest.getSortList().stream()
+            .map(SearchResultUtils::fromProtoSortField)
+            .collect(Collectors.toList());
+
     return new SearchQuery(
         searchRequest.getDataset(),
         searchRequest.getStartTimeEpochMs(),
@@ -139,7 +160,8 @@ public class SearchResultUtils {
         searchRequest.getChunkIdsList(),
         queryBuilder,
         SourceFieldFilter.fromProto(searchRequest.getSourceFieldFilter()),
-        aggregatorFactoriesBuilder);
+        aggregatorFactoriesBuilder,
+        sortFields);
   }
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(

@@ -233,7 +233,8 @@ public class LogIndexSearcherImplTest {
                   QueryBuilderUtil.generateQueryBuilder(
                       "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                   SourceFieldFilter.fromProto(sourceFieldFilter),
-                  createGenericDateHistogramAggregatorFactoriesBuilder())
+                  createGenericDateHistogramAggregatorFactoriesBuilder(),
+                  List.of())
               .hits;
       assertThat(messages).hasSize(1);
       assertThat(messages.get(0).getSource()).hasSize(1);
@@ -290,7 +291,8 @@ public class LogIndexSearcherImplTest {
                   QueryBuilderUtil.generateQueryBuilder(
                       "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                   SourceFieldFilter.fromProto(sourceFieldFilter),
-                  createGenericDateHistogramAggregatorFactoriesBuilder())
+                  createGenericDateHistogramAggregatorFactoriesBuilder(),
+                  List.of())
               .hits;
       assertThat(messages).hasSize(1);
       assertThat(messages.get(0).getSource()).hasSize(1);
@@ -350,7 +352,8 @@ public class LogIndexSearcherImplTest {
                       time.minus(2, ChronoUnit.DAYS).toEpochMilli(),
                       time.plusSeconds(10).toEpochMilli()),
                   SourceFieldFilter.fromProto(sourceFieldFilter),
-                  createGenericDateHistogramAggregatorFactoriesBuilder())
+                  createGenericDateHistogramAggregatorFactoriesBuilder(),
+                  List.of())
               .hits;
       assertThat(messages).hasSize(2);
       assertThat(messages.get(0).getSource().containsKey("message")).isTrue();
@@ -409,7 +412,8 @@ public class LogIndexSearcherImplTest {
                   QueryBuilderUtil.generateQueryBuilder(
                       "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                   SourceFieldFilter.fromProto(sourceFieldFilter),
-                  createGenericDateHistogramAggregatorFactoriesBuilder())
+                  createGenericDateHistogramAggregatorFactoriesBuilder(),
+                  List.of())
               .hits;
 
       assertThat(messages).hasSize(1);
@@ -467,7 +471,8 @@ public class LogIndexSearcherImplTest {
                   QueryBuilderUtil.generateQueryBuilder(
                       "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                   SourceFieldFilter.fromProto(sourceFieldFilter),
-                  createGenericDateHistogramAggregatorFactoriesBuilder())
+                  createGenericDateHistogramAggregatorFactoriesBuilder(),
+                  List.of())
               .hits;
       assertThat(messages).hasSize(1);
       assertThat(messages.get(0).getSource()).hasSize(1);
@@ -531,7 +536,8 @@ public class LogIndexSearcherImplTest {
                               LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
                               time.plusSeconds(2).toEpochMilli()),
                           time.plusSeconds(2).toEpochMilli(),
-                          time.plusSeconds(10).toEpochMilli()))));
+                          time.plusSeconds(10).toEpochMilli()))),
+              List.of());
 
       assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().size())
           .isEqualTo(2);
@@ -611,7 +617,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource()).hasSize(1);
@@ -652,7 +659,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource()).hasSize(1);
@@ -693,7 +701,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource()).hasSize(1);
@@ -732,7 +741,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
@@ -768,7 +778,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isEqualTo(0);
@@ -806,7 +817,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
@@ -845,7 +857,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
@@ -884,7 +897,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(1);
@@ -921,7 +935,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isEqualTo(0);
@@ -957,7 +972,8 @@ public class LogIndexSearcherImplTest {
                 QueryBuilderUtil.generateQueryBuilder(
                     "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                 SourceFieldFilter.fromProto(sourceFieldFilter),
-                createGenericDateHistogramAggregatorFactoriesBuilder())
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of())
             .hits;
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).getSource().size()).isGreaterThan(0);
@@ -985,7 +1001,8 @@ public class LogIndexSearcherImplTest {
                     QueryBuilderUtil.generateQueryBuilder(
                         "Message1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1002,7 +1019,8 @@ public class LogIndexSearcherImplTest {
                         time.minusSeconds(1).toEpochMilli(),
                         time.plusSeconds(90).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1019,7 +1037,8 @@ public class LogIndexSearcherImplTest {
                         time.toEpochMilli(),
                         time.plusSeconds(100).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1036,7 +1055,8 @@ public class LogIndexSearcherImplTest {
                         time.minusSeconds(1).toEpochMilli(),
                         time.plusSeconds(100).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1066,7 +1086,8 @@ public class LogIndexSearcherImplTest {
                         time.minusSeconds(1).toEpochMilli(),
                         time.plusSeconds(10).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1080,7 +1101,8 @@ public class LogIndexSearcherImplTest {
                     QueryBuilderUtil.generateQueryBuilder(
                         "test1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1094,7 +1116,8 @@ public class LogIndexSearcherImplTest {
                     QueryBuilderUtil.generateQueryBuilder(
                         "test1", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(0);
@@ -1108,7 +1131,8 @@ public class LogIndexSearcherImplTest {
                     QueryBuilderUtil.generateQueryBuilder(
                         "test", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(0);
@@ -1125,7 +1149,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "Message1", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(babies.hits.size()).isEqualTo(1);
 
     InternalDateHistogram histogram =
@@ -1156,7 +1181,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "customField:value", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> noTermStrQuery =
@@ -1166,7 +1192,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "value", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(noTermStrQuery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> noTermNumericQuery =
@@ -1176,7 +1203,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "Message1", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(noTermNumericQuery.hits.size()).isEqualTo(1);
   }
 
@@ -1201,7 +1229,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "customField:value", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(termQuery.hits.size()).isEqualTo(1);
   }
 
@@ -1232,7 +1261,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "_exists_:customField", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(exists.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> termQuery =
@@ -1242,7 +1272,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "customField:value", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(termQuery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> notExists =
@@ -1252,7 +1283,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "_exists_:foo", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(notExists.hits.size()).isEqualTo(0);
   }
 
@@ -1291,7 +1323,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "val:[1 TO 3]", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(rangeBoundInclusive.hits.size()).isEqualTo(3);
 
     SearchResult<LogMessage> rangeBoundExclusive =
@@ -1301,7 +1334,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "val:{1 TO 3}", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(rangeBoundExclusive.hits.size()).isEqualTo(1);
   }
 
@@ -1357,7 +1391,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "boolval:true", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(boolquery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> intquery =
@@ -1367,7 +1402,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "intval:1", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(intquery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> longquery =
@@ -1377,7 +1413,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "longval:2", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(longquery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> floatquery =
@@ -1387,7 +1424,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "floatval:3", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(floatquery.hits.size()).isEqualTo(1);
 
     SearchResult<LogMessage> doublequery =
@@ -1397,7 +1435,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "doubleval:4", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(doublequery.hits.size()).isEqualTo(1);
   }
 
@@ -1413,7 +1452,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "apple", time.toEpochMilli(), time.plusSeconds(100).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(apples.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("Message5", "Message3"));
     assertThat(apples.hits.size()).isEqualTo(2);
@@ -1443,7 +1483,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "baby", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(baby.hits.size()).isEqualTo(1);
     assertThat(baby.hits.get(0).getId()).isEqualTo("Message2");
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(2);
@@ -1465,7 +1506,8 @@ public class LogIndexSearcherImplTest {
         QueryBuilderUtil.generateQueryBuilder(
             "car", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
         null,
-        createGenericDateHistogramAggregatorFactoriesBuilder());
+        createGenericDateHistogramAggregatorFactoriesBuilder(),
+        List.of());
 
     // Commit but no refresh. Item is still not available for search.
     strictLogStore.logStore.commit();
@@ -1481,7 +1523,8 @@ public class LogIndexSearcherImplTest {
         QueryBuilderUtil.generateQueryBuilder(
             "car", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
         null,
-        createGenericDateHistogramAggregatorFactoriesBuilder());
+        createGenericDateHistogramAggregatorFactoriesBuilder(),
+        List.of());
 
     // Car can be searched after refresh.
     strictLogStore.logStore.refresh();
@@ -1497,7 +1540,8 @@ public class LogIndexSearcherImplTest {
         QueryBuilderUtil.generateQueryBuilder(
             "car", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
         null,
-        createGenericDateHistogramAggregatorFactoriesBuilder());
+        createGenericDateHistogramAggregatorFactoriesBuilder(),
+        List.of());
 
     // Add another message to search, refresh but don't commit.
     strictLogStore.logStore.addMessage(SpanUtil.makeSpan(4, "apple baby car", time.plusSeconds(4)));
@@ -1516,7 +1560,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "baby", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(babies.hits.size()).isEqualTo(2);
     assertThat(babies.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("Message4", "Message2"));
@@ -1539,7 +1584,8 @@ public class LogIndexSearcherImplTest {
             1000,
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -1565,7 +1611,8 @@ public class LogIndexSearcherImplTest {
             1000,
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
-            createAverageAggregatorFactoriesBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, null));
+            createAverageAggregatorFactoriesBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, null),
+            List.of());
     assertThat(((InternalAvg) scriptNull.internalAggregation).value()).isEqualTo(3.25);
 
     SearchResult<LogMessage> scriptEmpty =
@@ -1574,7 +1621,8 @@ public class LogIndexSearcherImplTest {
             1000,
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
-            createAverageAggregatorFactoriesBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, ""));
+            createAverageAggregatorFactoriesBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, ""),
+            List.of());
     assertThat(((InternalAvg) scriptEmpty.internalAggregation).value()).isEqualTo(3.25);
 
     SearchResult<LogMessage> scripted =
@@ -1583,8 +1631,8 @@ public class LogIndexSearcherImplTest {
             1000,
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
-            createAverageAggregatorFactoriesBuilder(
-                "1", TEST_SOURCE_LONG_PROPERTY, 0, "return 9;"));
+            createAverageAggregatorFactoriesBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, "return 9;"),
+            List.of());
     assertThat(((InternalAvg) scripted.internalAggregation).value()).isEqualTo(9);
   }
 
@@ -1618,7 +1666,8 @@ public class LogIndexSearcherImplTest {
                             LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
                             time.plusSeconds(2).toEpochMilli()),
                         time.plusSeconds(2).toEpochMilli(),
-                        time.plusSeconds(10).toEpochMilli()))));
+                        time.plusSeconds(10).toEpochMilli()))),
+            List.of());
 
     assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().size()).isEqualTo(2);
     assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(0).getDocCount())
@@ -1646,7 +1695,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
             createMinAggregatorFactoriesBuilder(
-                "test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null));
+                "test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null),
+            List.of());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -1668,7 +1718,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
             createMaxAggregatorFactoriesBuilder(
-                "test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null));
+                "test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null),
+            List.of());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -1691,7 +1742,8 @@ public class LogIndexSearcherImplTest {
             1000,
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
-            createSumAggregatorFactoriesBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null));
+            createSumAggregatorFactoriesBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null),
+            List.of());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -1714,7 +1766,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
             createExtendedStatsAggregatorFactoriesBuilder(
-                "test", TEST_SOURCE_LONG_PROPERTY, "0", null, null));
+                "test", TEST_SOURCE_LONG_PROPERTY, "0", null, null),
+            List.of());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -1744,13 +1797,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
             createTermsAggregatorFactoriesBuilder(
-                "1",
-                List.of(),
-                TEST_SOURCE_STRING_PROPERTY,
-                "foo",
-                10,
-                0,
-                Map.of("_count", "asc")));
+                "1", List.of(), TEST_SOURCE_STRING_PROPERTY, "foo", 10, 0, Map.of("_count", "asc")),
+            List.of());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -1777,7 +1825,8 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
             null,
             createTermsAggregatorFactoriesBuilder(
-                "1", List.of(), "thisFieldDoesNotExist", "foo", 10, 0, Map.of("_count", "asc")));
+                "1", List.of(), "thisFieldDoesNotExist", "foo", 10, 0, Map.of("_count", "asc")),
+            List.of());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
 
@@ -1809,7 +1858,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("_all:apple", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1822,7 +1872,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("Message1", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1840,7 +1891,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("_all:baby", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1852,7 +1904,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("_all:1234", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1865,7 +1918,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("baby", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(1);
@@ -1877,7 +1931,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("1234", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1894,7 +1949,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("_all:baby", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1906,7 +1962,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("_all:1234", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(3);
@@ -1919,7 +1976,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("baby", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1931,7 +1989,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("1234", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(3);
@@ -1945,7 +2004,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(3);
@@ -1958,7 +2018,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("app*", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1972,7 +2033,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("baby car", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(2);
@@ -1986,7 +2048,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("apple 1234", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(3);
@@ -1999,7 +2062,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("123", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(0);
@@ -2034,7 +2098,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("_all:baby", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isZero();
@@ -2047,7 +2112,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("_all:1234", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isZero();
@@ -2060,7 +2126,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("baby", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isEqualTo(0);
@@ -2074,7 +2141,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isZero();
@@ -2087,7 +2155,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("app*", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isZero();
@@ -2101,7 +2170,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("baby car", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isZero();
@@ -2115,7 +2185,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("apple 1234", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isZero();
@@ -2128,7 +2199,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("123", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder())
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of())
                 .hits
                 .size())
         .isZero();
@@ -2146,7 +2218,8 @@ public class LogIndexSearcherImplTest {
             1000,
             QueryBuilderUtil.generateQueryBuilder("apple", 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
 
@@ -2172,7 +2245,8 @@ public class LogIndexSearcherImplTest {
             1000,
             QueryBuilderUtil.generateQueryBuilder("elephant", 0L, MAX_TIME),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(elephants.hits.size()).isEqualTo(0);
 
     InternalDateHistogram histogram =
@@ -2193,7 +2267,8 @@ public class LogIndexSearcherImplTest {
                 time.toEpochMilli(),
                 time.plusSeconds(10).toEpochMilli()),
             null,
-            null);
+            null,
+            List.of());
     assertThat(results.hits.size()).isEqualTo(2);
     assertThat(results.internalAggregation).isNull();
   }
@@ -2211,7 +2286,8 @@ public class LogIndexSearcherImplTest {
                 time.toEpochMilli(),
                 time.plusSeconds(10).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(babies.hits.size()).isEqualTo(0);
 
     InternalDateHistogram histogram =
@@ -2242,7 +2318,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("test", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder()));
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of()));
   }
 
   @Test
@@ -2257,7 +2334,8 @@ public class LogIndexSearcherImplTest {
                     1000,
                     QueryBuilderUtil.generateQueryBuilder("test", 0L, MAX_TIME),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder()));
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of()));
   }
 
   @Test
@@ -2273,7 +2351,8 @@ public class LogIndexSearcherImplTest {
                     QueryBuilderUtil.generateQueryBuilder(
                         "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
                     null,
-                    null));
+                    null,
+                    List.of()));
   }
 
   @Test
@@ -2289,7 +2368,8 @@ public class LogIndexSearcherImplTest {
                     QueryBuilderUtil.generateQueryBuilder(
                         "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder()));
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of()));
   }
 
   @Test
@@ -2305,7 +2385,8 @@ public class LogIndexSearcherImplTest {
                     QueryBuilderUtil.generateQueryBuilder(
                         "/", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
                     null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder()));
+                    createGenericDateHistogramAggregatorFactoriesBuilder(),
+                    List.of()));
   }
 
   @Test
@@ -2329,7 +2410,8 @@ public class LogIndexSearcherImplTest {
                       QueryBuilderUtil.generateQueryBuilder(
                           "_id:Message3 OR _id:Message4", 0L, MAX_TIME),
                       null,
-                      createGenericDateHistogramAggregatorFactoriesBuilder());
+                      createGenericDateHistogramAggregatorFactoriesBuilder(),
+                      List.of());
               if (babies.hits.size() != 2) {
                 searchFailures.addAndGet(1);
               } else {
@@ -2364,7 +2446,137 @@ public class LogIndexSearcherImplTest {
             QueryBuilderUtil.generateQueryBuilder(
                 "_id:Message1", time.toEpochMilli(), time.plusSeconds(2).toEpochMilli()),
             null,
-            createGenericDateHistogramAggregatorFactoriesBuilder());
+            createGenericDateHistogramAggregatorFactoriesBuilder(),
+            List.of());
     assertThat(index.hits.size()).isEqualTo(1);
+  }
+
+  @Test
+  public void testSortByLongFieldAscending() throws IOException {
+    Instant time = Instant.now();
+    // makeSpan creates TEST_SOURCE_LONG_PROPERTY with value = i
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, time)); // longproperty = 3
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time)); // longproperty = 1
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time)); // longproperty = 2
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec(TEST_SOURCE_LONG_PROPERTY, false, "boolean")));
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1");
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message2");
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message3");
+  }
+
+  @Test
+  public void testSortByLongFieldDescending() throws IOException {
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec(TEST_SOURCE_LONG_PROPERTY, true, "boolean")));
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message3");
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message2");
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message1");
+  }
+
+  @Test
+  public void testSortByStringFieldAscending() throws IOException {
+    Instant time = Instant.now();
+    // makeSpan creates TEST_SOURCE_STRING_PROPERTY with value = "String-{i}"
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec(TEST_SOURCE_STRING_PROPERTY, false, "boolean")));
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1");
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message2");
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message3");
+  }
+
+  @Test
+  public void testSortByMultipleFields() throws IOException {
+    Instant time = Instant.now();
+    // Create documents - lexicographic string sort then numeric
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time)); // String-1, long=1
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(10, time)); // String-10, long=10
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time)); // String-2, long=2
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(20, time)); // String-20, long=20
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    // Sort by string ascending, then by long descending
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(
+                new SearchQuery.SortSpec(TEST_SOURCE_STRING_PROPERTY, false, "boolean"),
+                new SearchQuery.SortSpec(TEST_SOURCE_LONG_PROPERTY, true, "boolean")));
+
+    assertThat(results.hits.size()).isEqualTo(4);
+    // Lexicographic order: "String-1", "String-10", "String-2", "String-20"
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1");
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message10");
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message2");
+    assertThat(results.hits.get(3).getId()).isEqualTo("Message20");
+  }
+
+  @Test
+  public void testSortByUnmappedFieldWithUnmappedType() throws IOException {
+    Instant time = Instant.now();
+    // Sort by field not in any document
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(1, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(2, time));
+    strictLogStore.logStore.addMessage(SpanUtil.makeSpan(3, time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    // Sort by field not in schema, using unmapped_type
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec("nonexistent_field", false, "boolean")));
+
+    // All documents returned (all have missing values)
+    assertThat(results.hits.size()).isEqualTo(3);
   }
 }
