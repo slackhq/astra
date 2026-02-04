@@ -3,6 +3,7 @@ package com.slack.astra.metadata.core;
 import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.astra.proto.config.AstraConfigs;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
@@ -269,17 +270,54 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                       continue;
                     }
 
-                    // Handle PUT events - create metadata store if needed
-                    if (event.getEventType() == WatchEvent.EventType.PUT) {
-                      LOG.debug(
-                          "PUT event detected, creating/updating metadata store for partition: {}",
-                          partition);
-                      getOrCreateMetadataStore(partition);
-                    }
-                    // Handle DELETE events
-                    else if (event.getEventType() == WatchEvent.EventType.DELETE) {
-                      LOG.debug("DELETE event detected for key: {}", keyStr);
-                      handlePartitionDeletion(partition);
+                    // Check if this is an actual key within a partition (has content after
+                    // partition/)
+                    if (slashIdx > 0) {
+                      // This is a key within a partition - dispatch to the partition store
+                      // Extract the node path (everything after partition name)
+                      String nodePath = remaining.substring(slashIdx + 1);
+
+                      // Get or create the partition store
+                      EtcdMetadataStore<T> partitionStore = getOrCreateMetadataStore(partition);
+
+                      if (event.getEventType() == WatchEvent.EventType.PUT) {
+                        // Deserialize the value and dispatch to partition store
+                        try {
+                          byte[] valueBytes = event.getKeyValue().getValue().getBytes();
+                          T node = serializer.deserialize(valueBytes);
+
+                          LOG.trace(
+                              "Dispatching PUT event to partition store '{}' for node: {}",
+                              partition,
+                              nodePath);
+                          partitionStore.dispatchExternalWatchEvent(
+                              WatchEvent.EventType.PUT, node, nodePath);
+                        } catch (InvalidProtocolBufferException e) {
+                          LOG.error(
+                              "Failed to deserialize value for key {} in partition {}",
+                              nodePath,
+                              partition,
+                              e);
+                        }
+                      } else if (event.getEventType() == WatchEvent.EventType.DELETE) {
+                        LOG.trace(
+                            "Dispatching DELETE event to partition store '{}' for node: {}",
+                            partition,
+                            nodePath);
+                        partitionStore.dispatchExternalWatchEvent(
+                            WatchEvent.EventType.DELETE, null, nodePath);
+                      }
+                    } else {
+                      // This is a partition-level event (partition creation/deletion)
+                      if (event.getEventType() == WatchEvent.EventType.PUT) {
+                        LOG.debug(
+                            "PUT event detected, creating/updating metadata store for partition: {}",
+                            partition);
+                        getOrCreateMetadataStore(partition);
+                      } else if (event.getEventType() == WatchEvent.EventType.DELETE) {
+                        LOG.debug("DELETE event detected for partition: {}", partition);
+                        handlePartitionDeletion(partition);
+                      }
                     }
                   } else {
                     LOG.debug("Ignoring event for key outside our store folder: {}", keyStr);
@@ -590,9 +628,19 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           LOG.debug(
               "Creating new etcd metadata store for partition - {}, at path - {}", partition, path);
 
+          // Enable external watch management so this store doesn't create its own watches
+          // The partitioning store manages a single shared watch that routes events to all
+          // partitions
           EtcdMetadataStore<T> newStore =
               new EtcdMetadataStore<>(
-                  path, etcdConfig, true, meterRegistry, serializer, createMode, etcdClient);
+                  path,
+                  etcdConfig,
+                  true,
+                  meterRegistry,
+                  serializer,
+                  createMode,
+                  etcdClient,
+                  true); // externalWatchManagement = true
           listenerMap.forEach((_, listener) -> newStore.addListener(listener));
 
           return newStore;

@@ -70,6 +70,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   /** TTL in milliseconds for ephemeral nodes. */
   private final long ephemeralTtlMs;
 
+  /**
+   * When true, watches are managed externally (e.g., by EtcdPartitioningMetadataStore). When false,
+   * this store manages its own watches via addListener().
+   */
+  private final boolean externalWatchManagement;
+
   private static final Logger LOG = LoggerFactory.getLogger(EtcdMetadataStore.class);
 
   protected final String storeFolder;
@@ -79,6 +85,14 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   protected final ConcurrentHashMap<String, T> cache = new ConcurrentHashMap<>();
   protected final boolean shouldCache;
   protected final MetadataSerializer<T> serializer;
+
+  /**
+   * Listeners mapped by identity hash code. Used when externalWatchManagement is true to track
+   * which listeners need to be notified when external watch events are dispatched.
+   */
+  protected final ConcurrentHashMap<String, AstraMetadataStoreChangeListener<T>> listeners =
+      new ConcurrentHashMap<>();
+
   private final long etcdOperationTimeoutMs;
   private final int etcdOperationsMaxRetries;
   private final long retryDelayMs;
@@ -129,7 +143,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         meterRegistry,
         serializer,
         EtcdCreateMode.PERSISTENT,
-        etcClient);
+        etcClient,
+        false);
   }
 
   /** Constructor that accepts an external etcd client instance with specified create mode. */
@@ -141,6 +156,33 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       MetadataSerializer<T> serializer,
       EtcdCreateMode createMode,
       Client etcdClient) {
+    this(
+        storeFolder, config, shouldCache, meterRegistry, serializer, createMode, etcdClient, false);
+  }
+
+  /**
+   * Constructor that accepts an external etcd client instance with specified create mode and watch
+   * management mode.
+   *
+   * @param storeFolder The etcd path prefix for this store
+   * @param config The etcd configuration
+   * @param shouldCache Whether to maintain an in-memory cache
+   * @param meterRegistry Metrics registry
+   * @param serializer Serializer for metadata objects
+   * @param createMode Whether to create persistent or ephemeral nodes
+   * @param etcdClient The etcd client to use
+   * @param externalWatchManagement When true, watches are managed externally and addListener()
+   *     won't create watches
+   */
+  public EtcdMetadataStore(
+      String storeFolder,
+      EtcdConfig config,
+      boolean shouldCache,
+      MeterRegistry meterRegistry,
+      MetadataSerializer<T> serializer,
+      EtcdCreateMode createMode,
+      Client etcdClient,
+      boolean externalWatchManagement) {
     this.storeFolder = storeFolder;
     this.namespace = config.getNamespace();
     this.meterRegistry = meterRegistry;
@@ -150,6 +192,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.createMode = createMode;
     this.ephemeralTtlMs = config.getEphemeralNodeTtlMs();
     this.etcdOperationTimeoutMs = config.getOperationsTimeoutMs();
+    this.externalWatchManagement = externalWatchManagement;
 
     // Store retry configuration for watch operations
     this.etcdOperationsMaxRetries = Math.max(0, config.getOperationsMaxRetries());
@@ -215,14 +258,21 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     if (shouldCache) {
       LOG.info("Cache enabled for etcd store: {}", storeFolder);
 
-      // Create and register a default listener to keep the cache in sync with etcd changes
-      // This ensures that even without explicit listeners, the cache stays updated across JVMs
-      addListener(node -> LOG.trace("Default watcher updated cache for node: {}", node.getName()));
+      // Only create default watcher if this store manages its own watches
+      if (!externalWatchManagement) {
+        // Create and register a default listener to keep the cache in sync with etcd changes
+        // This ensures that even without explicit listeners, the cache stays updated across JVMs
+        addListener(
+            node -> LOG.trace("Default watcher updated cache for node: {}", node.getName()));
+        LOG.info("Default cache watcher started for store: {}", storeFolder);
+      } else {
+        LOG.info(
+            "External watch management enabled for store: {}, skipping default watcher",
+            storeFolder);
+      }
 
       // Populate cache synchronously during initialization
       populateInitialCache();
-
-      LOG.info("Default cache watcher started for store: {}", storeFolder);
     }
   }
 
@@ -846,6 +896,19 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return;
     }
 
+    // If watches are managed externally, just track the listener without creating a watch
+    if (externalWatchManagement) {
+      // Store the listener so we can notify it when external watch events are dispatched
+      String listenerKey = String.valueOf(System.identityHashCode(listener));
+      listeners.put(listenerKey, listener);
+      // Store a placeholder in watchers map to track that this listener exists
+      // The actual watch is managed by the parent (e.g., EtcdPartitioningMetadataStore)
+      watchers.put(listenerKey, null);
+      LOG.debug(
+          "Added listener {} to store {} (external watch management mode)", listener, storeFolder);
+      return;
+    }
+
     // Watch the exact node path itself as well as any children
     ByteSequence prefix = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
 
@@ -1014,6 +1077,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     String key = System.identityHashCode(listener) + "";
+
+    // Remove from listeners map if external watch management
+    if (externalWatchManagement) {
+      listeners.remove(key);
+    }
+
     Watcher watcher = watchers.remove(key);
 
     if (watcher != null) {
@@ -1021,6 +1090,72 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     } else {
       LOG.warn("Attempted to remove unknown listener");
     }
+  }
+
+  /**
+   * Dispatches a watch event to this store when watches are managed externally. This method updates
+   * the cache and notifies all registered listeners.
+   *
+   * <p>This is called by EtcdPartitioningMetadataStore when it receives a watch event for this
+   * partition.
+   *
+   * @param eventType The type of watch event (PUT or DELETE)
+   * @param node The metadata node (for PUT events, null for DELETE if not in cache)
+   * @param path The path/name of the node
+   */
+  public void dispatchExternalWatchEvent(WatchEvent.EventType eventType, T node, String path) {
+    if (!externalWatchManagement) {
+      LOG.warn(
+          "dispatchExternalWatchEvent called on store {} without external watch management enabled",
+          storeFolder);
+      return;
+    }
+
+    // Process the event on the shared watch event executor to maintain consistency with
+    // internally-managed watches
+    WATCH_EVENT_EXECUTOR.execute(
+        () -> {
+          try {
+            switch (eventType) {
+              case PUT:
+                if (node != null) {
+                  // Update cache
+                  cache.put(path, node);
+
+                  // Notify all listeners
+                  for (AstraMetadataStoreChangeListener<T> listener : listeners.values()) {
+                    try {
+                      listener.onMetadataStoreChanged(node);
+                    } catch (Exception e) {
+                      LOG.error("Error notifying listener of change in store {}", storeFolder, e);
+                    }
+                  }
+                }
+                break;
+
+              case DELETE:
+                // Remove from cache
+                T deletedNode = cache.remove(path);
+
+                // Notify listeners only if we had the node in cache
+                if (deletedNode != null) {
+                  for (AstraMetadataStoreChangeListener<T> listener : listeners.values()) {
+                    try {
+                      listener.onMetadataStoreChanged(deletedNode);
+                    } catch (Exception e) {
+                      LOG.error("Error notifying listener of deletion in store {}", storeFolder, e);
+                    }
+                  }
+                }
+                break;
+
+              default:
+                LOG.warn("Unknown event type: {}", eventType);
+            }
+          } catch (Exception e) {
+            LOG.error("Error dispatching external watch event to store {}", storeFolder, e);
+          }
+        });
   }
 
   /**
