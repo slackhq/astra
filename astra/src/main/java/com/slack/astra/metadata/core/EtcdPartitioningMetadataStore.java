@@ -64,6 +64,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final Watch watchClient;
   private final Map<String, AstraMetadataStoreChangeListener<T>> listenerMap =
       new ConcurrentHashMap<>();
+  private final Map<String, Watch.Watcher> listenerWatcherMap = new ConcurrentHashMap<>();
 
   /**
    * Constructor for EtcdPartitioningMetadataStore with default empty partition filters.
@@ -592,8 +593,14 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
           EtcdMetadataStore<T> newStore =
               new EtcdMetadataStore<>(
-                  path, etcdConfig, true, meterRegistry, serializer, createMode, etcdClient);
-          listenerMap.forEach((_, listener) -> newStore.addListener(listener));
+                  path,
+                  etcdConfig,
+                  true,
+                  meterRegistry,
+                  serializer,
+                  createMode,
+                  etcdClient,
+                  true); // externalWatchManagement=true
 
           return newStore;
         });
@@ -629,17 +636,164 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     return metadataStoreMap.containsKey(partition);
   }
 
-  public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
-    LOG.info("Adding listener {}", watcher);
-    // add this watcher to the map for new stores to add
-    listenerMap.put(System.identityHashCode(watcher) + "", watcher);
-    // add this watcher to existing stores
-    metadataStoreMap.forEach((_, store) -> store.addListener(watcher));
+  public void addListener(AstraMetadataStoreChangeListener<T> listener) {
+    LOG.info("Adding listener {} for partitioning store {}", listener, storeFolder);
+    String listenerKey = System.identityHashCode(listener) + "";
+
+    // Add this listener to the map for tracking
+    listenerMap.put(listenerKey, listener);
+
+    // Create a dedicated watch for this listener that monitors all partitions
+    ByteSequence prefix =
+        ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
+
+    // Get the current revision before starting the watch to prevent race conditions
+    WatchOption watchOption;
+    try {
+      long currentRevision =
+          etcdClient
+              .getKVClient()
+              .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
+              .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
+              .getHeader()
+              .getRevision();
+
+      // Create watch option starting from the next revision
+      watchOption =
+          WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
+      LOG.debug(
+          "Creating watch for listener {} at revision {} for store {}",
+          listener,
+          currentRevision + 1,
+          storeFolder);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Failed to get current revision for listener watch setup", e);
+      // Fallback to basic watch without revision
+      watchOption = WatchOption.builder().withPrefix(prefix).build();
+    }
+
+    // Create the watcher for this listener
+    Watch.Watcher watcher =
+        watchClient.watch(
+            prefix,
+            watchOption,
+            new Watch.Listener() {
+              @Override
+              public void onNext(WatchResponse watchResponse) {
+                if (!executorService.isShutdown()) {
+                  executorService.submit(
+                      () -> {
+                        for (WatchEvent event : watchResponse.getEvents()) {
+                          try {
+                            String keyStr =
+                                event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
+
+                            // Only process events for actual metadata nodes (not partition
+                            // directories)
+                            if (keyStr.startsWith(String.format("%s/", storeFolder))) {
+                              String remaining =
+                                  keyStr.substring(String.format("%s/", storeFolder).length());
+                              int firstSlash = remaining.indexOf('/');
+
+                              if (firstSlash > 0) {
+                                // This is a metadata node: storeFolder/partition/nodeName
+                                String partition = remaining.substring(0, firstSlash);
+                                String path = remaining.substring(firstSlash + 1);
+
+                                // Skip if partition filters are active and this partition isn't
+                                // included
+                                if (!partitionFilters.isEmpty()
+                                    && !partitionFilters.contains(partition)) {
+                                  continue;
+                                }
+
+                                // Get or create the partition store
+                                EtcdMetadataStore<T> store = getOrCreateMetadataStore(partition);
+
+                                // Handle the event based on type
+                                switch (event.getEventType()) {
+                                  case PUT:
+                                    // Deserialize the node
+                                    String json =
+                                        event
+                                            .getKeyValue()
+                                            .getValue()
+                                            .toString(StandardCharsets.UTF_8);
+                                    T node = serializer.fromJsonStr(json);
+
+                                    // Update cache directly
+                                    store.cache.put(path, node);
+
+                                    // Notify listener
+                                    listener.onMetadataStoreChanged(node);
+                                    break;
+
+                                  case DELETE:
+                                    // Remove from cache
+                                    T deletedNode = store.cache.remove(path);
+
+                                    // Notify listener if node was in cache
+                                    if (deletedNode != null) {
+                                      listener.onMetadataStoreChanged(deletedNode);
+                                    }
+                                    break;
+
+                                  default:
+                                    LOG.warn("Unknown event type: {}", event.getEventType());
+                                }
+                              }
+                            }
+                          } catch (Exception e) {
+                            LOG.error("Error processing watch event for listener {}", listener, e);
+                          }
+                        }
+                      });
+                }
+              }
+
+              @Override
+              public void onError(Throwable throwable) {
+                LOG.error(
+                    "Error in listener watch for store {} (listener {})",
+                    storeFolder,
+                    listener,
+                    throwable);
+              }
+
+              @Override
+              public void onCompleted() {
+                LOG.warn(
+                    "Listener watch completed for store {} (listener {})", storeFolder, listener);
+              }
+            });
+
+    // Store the watcher so we can close it later
+    listenerWatcherMap.put(listenerKey, watcher);
+
+    LOG.info(
+        "Created dedicated watch for listener {} on store {} (total listeners: {})",
+        listener,
+        storeFolder,
+        listenerMap.size());
   }
 
-  public void removeListener(AstraMetadataStoreChangeListener<T> watcher) {
-    listenerMap.remove(System.identityHashCode(watcher) + "");
-    metadataStoreMap.forEach((_, store) -> store.removeListener(watcher));
+  public void removeListener(AstraMetadataStoreChangeListener<T> listener) {
+    String listenerKey = System.identityHashCode(listener) + "";
+    LOG.info("Removing listener {} from partitioning store {}", listener, storeFolder);
+
+    // Remove from listener map
+    listenerMap.remove(listenerKey);
+
+    // Close and remove the watcher for this listener
+    Watch.Watcher watcher = listenerWatcherMap.remove(listenerKey);
+    if (watcher != null) {
+      try {
+        watcher.close();
+        LOG.debug("Closed watcher for listener {}", listener);
+      } catch (Exception e) {
+        LOG.warn("Error closing watcher for listener {}", listener, e);
+      }
+    }
   }
 
   /**
@@ -669,10 +823,10 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         listenerMap.size(),
         metadataStoreMap.size());
 
-    // Remove all listeners and close all stores
+    // Remove all listeners (which will close their watchers)
     new ArrayList<>(listenerMap.values()).forEach(this::removeListener);
 
-    // All watchers are automatically closed when the client is closed
+    // Close executor service for partition discovery watcher
     executorService.shutdownNow();
     try {
       executorService.awaitTermination(DEFAULT_START_STOP_DURATION.toSeconds(), TimeUnit.SECONDS);
@@ -680,10 +834,12 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       LOG.warn("Interrupted while waiting for close", e);
     }
 
+    // Close all partition stores
     metadataStoreMap.forEach((ignored, store) -> store.close());
 
     // Clear the maps
     listenerMap.clear();
     metadataStoreMap.clear();
+    listenerWatcherMap.clear();
   }
 }

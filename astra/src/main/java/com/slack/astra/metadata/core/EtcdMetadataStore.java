@@ -70,6 +70,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   /** TTL in milliseconds for ephemeral nodes. */
   private final long ephemeralTtlMs;
 
+  /**
+   * When true, watches are managed externally (e.g., by EtcdPartitioningMetadataStore). When false,
+   * this store manages its own watches via addListener().
+   */
+  private final boolean externalWatchManagement;
+
   private static final Logger LOG = LoggerFactory.getLogger(EtcdMetadataStore.class);
 
   protected final String storeFolder;
@@ -129,7 +135,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         meterRegistry,
         serializer,
         EtcdCreateMode.PERSISTENT,
-        etcClient);
+        etcClient,
+        false);
   }
 
   /** Constructor that accepts an external etcd client instance with specified create mode. */
@@ -141,6 +148,33 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       MetadataSerializer<T> serializer,
       EtcdCreateMode createMode,
       Client etcdClient) {
+    this(
+        storeFolder, config, shouldCache, meterRegistry, serializer, createMode, etcdClient, false);
+  }
+
+  /**
+   * Constructor that accepts an external etcd client instance with specified create mode and watch
+   * management mode.
+   *
+   * @param storeFolder The etcd path prefix for this store
+   * @param config The etcd configuration
+   * @param shouldCache Whether to maintain an in-memory cache
+   * @param meterRegistry Metrics registry
+   * @param serializer Serializer for metadata objects
+   * @param createMode Whether to create persistent or ephemeral nodes
+   * @param etcdClient The etcd client to use
+   * @param externalWatchManagement When true, watches are managed externally and addListener()
+   *     won't create watches
+   */
+  public EtcdMetadataStore(
+      String storeFolder,
+      EtcdConfig config,
+      boolean shouldCache,
+      MeterRegistry meterRegistry,
+      MetadataSerializer<T> serializer,
+      EtcdCreateMode createMode,
+      Client etcdClient,
+      boolean externalWatchManagement) {
     this.storeFolder = storeFolder;
     this.namespace = config.getNamespace();
     this.meterRegistry = meterRegistry;
@@ -150,6 +184,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.createMode = createMode;
     this.ephemeralTtlMs = config.getEphemeralNodeTtlMs();
     this.etcdOperationTimeoutMs = config.getOperationsTimeoutMs();
+    this.externalWatchManagement = externalWatchManagement;
 
     // Store retry configuration for watch operations
     this.etcdOperationsMaxRetries = Math.max(0, config.getOperationsMaxRetries());
@@ -215,14 +250,21 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     if (shouldCache) {
       LOG.info("Cache enabled for etcd store: {}", storeFolder);
 
-      // Create and register a default listener to keep the cache in sync with etcd changes
-      // This ensures that even without explicit listeners, the cache stays updated across JVMs
-      addListener(node -> LOG.trace("Default watcher updated cache for node: {}", node.getName()));
+      // Only create default watcher if this store manages its own watches
+      if (!externalWatchManagement) {
+        // Create and register a default listener to keep the cache in sync with etcd changes
+        // This ensures that even without explicit listeners, the cache stays updated across JVMs
+        addListener(
+            node -> LOG.trace("Default watcher updated cache for node: {}", node.getName()));
+        LOG.info("Default cache watcher started for store: {}", storeFolder);
+      } else {
+        LOG.info(
+            "External watch management enabled for store: {}, skipping default watcher",
+            storeFolder);
+      }
 
       // Populate cache synchronously during initialization
       populateInitialCache();
-
-      LOG.info("Default cache watcher started for store: {}", storeFolder);
     }
   }
 
