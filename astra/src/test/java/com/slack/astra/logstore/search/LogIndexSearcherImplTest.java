@@ -2675,4 +2675,36 @@ public class LogIndexSearcherImplTest {
     assertThat(results.hits.get(1).getId()).isEqualTo("Message1"); // true (1)
     assertThat(results.hits.get(2).getId()).isEqualTo("Message2"); // missing
   }
+
+  @Test
+  public void testSortByTextFieldThrowsError() throws IOException {
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1,
+            "message1",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("text_field")
+                    .setFieldType(Schema.SchemaFieldType.TEXT)
+                    .setVStr("test message")
+                    .build())));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    // Attempting to sort on TEXT field should throw IllegalArgumentException
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    10,
+                    QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+                    null,
+                    null,
+                    List.of(new SearchQuery.SortSpec("text_field", false, "text"))))
+        .withMessageContaining("Cannot sort on analyzed text field 'text_field'")
+        .withMessageContaining("Use 'text_field.keyword' instead");
+  }
 }

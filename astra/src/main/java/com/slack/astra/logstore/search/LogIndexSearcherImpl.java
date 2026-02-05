@@ -10,6 +10,7 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
+import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.JsonUtil;
@@ -171,6 +172,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       } finally {
         searcherManager.release(searcher);
       }
+    } catch (IllegalArgumentException e) {
+      // Preserve validation error messages (e.g., TEXT field sorting errors)
+      span.error(e);
+      throw e;
     } catch (IOException e) {
       span.error(e);
       throw new IllegalArgumentException("Failed to acquire an index searcher.", e);
@@ -314,6 +319,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
       // Determine type name: use schema type if available, otherwise use unmappedType
       String esType = fieldDef != null ? fieldDef.fieldType.name : spec.unmappedType;
+
+      // Reject sorting on TEXT fields (analyzed fields) - users should use .keyword instead
+      if ((fieldDef != null && fieldDef.fieldType == FieldType.TEXT)
+          || (fieldDef == null && "text".equalsIgnoreCase(spec.unmappedType))) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Cannot sort on analyzed text field '%s'. Use '%s.keyword' instead for sorting.",
+                spec.fieldName, spec.fieldName));
+      }
+
       SortField.Type luceneType = esTypeToLuceneSortType(esType);
 
       if (fieldDef == null) {
