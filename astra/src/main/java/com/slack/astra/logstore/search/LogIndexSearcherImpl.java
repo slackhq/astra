@@ -250,10 +250,18 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
    * values are always placed at the end of results (bottom), regardless of sort direction.
    *
    * @param sortField The SortField to configure
+   * @param luceneType The underlying Lucene type (used for CUSTOM types like
+   *     SortedNumericSortField)
    * @param isDescending Whether the sort is descending
    */
-  private static void setMissingValue(SortField sortField, boolean isDescending) {
+  private static void setMissingValue(
+      SortField sortField, SortField.Type luceneType, boolean isDescending) {
     SortField.Type type = sortField.getType();
+
+    // For SortedNumericSortField (type=CUSTOM), use the original luceneType
+    if (type == SortField.Type.CUSTOM) {
+      type = luceneType;
+    }
 
     // For descending sorts: missing values should be "less than" all real values
     // For ascending sorts: missing values should be "greater than" all real values
@@ -328,7 +336,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       }
 
       // Set missing value to ensure consistent sorting of documents without this field
-      setMissingValue(sortField, spec.isDescending);
+      setMissingValue(sortField, luceneType, spec.isDescending);
 
       sortFields[i] = sortField;
     }

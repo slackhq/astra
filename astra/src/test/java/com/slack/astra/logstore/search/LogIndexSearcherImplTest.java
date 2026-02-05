@@ -2579,4 +2579,100 @@ public class LogIndexSearcherImplTest {
     // All documents returned (all have missing values)
     assertThat(results.hits.size()).isEqualTo(3);
   }
+
+  @Test
+  public void testSortByBooleanWithMissingValuesDescending() throws IOException {
+    Instant time = Instant.now();
+    // Test descending sort with missing boolean fields
+    // Documents without the boolean field should sort to the end
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1,
+            "message1",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("is_premium")
+                    .setFieldType(Schema.SchemaFieldType.BOOLEAN)
+                    .setVBool(true)
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, "message2", time, List.of())); // No is_premium field (missing)
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            3,
+            "message3",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("is_premium")
+                    .setFieldType(Schema.SchemaFieldType.BOOLEAN)
+                    .setVBool(false)
+                    .build())));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec("is_premium", true, "boolean"))); // descending
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    // Descending: true (1) > false (0), missing should sort to the end
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1"); // true (1)
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message3"); // false (0)
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message2"); // missing
+  }
+
+  @Test
+  public void testSortByBooleanWithMissingValuesAscending() throws IOException {
+    Instant time = Instant.now();
+    // Test ascending sort with missing boolean fields
+    // Documents without the boolean field should sort to the end
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1,
+            "message1",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("is_premium")
+                    .setFieldType(Schema.SchemaFieldType.BOOLEAN)
+                    .setVBool(true)
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, "message2", time, List.of())); // No is_premium field (missing)
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            3,
+            "message3",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("is_premium")
+                    .setFieldType(Schema.SchemaFieldType.BOOLEAN)
+                    .setVBool(false)
+                    .build())));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec("is_premium", false, "boolean"))); // ascending
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    // Ascending: false (0) < true (1), missing should sort to the end
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message3"); // false (0)
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message1"); // true (1)
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message2"); // missing
+  }
 }
