@@ -31,6 +31,8 @@ import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
+import org.apache.lucene.search.SortedNumericSelector;
+import org.apache.lucene.search.SortedNumericSortField;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.opensearch.index.query.QueryBuilder;
@@ -306,6 +308,15 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       String esType = fieldDef != null ? fieldDef.fieldType.name : spec.unmappedType;
       SortField.Type luceneType = esTypeToLuceneSortType(esType);
 
+      // Validate that TEXT fields cannot be sorted
+      if (isTextField(esType)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Cannot sort on TEXT field '%s'. TEXT fields are analyzed/tokenized "
+                    + "and do not support sorting. Please use '%s.keyword' for sorting instead.",
+                spec.fieldName, spec.fieldName));
+      }
+
       if (fieldDef == null) {
         LOG.debug(
             "Sort field '{}' not found in schema, using unmapped_type '{}' (Lucene type: {})",
@@ -314,8 +325,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             luceneType);
       }
 
-      // Create sort field with reversed flag (true = descending)
-      SortField sortField = new SortField(spec.fieldName, luceneType, spec.isDescending);
+      // Create sort field - use SortedNumericSortField for multi-valued numeric fields
+      SortField sortField;
+      if (isStoredAsMultiValuedNumeric(esType)) {
+        // Boolean and half_float are stored with SortedNumericDocValuesField (multi-valued)
+        // Use SortedNumericSortField which knows how to handle multi-valued fields
+        sortField = createMultiValuedSortField(spec.fieldName, luceneType, spec.isDescending);
+      } else {
+        // Regular single-valued fields use standard SortField
+        sortField = new SortField(spec.fieldName, luceneType, spec.isDescending);
+      }
 
       // Set missing value to ensure consistent sorting of documents without this field
       setMissingValue(sortField, spec.isDescending);
@@ -355,5 +374,49 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     } catch (IOException e) {
       LOG.error("Encountered error closing searcher manager", e);
     }
+  }
+
+  /**
+   * Checks if a field type is TEXT, which cannot be sorted because it's analyzed/tokenized.
+   *
+   * @param fieldType The field type name to check
+   * @return true if the field type is TEXT
+   */
+  private static boolean isTextField(String fieldType) {
+    if (fieldType == null) {
+      return false;
+    }
+    return "text".equalsIgnoreCase(fieldType.trim());
+  }
+
+  /**
+   * Checks if a field type is stored using SortedNumericDocValuesField (multi-valued numeric
+   * storage). These types require SortedNumericSortField instead of regular SortField.
+   *
+   * @param fieldType The field type name to check
+   * @return true if the field type uses multi-valued numeric storage
+   */
+  private static boolean isStoredAsMultiValuedNumeric(String fieldType) {
+    if (fieldType == null) {
+      return false;
+    }
+    String normalized = fieldType.toLowerCase().trim();
+    return normalized.equals("boolean") || normalized.equals("half_float");
+  }
+
+  /**
+   * Creates a SortedNumericSortField for fields stored with SortedNumericDocValuesField. Uses MIN
+   * selector for ascending sorts and MAX selector for descending sorts.
+   *
+   * @param fieldName The name of the field to sort by
+   * @param type The Lucene sort field type
+   * @param isDescending Whether to sort in descending order
+   * @return SortedNumericSortField configured with appropriate selector
+   */
+  private static SortField createMultiValuedSortField(
+      String fieldName, SortField.Type type, boolean isDescending) {
+    SortedNumericSelector.Type selector =
+        isDescending ? SortedNumericSelector.Type.MAX : SortedNumericSelector.Type.MIN;
+    return new SortedNumericSortField(fieldName, type, isDescending, selector);
   }
 }
