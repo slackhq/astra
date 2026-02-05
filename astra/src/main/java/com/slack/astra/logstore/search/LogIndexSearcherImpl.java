@@ -308,15 +308,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       String esType = fieldDef != null ? fieldDef.fieldType.name : spec.unmappedType;
       SortField.Type luceneType = esTypeToLuceneSortType(esType);
 
-      // Validate that TEXT fields cannot be sorted
-      if (isTextField(esType)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Cannot sort on TEXT field '%s'. TEXT fields are analyzed/tokenized "
-                    + "and do not support sorting. Please use '%s.keyword' for sorting instead.",
-                spec.fieldName, spec.fieldName));
-      }
-
       if (fieldDef == null) {
         LOG.debug(
             "Sort field '{}' not found in schema, using unmapped_type '{}' (Lucene type: {})",
@@ -374,19 +365,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     } catch (IOException e) {
       LOG.error("Encountered error closing searcher manager", e);
     }
-  }
-
-  /**
-   * Checks if a field type is TEXT, which cannot be sorted because it's analyzed/tokenized.
-   *
-   * @param fieldType The field type name to check
-   * @return true if the field type is TEXT
-   */
-  private static boolean isTextField(String fieldType) {
-    if (fieldType == null) {
-      return false;
-    }
-    return "text".equalsIgnoreCase(fieldType.trim());
   }
 
   /**
