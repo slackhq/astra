@@ -10,6 +10,7 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
+import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.util.JsonUtil;
@@ -31,6 +32,8 @@ import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
+import org.apache.lucene.search.SortedNumericSelector;
+import org.apache.lucene.search.SortedNumericSortField;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.opensearch.index.query.QueryBuilder;
@@ -169,6 +172,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       } finally {
         searcherManager.release(searcher);
       }
+    } catch (IllegalArgumentException e) {
+      // Preserve validation error messages (e.g., TEXT field sorting errors)
+      span.error(e);
+      throw e;
     } catch (IOException e) {
       span.error(e);
       throw new IllegalArgumentException("Failed to acquire an index searcher.", e);
@@ -248,10 +255,18 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
    * values are always placed at the end of results (bottom), regardless of sort direction.
    *
    * @param sortField The SortField to configure
+   * @param luceneType The underlying Lucene type (used for CUSTOM types like
+   *     SortedNumericSortField)
    * @param isDescending Whether the sort is descending
    */
-  private static void setMissingValue(SortField sortField, boolean isDescending) {
+  private static void setMissingValue(
+      SortField sortField, SortField.Type luceneType, boolean isDescending) {
     SortField.Type type = sortField.getType();
+
+    // For SortedNumericSortField (type=CUSTOM), use the original luceneType
+    if (type == SortField.Type.CUSTOM) {
+      type = luceneType;
+    }
 
     // For descending sorts: missing values should be "less than" all real values
     // For ascending sorts: missing values should be "greater than" all real values
@@ -304,6 +319,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
       // Determine type name: use schema type if available, otherwise use unmappedType
       String esType = fieldDef != null ? fieldDef.fieldType.name : spec.unmappedType;
+
+      // Reject sorting on TEXT fields (analyzed fields) - users should use .keyword instead
+      if ((fieldDef != null && fieldDef.fieldType == FieldType.TEXT)
+          || (fieldDef == null && "text".equalsIgnoreCase(spec.unmappedType))) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Cannot sort on analyzed text field '%s'. Use '%s.keyword' instead for sorting.",
+                spec.fieldName, spec.fieldName));
+      }
+
       SortField.Type luceneType = esTypeToLuceneSortType(esType);
 
       if (fieldDef == null) {
@@ -314,11 +339,19 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             luceneType);
       }
 
-      // Create sort field with reversed flag (true = descending)
-      SortField sortField = new SortField(spec.fieldName, luceneType, spec.isDescending);
+      // Create sort field - use SortedNumericSortField for multi-valued numeric fields
+      SortField sortField;
+      if (isStoredAsMultiValuedNumeric(esType)) {
+        // Boolean and half_float are stored with SortedNumericDocValuesField (multi-valued)
+        // Use SortedNumericSortField which knows how to handle multi-valued fields
+        sortField = createMultiValuedSortField(spec.fieldName, luceneType, spec.isDescending);
+      } else {
+        // Regular single-valued fields use standard SortField
+        sortField = new SortField(spec.fieldName, luceneType, spec.isDescending);
+      }
 
       // Set missing value to ensure consistent sorting of documents without this field
-      setMissingValue(sortField, spec.isDescending);
+      setMissingValue(sortField, luceneType, spec.isDescending);
 
       sortFields[i] = sortField;
     }
@@ -355,5 +388,36 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     } catch (IOException e) {
       LOG.error("Encountered error closing searcher manager", e);
     }
+  }
+
+  /**
+   * Checks if a field type is stored using SortedNumericDocValuesField (multi-valued numeric
+   * storage). These types require SortedNumericSortField instead of regular SortField.
+   *
+   * @param fieldType The field type name to check
+   * @return true if the field type uses multi-valued numeric storage
+   */
+  private static boolean isStoredAsMultiValuedNumeric(String fieldType) {
+    if (fieldType == null) {
+      return false;
+    }
+    String normalized = fieldType.toLowerCase().trim();
+    return normalized.equals("boolean") || normalized.equals("half_float");
+  }
+
+  /**
+   * Creates a SortedNumericSortField for fields stored with SortedNumericDocValuesField. Uses MIN
+   * selector for ascending sorts and MAX selector for descending sorts.
+   *
+   * @param fieldName The name of the field to sort by
+   * @param type The Lucene sort field type
+   * @param isDescending Whether to sort in descending order
+   * @return SortedNumericSortField configured with appropriate selector
+   */
+  private static SortField createMultiValuedSortField(
+      String fieldName, SortField.Type type, boolean isDescending) {
+    SortedNumericSelector.Type selector =
+        isDescending ? SortedNumericSelector.Type.MAX : SortedNumericSelector.Type.MIN;
+    return new SortedNumericSortField(fieldName, type, isDescending, selector);
   }
 }
