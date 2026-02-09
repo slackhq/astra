@@ -2,19 +2,24 @@ package com.slack.astra.bulkIngestApi;
 
 import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,8 +30,13 @@ import org.slf4j.LoggerFactory;
  */
 public class BulkIngestApi {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestApi.class);
+
+  public static final String ASTRA_SCHEMA_ENFORCEMENT_FLAG = "astra.schema.enforcement.enabled";
+
   private final BulkIngestKafkaProducer bulkIngestKafkaProducer;
   private final DatasetRateLimitingService datasetRateLimitingService;
+  private final Schema.IngestSchema schema;
+  private final DatasetSchemaService datasetSchemaService;
   private final MeterRegistry meterRegistry;
   private final Counter incomingByteTotal;
   private final Counter incomingDocsTotal;
@@ -36,19 +46,53 @@ public class BulkIngestApi {
   private final String BULK_INGEST_ERROR = "astra_preprocessor_error";
   private final String BULK_INGEST_TIMER = "astra_preprocessor_bulk_ingest";
   private final int rateLimitExceededErrorCode;
-  private final Schema.IngestSchema schema;
 
   private final Counter bulkIngestErrorCounter;
 
+  /** Original constructor — uses a static schema for type-aware parsing. */
   public BulkIngestApi(
       BulkIngestKafkaProducer bulkIngestKafkaProducer,
       DatasetRateLimitingService datasetRateLimitingService,
       MeterRegistry meterRegistry,
       int rateLimitExceededErrorCode,
       Schema.IngestSchema schema) {
+    this(
+        bulkIngestKafkaProducer,
+        datasetRateLimitingService,
+        meterRegistry,
+        rateLimitExceededErrorCode,
+        schema,
+        null);
+  }
+
+  /** Schema enforcement constructor — uses DatasetSchemaService for dynamic schema + filtering. */
+  public BulkIngestApi(
+      BulkIngestKafkaProducer bulkIngestKafkaProducer,
+      DatasetRateLimitingService datasetRateLimitingService,
+      MeterRegistry meterRegistry,
+      int rateLimitExceededErrorCode,
+      DatasetSchemaService datasetSchemaService) {
+    this(
+        bulkIngestKafkaProducer,
+        datasetRateLimitingService,
+        meterRegistry,
+        rateLimitExceededErrorCode,
+        null,
+        datasetSchemaService);
+  }
+
+  private BulkIngestApi(
+      BulkIngestKafkaProducer bulkIngestKafkaProducer,
+      DatasetRateLimitingService datasetRateLimitingService,
+      MeterRegistry meterRegistry,
+      int rateLimitExceededErrorCode,
+      Schema.IngestSchema schema,
+      DatasetSchemaService datasetSchemaService) {
 
     this.bulkIngestKafkaProducer = bulkIngestKafkaProducer;
     this.datasetRateLimitingService = datasetRateLimitingService;
+    this.schema = schema;
+    this.datasetSchemaService = datasetSchemaService;
     this.meterRegistry = meterRegistry;
     this.incomingByteTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_TOTAL);
     this.incomingDocsTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_DOCS);
@@ -58,7 +102,6 @@ public class BulkIngestApi {
     } else {
       this.rateLimitExceededErrorCode = rateLimitExceededErrorCode;
     }
-    this.schema = schema;
     this.bulkIngestErrorCounter = meterRegistry.counter(BULK_INGEST_ERROR);
   }
 
@@ -75,7 +118,18 @@ public class BulkIngestApi {
       incomingByteTotal.increment(bulkRequestBytes.length);
       Map<String, List<Trace.Span>> docs = Map.of();
       try {
-        docs = BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
+        if (Boolean.getBoolean(ASTRA_SCHEMA_ENFORCEMENT_FLAG) && datasetSchemaService != null) {
+          // Get schema from the schema service (dynamically updated from SchemaMetadataStore)
+          Schema.IngestSchema enforcedSchema = datasetSchemaService.getSchema();
+          AstraConfigs.SchemaMode schemaMode = datasetSchemaService.getSchemaMode();
+
+          // Step 1: Parse the request with schema-aware type conversion
+          docs = BulkApiRequestParser.parseRequest(bulkRequestBytes, enforcedSchema);
+          // Step 2: Apply filtering based on schema mode
+          docs = filterDocsBySchemaMode(docs, enforcedSchema, schemaMode);
+        } else {
+          docs = BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
+        }
       } catch (Exception e) {
         LOG.error("Request failed ", e);
         bulkIngestErrorCounter.increment();
@@ -133,5 +187,45 @@ public class BulkIngestApi {
     }
 
     return HttpResponse.of(future);
+  }
+
+  /**
+   * Filters documents based on the schema mode. In DROP_UNKNOWN mode, removes tags that are not
+   * defined in the schema.
+   */
+  @VisibleForTesting
+  public static Map<String, List<Trace.Span>> filterDocsBySchemaMode(
+      Map<String, List<Trace.Span>> docs,
+      Schema.IngestSchema schema,
+      AstraConfigs.SchemaMode schemaMode) {
+    if (schemaMode != AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN) {
+      return docs;
+    }
+
+    Map<String, List<Trace.Span>> filteredDocs = new HashMap<>();
+    for (Map.Entry<String, List<Trace.Span>> entry : docs.entrySet()) {
+      List<Trace.Span> filteredSpans =
+          entry.getValue().stream()
+              .map(span -> filterSpanTags(span, schema))
+              .collect(Collectors.toList());
+      filteredDocs.put(entry.getKey(), filteredSpans);
+    }
+    return filteredDocs;
+  }
+
+  /** Filters tags from a span, keeping only those defined in the schema. */
+  @VisibleForTesting
+  public static Trace.Span filterSpanTags(Trace.Span span, Schema.IngestSchema schema) {
+    List<Trace.KeyValue> filteredTags = new ArrayList<>();
+    for (Trace.KeyValue tag : span.getTagsList()) {
+      String key = tag.getKey();
+      // For multi-field tags like "field.keyword", check the base field name
+      String baseKey = key.contains(".") ? key.substring(0, key.indexOf('.')) : key;
+      if (schema.containsFields(baseKey)) {
+        filteredTags.add(tag);
+      }
+    }
+
+    return span.toBuilder().clearTags().addAllTags(filteredTags).build();
   }
 }

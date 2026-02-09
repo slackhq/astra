@@ -15,12 +15,15 @@ import com.slack.astra.bulkIngestApi.BulkIngestApi;
 import com.slack.astra.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.astra.bulkIngestApi.BulkIngestResponse;
 import com.slack.astra.bulkIngestApi.DatasetRateLimitingService;
+import com.slack.astra.bulkIngestApi.DatasetSchemaService;
 import com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.astra.metadata.preprocessor.PreprocessorMetadataStore;
+import com.slack.astra.metadata.schema.SchemaMetadata;
+import com.slack.astra.metadata.schema.SchemaMetadataStore;
 import com.slack.astra.preprocessor.PreprocessorRateLimiter;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
@@ -69,6 +72,8 @@ public class BulkIngestApiTest {
 
   private BulkIngestKafkaProducer bulkIngestKafkaProducer;
   private DatasetRateLimitingService datasetRateLimitingService;
+  private DatasetSchemaService datasetSchemaService;
+  private static SchemaMetadataStore schemaMetadataStore;
 
   static String INDEX_NAME = "testindex";
 
@@ -153,6 +158,7 @@ public class BulkIngestApiTest {
             .putStoreModes("PreprocessorMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .putStoreModes("RecoveryNodeMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .putStoreModes("RecoveryTaskMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
+            .putStoreModes("SchemaMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES)
             .setZookeeperConfig(zkConfig)
             .setEtcdConfig(etcdConfig)
             .build();
@@ -174,14 +180,20 @@ public class BulkIngestApiTest {
     preprocessorMetadataStore =
         new PreprocessorMetadataStore(
             curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
+    schemaMetadataStore =
+        new SchemaMetadataStore(
+            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
 
     datasetRateLimitingService =
         new DatasetRateLimitingService(
             datasetMetadataStore, preprocessorMetadataStore, preprocessorConfig, meterRegistry);
 
     datasetRateLimitingService.startAsync();
-
     datasetRateLimitingService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    datasetSchemaService = new DatasetSchemaService(schemaMetadataStore);
+    datasetSchemaService.startAsync();
+    datasetSchemaService.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   // I looked at making this a @BeforeEach. it's possible if you annotate a test with a @Tag and
@@ -218,9 +230,14 @@ public class BulkIngestApiTest {
   // the shutdown code with the @AfterEach annotation
   public void shutdownOpenSearchAPI() throws Exception {
     System.clearProperty("astra.bulkIngest.useKafkaTransactions");
+    System.clearProperty(BulkIngestApi.ASTRA_SCHEMA_ENFORCEMENT_FLAG);
     if (datasetRateLimitingService != null) {
       datasetRateLimitingService.stopAsync();
       datasetRateLimitingService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    }
+    if (datasetSchemaService != null) {
+      datasetSchemaService.stopAsync();
+      datasetSchemaService.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     if (bulkIngestKafkaProducer != null) {
       bulkIngestKafkaProducer.stopAsync();
@@ -230,6 +247,7 @@ public class BulkIngestApiTest {
 
     datasetMetadataStore.close();
     preprocessorMetadataStore.close();
+    schemaMetadataStore.close();
     curatorFramework.unwrap().close();
     zkServer.close();
     meterRegistry.close();
@@ -266,7 +284,7 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             400,
-            Schema.IngestSchema.newBuilder().build());
+            Schema.IngestSchema.getDefaultInstance());
 
     String request1 =
         """
@@ -339,7 +357,7 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             TOO_MANY_REQUESTS.code(),
-            Schema.IngestSchema.newBuilder().build());
+            Schema.IngestSchema.getDefaultInstance());
     httpResponse = bulkApi2.addDocument(request1).aggregate().join();
     assertThat(httpResponse.status().isSuccess()).isEqualTo(false);
     assertThat(httpResponse.status().code()).isEqualTo(TOO_MANY_REQUESTS.code());
@@ -367,7 +385,7 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             400,
-            Schema.IngestSchema.newBuilder().build());
+            Schema.IngestSchema.getDefaultInstance());
 
     String request1 =
         """
@@ -422,7 +440,7 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             400,
-            Schema.IngestSchema.newBuilder().build());
+            Schema.IngestSchema.getDefaultInstance());
 
     String request1 =
         """
@@ -460,6 +478,298 @@ public class BulkIngestApiTest {
 
     // close the kafka consumer used in the test
     kafkaConsumer.close();
+  }
+
+  // Validate that schema is used during ingest (that filtering happens)
+  @Test
+  public void testStaticSchemaMode() throws Exception {
+    System.setProperty(BulkIngestApi.ASTRA_SCHEMA_ENFORCEMENT_FLAG, "true");
+
+    // Write a schema with DROP_UNKNOWN mode to the store — only "field1" is allowed
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "field1",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+            .build();
+    SchemaMetadata schemaMeta =
+        new SchemaMetadata(
+            SchemaMetadata.GLOBAL_SCHEMA_NAME,
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+    schemaMetadataStore.createSync(schemaMeta);
+
+    // Restart the schema service so it picks up the new schema
+    datasetSchemaService.stopAsync();
+    datasetSchemaService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    datasetSchemaService = new DatasetSchemaService(schemaMetadataStore);
+    datasetSchemaService.startAsync();
+    datasetSchemaService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    assertThat(datasetSchemaService.getSchemaMode())
+        .isEqualTo(AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            datasetSchemaService);
+
+    // Send a document with field1 (in schema) and field2 (not in schema)
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1", "field2" : "value2" }
+            """;
+    updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
+
+    KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
+
+    AggregatedHttpResponse response = bulkApi.addDocument(request).aggregate().join();
+    assertThat(response.status().isSuccess()).isEqualTo(true);
+    assertThat(response.status().code()).isEqualTo(OK.code());
+    BulkIngestResponse responseObj =
+        JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
+    assertThat(responseObj.totalDocs()).isEqualTo(1);
+    assertThat(responseObj.failedDocs()).isEqualTo(0);
+
+    validateOffset(kafkaConsumer, 1);
+
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
+    assertThat(records.count()).isEqualTo(1);
+
+    // Verify field2 was dropped — only field1 should remain (service_name is also not in schema)
+    Trace.Span span = TraceSpanParserSilenceError(records.iterator().next().value());
+    List<String> tagKeys = span.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).contains("field1");
+    assertThat(tagKeys).doesNotContain("field2", "service_name");
+
+    kafkaConsumer.close();
+  }
+
+  // Validate schema mode set to dynamic does not filter out fields
+  @Test
+  public void testDynamicSchemaMode() throws Exception {
+    // Default preprocessorConfig has no schema file, so mode is DYNAMIC
+    assertThat(datasetSchemaService.getSchemaMode())
+        .isEqualTo(AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            Schema.IngestSchema.getDefaultInstance());
+
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1", "field2" : "value2", "field3" : "value3" }
+            """;
+    updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
+
+    KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
+
+    AggregatedHttpResponse response = bulkApi.addDocument(request).aggregate().join();
+    assertThat(response.status().isSuccess()).isEqualTo(true);
+    assertThat(response.status().code()).isEqualTo(OK.code());
+
+    validateOffset(kafkaConsumer, 1);
+
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
+    assertThat(records.count()).isEqualTo(1);
+
+    // All fields should be preserved in dynamic mode
+    Trace.Span span = TraceSpanParserSilenceError(records.iterator().next().value());
+    List<String> tagKeys = span.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).contains("field1", "field2", "field3");
+
+    kafkaConsumer.close();
+  }
+
+  // Validate filterDocsBySchemaMode drops unknown fields in DROP_UNKNOWN mode
+  @Test
+  public void testFilterDocsBySchemaModeStatic() {
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "allowed",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+            .build();
+
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(Trace.KeyValue.newBuilder().setKey("allowed").setVStr("val1").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("unknown").setVStr("val2").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("service_name").setVStr("svc").build())
+            .build();
+
+    Map<String, List<Trace.Span>> docs = Map.of("testindex", List.of(span));
+    Map<String, List<Trace.Span>> filtered =
+        BulkIngestApi.filterDocsBySchemaMode(
+            docs, schema, AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    List<String> tagKeys =
+        filtered.get("testindex").getFirst().getTagsList().stream()
+            .map(Trace.KeyValue::getKey)
+            .toList();
+    assertThat(tagKeys).containsExactly("allowed");
+    assertThat(tagKeys).doesNotContain("unknown", "service_name");
+  }
+
+  // Validate filterDocsBySchemaMode is a no-op in DYNAMIC mode
+  @Test
+  public void testFilterDocsBySchemaModeDynamic() {
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "allowed",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+            .build();
+
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(Trace.KeyValue.newBuilder().setKey("allowed").setVStr("val1").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("unknown").setVStr("val2").build())
+            .build();
+
+    Map<String, List<Trace.Span>> docs = Map.of("testindex", List.of(span));
+    Map<String, List<Trace.Span>> filtered =
+        BulkIngestApi.filterDocsBySchemaMode(
+            docs, schema, AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+
+    // Should return docs unchanged — same reference
+    assertThat(filtered).isSameAs(docs);
+  }
+
+  // Validate filterSpanTags keeps schema fields, service_name, and multi-field subfields
+  @Test
+  public void testFilterSpanTags() {
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "status",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.KEYWORD).build())
+            .putFields(
+                "message",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+            .build();
+
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(Trace.KeyValue.newBuilder().setKey("status").setVStr("200").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("status.keyword").setVStr("200").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("message").setVStr("ok").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("service_name").setVStr("svc").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("unknown_field").setVStr("drop").build())
+            .addTags(
+                Trace.KeyValue.newBuilder().setKey("unknown_field.keyword").setVStr("drop").build())
+            .build();
+
+    Trace.Span filtered = BulkIngestApi.filterSpanTags(span, schema);
+    List<String> tagKeys = filtered.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).containsExactlyInAnyOrder("status", "status.keyword", "message");
+    assertThat(tagKeys).doesNotContain("unknown_field", "unknown_field.keyword", "service_name");
+  }
+
+  // Validate filterDocsBySchemaMode drops all fields when none match schema, leaving only
+  // service_name
+  @Test
+  public void testFilterDocsBySchemaModeAllFieldsUnknown() {
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "allowed_field",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+            .build();
+
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(Trace.KeyValue.newBuilder().setKey("unknown1").setVStr("val1").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("unknown2").setVStr("val2").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("service_name").setVStr("svc").build())
+            .build();
+
+    Map<String, List<Trace.Span>> docs = Map.of("testindex", List.of(span));
+    Map<String, List<Trace.Span>> filtered =
+        BulkIngestApi.filterDocsBySchemaMode(
+            docs, schema, AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    Trace.Span filteredSpan = filtered.get("testindex").getFirst();
+    List<String> tagKeys = filteredSpan.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    // All fields were unknown — span has no tags
+    assertThat(tagKeys).isEmpty();
+  }
+
+  // Validate filterSpanTags with empty schema only keeps service_name
+  @Test
+  public void testFilterSpanTagsEmptySchema() {
+    Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
+
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(Trace.KeyValue.newBuilder().setKey("field1").setVStr("val1").build())
+            .addTags(Trace.KeyValue.newBuilder().setKey("service_name").setVStr("svc").build())
+            .build();
+
+    Trace.Span filtered = BulkIngestApi.filterSpanTags(span, schema);
+    List<String> tagKeys = filtered.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).isEmpty();
+  }
+
+  // Validate DatasetSchemaService defaults when store is empty
+  @Test
+  public void testSchemaServiceDefaultsWithEmptyStore() {
+    assertThat(datasetSchemaService.getSchemaMode())
+        .isEqualTo(AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+    // Default schema should still contain reserved fields (timestamp, message, _all, etc.)
+    assertThat(datasetSchemaService.getSchema().getFieldsCount()).isGreaterThan(0);
+    assertThat(datasetSchemaService.getSchema().containsFields("@timestamp")).isTrue();
+  }
+
+  // Validate DatasetSchemaService loads schema from store
+  @Test
+  public void testSchemaServiceLoadsFromStore() throws Exception {
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "my_field",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.KEYWORD).build())
+            .putFields(
+                "another_field",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.INTEGER).build())
+            .build();
+    schemaMetadataStore.createSync(
+        new SchemaMetadata(
+            SchemaMetadata.GLOBAL_SCHEMA_NAME,
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN));
+
+    datasetSchemaService.stopAsync();
+    datasetSchemaService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    datasetSchemaService = new DatasetSchemaService(schemaMetadataStore);
+    datasetSchemaService.startAsync();
+    datasetSchemaService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    assertThat(datasetSchemaService.getSchemaMode())
+        .isEqualTo(AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+    assertThat(datasetSchemaService.getSchema().containsFields("my_field")).isTrue();
+    assertThat(datasetSchemaService.getSchema().containsFields("another_field")).isTrue();
+    // Reserved fields should also be present
+    assertThat(datasetSchemaService.getSchema().containsFields("@timestamp")).isTrue();
   }
 
   public void validateOffset(KafkaConsumer kafkaConsumer, long expectedOffset) {

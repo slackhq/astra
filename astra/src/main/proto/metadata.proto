@@ -1,5 +1,8 @@
 syntax = "proto3";
 
+import "schema.proto";
+import "astra_configs.proto";
+
 package slack.proto.astra;
 
 option java_package = "com.slack.astra.proto.metadata";
@@ -266,3 +269,10 @@ message RedactedFieldMetadata {
   // End or latest timestamp of the redaction window
   int64 end_time_epoch_ms = 4;
 }
+
+message SchemaMetadata {
+  string name = 1;
+  slack.proto.astra.schema.IngestSchema schema = 2;
+  SchemaMode schema_mode = 3;
+}
+

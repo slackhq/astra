@@ -14,6 +14,15 @@ enum NodeRole {
   PREPROCESSOR = 5;
 };
 
+// Schema enforcement mode for the preprocessor.
+// Controls how fields not defined in the schema are handled during ingestion.
+enum SchemaMode {
+  // Default: infer types for unknown fields using defaults/heuristics
+  SCHEMA_MODE_DYNAMIC = 0;
+  // Drop unknown fields silently - only index fields defined in schema
+  SCHEMA_MODE_DROP_UNKNOWN = 1;
+};
+
 // Astra is a single binary consisting of multiple components.
 // AstraConfig is the uber config object for all of Astra.
 // This config object controls the role a node plays and it's config.
@@ -328,4 +337,9 @@ message PreprocessorConfig {
   // refresh of the dataset rate limits, whether or not a ZK event
   // has triggered it
   int32 dataset_rate_limit_period_secs = 14;
+
+  // Schema enforcement mode - controls how unknown fields are handled
+  // SCHEMA_MODE_DYNAMIC (default): infer types for unknown fields
+  // SCHEMA_MODE_DROP_UNKNOWN: drop fields not defined in schema
+  SchemaMode schema_mode = 15;
 }
