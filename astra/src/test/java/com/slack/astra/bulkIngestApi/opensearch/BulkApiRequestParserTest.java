@@ -4,7 +4,9 @@ import static com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser.conv
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.common.io.Resources;
+import com.slack.astra.bulkIngestApi.BulkIngestApi;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.index.VersionType;
@@ -446,5 +449,144 @@ public class BulkApiRequestParserTest {
         BulkApiRequestParser.getTimestampFromIngestDocument(ingestDocument.getSourceAndMetadata());
     assertThat(oneMinuteBefore <= timeInMicros).isTrue();
     assertThat(timeInMicros <= oneMinuteAfter).isTrue();
+  }
+
+  @AfterEach
+  public void cleanup() {
+    System.clearProperty(BulkIngestApi.SCHEMA_ENFORCEMENT_FLAG);
+  }
+
+  @Test
+  public void testDropUnknownFields() throws Exception {
+    System.setProperty(BulkIngestApi.SCHEMA_ENFORCEMENT_FLAG, "true");
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "allowed",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+            .build();
+
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "allowed" : "val1", "unknown" : "val2", "service_name" : "svc" }
+            """;
+    Map<String, List<Trace.Span>> docs =
+        BulkApiRequestParser.parseRequest(
+            request.getBytes(StandardCharsets.UTF_8),
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    List<String> tagKeys =
+        docs.get("testindex").getFirst().getTagsList().stream()
+            .map(Trace.KeyValue::getKey)
+            .toList();
+    assertThat(tagKeys).contains("allowed");
+    assertThat(tagKeys).doesNotContain("unknown", "service_name");
+  }
+
+  @Test
+  public void testDynamicModePreservesAllFields() throws Exception {
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "allowed",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+            .build();
+
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "allowed" : "val1", "unknown" : "val2" }
+            """;
+    Map<String, List<Trace.Span>> docs =
+        BulkApiRequestParser.parseRequest(
+            request.getBytes(StandardCharsets.UTF_8),
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+
+    List<String> tagKeys =
+        docs.get("testindex").getFirst().getTagsList().stream()
+            .map(Trace.KeyValue::getKey)
+            .toList();
+    assertThat(tagKeys).contains("allowed", "unknown");
+  }
+
+  @Test
+  public void testDropUnknownAllFieldsUnknown() throws Exception {
+    System.setProperty(BulkIngestApi.SCHEMA_ENFORCEMENT_FLAG, "true");
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "allowed_field",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+            .build();
+
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "unknown1" : "val1", "unknown2" : "val2", "service_name" : "svc" }
+            """;
+    Map<String, List<Trace.Span>> docs =
+        BulkApiRequestParser.parseRequest(
+            request.getBytes(StandardCharsets.UTF_8),
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    Trace.Span span = docs.get("testindex").getFirst();
+    List<String> tagKeys = span.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).isEmpty();
+  }
+
+  @Test
+  public void testDropUnknownEmptySchema() throws Exception {
+    System.setProperty(BulkIngestApi.SCHEMA_ENFORCEMENT_FLAG, "true");
+    Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
+
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "val1", "service_name" : "svc" }
+            """;
+    Map<String, List<Trace.Span>> docs =
+        BulkApiRequestParser.parseRequest(
+            request.getBytes(StandardCharsets.UTF_8),
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    Trace.Span span = docs.get("testindex").getFirst();
+    List<String> tagKeys = span.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).isEmpty();
+  }
+
+  @Test
+  public void testDropUnknownTypeMismatch() throws Exception {
+    System.setProperty(BulkIngestApi.SCHEMA_ENFORCEMENT_FLAG, "true");
+    Schema.IngestSchema schema =
+        Schema.IngestSchema.newBuilder()
+            .putFields(
+                "count",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.INTEGER).build())
+            .putFields(
+                "message",
+                Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+            .build();
+
+    // count has value "hello" which can't parse as INTEGER, message is fine as TEXT
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "count" : "hello", "message" : "valid text" }
+            """;
+    Map<String, List<Trace.Span>> docs =
+        BulkApiRequestParser.parseRequest(
+            request.getBytes(StandardCharsets.UTF_8),
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    Trace.Span span = docs.get("testindex").getFirst();
+    List<String> tagKeys = span.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).contains("message");
+    assertThat(tagKeys).doesNotContain("count", "failed_count");
   }
 }
