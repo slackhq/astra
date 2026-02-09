@@ -581,7 +581,8 @@ public class Astra {
               datasetRateLimitingService,
               meterRegistry,
               preprocessorConfig.getRateLimitExceededErrorCode(),
-              schema);
+              schema,
+              preprocessorConfig.getSchemaMode());
       armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
       services.add(armeriaServiceBuilder.build());
     }

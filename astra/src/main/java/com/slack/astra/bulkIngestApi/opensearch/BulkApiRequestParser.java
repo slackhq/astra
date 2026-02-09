@@ -2,8 +2,10 @@ package com.slack.astra.bulkIngestApi.opensearch;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import com.slack.astra.bulkIngestApi.BulkIngestApi;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.schema.ReservedFields;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.astra.writer.SpanFormatter;
 import com.slack.service.murron.trace.Trace;
@@ -37,7 +39,13 @@ public class BulkApiRequestParser {
 
   public static Map<String, List<Trace.Span>> parseRequest(
       byte[] postBody, Schema.IngestSchema schema) throws IOException {
-    return convertIndexRequestToTraceFormat(parseBulkRequest(postBody), schema);
+    return parseRequest(postBody, schema, AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+  }
+
+  public static Map<String, List<Trace.Span>> parseRequest(
+      byte[] postBody, Schema.IngestSchema schema, AstraConfigs.SchemaMode schemaMode)
+      throws IOException {
+    return convertIndexRequestToTraceFormat(parseBulkRequest(postBody), schema, schemaMode);
   }
 
   /**
@@ -64,6 +72,14 @@ public class BulkApiRequestParser {
   @VisibleForTesting
   public static Trace.Span fromIngestDocument(
       IngestDocument ingestDocument, Schema.IngestSchema schema) {
+    return fromIngestDocument(ingestDocument, schema, AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+  }
+
+  @VisibleForTesting
+  public static Trace.Span fromIngestDocument(
+      IngestDocument ingestDocument,
+      Schema.IngestSchema schema,
+      AstraConfigs.SchemaMode schemaMode) {
 
     Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
 
@@ -140,8 +156,21 @@ public class BulkApiRequestParser {
     sourceAndMetadata.remove(IngestDocument.Metadata.ID.getFieldName());
     sourceAndMetadata.remove(IngestDocument.Metadata.INDEX.getFieldName());
 
+    boolean dropUnknown =
+        Boolean.getBoolean(BulkIngestApi.SCHEMA_ENFORCEMENT_FLAG)
+            && schemaMode == AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN;
+
     boolean tagsContainServiceName = false;
     for (Map.Entry<String, Object> kv : sourceAndMetadata.entrySet()) {
+      if (dropUnknown) {
+        if (!schema.containsFields(kv.getKey())) {
+          continue;
+        }
+        Schema.SchemaField fieldDef = schema.getFieldsMap().get(kv.getKey());
+        if (!SpanFormatter.isTypeCompatible(kv.getValue(), fieldDef.getType())) {
+          continue;
+        }
+      }
       if (!tagsContainServiceName && kv.getKey().equals(SERVICE_NAME_KEY)) {
         tagsContainServiceName = true;
       }
@@ -151,7 +180,7 @@ public class BulkApiRequestParser {
         spanBuilder.addAllTags(tags);
       }
     }
-    if (!tagsContainServiceName) {
+    if (!tagsContainServiceName && (!dropUnknown || schema.containsFields(SERVICE_NAME_KEY))) {
       spanBuilder.addTags(
           Trace.KeyValue.newBuilder()
               .setKey(SERVICE_NAME_KEY)
@@ -165,6 +194,14 @@ public class BulkApiRequestParser {
 
   protected static Map<String, List<Trace.Span>> convertIndexRequestToTraceFormat(
       List<IndexRequest> indexRequests, Schema.IngestSchema schema) {
+    return convertIndexRequestToTraceFormat(
+        indexRequests, schema, AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+  }
+
+  protected static Map<String, List<Trace.Span>> convertIndexRequestToTraceFormat(
+      List<IndexRequest> indexRequests,
+      Schema.IngestSchema schema,
+      AstraConfigs.SchemaMode schemaMode) {
     // key - index. value - list of docs to be indexed
     Map<String, List<Trace.Span>> indexDocs = new HashMap<>();
 
@@ -175,7 +212,7 @@ public class BulkApiRequestParser {
       }
       IngestDocument ingestDocument = convertRequestToDocument(indexRequest);
       List<Trace.Span> docs = indexDocs.computeIfAbsent(index, key -> new ArrayList<>());
-      docs.add(BulkApiRequestParser.fromIngestDocument(ingestDocument, schema));
+      docs.add(BulkApiRequestParser.fromIngestDocument(ingestDocument, schema, schemaMode));
     }
     return indexDocs;
   }
