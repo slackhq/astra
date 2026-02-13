@@ -286,8 +286,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             isDescending ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY);
         break;
       case STRING:
-        // For strings, SortField.STRING_LAST places missing values at the end
-        sortField.setMissingValue(SortField.STRING_LAST);
+        // For ascending: STRING_LAST places missing after all strings (A,B,C,missing)
+        // For descending: STRING_FIRST places missing before all strings, then reversal puts them
+        // at end (missing,C,B,A -> C,B,A,missing)
+        sortField.setMissingValue(isDescending ? SortField.STRING_FIRST : SortField.STRING_LAST);
         break;
       default:
         // Other types don't support missing values or don't need special handling

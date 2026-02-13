@@ -2526,6 +2526,100 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
+  public void testSortByKeywordFieldWithMissingValuesAscending() throws IOException {
+    Instant time = Instant.now();
+    // Test ascending sort with missing keyword fields - missing should sort to END
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1,
+            "message1",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("severity")
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .setVStr("error")
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, "message2", time, List.of())); // No severity field (missing)
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            3,
+            "message3",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("severity")
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .setVStr("warning")
+                    .build())));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec("severity", false, "keyword"))); // ascending
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    // Ascending (lexicographic): "error" < "warning", missing should sort to the END
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1"); // "error"
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message3"); // "warning"
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message2"); // missing
+  }
+
+  @Test
+  public void testSortByKeywordFieldWithMissingValuesDescending() throws IOException {
+    Instant time = Instant.now();
+    // Test descending sort with missing keyword fields - missing should sort to END
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1,
+            "message1",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("severity")
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .setVStr("error")
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, "message2", time, List.of())); // No severity field (missing)
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            3,
+            "message3",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("severity")
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .setVStr("warning")
+                    .build())));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec("severity", true, "keyword"))); // descending
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    // Descending (lexicographic): "warning" > "error", missing should sort to the END
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message3"); // "warning"
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message1"); // "error"
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message2"); // missing
+  }
+
+  @Test
   public void testSortByMultipleFields() throws IOException {
     Instant time = Instant.now();
     // Create documents - lexicographic string sort then numeric
