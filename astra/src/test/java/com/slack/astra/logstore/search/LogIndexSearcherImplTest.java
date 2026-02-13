@@ -2707,4 +2707,66 @@ public class LogIndexSearcherImplTest {
         .withMessageContaining("Cannot sort on analyzed text field 'text_field'")
         .withMessageContaining("Use 'text_field.keyword' instead");
   }
+
+  @Test
+  public void testSortUnmappedIntFieldWithIncorrectUnmappedTypeDescending() throws IOException {
+    Instant time = Instant.now();
+    // Test sorting on unmapped int field when client sends incorrect unmapped_type="boolean"
+    // This simulates Grafana's behavior of sending "boolean" for all unmapped fields
+    // Documents without the field should still sort to the end
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1,
+            "message1",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("priority")
+                    .setFieldType(Schema.SchemaFieldType.INTEGER)
+                    .setVInt32(5)
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, "message2", time, List.of())); // No priority field (missing)
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            3,
+            "message3",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("priority")
+                    .setFieldType(Schema.SchemaFieldType.INTEGER)
+                    .setVInt32(1)
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            4,
+            "message4",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("priority")
+                    .setFieldType(Schema.SchemaFieldType.INTEGER)
+                    .setVInt32(3)
+                    .build())));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            // Simulate Grafana sending incorrect unmapped_type="boolean" for an int field
+            List.of(new SearchQuery.SortSpec("priority", true, "boolean"))); // descending
+
+    assertThat(results.hits.size()).isEqualTo(4);
+    // Descending: 5 > 3 > 1, missing should sort to the end
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1"); // 5
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message4"); // 3
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message3"); // 1
+    assertThat(results.hits.get(3).getId()).isEqualTo("Message2"); // missing
+  }
 }

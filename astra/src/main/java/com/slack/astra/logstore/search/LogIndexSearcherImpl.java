@@ -340,13 +340,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       }
 
       // Create sort field - use SortedNumericSortField for multi-valued numeric fields
+      // Only use SortedNumericSortField if field exists in schema AND is actually multi-valued
+      // Don't trust unmapped_type hints from clients (e.g., Grafana sends "boolean" for all fields)
       SortField sortField;
-      if (isStoredAsMultiValuedNumeric(esType)) {
+      if (fieldDef != null && isStoredAsMultiValuedNumeric(fieldDef.fieldType.name)) {
         // Boolean and half_float are stored with SortedNumericDocValuesField (multi-valued)
         // Use SortedNumericSortField which knows how to handle multi-valued fields
         sortField = createMultiValuedSortField(spec.fieldName, luceneType, spec.isDescending);
       } else {
         // Regular single-valued fields use standard SortField
+        // This includes: unmapped fields, and mapped non-multi-valued fields
         sortField = new SortField(spec.fieldName, luceneType, spec.isDescending);
       }
 
