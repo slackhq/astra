@@ -286,8 +286,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             isDescending ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY);
         break;
       case STRING:
-        // For strings, SortField.STRING_LAST places missing values at the end
-        sortField.setMissingValue(SortField.STRING_LAST);
+        // For ascending: STRING_LAST places missing after all strings (A,B,C,missing)
+        // For descending: STRING_FIRST places missing before all strings, then reversal puts them
+        // at end (missing,C,B,A -> C,B,A,missing)
+        sortField.setMissingValue(isDescending ? SortField.STRING_FIRST : SortField.STRING_LAST);
         break;
       default:
         // Other types don't support missing values or don't need special handling
@@ -340,13 +342,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       }
 
       // Create sort field - use SortedNumericSortField for multi-valued numeric fields
+      // Only use SortedNumericSortField if field exists in schema AND is actually multi-valued
+      // Don't trust unmapped_type hints from clients (e.g., Grafana sends "boolean" for all fields)
       SortField sortField;
-      if (isStoredAsMultiValuedNumeric(esType)) {
+      if (fieldDef != null && isStoredAsMultiValuedNumeric(fieldDef.fieldType.name)) {
         // Boolean and half_float are stored with SortedNumericDocValuesField (multi-valued)
         // Use SortedNumericSortField which knows how to handle multi-valued fields
         sortField = createMultiValuedSortField(spec.fieldName, luceneType, spec.isDescending);
       } else {
         // Regular single-valued fields use standard SortField
+        // This includes: unmapped fields, and mapped non-multi-valued fields
         sortField = new SortField(spec.fieldName, luceneType, spec.isDescending);
       }
 

@@ -2526,6 +2526,100 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
+  public void testSortByKeywordFieldWithMissingValuesAscending() throws IOException {
+    Instant time = Instant.now();
+    // Test ascending sort with missing keyword fields - missing should sort to END
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1,
+            "message1",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("severity")
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .setVStr("error")
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, "message2", time, List.of())); // No severity field (missing)
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            3,
+            "message3",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("severity")
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .setVStr("warning")
+                    .build())));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec("severity", false, "keyword"))); // ascending
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    // Ascending (lexicographic): "error" < "warning", missing should sort to the END
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1"); // "error"
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message3"); // "warning"
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message2"); // missing
+  }
+
+  @Test
+  public void testSortByKeywordFieldWithMissingValuesDescending() throws IOException {
+    Instant time = Instant.now();
+    // Test descending sort with missing keyword fields - missing should sort to END
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1,
+            "message1",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("severity")
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .setVStr("error")
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, "message2", time, List.of())); // No severity field (missing)
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            3,
+            "message3",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("severity")
+                    .setFieldType(Schema.SchemaFieldType.KEYWORD)
+                    .setVStr("warning")
+                    .build())));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            List.of(new SearchQuery.SortSpec("severity", true, "keyword"))); // descending
+
+    assertThat(results.hits.size()).isEqualTo(3);
+    // Descending (lexicographic): "warning" > "error", missing should sort to the END
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message3"); // "warning"
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message1"); // "error"
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message2"); // missing
+  }
+
+  @Test
   public void testSortByMultipleFields() throws IOException {
     Instant time = Instant.now();
     // Create documents - lexicographic string sort then numeric
@@ -2706,5 +2800,67 @@ public class LogIndexSearcherImplTest {
                     List.of(new SearchQuery.SortSpec("text_field", false, "text"))))
         .withMessageContaining("Cannot sort on analyzed text field 'text_field'")
         .withMessageContaining("Use 'text_field.keyword' instead");
+  }
+
+  @Test
+  public void testSortUnmappedIntFieldWithIncorrectUnmappedTypeDescending() throws IOException {
+    Instant time = Instant.now();
+    // Test sorting on unmapped int field when client sends incorrect unmapped_type="boolean"
+    // This simulates Grafana's behavior of sending "boolean" for all unmapped fields
+    // Documents without the field should still sort to the end
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            1,
+            "message1",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("priority")
+                    .setFieldType(Schema.SchemaFieldType.INTEGER)
+                    .setVInt32(5)
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(2, "message2", time, List.of())); // No priority field (missing)
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            3,
+            "message3",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("priority")
+                    .setFieldType(Schema.SchemaFieldType.INTEGER)
+                    .setVInt32(1)
+                    .build())));
+    strictLogStore.logStore.addMessage(
+        SpanUtil.makeSpan(
+            4,
+            "message4",
+            time,
+            List.of(
+                Trace.KeyValue.newBuilder()
+                    .setKey("priority")
+                    .setFieldType(Schema.SchemaFieldType.INTEGER)
+                    .setVInt32(3)
+                    .build())));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> results =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            10,
+            QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+            null,
+            null,
+            // Simulate Grafana sending incorrect unmapped_type="boolean" for an int field
+            List.of(new SearchQuery.SortSpec("priority", true, "boolean"))); // descending
+
+    assertThat(results.hits.size()).isEqualTo(4);
+    // Descending: 5 > 3 > 1, missing should sort to the end
+    assertThat(results.hits.get(0).getId()).isEqualTo("Message1"); // 5
+    assertThat(results.hits.get(1).getId()).isEqualTo("Message4"); // 3
+    assertThat(results.hits.get(2).getId()).isEqualTo("Message3"); // 1
+    assertThat(results.hits.get(3).getId()).isEqualTo("Message2"); // missing
   }
 }
