@@ -8,6 +8,7 @@ import com.slack.astra.blobfs.S3AsyncUtil;
 import com.slack.astra.bulkIngestApi.BulkIngestApi;
 import com.slack.astra.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.astra.bulkIngestApi.DatasetRateLimitingService;
+import com.slack.astra.bulkIngestApi.DatasetSchemaService;
 import com.slack.astra.chunkManager.CachingChunkManager;
 import com.slack.astra.chunkManager.IndexingChunkManager;
 import com.slack.astra.clusterManager.CacheNodeAssignmentService;
@@ -40,6 +41,8 @@ import com.slack.astra.metadata.preprocessor.PreprocessorMetadataStore;
 import com.slack.astra.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.astra.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.astra.metadata.replica.ReplicaMetadataStore;
+import com.slack.astra.metadata.schema.SchemaMetadata;
+import com.slack.astra.metadata.schema.SchemaMetadataStore;
 import com.slack.astra.metadata.schema.SchemaUtil;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
@@ -392,6 +395,45 @@ public class Astra {
               astraConfig.getMetadataStoreConfig(),
               meterRegistry,
               true);
+      SchemaMetadataStore schemaMetadataStore =
+          new SchemaMetadataStore(
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
+
+      if (Boolean.getBoolean(BulkIngestApi.ASTRA_SCHEMA_ENFORCEMENT_FLAG)) {
+        // Load schema from YAML file and write to SchemaMetadataStore
+        final AstraConfigs.PreprocessorConfig preprocessorConfig =
+            astraConfig.getPreprocessorConfig();
+        Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
+        if (!preprocessorConfig.getSchemaFile().isEmpty()) {
+          LOG.info("Loading schema file: {}", preprocessorConfig.getSchemaFile());
+          schema = SchemaUtil.parseSchema(Path.of(preprocessorConfig.getSchemaFile()));
+          LOG.info(
+              "Loaded schema with fields count: {}, defaults count: {}",
+              schema.getFieldsCount(),
+              schema.getDefaultsCount());
+        } else {
+          LOG.info("No schema file provided, using default schema");
+        }
+        AstraConfigs.SchemaMode schemaMode = preprocessorConfig.getSchemaMode();
+        SchemaMetadata schemaMeta =
+            new SchemaMetadata(SchemaMetadata.GLOBAL_SCHEMA_NAME, schema, schemaMode);
+        try {
+          SchemaMetadata existing = schemaMetadataStore.getSync(SchemaMetadata.GLOBAL_SCHEMA_NAME);
+          if (!existing.equals(schemaMeta)) {
+            schemaMetadataStore.updateSync(schemaMeta);
+            LOG.info("Updated schema in SchemaMetadataStore");
+          } else {
+            LOG.info("Schema in SchemaMetadataStore is already up to date");
+          }
+        } catch (Exception e) {
+          schemaMetadataStore.createSync(schemaMeta);
+          LOG.info("Created schema in SchemaMetadataStore");
+        }
+      }
 
       Duration requestTimeout =
           Duration.ofMillis(astraConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs());
@@ -422,7 +464,8 @@ public class Astra {
                   recoveryNodeMetadataStore,
                   cacheSlotMetadataStore,
                   datasetMetadataStore,
-                  hpaMetricMetadataStore)));
+                  hpaMetricMetadataStore,
+                  schemaMetadataStore)));
 
       ReplicaCreationService replicaCreationService =
           new ReplicaCreationService(
@@ -556,6 +599,13 @@ public class Astra {
               astraConfig.getMetadataStoreConfig(),
               meterRegistry,
               true);
+      SchemaMetadataStore schemaMetadataStore =
+          new SchemaMetadataStore(
+              curatorFramework,
+              etcdClient,
+              astraConfig.getMetadataStoreConfig(),
+              meterRegistry,
+              true);
 
       final AstraConfigs.PreprocessorConfig preprocessorConfig =
           astraConfig.getPreprocessorConfig();
@@ -572,7 +622,7 @@ public class Astra {
       services.add(
           new CloseableLifecycleManager(
               AstraConfigs.NodeRole.PREPROCESSOR,
-              List.of(datasetMetadataStore, preprocessorMetadataStore)));
+              List.of(datasetMetadataStore, preprocessorMetadataStore, schemaMetadataStore)));
 
       BulkIngestKafkaProducer bulkIngestKafkaProducer =
           new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
@@ -583,25 +633,38 @@ public class Astra {
               datasetMetadataStore, preprocessorMetadataStore, preprocessorConfig, meterRegistry);
       services.add(datasetRateLimitingService);
 
-      Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
-      if (!preprocessorConfig.getSchemaFile().isEmpty()) {
-        LOG.info("Loading schema file: {}", preprocessorConfig.getSchemaFile());
-        schema = SchemaUtil.parseSchema(Path.of(preprocessorConfig.getSchemaFile()));
-        LOG.info(
-            "Loaded schema with fields count: {}, defaults count: {}",
-            schema.getFieldsCount(),
-            schema.getDefaultsCount());
+      BulkIngestApi openSearchBulkApiService;
+      if (Boolean.getBoolean(BulkIngestApi.ASTRA_SCHEMA_ENFORCEMENT_FLAG)) {
+        DatasetSchemaService datasetSchemaService = new DatasetSchemaService(schemaMetadataStore);
+        services.add(datasetSchemaService);
+        openSearchBulkApiService =
+            new BulkIngestApi(
+                bulkIngestKafkaProducer,
+                datasetRateLimitingService,
+                meterRegistry,
+                preprocessorConfig.getRateLimitExceededErrorCode(),
+                datasetSchemaService);
       } else {
-        LOG.info("No schema file provided, using default schema");
+        Schema.IngestSchema schema = Schema.IngestSchema.getDefaultInstance();
+        if (!preprocessorConfig.getSchemaFile().isEmpty()) {
+          LOG.info("Loading schema file: {}", preprocessorConfig.getSchemaFile());
+          schema = SchemaUtil.parseSchema(Path.of(preprocessorConfig.getSchemaFile()));
+          LOG.info(
+              "Loaded schema with fields count: {}, defaults count: {}",
+              schema.getFieldsCount(),
+              schema.getDefaultsCount());
+        } else {
+          LOG.info("No schema file provided, using default schema");
+        }
+        schema = ReservedFields.addPredefinedFields(schema);
+        openSearchBulkApiService =
+            new BulkIngestApi(
+                bulkIngestKafkaProducer,
+                datasetRateLimitingService,
+                meterRegistry,
+                preprocessorConfig.getRateLimitExceededErrorCode(),
+                schema);
       }
-      schema = ReservedFields.addPredefinedFields(schema);
-      BulkIngestApi openSearchBulkApiService =
-          new BulkIngestApi(
-              bulkIngestKafkaProducer,
-              datasetRateLimitingService,
-              meterRegistry,
-              preprocessorConfig.getRateLimitExceededErrorCode(),
-              schema);
       armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
       services.add(armeriaServiceBuilder.build());
     }
