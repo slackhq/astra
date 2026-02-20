@@ -23,8 +23,8 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.compress.CompressedXContent;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.common.breaker.CircuitBreaker;
 import org.opensearch.core.common.bytes.BytesReference;
-import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
@@ -41,6 +41,8 @@ import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.MultiBucketConsumerService;
+import org.opensearch.search.aggregations.SearchContextAggregations;
 import org.opensearch.search.aggregations.bucket.filter.FiltersAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
@@ -56,7 +58,6 @@ import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 import org.opensearch.search.aggregations.support.ValuesSourceRegistry;
-import org.opensearch.search.internal.SearchContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +68,10 @@ import org.slf4j.LoggerFactory;
  */
 public class OpenSearchAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAdapter.class);
+
+  private static final String ENABLE_MAX_BUCKETS = "astra.enableMaxBuckets";
+  private static final String MAX_BUCKETS_PROPERTY = "astra.aggregation.maxBuckets";
+  private static final int DEFAULT_MAX_BUCKETS = 65535;
 
   private static final SimilarityService similarityService = AstraSimilarityService.getInstance();
 
@@ -102,9 +107,22 @@ public class OpenSearchAdapter {
       try {
         AggregatorFactories aggregatorFactories =
             aggregatorFactoriesBuilder.build(queryShardContext, null);
-        SearchContext searchContext =
+        AstraSearchContext searchContext =
             new AstraSearchContext(
                 AstraBigArrays.getInstance(), queryShardContext, indexSearcher, query);
+
+        if (Boolean.getBoolean(ENABLE_MAX_BUCKETS)) {
+          int maxBuckets =
+              Integer.parseInt(
+                  System.getProperty(MAX_BUCKETS_PROPERTY, String.valueOf(DEFAULT_MAX_BUCKETS)));
+          CircuitBreaker breaker =
+              AstraBigArrays.getCircuitBreakerService().getBreaker(CircuitBreaker.REQUEST);
+          MultiBucketConsumerService.MultiBucketConsumer bucketConsumer =
+              new MultiBucketConsumerService.MultiBucketConsumer(maxBuckets, breaker);
+          searchContext.aggregations(
+              new SearchContextAggregations(aggregatorFactories, bucketConsumer));
+        }
+
         Aggregator[] aggregators =
             aggregatorFactories.createSubAggregators(
                 searchContext, null, CardinalityUpperBound.ONE);
@@ -320,7 +338,7 @@ public class OpenSearchAdapter {
                 this.indexSettings,
                 new IndicesFieldDataCache(
                     this.indexSettings.getSettings(), new IndexFieldDataCache.Listener() {}),
-                new NoneCircuitBreakerService(),
+                AstraBigArrays.getCircuitBreakerService(),
                 mapperService)
             ::getForField,
         mapperService,

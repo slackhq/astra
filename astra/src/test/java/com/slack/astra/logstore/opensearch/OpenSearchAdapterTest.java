@@ -18,6 +18,7 @@ import org.apache.lucene.search.IndexSortSortedNumericDocValuesRangeQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.index.mapper.Uid;
@@ -37,6 +38,14 @@ public class OpenSearchAdapterTest {
       new TemporaryLogStoreAndSearcherExtension(false);
 
   private final OpenSearchAdapter openSearchAdapter;
+
+  @AfterEach
+  void tearDown() {
+    System.clearProperty("astra.enableCircuitBreaker");
+    System.clearProperty("astra.enableMaxBuckets");
+    System.clearProperty("astra.aggregation.maxBuckets");
+    AstraBigArrays.reset();
+  }
 
   public OpenSearchAdapterTest() throws IOException {
     ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
@@ -194,5 +203,91 @@ public class OpenSearchAdapterTest {
     // long
     assertThat(filterNullEndQuery.get().toString()).contains(String.valueOf(100L));
     assertThat(filterNullEndQuery.get().toString()).contains(String.valueOf(Long.MAX_VALUE));
+  }
+
+  @Test
+  public void testAggregationWorksWithCircuitBreakerEnabled() throws IOException {
+    System.setProperty("astra.enableCircuitBreaker", "true");
+    AstraBigArrays.reset();
+
+    AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo");
+    avgAggregationBuilder.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    avgAggregationBuilder.missing("2");
+
+    AggregatorFactories.Builder aggregatorFactoriesBuilder = new AggregatorFactories.Builder();
+    aggregatorFactoriesBuilder.addAggregator(avgAggregationBuilder);
+
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
+
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAdapter.getCollectorManager(aggregatorFactoriesBuilder, indexSearcher, null);
+
+    Aggregator collector = collectorManager.newCollector();
+    InternalAvg reduced = (InternalAvg) collectorManager.reduce(List.of(collector));
+
+    assertThat(reduced.getName()).isEqualTo("foo");
+    assertThat(reduced.getType()).isEqualTo("avg");
+  }
+
+  @Test
+  public void testAggregationWorksWithMaxBucketsEnabled() throws IOException {
+    System.setProperty("astra.enableMaxBuckets", "true");
+    AstraBigArrays.reset();
+
+    AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo");
+    avgAggregationBuilder.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    avgAggregationBuilder.missing("2");
+
+    AggregatorFactories.Builder aggregatorFactoriesBuilder = new AggregatorFactories.Builder();
+    aggregatorFactoriesBuilder.addAggregator(avgAggregationBuilder);
+
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
+
+    // This should work normally since avg is a metrics aggregation, not a bucket aggregation
+    Aggregator aggregator =
+        openSearchAdapter.buildAggregatorFromFactory(
+            indexSearcher, aggregatorFactoriesBuilder, null);
+
+    assertThat(aggregator).isNotNull();
+  }
+
+  @Test
+  public void testAggregationWorksWithBothFlagsEnabled() throws IOException {
+    System.setProperty("astra.enableCircuitBreaker", "true");
+    System.setProperty("astra.enableMaxBuckets", "true");
+    AstraBigArrays.reset();
+
+    AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo");
+    avgAggregationBuilder.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    avgAggregationBuilder.missing("2");
+
+    AggregatorFactories.Builder aggregatorFactoriesBuilder = new AggregatorFactories.Builder();
+    aggregatorFactoriesBuilder.addAggregator(avgAggregationBuilder);
+
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
+
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAdapter.getCollectorManager(aggregatorFactoriesBuilder, indexSearcher, null);
+
+    Aggregator collector = collectorManager.newCollector();
+    InternalAvg reduced = (InternalAvg) collectorManager.reduce(List.of(collector));
+
+    assertThat(reduced.getName()).isEqualTo("foo");
+    assertThat(reduced.getType()).isEqualTo("avg");
   }
 }
