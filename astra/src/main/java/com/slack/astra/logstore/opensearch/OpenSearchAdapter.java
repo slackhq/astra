@@ -23,8 +23,8 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.compress.CompressedXContent;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.common.breaker.CircuitBreaker;
 import org.opensearch.core.common.bytes.BytesReference;
-import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
@@ -41,6 +41,8 @@ import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.MultiBucketConsumerService;
+import org.opensearch.search.aggregations.SearchContextAggregations;
 import org.opensearch.search.aggregations.bucket.filter.FiltersAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
@@ -56,7 +58,6 @@ import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 import org.opensearch.search.aggregations.support.ValuesSourceRegistry;
-import org.opensearch.search.internal.SearchContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +68,9 @@ import org.slf4j.LoggerFactory;
  */
 public class OpenSearchAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAdapter.class);
+
+  private static final String MAX_BUCKETS_PROPERTY = "astra.aggregation.maxBuckets";
+  private static final int DEFAULT_MAX_BUCKETS = 5000;
 
   private static final SimilarityService similarityService = AstraSimilarityService.getInstance();
 
@@ -102,9 +106,20 @@ public class OpenSearchAdapter {
       try {
         AggregatorFactories aggregatorFactories =
             aggregatorFactoriesBuilder.build(queryShardContext, null);
-        SearchContext searchContext =
+        AstraSearchContext searchContext =
             new AstraSearchContext(
                 AstraBigArrays.getInstance(), queryShardContext, indexSearcher, query);
+
+        int maxBuckets =
+            Integer.parseInt(
+                System.getProperty(MAX_BUCKETS_PROPERTY, String.valueOf(DEFAULT_MAX_BUCKETS)));
+        CircuitBreaker breaker =
+            AstraBigArrays.getCircuitBreakerService().getBreaker(CircuitBreaker.REQUEST);
+        MultiBucketConsumerService.MultiBucketConsumer bucketConsumer =
+            new AstraMultiBucketConsumer(maxBuckets, breaker);
+        searchContext.aggregations(
+            new SearchContextAggregations(aggregatorFactories, bucketConsumer));
+
         Aggregator[] aggregators =
             aggregatorFactories.createSubAggregators(
                 searchContext, null, CardinalityUpperBound.ONE);
@@ -232,27 +247,37 @@ public class OpenSearchAdapter {
       @Override
       public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
         List<InternalAggregation> internalAggregationList = new ArrayList<>();
-        for (Aggregator collector : collectors) {
-          // postCollection must be invoked prior to building the internal aggregations
-          collector.postCollection();
-          internalAggregationList.add(collector.buildTopLevel());
-        }
+        try {
+          for (Aggregator collector : collectors) {
+            // postCollection must be invoked prior to building the internal aggregations
+            collector.postCollection();
+            internalAggregationList.add(collector.buildTopLevel());
+          }
 
-        if (internalAggregationList.size() == 0) {
-          return null;
-        } else {
-          // Using the first element on the list as the basis for the reduce method is per
-          // OpenSearch recommendations: "For best efficiency, when implementing, try
-          // reusing an existing instance (typically the first in the given list) to save
-          // on redundant object construction."
-          return internalAggregationList
-              .get(0)
-              .reduce(
-                  internalAggregationList,
-                  InternalAggregation.ReduceContext.forPartialReduction(
-                      AstraBigArrays.getInstance(),
-                      null,
-                      () -> PipelineAggregator.PipelineTree.EMPTY));
+          if (internalAggregationList.size() == 0) {
+            return null;
+          } else {
+            // Using the first element on the list as the basis for the reduce method is per
+            // OpenSearch recommendations: "For best efficiency, when implementing, try
+            // reusing an existing instance (typically the first in the given list) to save
+            // on redundant object construction."
+            return internalAggregationList
+                .get(0)
+                .reduce(
+                    internalAggregationList,
+                    InternalAggregation.ReduceContext.forPartialReduction(
+                        AstraBigArrays.getInstance(),
+                        null,
+                        () -> PipelineAggregator.PipelineTree.EMPTY));
+          }
+        } finally {
+          for (Aggregator collector : collectors) {
+            try {
+              collector.close();
+            } catch (Exception e) {
+              LOG.warn("Error closing aggregator", e);
+            }
+          }
         }
       }
     };
@@ -320,7 +345,7 @@ public class OpenSearchAdapter {
                 this.indexSettings,
                 new IndicesFieldDataCache(
                     this.indexSettings.getSettings(), new IndexFieldDataCache.Listener() {}),
-                new NoneCircuitBreakerService(),
+                AstraBigArrays.getCircuitBreakerService(),
                 mapperService)
             ::getForField,
         mapperService,

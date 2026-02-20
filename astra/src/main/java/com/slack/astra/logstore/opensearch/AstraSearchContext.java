@@ -64,6 +64,7 @@ public class AstraSearchContext extends SearchContext {
   private BucketCollectorProcessor bucketCollectorProcessor = NO_OP_BUCKET_COLLECTOR_PROCESSOR;
   private final QueryShardContext queryShardContext;
   private final Query query;
+  private SearchContextAggregations searchContextAggregations;
 
   public AstraSearchContext(
       BigArrays bigArrays,
@@ -160,13 +161,13 @@ public class AstraSearchContext extends SearchContext {
 
   @Override
   public SearchContextAggregations aggregations() {
-    // todo - required for multibucket consumers
-    return null;
+    return searchContextAggregations;
   }
 
   @Override
   public SearchContext aggregations(SearchContextAggregations aggregations) {
-    throw new NotImplementedException();
+    this.searchContextAggregations = aggregations;
+    return this;
   }
 
   @Override
