@@ -47,16 +47,7 @@ public class AstraCircuitBreakerService extends CircuitBreakerService {
         breaker.getTrippedCount());
   }
 
-  @Override
-  protected void doStart() {}
-
-  @Override
-  protected void doStop() {}
-
-  @Override
-  protected void doClose() {}
-
-  /**
+    /**
    * Simple memory-tracking circuit breaker. Uses an AtomicLong to track the total bytes allocated
    * through BigArrays. When an allocation would push total usage over the limit, throws
    * CircuitBreakingException instead of allowing the allocation (which would eventually OOM).
