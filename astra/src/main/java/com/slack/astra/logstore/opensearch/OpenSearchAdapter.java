@@ -250,27 +250,37 @@ public class OpenSearchAdapter {
       @Override
       public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
         List<InternalAggregation> internalAggregationList = new ArrayList<>();
-        for (Aggregator collector : collectors) {
-          // postCollection must be invoked prior to building the internal aggregations
-          collector.postCollection();
-          internalAggregationList.add(collector.buildTopLevel());
-        }
+        try {
+          for (Aggregator collector : collectors) {
+            // postCollection must be invoked prior to building the internal aggregations
+            collector.postCollection();
+            internalAggregationList.add(collector.buildTopLevel());
+          }
 
-        if (internalAggregationList.size() == 0) {
-          return null;
-        } else {
-          // Using the first element on the list as the basis for the reduce method is per
-          // OpenSearch recommendations: "For best efficiency, when implementing, try
-          // reusing an existing instance (typically the first in the given list) to save
-          // on redundant object construction."
-          return internalAggregationList
-              .get(0)
-              .reduce(
-                  internalAggregationList,
-                  InternalAggregation.ReduceContext.forPartialReduction(
-                      AstraBigArrays.getInstance(),
-                      null,
-                      () -> PipelineAggregator.PipelineTree.EMPTY));
+          if (internalAggregationList.size() == 0) {
+            return null;
+          } else {
+            // Using the first element on the list as the basis for the reduce method is per
+            // OpenSearch recommendations: "For best efficiency, when implementing, try
+            // reusing an existing instance (typically the first in the given list) to save
+            // on redundant object construction."
+            return internalAggregationList
+                .get(0)
+                .reduce(
+                    internalAggregationList,
+                    InternalAggregation.ReduceContext.forPartialReduction(
+                        AstraBigArrays.getInstance(),
+                        null,
+                        () -> PipelineAggregator.PipelineTree.EMPTY));
+          }
+        } finally {
+          for (Aggregator collector : collectors) {
+            try {
+              collector.close();
+            } catch (Exception e) {
+              LOG.warn("Error closing aggregator", e);
+            }
+          }
         }
       }
     };

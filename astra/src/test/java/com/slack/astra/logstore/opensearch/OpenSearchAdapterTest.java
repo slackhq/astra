@@ -21,6 +21,7 @@ import org.apache.lucene.util.BytesRef;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.opensearch.core.common.breaker.CircuitBreaker;
 import org.opensearch.index.mapper.Uid;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryStringQueryBuilder;
@@ -289,5 +290,39 @@ public class OpenSearchAdapterTest {
 
     assertThat(reduced.getName()).isEqualTo("foo");
     assertThat(reduced.getType()).isEqualTo("avg");
+  }
+
+  @Test
+  public void testCircuitBreakerUsedCounterResetsAfterReduce() throws IOException {
+    System.setProperty("astra.enableCircuitBreaker", "true");
+    AstraBigArrays.reset();
+
+    AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo");
+    avgAggregationBuilder.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    avgAggregationBuilder.missing("2");
+
+    AggregatorFactories.Builder aggregatorFactoriesBuilder = new AggregatorFactories.Builder();
+    aggregatorFactoriesBuilder.addAggregator(avgAggregationBuilder);
+
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
+
+    CircuitBreaker breaker =
+        AstraBigArrays.getCircuitBreakerService().getBreaker(CircuitBreaker.REQUEST);
+    long usedBefore = breaker.getUsed();
+
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAdapter.getCollectorManager(aggregatorFactoriesBuilder, indexSearcher, null);
+
+    Aggregator collector = collectorManager.newCollector();
+    collectorManager.reduce(List.of(collector));
+
+    // After reduce completes, the aggregator should have been closed, releasing
+    // any memory tracked by the circuit breaker back to zero (or the pre-query level)
+    assertThat(breaker.getUsed()).isEqualTo(usedBefore);
   }
 }
