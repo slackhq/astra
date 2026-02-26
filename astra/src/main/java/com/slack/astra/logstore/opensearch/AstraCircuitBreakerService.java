@@ -92,7 +92,17 @@ public class AstraCircuitBreakerService extends CircuitBreakerService {
     public double addEstimateBytesAndMaybeBreak(long bytes, String label)
         throws CircuitBreakingException {
       if (bytes < 0) {
-        // Releasing memory, always allow
+        // Releasing memory - validate we don't go negative
+        long currentUsed = used.get();
+        long newUsed = currentUsed + bytes;
+        if (newUsed < 0) {
+          LOG.error(
+              "Circuit breaker usage would go negative: current={}, release={}, resetting to 0",
+              currentUsed,
+              bytes);
+          used.set(0);
+          return 0;
+        }
         return addWithoutBreaking(bytes);
       }
 
@@ -107,6 +117,19 @@ public class AstraCircuitBreakerService extends CircuitBreakerService {
 
     @Override
     public long addWithoutBreaking(long bytes) {
+      if (bytes < 0) {
+        // Validate we don't go negative when releasing memory
+        long currentUsed = used.get();
+        long newUsed = currentUsed + bytes;
+        if (newUsed < 0) {
+          LOG.error(
+              "Circuit breaker usage would go negative: current={}, release={}, resetting to 0",
+              currentUsed,
+              bytes);
+          used.set(0);
+          return 0;
+        }
+      }
       return used.addAndGet(bytes);
     }
 

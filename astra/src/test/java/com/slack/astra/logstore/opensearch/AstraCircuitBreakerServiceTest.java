@@ -116,4 +116,43 @@ public class AstraCircuitBreakerServiceTest {
     assertThat(breaker.getDurability()).isEqualTo(CircuitBreaker.Durability.TRANSIENT);
     assertThat(breaker.getOverhead()).isEqualTo(1.0);
   }
+
+  @Test
+  void testNegativeMemoryReleaseResetsToZero() {
+    CircuitBreaker breaker = service.getBreaker(CircuitBreaker.REQUEST);
+    breaker.addEstimateBytesAndMaybeBreak(100, "allocate");
+    assertThat(breaker.getUsed()).isEqualTo(100);
+
+    // Try to release more memory than was allocated
+    breaker.addEstimateBytesAndMaybeBreak(-500, "overrelease");
+
+    // Should be reset to 0 instead of going negative
+    assertThat(breaker.getUsed()).isEqualTo(0);
+  }
+
+  @Test
+  void testNegativeMemoryReleaseWithoutBreakingResetsToZero() {
+    CircuitBreaker breaker = service.getBreaker(CircuitBreaker.REQUEST);
+    breaker.addWithoutBreaking(100);
+    assertThat(breaker.getUsed()).isEqualTo(100);
+
+    // Try to release more memory than was allocated
+    breaker.addWithoutBreaking(-500);
+
+    // Should be reset to 0 instead of going negative
+    assertThat(breaker.getUsed()).isEqualTo(0);
+  }
+
+  @Test
+  void testNormalMemoryReleaseDoesNotResetToZero() {
+    CircuitBreaker breaker = service.getBreaker(CircuitBreaker.REQUEST);
+    breaker.addEstimateBytesAndMaybeBreak(500, "allocate");
+    assertThat(breaker.getUsed()).isEqualTo(500);
+
+    // Release a valid amount of memory
+    breaker.addEstimateBytesAndMaybeBreak(-200, "release");
+
+    // Should properly track the remaining usage
+    assertThat(breaker.getUsed()).isEqualTo(300);
+  }
 }
