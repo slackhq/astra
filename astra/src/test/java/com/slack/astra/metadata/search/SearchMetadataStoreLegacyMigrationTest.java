@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.awaitility.Awaitility.await;
 
+import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.TestEtcdClusterFactory;
@@ -286,8 +287,8 @@ public class SearchMetadataStoreLegacyMigrationTest {
     searchMetadataStore.deleteSync(retrievedMetadata);
 
     // Verify it's deleted from legacy searchMetadataStore
-    Throwable legacyStoreThrown = catchThrowable(() -> legacyStore.getSync("testLegacyDeletion"));
-    assertThat(legacyStoreThrown).isInstanceOf(RuntimeException.class);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore))
+        .doesNotContain(retrievedMetadata);
 
     // And also not available through the new searchMetadataStore
     Throwable newStoreThrown =

@@ -172,6 +172,7 @@ public class EtcdPartitioningMetadataStoreTest {
     store =
         new EtcdPartitioningMetadataStore<>(
             etcdClient, etcdConfig, meterRegistry, EtcdCreateMode.PERSISTENT, serializer, "/test");
+    store.listSyncUncached().forEach(s -> store.deleteSync(s));
   }
 
   @AfterEach

@@ -137,7 +137,8 @@ public class LuceneIndexStoreImplTest {
               100,
               QueryBuilderUtil.generateQueryBuilder("nested.key1:value1", 0L, MAX_TIME),
               null,
-              createGenericDateHistogramAggregatorFactoriesBuilder());
+              createGenericDateHistogramAggregatorFactoriesBuilder(),
+              List.of());
       assertThat(result1.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result2 =
@@ -146,7 +147,8 @@ public class LuceneIndexStoreImplTest {
               100,
               QueryBuilderUtil.generateQueryBuilder("duplicateproperty:duplicate1", 0L, MAX_TIME),
               null,
-              createGenericDateHistogramAggregatorFactoriesBuilder());
+              createGenericDateHistogramAggregatorFactoriesBuilder(),
+              List.of());
       assertThat(result2.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result3 =
@@ -155,7 +157,8 @@ public class LuceneIndexStoreImplTest {
               100,
               QueryBuilderUtil.generateQueryBuilder("nested.duplicateproperty:2", 0L, MAX_TIME),
               null,
-              createGenericDateHistogramAggregatorFactoriesBuilder());
+              createGenericDateHistogramAggregatorFactoriesBuilder(),
+              List.of());
       assertThat(result3.hits.size()).isEqualTo(1);
     }
 
@@ -205,7 +208,8 @@ public class LuceneIndexStoreImplTest {
               100,
               QueryBuilderUtil.generateQueryBuilder("nested.key1:value1", 0L, MAX_TIME),
               null,
-              aggregatorFactoriesBuilder);
+              aggregatorFactoriesBuilder,
+              List.of());
       assertThat(result1.hits.size()).isEqualTo(1);
       assertThat(result1.internalAggregation.getName()).isEqualTo("1");
       assertThat(result1.internalAggregation.getType()).isEqualTo("date_histogram");

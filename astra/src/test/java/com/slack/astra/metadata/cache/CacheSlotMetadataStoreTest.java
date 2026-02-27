@@ -91,19 +91,20 @@ public class CacheSlotMetadataStoreTest {
             .build();
     this.curatorFramework =
         CuratorBuilder.build(meterRegistry, metadataStoreConfig.getZookeeperConfig());
-    this.store =
+    store =
         new CacheSlotMetadataStore(
             curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
   }
 
   @AfterEach
   public void tearDown() throws IOException {
+    store.listSync().forEach(s -> store.deleteSync(s));
+    store.close();
     curatorFramework.unwrap().close();
     if (etcdClient != null) etcdClient.close();
 
     testingServer.close();
     meterRegistry.close();
-    this.store.close();
   }
 
   @Test
@@ -126,7 +127,6 @@ public class CacheSlotMetadataStoreTest {
 
     store.createSync(cacheSlotMetadata);
     assertThat(AstraMetadataTestUtils.listSyncUncached(store).size()).isEqualTo(1);
-
     store
         .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.LIVE)
         .get(1, TimeUnit.SECONDS);
@@ -134,7 +134,8 @@ public class CacheSlotMetadataStoreTest {
         .until(
             () ->
                 store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.LIVE);
+                    && AstraMetadataTestUtils.listSyncUncached(store).get(0).cacheSlotState
+                        == CacheSlotState.LIVE);
     final CacheSlotMetadata liveNode = store.getSync(hostname, name);
     assertThat(liveNode.name).isEqualTo(name);
     assertThat(liveNode.cacheSlotState).isEqualTo(CacheSlotState.LIVE);
@@ -206,7 +207,8 @@ public class CacheSlotMetadataStoreTest {
         .until(
             () ->
                 store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.LIVE);
+                    && AstraMetadataTestUtils.listSyncUncached(store).get(0).cacheSlotState
+                        == CacheSlotState.LIVE);
     final CacheSlotMetadata liveNode = store.getSync(hostname, name);
     assertThat(liveNode.name).isEqualTo(name);
     assertThat(liveNode.cacheSlotState).isEqualTo(CacheSlotState.LIVE);

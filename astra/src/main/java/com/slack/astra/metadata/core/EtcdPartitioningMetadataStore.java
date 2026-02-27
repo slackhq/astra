@@ -138,8 +138,9 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               .getHeader()
               .getRevision();
 
-      // Create watch option starting from the current revision + 1
+      // Create watch option starting from the current revision
       // This ensures we don't miss events that occur during watch registration
+      // and that we don't replay the last event
       watchOption =
           WatchOption.builder()
               .withPrefix(storeFolderKey)
@@ -172,6 +173,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 return etcdClient
                     .getKVClient()
                     .get(prefix, GetOption.builder().isPrefix(true).build())
+                    .orTimeout(etcdConfig.getOperationsTimeoutMs(), TimeUnit.MILLISECONDS)
                     .thenApplyAsync(
                         childResponse -> {
                           List<String> children = new ArrayList<>();
@@ -355,6 +357,10 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error creating node " + metadataNode, e);
     }
+  }
+
+  public EtcdMetadataStore<T> createPartitionSync(String partitionId) {
+    return getOrCreateMetadataStore(partitionId);
   }
 
   public CompletionStage<T> getAsync(String partition, String path) {
@@ -582,7 +588,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         (p1) -> {
           String path = String.format("%s/%s", storeFolder, p1);
           LOG.debug(
-              "Creating new metadata store for partition - {}, at path - {}", partition, path);
+              "Creating new etcd metadata store for partition - {}, at path - {}", partition, path);
 
           EtcdMetadataStore<T> newStore =
               new EtcdMetadataStore<>(
@@ -624,6 +630,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   public void addListener(AstraMetadataStoreChangeListener<T> watcher) {
+    LOG.info("Adding listener {}", watcher);
     // add this watcher to the map for new stores to add
     listenerMap.put(System.identityHashCode(watcher) + "", watcher);
     // add this watcher to existing stores

@@ -1455,7 +1455,7 @@ public class ReplicaAssignmentServiceTest {
             false);
     replicaMetadataStore.createAsync(expectedUnassignedMetadata);
 
-    await().until(() -> replicaMetadataStore.listSync().size() == 3);
+    await().until(() -> AstraMetadataTestUtils.listSyncUncached(replicaMetadataStore).size() == 3);
 
     // create a large amount of free slots
     for (int i = 0; i < 10; i++) {

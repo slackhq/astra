@@ -120,6 +120,10 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
     if (Boolean.getBoolean(ASTRA_NG_DYNAMIC_CHUNK_SIZES_FLAG)) {
       cacheNodeAssignmentStore.addListener(cacheNodeAssignmentChangeListener);
+      // cache node creates its own partition in cacheNodeAssignment store so the listener
+      // initializes
+      // this is necessary due to race condition bug found september 2025
+      cacheNodeAssignmentStore.createPartitionSync(cacheNodeId);
       cacheNodeMetadataStore.createSync(
           new CacheNodeMetadata(
               cacheNodeId, searchContext.hostname, capacityBytes, replicaSet, false));

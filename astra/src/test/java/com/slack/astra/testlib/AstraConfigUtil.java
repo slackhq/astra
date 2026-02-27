@@ -179,6 +179,30 @@ public class AstraConfigUtil {
     return makeIndexerConfig(indexerPort, maxOffsetDelay, maxMessagesPerChunk, true);
   }
 
+  public static AstraConfigs.QueryServiceConfig makeQueryConfig() {
+    return makeQueryConfig(5555, "localhost", 5000, 3000, false);
+  }
+
+  public static AstraConfigs.QueryServiceConfig makeQueryConfig(
+      int queryPort,
+      String serverAddress,
+      int requestTimeoutMs,
+      int defaultQueryTimeout,
+      boolean cacheEnabled) {
+    AstraConfigs.QueryServiceConfig queryConfig =
+        AstraConfigs.QueryServiceConfig.newBuilder()
+            .setServerConfig(
+                AstraConfigs.ServerConfig.newBuilder()
+                    .setServerPort(queryPort)
+                    .setServerAddress(serverAddress)
+                    .setRequestTimeoutMs(requestTimeoutMs)
+                    .build())
+            .setDefaultQueryTimeoutMs(defaultQueryTimeout)
+            .setQueryRequestCacheEnabled(cacheEnabled)
+            .build();
+    return queryConfig;
+  }
+
   public static AstraConfigs.IndexerConfig makeIndexerConfig(
       int indexerPort, int maxOffsetDelay, int maxMessagesPerChunk, boolean enableFullTextSearch) {
     return AstraConfigs.IndexerConfig.newBuilder()

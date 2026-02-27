@@ -293,7 +293,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         }
       }
 
-      // set chunk state
+      // set chunk state to LIVE
       cacheNodeAssignmentStore.updateAssignmentState(
           getCacheNodeAssignment(), Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
       lastKnownAssignmentState = Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;
@@ -614,7 +614,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           query.howMany,
           query.queryBuilder,
           query.sourceFieldFilter,
-          query.aggregatorFactoriesBuilder);
+          query.aggregatorFactoriesBuilder,
+          query.sortFields);
     } else {
       return (SearchResult<T>) SearchResult.empty();
     }

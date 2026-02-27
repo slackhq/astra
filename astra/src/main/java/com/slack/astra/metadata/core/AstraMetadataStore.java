@@ -386,7 +386,12 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
                       return zkStore.updateAsync(metadataNode);
                     } else {
                       // Try Etcd
-                      return etcdStore.updateAsync(metadataNode);
+                      return etcdStore
+                          .updateAsync(metadataNode)
+                          .exceptionally(
+                              throwable -> {
+                                throw new RuntimeException(throwable);
+                              });
                     }
                   });
       case ETCD_CREATES ->
@@ -396,7 +401,12 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
               .thenCompose(
                   exists -> {
                     if (exists) {
-                      return etcdStore.updateAsync(metadataNode);
+                      return etcdStore
+                          .updateAsync(metadataNode)
+                          .exceptionally(
+                              throwable -> {
+                                throw new RuntimeException(throwable);
+                              });
                     } else {
                       // Try ZK
                       return zkStore.updateAsync(metadataNode);
