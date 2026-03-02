@@ -103,8 +103,7 @@ public class AstraSearchContext extends SearchContext {
 
   @Override
   protected void doClose() {
-    // No-op: SearchContext.close() handles releasing all registered releasables
-    // (aggregators, sub-aggregators, etc.) before calling this method.
+    throw new NotImplementedException();
   }
 
   @Override
