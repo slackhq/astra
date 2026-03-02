@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.config.AstraConfigs;
+import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -99,14 +100,24 @@ public class OpenSearchAdapter {
       IndexSearcher indexSearcher,
       AggregatorFactories.Builder aggregatorFactoriesBuilder,
       Query query) {
+    AggregatorWithContext result =
+        buildAggregatorWithContext(indexSearcher, aggregatorFactoriesBuilder, query);
+    return result != null ? result.aggregator : null;
+  }
+
+  private AggregatorWithContext buildAggregatorWithContext(
+      IndexSearcher indexSearcher,
+      AggregatorFactories.Builder aggregatorFactoriesBuilder,
+      Query query) {
     QueryShardContext queryShardContext =
         buildQueryShardContext(AstraBigArrays.getInstance(), indexSearcher, mapperService);
 
     if (aggregatorFactoriesBuilder != null) {
+      AstraSearchContext searchContext = null;
       try {
         AggregatorFactories aggregatorFactories =
             aggregatorFactoriesBuilder.build(queryShardContext, null);
-        AstraSearchContext searchContext =
+        searchContext =
             new AstraSearchContext(
                 AstraBigArrays.getInstance(), queryShardContext, indexSearcher, query);
 
@@ -123,8 +134,11 @@ public class OpenSearchAdapter {
         Aggregator[] aggregators =
             aggregatorFactories.createSubAggregators(
                 searchContext, null, CardinalityUpperBound.ONE);
-        return aggregators[0];
+        return new AggregatorWithContext(aggregators[0], searchContext);
       } catch (Exception e) {
+        if (searchContext != null) {
+          searchContext.close();
+        }
         LOG.error(
             "Aggregator parse exception {} for AggregatorFactoriesBuilder {} and Query {}",
             e,
@@ -133,8 +147,17 @@ public class OpenSearchAdapter {
         throw new IllegalArgumentException(e);
       }
     }
-    // TODO: Should this return null? Raise an error?
     return null;
+  }
+
+  private static class AggregatorWithContext {
+    final Aggregator aggregator;
+    final AstraSearchContext searchContext;
+
+    AggregatorWithContext(Aggregator aggregator, AstraSearchContext searchContext) {
+      this.aggregator = aggregator;
+      this.searchContext = searchContext;
+    }
   }
 
   /**
@@ -225,62 +248,106 @@ public class OpenSearchAdapter {
         });
   }
 
-  public CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
+  public AstraAggregationCollectorManager getCollectorManager(
       AggregatorFactories.Builder aggregatorFactoriesBuilder,
       IndexSearcher indexSearcher,
       Query query)
       throws IOException {
-    return new CollectorManager<>() {
-      @Override
-      public Aggregator newCollector() throws IOException {
-        // preCollection must be invoked prior to using aggregations
-        Aggregator aggregator =
-            buildAggregatorFromFactory(indexSearcher, aggregatorFactoriesBuilder, query);
-        aggregator.preCollection();
-        return aggregator;
+    return new AstraAggregationCollectorManager(
+        this, aggregatorFactoriesBuilder, indexSearcher, query);
+  }
+
+  /**
+   * CollectorManager that properly tracks and closes all OpenSearch search contexts, ensuring
+   * circuit breaker memory is fully released after each query. In OpenSearch 2.11.x,
+   * AggregatorBase.close() only releases the aggregator's own requestBytesUsed — it does NOT close
+   * sub-aggregators. Sub-aggregators register themselves with the SearchContext via
+   * addReleasable(), and are only cleaned up when SearchContext.close() is called.
+   */
+  public static class AstraAggregationCollectorManager
+      implements CollectorManager<Aggregator, InternalAggregation>, Closeable {
+
+    private final OpenSearchAdapter adapter;
+    private final AggregatorFactories.Builder aggregatorFactoriesBuilder;
+    private final IndexSearcher indexSearcher;
+    private final Query query;
+    private final List<AstraSearchContext> searchContexts =
+        Collections.synchronizedList(new ArrayList<>());
+
+    AstraAggregationCollectorManager(
+        OpenSearchAdapter adapter,
+        AggregatorFactories.Builder aggregatorFactoriesBuilder,
+        IndexSearcher indexSearcher,
+        Query query) {
+      this.adapter = adapter;
+      this.aggregatorFactoriesBuilder = aggregatorFactoriesBuilder;
+      this.indexSearcher = indexSearcher;
+      this.query = query;
+    }
+
+    @Override
+    public Aggregator newCollector() throws IOException {
+      AggregatorWithContext result =
+          adapter.buildAggregatorWithContext(indexSearcher, aggregatorFactoriesBuilder, query);
+      searchContexts.add(result.searchContext);
+      result.aggregator.preCollection();
+      return result.aggregator;
+    }
+
+    /**
+     * The collector manager required a collection of collectors for reducing, though for our normal
+     * case this will likely only be a single collector
+     */
+    @Override
+    public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
+      List<InternalAggregation> internalAggregationList = new ArrayList<>();
+      try {
+        for (Aggregator collector : collectors) {
+          // postCollection must be invoked prior to building the internal aggregations
+          collector.postCollection();
+          internalAggregationList.add(collector.buildTopLevel());
+        }
+
+        if (internalAggregationList.size() == 0) {
+          return null;
+        } else {
+          // Using the first element on the list as the basis for the reduce method is per
+          // OpenSearch recommendations: "For best efficiency, when implementing, try
+          // reusing an existing instance (typically the first in the given list) to save
+          // on redundant object construction."
+          return internalAggregationList
+              .get(0)
+              .reduce(
+                  internalAggregationList,
+                  InternalAggregation.ReduceContext.forPartialReduction(
+                      AstraBigArrays.getInstance(),
+                      null,
+                      () -> PipelineAggregator.PipelineTree.EMPTY));
+        }
+      } finally {
+        closeSearchContexts();
       }
+    }
 
-      /**
-       * The collector manager required a collection of collectors for reducing, though for our
-       * normal case this will likely only be a single collector
-       */
-      @Override
-      public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
-        List<InternalAggregation> internalAggregationList = new ArrayList<>();
+    /**
+     * Closes all tracked search contexts, releasing all aggregators (including sub-aggregators) and
+     * their associated circuit breaker memory. Safe to call multiple times — SearchContext.close()
+     * is idempotent.
+     */
+    @Override
+    public void close() {
+      closeSearchContexts();
+    }
+
+    private void closeSearchContexts() {
+      for (AstraSearchContext ctx : searchContexts) {
         try {
-          for (Aggregator collector : collectors) {
-            // postCollection must be invoked prior to building the internal aggregations
-            collector.postCollection();
-            internalAggregationList.add(collector.buildTopLevel());
-          }
-
-          if (internalAggregationList.size() == 0) {
-            return null;
-          } else {
-            // Using the first element on the list as the basis for the reduce method is per
-            // OpenSearch recommendations: "For best efficiency, when implementing, try
-            // reusing an existing instance (typically the first in the given list) to save
-            // on redundant object construction."
-            return internalAggregationList
-                .get(0)
-                .reduce(
-                    internalAggregationList,
-                    InternalAggregation.ReduceContext.forPartialReduction(
-                        AstraBigArrays.getInstance(),
-                        null,
-                        () -> PipelineAggregator.PipelineTree.EMPTY));
-          }
-        } finally {
-          for (Aggregator collector : collectors) {
-            try {
-              collector.close();
-            } catch (Exception e) {
-              LOG.warn("Error closing aggregator", e);
-            }
-          }
+          ctx.close();
+        } catch (Exception e) {
+          LOG.warn("Error closing search context", e);
         }
       }
-    };
+    }
   }
 
   /**

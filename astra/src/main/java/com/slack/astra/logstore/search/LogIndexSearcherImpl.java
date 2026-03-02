@@ -10,6 +10,7 @@ import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LogMessage.SystemField;
 import com.slack.astra.logstore.LogWireMessage;
 import com.slack.astra.logstore.opensearch.OpenSearchAdapter;
+import com.slack.astra.logstore.opensearch.OpenSearchAdapter.AstraAggregationCollectorManager;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.config.AstraConfigs;
@@ -138,32 +139,40 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
                   sort, howMany, aggregatorFactoriesBuilder != null ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
 
-          if (aggregatorFactoriesBuilder != null) {
-            collectorManager =
-                new MultiCollectorManager(
-                    topFieldCollector,
-                    openSearchAdapter.getCollectorManager(
-                        aggregatorFactoriesBuilder, searcher, query));
-          } else {
-            collectorManager = new MultiCollectorManager(topFieldCollector);
-          }
-          Object[] collector = searcher.search(query, collectorManager);
+          AstraAggregationCollectorManager aggCollectorManager = null;
+          try {
+            if (aggregatorFactoriesBuilder != null) {
+              aggCollectorManager =
+                  openSearchAdapter.getCollectorManager(
+                      aggregatorFactoriesBuilder, searcher, query);
+              collectorManager = new MultiCollectorManager(topFieldCollector, aggCollectorManager);
+            } else {
+              collectorManager = new MultiCollectorManager(topFieldCollector);
+            }
+            Object[] collector = searcher.search(query, collectorManager);
 
-          ScoreDoc[] hits = ((TopFieldDocs) collector[0]).scoreDocs;
-          results = new ArrayList<>(hits.length);
-          for (ScoreDoc hit : hits) {
-            results.add(buildLogMessage(searcher, hit, sourceFieldFilter));
-          }
-          if (aggregatorFactoriesBuilder != null) {
-            internalAggregation = (InternalAggregation) collector[1];
+            ScoreDoc[] hits = ((TopFieldDocs) collector[0]).scoreDocs;
+            results = new ArrayList<>(hits.length);
+            for (ScoreDoc hit : hits) {
+              results.add(buildLogMessage(searcher, hit, sourceFieldFilter));
+            }
+            if (aggregatorFactoriesBuilder != null) {
+              internalAggregation = (InternalAggregation) collector[1];
+            }
+          } finally {
+            if (aggCollectorManager != null) {
+              aggCollectorManager.close();
+            }
           }
         } else {
           results = Collections.emptyList();
-          internalAggregation =
-              searcher.search(
-                  query,
-                  openSearchAdapter.getCollectorManager(
-                      aggregatorFactoriesBuilder, searcher, query));
+          AstraAggregationCollectorManager aggCollectorManager =
+              openSearchAdapter.getCollectorManager(aggregatorFactoriesBuilder, searcher, query);
+          try {
+            internalAggregation = searcher.search(query, aggCollectorManager);
+          } finally {
+            aggCollectorManager.close();
+          }
         }
 
         elapsedTime.stop();

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.slack.astra.logstore.LogMessage;
+import com.slack.astra.logstore.opensearch.OpenSearchAdapter.AstraAggregationCollectorManager;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension;
@@ -12,7 +13,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.IndexSortSortedNumericDocValuesRangeQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
@@ -28,7 +28,8 @@ import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.AggregatorFactories;
-import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 
@@ -82,7 +83,7 @@ public class OpenSearchAdapterTest {
     AggregatorFactories.Builder aggregatorFactoriesBuilder2 = new AggregatorFactories.Builder();
     aggregatorFactoriesBuilder2.addAggregator(avgAggregationBuilder2);
 
-    CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
+    AstraAggregationCollectorManager collectorManager1 =
         openSearchAdapter.getCollectorManager(
             aggregatorFactoriesBuilder,
             logStoreAndSearcherRule
@@ -91,7 +92,7 @@ public class OpenSearchAdapterTest {
                 .getLuceneSearcherManager()
                 .acquire(),
             null);
-    CollectorManager<Aggregator, InternalAggregation> collectorManager2 =
+    AstraAggregationCollectorManager collectorManager2 =
         openSearchAdapter.getCollectorManager(
             aggregatorFactoriesBuilder2,
             logStoreAndSearcherRule
@@ -101,14 +102,19 @@ public class OpenSearchAdapterTest {
                 .acquire(),
             null);
 
-    Aggregator collector1 = collectorManager1.newCollector();
-    Aggregator collector2 = collectorManager2.newCollector();
+    try {
+      Aggregator collector1 = collectorManager1.newCollector();
+      Aggregator collector2 = collectorManager2.newCollector();
 
-    InternalAvg reduced = (InternalAvg) collectorManager1.reduce(List.of(collector1, collector2));
+      InternalAvg reduced = (InternalAvg) collectorManager1.reduce(List.of(collector1, collector2));
 
-    assertThat(reduced.getName()).isEqualTo("foo");
-    assertThat(reduced.getType()).isEqualTo("avg");
-    assertThat(reduced.getValue()).isEqualTo(Double.valueOf("NaN"));
+      assertThat(reduced.getName()).isEqualTo("foo");
+      assertThat(reduced.getType()).isEqualTo("avg");
+      assertThat(reduced.getValue()).isEqualTo(Double.valueOf("NaN"));
+    } finally {
+      collectorManager1.close();
+      collectorManager2.close();
+    }
 
     // todo - we don't have access to the package local methods for extra asserts - use reflection?
   }
@@ -224,14 +230,18 @@ public class OpenSearchAdapterTest {
             .getLuceneSearcherManager()
             .acquire();
 
-    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+    AstraAggregationCollectorManager collectorManager =
         openSearchAdapter.getCollectorManager(aggregatorFactoriesBuilder, indexSearcher, null);
 
-    Aggregator collector = collectorManager.newCollector();
-    InternalAvg reduced = (InternalAvg) collectorManager.reduce(List.of(collector));
+    try {
+      Aggregator collector = collectorManager.newCollector();
+      InternalAvg reduced = (InternalAvg) collectorManager.reduce(List.of(collector));
 
-    assertThat(reduced.getName()).isEqualTo("foo");
-    assertThat(reduced.getType()).isEqualTo("avg");
+      assertThat(reduced.getName()).isEqualTo("foo");
+      assertThat(reduced.getType()).isEqualTo("avg");
+    } finally {
+      collectorManager.close();
+    }
   }
 
   @Test
@@ -277,14 +287,18 @@ public class OpenSearchAdapterTest {
             .getLuceneSearcherManager()
             .acquire();
 
-    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+    AstraAggregationCollectorManager collectorManager =
         openSearchAdapter.getCollectorManager(aggregatorFactoriesBuilder, indexSearcher, null);
 
-    Aggregator collector = collectorManager.newCollector();
-    InternalAvg reduced = (InternalAvg) collectorManager.reduce(List.of(collector));
+    try {
+      Aggregator collector = collectorManager.newCollector();
+      InternalAvg reduced = (InternalAvg) collectorManager.reduce(List.of(collector));
 
-    assertThat(reduced.getName()).isEqualTo("foo");
-    assertThat(reduced.getType()).isEqualTo("avg");
+      assertThat(reduced.getName()).isEqualTo("foo");
+      assertThat(reduced.getType()).isEqualTo("avg");
+    } finally {
+      collectorManager.close();
+    }
   }
 
   @Test
@@ -310,14 +324,69 @@ public class OpenSearchAdapterTest {
         AstraBigArrays.getCircuitBreakerService().getBreaker(CircuitBreaker.REQUEST);
     long usedBefore = breaker.getUsed();
 
-    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+    AstraAggregationCollectorManager collectorManager =
         openSearchAdapter.getCollectorManager(aggregatorFactoriesBuilder, indexSearcher, null);
 
-    Aggregator collector = collectorManager.newCollector();
-    collectorManager.reduce(List.of(collector));
+    try {
+      Aggregator collector = collectorManager.newCollector();
+      collectorManager.reduce(List.of(collector));
+    } finally {
+      collectorManager.close();
+    }
 
-    // After reduce completes, the aggregator should have been closed, releasing
-    // any memory tracked by the circuit breaker back to zero (or the pre-query level)
+    // After reduce and close complete, all aggregators (including sub-aggregators) should have
+    // been closed via SearchContext.close(), releasing all circuit breaker memory
     assertThat(breaker.getUsed()).isEqualTo(usedBefore);
+  }
+
+  @Test
+  public void testCircuitBreakerResetsWithNestedAggregations() throws IOException {
+    System.setProperty("astra.enableCircuitBreaker", "true");
+    AstraBigArrays.reset();
+
+    // Build a date histogram with a nested avg sub-aggregation
+    DateHistogramAggregationBuilder dateHistogram =
+        new DateHistogramAggregationBuilder("date_histo");
+    dateHistogram.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    dateHistogram.fixedInterval(DateHistogramInterval.HOUR);
+
+    AvgAggregationBuilder nestedAvg = new AvgAggregationBuilder("nested_avg");
+    nestedAvg.field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    dateHistogram.subAggregation(nestedAvg);
+
+    AggregatorFactories.Builder aggregatorFactoriesBuilder = new AggregatorFactories.Builder();
+    aggregatorFactoriesBuilder.addAggregator(dateHistogram);
+
+    IndexSearcher indexSearcher =
+        logStoreAndSearcherRule
+            .logStore
+            .getAstraSearcherManager()
+            .getLuceneSearcherManager()
+            .acquire();
+
+    CircuitBreaker breaker =
+        AstraBigArrays.getCircuitBreakerService().getBreaker(CircuitBreaker.REQUEST);
+    long usedBefore = breaker.getUsed();
+
+    // Run the aggregation multiple times to simulate repeated queries
+    for (int i = 0; i < 5; i++) {
+      AstraAggregationCollectorManager collectorManager =
+          openSearchAdapter.getCollectorManager(aggregatorFactoriesBuilder, indexSearcher, null);
+      try {
+        Aggregator collector = collectorManager.newCollector();
+
+        // Verify counter went up (aggregator + sub-aggregator registered with breaker)
+        assertThat(breaker.getUsed()).isGreaterThan(usedBefore);
+
+        collectorManager.reduce(List.of(collector));
+      } finally {
+        collectorManager.close();
+      }
+
+      // After each query, the counter must return to the pre-query level
+      assertThat(breaker.getUsed())
+          .as("Circuit breaker should reset after query iteration %d", i)
+          .isEqualTo(usedBefore);
+    }
   }
 }
