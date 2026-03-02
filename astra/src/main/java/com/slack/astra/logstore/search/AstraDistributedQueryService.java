@@ -487,7 +487,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
   public AstraSearch.SearchResult doSearch(final AstraSearch.SearchRequest request)
       throws InterruptedException {
     ScopedSpan span =
-        Tracing.currentTracer().startScopedSpan("AstraDistributedQueryService.newDoSearch");
+        Tracing.currentTracer().startScopedSpan("AstraDistributedQueryService.doSearch");
     long requestedDataHours =
         Duration.ofMillis(request.getEndTimeEpochMs() - request.getStartTimeEpochMs()).toHours();
     long startTime = Instant.now().toEpochMilli();
@@ -585,7 +585,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                   // the snapshot level (which is why we return a list of failed snapshots for
                   // every search to every node)
                   Map<String, SearchResult<LogMessage>> snapshotToResult =
-                      newDistributedSearch(request, searchMetadataURLToSnapshotNames);
+                      distributedSearch(request, searchMetadataURLToSnapshotNames);
 
                   for (Map.Entry<String, SearchResult<LogMessage>> entry :
                       snapshotToResult.entrySet()) {
@@ -685,7 +685,7 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
     return SearchResultUtils.toSearchResultProto(finalAggregatedResult);
   }
 
-  private Map<String, SearchResult<LogMessage>> newDistributedSearch(
+  private Map<String, SearchResult<LogMessage>> distributedSearch(
       final AstraSearch.SearchRequest distribSearchReq,
       Map<String, List<String>> searchMetadataURLToSnapshotNames) {
     ScopedSpan span =

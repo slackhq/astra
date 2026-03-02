@@ -994,7 +994,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   @Test
-  public void testNewDistributedQueryWithSingleSnapshotSuccess()
+  public void testDistributedQueryWithSingleSnapshotSuccess()
       throws JsonProcessingException, InterruptedException {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
@@ -1058,7 +1058,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   @Test
-  public void testNewDistributedQueryRetryOnHardFailure()
+  public void testDistributedQueryRetryOnHardFailure()
       throws JsonProcessingException, InterruptedException {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
@@ -1156,7 +1156,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   @Test
-  public void testNewDistributedQueryDoesNotRetryOnSoftFailure() throws InterruptedException {
+  public void testDistributedQueryDoesNotRetryOnSoftFailure() throws InterruptedException {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
     DatasetMetadata datasetMetadata =
@@ -1216,7 +1216,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   @Test
-  public void testNewDistributedQueryHandlesEmptySnapshotList() throws InterruptedException {
+  public void testDistributedQueryHandlesEmptySnapshotList() throws InterruptedException {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 50, List.of("1"));
     DatasetMetadata datasetMetadata =
@@ -1253,7 +1253,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   @Test
-  public void testNewDistributedQueryMultipleReplicasRetryLogic()
+  public void testDistributedQueryMultipleReplicasRetryLogic()
       throws JsonProcessingException, InterruptedException {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
@@ -1373,7 +1373,7 @@ public class AstraDistributedQueryServiceTest {
   }
 
   @Test
-  public void testNewDistributedQueryAllReplicasFailForSnapshot() throws InterruptedException {
+  public void testDistributedQueryAllReplicasFailForSnapshot() throws InterruptedException {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
     DatasetMetadata datasetMetadata =
