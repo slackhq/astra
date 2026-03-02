@@ -25,13 +25,13 @@
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.21.1</jackson.version>
         <jackson.annotations.version>2.21</jackson.annotations.version>
-        <jackson.databind.version>2.21.0</jackson.databind.version>
+        <jackson.databind.version>2.21.1</jackson.databind.version>
         <lucene.version>9.7.0</lucene.version>
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
         <log4j.version>2.25.3</log4j.version>
         <aws.sdk.version>2.42.4</aws.sdk.version>
-        <error.prone.version>2.47.0</error.prone.version>
+        <error.prone.version>2.48.0</error.prone.version>
         <junit.jupiter.version>6.0.3</junit.jupiter.version>
         <jetcd.version>0.8.6</jetcd.version>
     </properties>
@@ -476,7 +476,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.21.0</version>
+            <version>5.22.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -489,7 +489,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.18.5</version>
+            <version>1.18.7</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
