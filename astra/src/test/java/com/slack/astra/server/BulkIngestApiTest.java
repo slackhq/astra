@@ -16,6 +16,7 @@ import com.slack.astra.bulkIngestApi.BulkIngestKafkaProducer;
 import com.slack.astra.bulkIngestApi.BulkIngestResponse;
 import com.slack.astra.bulkIngestApi.DatasetRateLimitingService;
 import com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser;
+import com.slack.astra.logstore.schema.ReservedFields;
 import com.slack.astra.metadata.core.CuratorBuilder;
 import com.slack.astra.metadata.dataset.DatasetMetadata;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
@@ -180,7 +181,6 @@ public class BulkIngestApiTest {
             datasetMetadataStore, preprocessorMetadataStore, preprocessorConfig, meterRegistry);
 
     datasetRateLimitingService.startAsync();
-
     datasetRateLimitingService.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
@@ -218,6 +218,7 @@ public class BulkIngestApiTest {
   // the shutdown code with the @AfterEach annotation
   public void shutdownOpenSearchAPI() throws Exception {
     System.clearProperty("astra.bulkIngest.useKafkaTransactions");
+    System.clearProperty(BulkIngestApi.SCHEMA_ENFORCEMENT_FLAG);
     if (datasetRateLimitingService != null) {
       datasetRateLimitingService.stopAsync();
       datasetRateLimitingService.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -266,7 +267,8 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             400,
-            Schema.IngestSchema.newBuilder().build());
+            Schema.IngestSchema.newBuilder().build(),
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
 
     String request1 =
         """
@@ -339,7 +341,8 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             TOO_MANY_REQUESTS.code(),
-            Schema.IngestSchema.newBuilder().build());
+            ReservedFields.addPredefinedFields(Schema.IngestSchema.getDefaultInstance()),
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
     httpResponse = bulkApi2.addDocument(request1).aggregate().join();
     assertThat(httpResponse.status().isSuccess()).isEqualTo(false);
     assertThat(httpResponse.status().code()).isEqualTo(TOO_MANY_REQUESTS.code());
@@ -367,7 +370,8 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             400,
-            Schema.IngestSchema.newBuilder().build());
+            Schema.IngestSchema.newBuilder().build(),
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
 
     String request1 =
         """
@@ -422,7 +426,8 @@ public class BulkIngestApiTest {
             datasetRateLimitingService,
             meterRegistry,
             400,
-            Schema.IngestSchema.newBuilder().build());
+            Schema.IngestSchema.newBuilder().build(),
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
 
     String request1 =
         """
@@ -459,6 +464,215 @@ public class BulkIngestApiTest {
                 TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("2"));
 
     // close the kafka consumer used in the test
+    kafkaConsumer.close();
+  }
+
+  // Validate that schema is used during ingest (that filtering happens)
+  @Test
+  public void testStaticSchemaMode() throws Exception {
+    System.setProperty(BulkIngestApi.SCHEMA_ENFORCEMENT_FLAG, "true");
+
+    Schema.IngestSchema schema =
+        ReservedFields.addPredefinedFields(
+            Schema.IngestSchema.newBuilder()
+                .putFields(
+                    "field1",
+                    Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+                .build());
+
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    // Send a document with field1 (in schema) and field2 (not in schema)
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1", "field2" : "value2" }
+            """;
+    updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
+
+    KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
+
+    AggregatedHttpResponse response = bulkApi.addDocument(request).aggregate().join();
+    assertThat(response.status().isSuccess()).isEqualTo(true);
+    assertThat(response.status().code()).isEqualTo(OK.code());
+    BulkIngestResponse responseObj =
+        JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
+    assertThat(responseObj.totalDocs()).isEqualTo(1);
+    assertThat(responseObj.failedDocs()).isEqualTo(0);
+
+    validateOffset(kafkaConsumer, 1);
+
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
+    assertThat(records.count()).isEqualTo(1);
+
+    // Verify field2 was dropped — only field1 should remain (service_name is also not in schema)
+    Trace.Span span = TraceSpanParserSilenceError(records.iterator().next().value());
+    List<String> tagKeys = span.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).contains("field1");
+    assertThat(tagKeys).doesNotContain("field2", "service_name");
+
+    kafkaConsumer.close();
+  }
+
+  // Validate schema mode set to dynamic does not filter out fields
+  @Test
+  public void testDynamicSchemaMode() throws Exception {
+
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            ReservedFields.addPredefinedFields(Schema.IngestSchema.getDefaultInstance()),
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1", "field2" : "value2", "field3" : "value3" }
+            """;
+    updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
+
+    KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
+
+    AggregatedHttpResponse response = bulkApi.addDocument(request).aggregate().join();
+    assertThat(response.status().isSuccess()).isEqualTo(true);
+    assertThat(response.status().code()).isEqualTo(OK.code());
+
+    validateOffset(kafkaConsumer, 1);
+
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
+    assertThat(records.count()).isEqualTo(1);
+
+    // All fields should be preserved in dynamic mode
+    Trace.Span span = TraceSpanParserSilenceError(records.iterator().next().value());
+    List<String> tagKeys = span.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).contains("field1", "field2", "field3");
+
+    kafkaConsumer.close();
+  }
+
+  @Test
+  public void testFeatureFlagOffPreservesAllFields() throws Exception {
+    // flag is NOT set — enforcement should be off
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    Schema.IngestSchema schema =
+        ReservedFields.addPredefinedFields(
+            Schema.IngestSchema.newBuilder()
+                .putFields(
+                    "field1",
+                    Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+                .build());
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1", "field2" : "value2" }
+            """;
+    updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
+
+    KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
+
+    AggregatedHttpResponse response = bulkApi.addDocument(request).aggregate().join();
+    assertThat(response.status().code()).isEqualTo(OK.code());
+
+    validateOffset(kafkaConsumer, 1);
+
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
+    assertThat(records.count()).isEqualTo(1);
+
+    // Flag is off — both fields should be preserved even though field2 is not in schema
+    Trace.Span span = TraceSpanParserSilenceError(records.iterator().next().value());
+    List<String> tagKeys = span.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).contains("field1", "field2");
+
+    kafkaConsumer.close();
+  }
+
+  // End-to-end: flag ON with DROP_UNKNOWN drops type mismatches through Kafka
+  @Test
+  public void testFeatureFlagOnDropsTypeMismatch() throws Exception {
+    System.setProperty(BulkIngestApi.SCHEMA_ENFORCEMENT_FLAG, "true");
+
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    Schema.IngestSchema schema =
+        ReservedFields.addPredefinedFields(
+            Schema.IngestSchema.newBuilder()
+                .putFields(
+                    "count",
+                    Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.INTEGER).build())
+                .putFields(
+                    "message",
+                    Schema.SchemaField.newBuilder().setType(Schema.SchemaFieldType.TEXT).build())
+                .build());
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            schema,
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+
+    // count has "hello" which can't parse as INTEGER
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "count" : "hello", "message" : "valid text" }
+            """;
+    updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
+
+    KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
+
+    AggregatedHttpResponse response = bulkApi.addDocument(request).aggregate().join();
+    assertThat(response.status().code()).isEqualTo(OK.code());
+
+    validateOffset(kafkaConsumer, 1);
+
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
+    assertThat(records.count()).isEqualTo(1);
+
+    Trace.Span span = TraceSpanParserSilenceError(records.iterator().next().value());
+    List<String> tagKeys = span.getTagsList().stream().map(Trace.KeyValue::getKey).toList();
+    assertThat(tagKeys).contains("message");
+    assertThat(tagKeys).doesNotContain("count", "failed_count");
+
     kafkaConsumer.close();
   }
 

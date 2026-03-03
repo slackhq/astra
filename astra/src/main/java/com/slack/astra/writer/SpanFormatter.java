@@ -39,6 +39,41 @@ public class SpanFormatter {
         .build();
   }
 
+  public static boolean isTypeCompatible(Object value, Schema.SchemaFieldType type) {
+    try {
+      switch (type) {
+        case KEYWORD, TEXT, IP, BINARY, BOOLEAN -> {
+          return true;
+        }
+        case DATE -> {
+          Instant.parse(value.toString());
+          return true;
+        }
+        case DOUBLE -> {
+          Double.parseDouble(value.toString());
+          return true;
+        }
+        case FLOAT, HALF_FLOAT -> {
+          Float.parseFloat(value.toString());
+          return true;
+        }
+        case INTEGER, SHORT, BYTE -> {
+          Integer.parseInt(value.toString());
+          return true;
+        }
+        case LONG, SCALED_LONG -> {
+          Long.parseLong(value.toString());
+          return true;
+        }
+        default -> {
+          return true;
+        }
+      }
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
   public static Trace.KeyValue makeTraceKV(String key, Object value, Schema.SchemaFieldType type) {
     Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
     tagBuilder.setKey(key);
