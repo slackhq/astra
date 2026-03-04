@@ -65,6 +65,8 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final Map<String, AstraMetadataStoreChangeListener<T>> listenerMap =
       new ConcurrentHashMap<>();
   private final Map<String, Watch.Watcher> listenerWatcherMap = new ConcurrentHashMap<>();
+  private Watch.Watcher partitionDiscoveryWatcher;
+  private Watch.Watcher cacheMaintenanceWatcher;
 
   /**
    * Constructor for EtcdPartitioningMetadataStore with default empty partition filters.
@@ -154,7 +156,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     }
 
     LOG.debug("Adding watch client for folder: {} with prefix option", storeFolderKey);
-    watchClient.watch(storeFolderKey, watchOption, watcher);
+    partitionDiscoveryWatcher = watchClient.watch(storeFolderKey, watchOption, watcher);
 
     // Init stores for each existing partition - similar to how ZookeeperPartitioningMetadataStore
     // works
@@ -218,6 +220,10 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         .toCompletableFuture()
         // wait for all the stores to be initialized prior to exiting the constructor
         .join();
+
+    // Create a default cache maintenance watcher to keep partition caches up-to-date
+    // This ensures caches stay current even before explicit listeners are added
+    createCacheMaintenanceWatcher();
 
     if (partitionFilters.isEmpty()) {
       LOG.info(
@@ -344,6 +350,131 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
             "Etcd watch completed for {} - object {}", storeFolder, System.identityHashCode(this));
       }
     };
+  }
+
+  /**
+   * Creates a default cache maintenance watcher that keeps partition caches up-to-date. This watch
+   * is created automatically in the constructor to ensure caches stay current even before explicit
+   * listeners are added.
+   */
+  private void createCacheMaintenanceWatcher() {
+    ByteSequence prefix =
+        ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
+
+    // Get the current revision before starting the watch
+    WatchOption watchOption;
+    try {
+      long currentRevision =
+          etcdClient
+              .getKVClient()
+              .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
+              .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
+              .getHeader()
+              .getRevision();
+
+      // Create watch option starting from the next revision
+      watchOption =
+          WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
+      LOG.debug(
+          "Creating cache maintenance watcher at revision {} for store {}",
+          currentRevision + 1,
+          storeFolder);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Failed to get current revision for cache maintenance watcher setup", e);
+      // Fallback to basic watch without revision
+      watchOption = WatchOption.builder().withPrefix(prefix).build();
+    }
+
+    // Create the cache maintenance watcher
+    cacheMaintenanceWatcher =
+        watchClient.watch(
+            prefix,
+            watchOption,
+            new Watch.Listener() {
+              @Override
+              public void onNext(WatchResponse watchResponse) {
+                if (!executorService.isShutdown()) {
+                  executorService.submit(
+                      () -> {
+                        for (WatchEvent event : watchResponse.getEvents()) {
+                          try {
+                            String keyStr =
+                                event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
+
+                            // Only process events for actual metadata nodes
+                            if (keyStr.startsWith(String.format("%s/", storeFolder))) {
+                              String remaining =
+                                  keyStr.substring(String.format("%s/", storeFolder).length());
+                              int firstSlash = remaining.indexOf('/');
+
+                              if (firstSlash > 0) {
+                                // This is a metadata node: storeFolder/partition/nodeName
+                                String partition = remaining.substring(0, firstSlash);
+                                String path = remaining.substring(firstSlash + 1);
+
+                                // Skip if partition filters are active and this partition isn't
+                                // included
+                                if (!partitionFilters.isEmpty()
+                                    && !partitionFilters.contains(partition)) {
+                                  continue;
+                                }
+
+                                // Get or create the partition store
+                                EtcdMetadataStore<T> store = getOrCreateMetadataStore(partition);
+
+                                // Handle the event based on type - update cache only, no listener
+                                // notification
+                                switch (event.getEventType()) {
+                                  case PUT:
+                                    // Deserialize and update cache
+                                    String json =
+                                        event
+                                            .getKeyValue()
+                                            .getValue()
+                                            .toString(StandardCharsets.UTF_8);
+                                    T node = serializer.fromJsonStr(json);
+                                    store.cache.put(path, node);
+                                    LOG.trace(
+                                        "Cache maintenance: updated {} in partition {}",
+                                        path,
+                                        partition);
+                                    break;
+
+                                  case DELETE:
+                                    // Remove from cache
+                                    store.cache.remove(path);
+                                    LOG.trace(
+                                        "Cache maintenance: removed {} from partition {}",
+                                        path,
+                                        partition);
+                                    break;
+
+                                  default:
+                                    LOG.warn("Unknown event type: {}", event.getEventType());
+                                }
+                              }
+                            }
+                          } catch (Exception e) {
+                            LOG.error("Error processing cache maintenance event", e);
+                          }
+                        }
+                      });
+                }
+              }
+
+              @Override
+              public void onError(Throwable throwable) {
+                LOG.error(
+                    "Error in cache maintenance watcher for store {}", storeFolder, throwable);
+              }
+
+              @Override
+              public void onCompleted() {
+                LOG.warn("Cache maintenance watcher completed for store {}", storeFolder);
+              }
+            });
+
+    LOG.info("Created cache maintenance watcher for store {}", storeFolder);
   }
 
   public CompletionStage<String> createAsync(T metadataNode) {
@@ -825,6 +956,26 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
     // Remove all listeners (which will close their watchers)
     new ArrayList<>(listenerMap.values()).forEach(this::removeListener);
+
+    // Close the cache maintenance watcher
+    if (cacheMaintenanceWatcher != null) {
+      try {
+        cacheMaintenanceWatcher.close();
+        LOG.debug("Closed cache maintenance watcher");
+      } catch (Exception e) {
+        LOG.warn("Error closing cache maintenance watcher", e);
+      }
+    }
+
+    // Close the partition discovery watcher
+    if (partitionDiscoveryWatcher != null) {
+      try {
+        partitionDiscoveryWatcher.close();
+        LOG.debug("Closed partition discovery watcher");
+      } catch (Exception e) {
+        LOG.warn("Error closing partition discovery watcher", e);
+      }
+    }
 
     // Close executor service for partition discovery watcher
     executorService.shutdownNow();
