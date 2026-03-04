@@ -78,9 +78,9 @@ public class BulkIngestApi {
       incomingByteTotal.increment(bulkRequestBytes.length);
       Map<String, List<Trace.Span>> docs = Map.of();
       try {
-        LOG.info("Request ID: {}, parsing request", bulkRequest);
+        LOG.info("Request ID: {}, parsing request", requestId);
         docs = BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
-        LOG.info("Request ID: {}, finished parsing request", bulkRequest);
+        LOG.info("Request ID: {}, finished parsing request", requestId);
       } catch (Exception e) {
         LOG.error("Request ID: {}, Request failed ", requestId, e);
         bulkIngestErrorCounter.increment();
