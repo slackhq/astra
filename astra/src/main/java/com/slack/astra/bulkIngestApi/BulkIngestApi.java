@@ -14,6 +14,7 @@ import io.micrometer.core.instrument.Timer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,6 +67,8 @@ public class BulkIngestApi {
   public HttpResponse addDocument(String bulkRequest) {
     // 1. Astra does not support the concept of "updates". It's always an add.
     // 2. The "index" is used as the span name
+    String requestId = UUID.randomUUID().toString();
+    LOG.info("Request ID: {}, Got _bulk request: {}", requestId, bulkRequest);
     CompletableFuture<HttpResponse> future = new CompletableFuture<>();
     Timer.Sample sample = Timer.start(meterRegistry);
     future.thenRun(() -> sample.stop(bulkIngestTimer));
@@ -75,9 +78,11 @@ public class BulkIngestApi {
       incomingByteTotal.increment(bulkRequestBytes.length);
       Map<String, List<Trace.Span>> docs = Map.of();
       try {
+        LOG.info("Request ID: {}, parsing request", bulkRequest);
         docs = BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
+        LOG.info("Request ID: {}, finished parsing request", bulkRequest);
       } catch (Exception e) {
-        LOG.error("Request failed ", e);
+        LOG.error("Request ID: {}, Request failed ", requestId, e);
         bulkIngestErrorCounter.increment();
         BulkIngestResponse response = new BulkIngestResponse(0, 0, e.getMessage());
         future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
@@ -89,6 +94,7 @@ public class BulkIngestApi {
       // multiple indexes
       // We think most indexing requests will be against 1 index
       if (docs.keySet().size() > 1) {
+        LOG.error("Request ID: {}, key size greater than 1", requestId);
         BulkIngestResponse response =
             new BulkIngestResponse(0, 0, "request must contain only 1 unique index");
         future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
@@ -96,10 +102,13 @@ public class BulkIngestApi {
         return HttpResponse.of(future);
       }
 
+      LOG.error("Request ID: {}, iterating through indexDocs of size: {}", requestId, docs.size());
       for (Map.Entry<String, List<Trace.Span>> indexDocs : docs.entrySet()) {
         incomingDocsTotal.increment(indexDocs.getValue().size());
         final String index = indexDocs.getKey();
+        LOG.error("Request ID: {}, trying to acquire datasetRateLimitingService", requestId);
         if (!datasetRateLimitingService.tryAcquire(index, indexDocs.getValue())) {
+          LOG.error("Request ID: {}, acquired datasetRateLimitingService", requestId);
           BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");
           future.complete(
               HttpResponse.ofJson(HttpStatus.valueOf(rateLimitExceededErrorCode), response));
@@ -114,11 +123,13 @@ public class BulkIngestApi {
           .start(
               () -> {
                 try {
+                  LOG.error("Request ID: {}, submitting Kafka response", requestId);
                   BulkIngestResponse response =
                       bulkIngestKafkaProducer.submitRequest(finalDocs).getResponse();
+                  LOG.error("Request ID: {}, submitted Kafka response", requestId);
                   future.complete(HttpResponse.ofJson(response));
                 } catch (InterruptedException e) {
-                  LOG.error("Request failed ", e);
+                  LOG.error("Request ID: {}, Request failed ", requestId, e);
                   bulkIngestErrorCounter.increment();
                   future.complete(
                       HttpResponse.ofJson(
@@ -126,7 +137,7 @@ public class BulkIngestApi {
                 }
               });
     } catch (Exception e) {
-      LOG.error("Request failed ", e);
+      LOG.error("Request ID, {}, Request failed ", requestId, e);
       bulkIngestErrorCounter.increment();
       BulkIngestResponse response = new BulkIngestResponse(0, 0, e.getMessage());
       future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
