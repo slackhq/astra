@@ -126,7 +126,7 @@ public class BulkIngestApi {
                 try {
                   LOG.info("Request ID: {}, submitting Kafka response", requestId);
                   BulkIngestResponse response =
-                      bulkIngestKafkaProducer.submitRequest(finalDocs).getResponse();
+                      bulkIngestKafkaProducer.submitRequest(finalDocs, requestId).getResponse();
                   LOG.info("Request ID: {}, submitted Kafka response", requestId);
                   future.complete(HttpResponse.ofJson(response));
                 } catch (InterruptedException e) {

@@ -199,6 +199,10 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     }
   }
 
+  public BulkIngestRequest submitRequest(Map<String, List<Trace.Span>> inputDocs) {
+    return submitRequest(inputDocs, "N/A");
+  }
+
   public BulkIngestRequest submitRequest(Map<String, List<Trace.Span>> inputDocs, String requestId) {
     LOG.info("Request ID: {}, in submitRequest", requestId);
     BulkIngestRequest request = new BulkIngestRequest(inputDocs);
