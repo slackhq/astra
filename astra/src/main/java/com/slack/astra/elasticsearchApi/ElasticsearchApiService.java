@@ -153,7 +153,8 @@ public class ElasticsearchApiService {
     }
   }
 
-  private EsSearchResponse doSearch(AstraSearch.SearchRequest searchRequest) {
+  private EsSearchResponse doSearch(AstraSearch.SearchRequest searchRequest)
+      throws InterruptedException {
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("ElasticsearchApiService.doSearch");
     AstraSearch.SearchResult searchResult = searcher.doSearch(searchRequest);
 

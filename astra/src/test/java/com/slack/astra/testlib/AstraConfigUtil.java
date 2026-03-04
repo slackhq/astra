@@ -109,6 +109,8 @@ public class AstraConfigUtil {
                     .setRequestTimeoutMs(5000)
                     .build())
             .setDefaultQueryTimeoutMs(3000)
+            .setPerBatchQueryTimeoutMs(3000)
+            .setMaxSnapshotsQueriedPerBatch(30)
             .build();
 
     AstraConfigs.RecoveryConfig recoveryConfig =
