@@ -94,7 +94,7 @@ public class BulkIngestApi {
       // multiple indexes
       // We think most indexing requests will be against 1 index
       if (docs.keySet().size() > 1) {
-        LOG.error("Request ID: {}, key size greater than 1", requestId);
+        LOG.info("Request ID: {}, key size greater than 1", requestId);
         BulkIngestResponse response =
             new BulkIngestResponse(0, 0, "request must contain only 1 unique index");
         future.complete(HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response));
@@ -102,13 +102,13 @@ public class BulkIngestApi {
         return HttpResponse.of(future);
       }
 
-      LOG.error("Request ID: {}, iterating through indexDocs of size: {}", requestId, docs.size());
+      LOG.info("Request ID: {}, iterating through indexDocs of size: {}", requestId, docs.size());
       for (Map.Entry<String, List<Trace.Span>> indexDocs : docs.entrySet()) {
         incomingDocsTotal.increment(indexDocs.getValue().size());
         final String index = indexDocs.getKey();
-        LOG.error("Request ID: {}, trying to acquire datasetRateLimitingService", requestId);
+        LOG.info("Request ID: {}, trying to acquire datasetRateLimitingService", requestId);
         if (!datasetRateLimitingService.tryAcquire(index, indexDocs.getValue())) {
-          LOG.error("Request ID: {}, acquired datasetRateLimitingService", requestId);
+          LOG.info("Request ID: {}, acquired datasetRateLimitingService", requestId);
           BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");
           future.complete(
               HttpResponse.ofJson(HttpStatus.valueOf(rateLimitExceededErrorCode), response));
@@ -116,6 +116,7 @@ public class BulkIngestApi {
         }
       }
 
+      LOG.info("Request ID: {}, finished iterating through indexDocs of size: {}", requestId, docs.size());
       // todo - explore the possibility of using the blocking task executor backed by virtual
       // threads to fulfill this
       Map<String, List<Trace.Span>> finalDocs = docs;
@@ -123,13 +124,13 @@ public class BulkIngestApi {
           .start(
               () -> {
                 try {
-                  LOG.error("Request ID: {}, submitting Kafka response", requestId);
+                  LOG.info("Request ID: {}, submitting Kafka response", requestId);
                   BulkIngestResponse response =
                       bulkIngestKafkaProducer.submitRequest(finalDocs).getResponse();
-                  LOG.error("Request ID: {}, submitted Kafka response", requestId);
+                  LOG.info("Request ID: {}, submitted Kafka response", requestId);
                   future.complete(HttpResponse.ofJson(response));
                 } catch (InterruptedException e) {
-                  LOG.error("Request ID: {}, Request failed ", requestId, e);
+                  LOG.info("Request ID: {}, Request failed ", requestId, e);
                   bulkIngestErrorCounter.increment();
                   future.complete(
                       HttpResponse.ofJson(
