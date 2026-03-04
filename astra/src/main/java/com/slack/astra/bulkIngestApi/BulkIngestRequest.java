@@ -13,9 +13,16 @@ import java.util.concurrent.SynchronousQueue;
 public class BulkIngestRequest {
   private final Map<String, List<Trace.Span>> inputDocs;
   private final SynchronousQueue<BulkIngestResponse> internalResponse = new SynchronousQueue<>();
+  public String requestId;
 
   protected BulkIngestRequest(Map<String, List<Trace.Span>> inputDocs) {
     this.inputDocs = inputDocs;
+    this.requestId = "N/A";
+  }
+
+  protected BulkIngestRequest(Map<String, List<Trace.Span>> inputDocs, String requestId) {
+    this.inputDocs = inputDocs;
+    this.requestId = requestId;
   }
 
   Map<String, List<Trace.Span>> getInputDocs() {

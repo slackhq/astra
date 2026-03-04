@@ -82,6 +82,8 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
       Set.of(
           ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
 
+  private String requestId;
+
   public BulkIngestKafkaProducer(
       final DatasetMetadataStore datasetMetadataStore,
       final AstraConfigs.PreprocessorConfig preprocessorConfig,
@@ -168,6 +170,10 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     while (isRunning()) {
       List<BulkIngestRequest> requests = new ArrayList<>();
       pendingRequests.drainTo(requests);
+
+      List<String> requestIds = requests.stream().map(x -> x.requestId).toList();
+      LOG.info("Handling requests for request IDs: {}", requestIds);
+
       batchSizeGauge.set(requests.size());
       if (requests.isEmpty()) {
         try {
@@ -177,6 +183,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
           return;
         }
       } else {
+        LOG.info("Producing for request IDs: {}", requestIds);
         produceDocuments(requests);
       }
     }
@@ -192,21 +199,31 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
     }
   }
 
-  public BulkIngestRequest submitRequest(Map<String, List<Trace.Span>> inputDocs) {
+  public BulkIngestRequest submitRequest(Map<String, List<Trace.Span>> inputDocs, String requestId) {
+    LOG.info("Request ID: {}, in submitRequest", requestId);
     BulkIngestRequest request = new BulkIngestRequest(inputDocs);
+    LOG.info("Request ID: {}, created BulkIngestRequest", requestId);
     pendingRequests.add(request);
+    LOG.info("Request ID: {}, added to pending request queue", requestId);
     return request;
   }
 
   protected Map<BulkIngestRequest, BulkIngestResponse> produceDocuments(
       List<BulkIngestRequest> requests) {
+
+    List<String> requestIds = requests.stream().map(x -> x.requestId).toList();
+    LOG.info("Producing documents for {}", requestIds);
+
     if (useKafkaTransactions) {
+      LOG.info("Producing AND COMMITING documents for {}", requestIds);
       return produceDocumentsAndCommit(requests);
     } else {
       Map<BulkIngestRequest, BulkIngestResponse> responseMap = new HashMap<>();
       try {
         for (BulkIngestRequest request : requests) {
+          LOG.info("Producing for request ID: {}", request.requestId);
           responseMap.put(request, produceDocuments(request.getInputDocs(), kafkaProducer));
+          LOG.info("Finished producing for request ID: {}", request.requestId);
         }
         for (Map.Entry<BulkIngestRequest, BulkIngestResponse> entry : responseMap.entrySet()) {
           BulkIngestRequest key = entry.getKey();

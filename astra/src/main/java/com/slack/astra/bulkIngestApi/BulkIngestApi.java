@@ -135,6 +135,8 @@ public class BulkIngestApi {
                   future.complete(
                       HttpResponse.ofJson(
                           INTERNAL_SERVER_ERROR, new BulkIngestResponse(0, 0, e.getMessage())));
+                } catch (Exception e) {
+                  LOG.info("Request ID: {}, Request failed ", requestId, e);
                 }
               });
     } catch (Exception e) {
