@@ -11,7 +11,6 @@ import com.slack.astra.bulkIngestApi.DatasetRateLimitingService;
 import com.slack.astra.chunkManager.CachingChunkManager;
 import com.slack.astra.chunkManager.IndexingChunkManager;
 import com.slack.astra.clusterManager.CacheNodeAssignmentService;
-import com.slack.astra.clusterManager.CacheNodeSearchabilityService;
 import com.slack.astra.clusterManager.ClusterHpaMetricService;
 import com.slack.astra.clusterManager.ClusterMonitorService;
 import com.slack.astra.clusterManager.RecoveryTaskAssignmentService;
@@ -500,23 +499,6 @@ public class Astra {
           new RedactionUpdateService(
               fieldRedactionMetadataStore, astraConfig.getRedactionUpdateServiceConfig());
       services.add(redactionUpdateService);
-
-      SearchMetadataStore searchMetadataStore =
-          new SearchMetadataStore(
-              curatorFramework,
-              etcdClient,
-              astraConfig.getMetadataStoreConfig(),
-              meterRegistry,
-              true);
-      CacheNodeSearchabilityService cacheNodeSearchabilityService =
-          new CacheNodeSearchabilityService(
-              meterRegistry,
-              cacheNodeMetadataStore,
-              managerConfig,
-              cacheNodeAssignmentStore,
-              searchMetadataStore,
-              snapshotMetadataStore);
-      services.add(cacheNodeSearchabilityService);
     }
 
     if (roles.contains(AstraConfigs.NodeRole.RECOVERY)) {

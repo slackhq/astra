@@ -175,7 +175,7 @@ public class ReadOnlyChunkImplTest {
     initializeBlobStorageWithIndex(snapshotId);
     initializeCacheNodeAssignment(
         cacheNodeAssignmentStore, assignmentId, snapshotId, cacheNodeId, replicaSet);
-    initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, "rep1", true);
+    initializeCacheNode(cacheNodeMetadataStore, cacheNodeId, "some-host.name", 1, "rep1");
 
     SearchContext searchContext =
         SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig());
@@ -189,7 +189,6 @@ public class ReadOnlyChunkImplTest {
             cacheNodeAssignmentStore,
             cacheNodeAssignmentStore.getSync(cacheNodeId, assignmentId),
             snapshotMetadataStore.findSync(snapshotId),
-            cacheNodeMetadataStore,
             AstraConfig.getLuceneConfig());
 
     // wait for chunk to register
@@ -310,11 +309,10 @@ public class ReadOnlyChunkImplTest {
       String cacheNodeId,
       String hostname,
       long nodeCapacityBytes,
-      String replicaSet,
-      Boolean searchable)
+      String replicaSet)
       throws Exception {
     cacheNodeMetadataStore.createSync(
-        new CacheNodeMetadata(cacheNodeId, hostname, nodeCapacityBytes, replicaSet, searchable));
+        new CacheNodeMetadata(cacheNodeId, hostname, nodeCapacityBytes, replicaSet));
   }
 
   private void initializeCacheNodeAssignment(

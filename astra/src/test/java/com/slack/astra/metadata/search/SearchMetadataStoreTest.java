@@ -2,7 +2,6 @@ package com.slack.astra.metadata.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.metadata.core.AstraPartitionedMetadata;
 import com.slack.astra.metadata.core.CuratorBuilder;
@@ -13,7 +12,6 @@ import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
@@ -95,25 +93,6 @@ public class SearchMetadataStoreTest {
 
     testingServer.close();
     meterRegistry.close();
-  }
-
-  @Test
-  public void testSearchMetadataStoreUpdateSearchability() throws Exception {
-    store =
-        new SearchMetadataStore(
-            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, true);
-    SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot", "http", false);
-    assertThat(searchMetadata.isSearchable()).isFalse();
-    store.createSync(searchMetadata);
-    await().until(() -> store.listSync().contains(searchMetadata));
-
-    store.updateSearchability(searchMetadata, true);
-
-    // Confirm that this eventually becomes searchable
-    String partition = searchMetadata.getPartition();
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .until(() -> store.getSync(partition, "test").isSearchable());
   }
 
   @Test

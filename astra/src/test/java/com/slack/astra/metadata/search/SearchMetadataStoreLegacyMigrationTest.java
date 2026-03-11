@@ -2,7 +2,6 @@ package com.slack.astra.metadata.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.metadata.core.AstraMetadataTestUtils;
 import com.slack.astra.metadata.core.CuratorBuilder;
@@ -14,7 +13,6 @@ import io.etcd.jetcd.launcher.EtcdCluster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
@@ -152,14 +150,13 @@ public class SearchMetadataStoreLegacyMigrationTest {
     assertThat(retrievedMetadata.name).isEqualTo("testLegacy");
     assertThat(retrievedMetadata.snapshotName).isEqualTo("testSnapshotLegacy");
     assertThat(retrievedMetadata.url).isEqualTo("http://test-legacy.com");
-    assertThat(retrievedMetadata.isSearchable()).isTrue(); // Default value is true
   }
 
   @Test
   public void testCreateDataInNewAndRead() {
     // Create search metadata in the new searchMetadataStore
     SearchMetadata newMetadata =
-        new SearchMetadata("testNew", "testSnapshotNew", "http://test-new.com", false);
+        new SearchMetadata("testNew", "testSnapshotNew", "http://test-new.com");
     searchMetadataStore.createSync(newMetadata);
 
     // When accessing directly from the legacy searchMetadataStore, we should not find it
@@ -174,77 +171,6 @@ public class SearchMetadataStoreLegacyMigrationTest {
     assertThat(retrievedMetadata.name).isEqualTo("testNew");
     assertThat(retrievedMetadata.snapshotName).isEqualTo("testSnapshotNew");
     assertThat(retrievedMetadata.url).isEqualTo("http://test-new.com");
-    assertThat(retrievedMetadata.isSearchable()).isFalse();
-  }
-
-  @Test
-  public void testUpdateSearchabilityInNewStore() throws Exception {
-    // Create search metadata in the new searchMetadataStore with searchable=false
-    SearchMetadata newMetadata =
-        new SearchMetadata("testSearchability", "testSnapshot", "http://test-url.com", false);
-    searchMetadataStore.createSync(newMetadata);
-
-    // Verify initial state
-    SearchMetadata initialMetadata =
-        searchMetadataStore.getSync(newMetadata.getPartition(), "testSearchability");
-    assertThat(initialMetadata.isSearchable()).isFalse();
-
-    // Update the searchability
-    searchMetadataStore.updateSearchability(initialMetadata, true);
-
-    // Verify the update was successful in the new searchMetadataStore
-    // Wait until the update propagates
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .until(
-            () -> {
-              SearchMetadata updated =
-                  searchMetadataStore.getSync(newMetadata.getPartition(), "testSearchability");
-              return updated != null && updated.isSearchable();
-            });
-
-    SearchMetadata updatedMetadata =
-        searchMetadataStore.getSync(newMetadata.getPartition(), "testSearchability");
-    assertThat(updatedMetadata.isSearchable()).isTrue();
-  }
-
-  @Test
-  public void testUpdateSearchabilityWithFallbackToLegacy() {
-    // Create search metadata in the legacy searchMetadataStore with default searchable=true
-    SearchMetadata legacyMetadata =
-        new SearchMetadata(
-            "testLegacySearchability", "testLegacySnapshot", "http://test-legacy-url.com");
-    legacyStore.createSync(legacyMetadata);
-
-    // Create a new searchMetadataStore instance
-    createNewStore();
-
-    // Get the metadata from the new searchMetadataStore (should fall back to legacy)
-    SearchMetadata retrievedMetadata =
-        searchMetadataStore.getSync(legacyMetadata.getPartition(), "testLegacySearchability");
-    assertThat(retrievedMetadata.isSearchable()).isTrue();
-
-    // Update searchability using the new searchMetadataStore
-    searchMetadataStore.updateSearchability(retrievedMetadata, false);
-
-    // Verify the change in the legacy searchMetadataStore
-    // (Since the new searchMetadataStore will try to update its partitioned searchMetadataStore
-    // first and fail, it should fall
-    // back to legacy)
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .until(
-            () -> {
-              try {
-                SearchMetadata updated = legacyStore.getSync("testLegacySearchability");
-                return updated != null && !updated.isSearchable();
-              } catch (Exception e) {
-                return false;
-              }
-            });
-
-    SearchMetadata updatedLegacyMetadata = legacyStore.getSync("testLegacySearchability");
-    assertThat(updatedLegacyMetadata.isSearchable()).isFalse();
   }
 
   @Test
@@ -333,15 +259,15 @@ public class SearchMetadataStoreLegacyMigrationTest {
 
   @Test
   public void testListWithDuplicateItemsAcrossStores() {
-    // Create same-named item in both stores, but with different searchability settings
+    // Create same-named item in both stores, but with different properties
     SearchMetadata legacyMetadata =
-        new SearchMetadata("duplicateItem", "legacySnapshot", "http://legacy.com", true);
+        new SearchMetadata("duplicateItem", "legacySnapshot", "http://legacy.com");
     legacyStore.createSync(legacyMetadata);
 
     // Create a new searchMetadataStore and add data with same name but different properties
     createNewStore();
     SearchMetadata newMetadata =
-        new SearchMetadata("duplicateItem", "newSnapshot", "http://new.com", false);
+        new SearchMetadata("duplicateItem", "newSnapshot", "http://new.com");
     searchMetadataStore.createSync(newMetadata);
 
     // Test that listSync returns combined results, with new searchMetadataStore data taking

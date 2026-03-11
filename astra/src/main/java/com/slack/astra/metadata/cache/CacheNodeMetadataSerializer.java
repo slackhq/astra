@@ -12,8 +12,7 @@ public class CacheNodeMetadataSerializer implements MetadataSerializer<CacheNode
         cacheNodeMetadataProto.getId(),
         cacheNodeMetadataProto.getHostname(),
         cacheNodeMetadataProto.getNodeCapacityBytes(),
-        cacheNodeMetadataProto.getReplicaSet(),
-        cacheNodeMetadataProto.getSearchable());
+        cacheNodeMetadataProto.getReplicaSet());
   }
 
   private static Metadata.CacheNodeMetadata toCacheNodeMetadataProto(CacheNodeMetadata metadata) {
@@ -23,7 +22,6 @@ public class CacheNodeMetadataSerializer implements MetadataSerializer<CacheNode
         .setHostname(metadata.hostname)
         .setReplicaSet(metadata.replicaSet)
         .setNodeCapacityBytes(metadata.nodeCapacityBytes)
-        .setSearchable(metadata.searchable)
         .build();
   }
 
