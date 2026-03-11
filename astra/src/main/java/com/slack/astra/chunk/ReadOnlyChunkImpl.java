@@ -11,8 +11,6 @@ import com.slack.astra.logstore.search.SearchQuery;
 import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.metadata.cache.CacheNodeAssignment;
 import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
-import com.slack.astra.metadata.cache.CacheNodeMetadata;
-import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.schema.ChunkSchema;
 import com.slack.astra.metadata.schema.FieldType;
 import com.slack.astra.metadata.search.SearchMetadata;
@@ -71,7 +69,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final Timer chunkAssignmentTimerFailure;
   private final Timer chunkEvictionTimerSuccess;
   private final Timer chunkEvictionTimerFailure;
-  private final CacheNodeMetadataStore cacheNodeMetadataStore;
 
   private final ReentrantLock chunkAssignmentLock = new ReentrantLock();
 
@@ -87,7 +84,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
       CacheNodeAssignment assignment,
       SnapshotMetadata snapshotMetadata,
-      CacheNodeMetadataStore cacheNodeMetadataStore,
       AstraConfigs.LuceneConfig luceneConfig) {
     this.meterRegistry = meterRegistry;
     this.blobStore = blobStore;
@@ -96,7 +92,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.luceneConfig = luceneConfig;
 
     this.searchMetadataStore = searchMetadataStore;
-    this.cacheNodeMetadataStore = cacheNodeMetadataStore;
 
     this.assignment = assignment;
     this.lastKnownAssignmentState = assignment.state;
@@ -276,15 +271,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchMetadataStore searchMetadataStore,
       SearchContext cacheSearchContext,
       String snapshotName) {
-    CacheNodeMetadata cacheNodeMetadata =
-        this.cacheNodeMetadataStore.getSync(getCacheNodeAssignment().cacheNodeId);
     SearchMetadata metadata =
         new SearchMetadata(
             SearchMetadata.generateSearchContextSnapshotId(
                 snapshotName, cacheSearchContext.hostname),
             snapshotName,
-            cacheSearchContext.toUrl(),
-            cacheNodeMetadata.searchable);
+            cacheSearchContext.toUrl());
     searchMetadataStore.createSync(metadata);
     return metadata;
   }

@@ -111,8 +111,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     // this is necessary due to race condition bug found september 2025
     cacheNodeAssignmentStore.createPartitionSync(cacheNodeId);
     cacheNodeMetadataStore.createSync(
-        new CacheNodeMetadata(
-            cacheNodeId, searchContext.hostname, capacityBytes, replicaSet, false));
+        new CacheNodeMetadata(cacheNodeId, searchContext.hostname, capacityBytes, replicaSet));
     LOG.info(
         "New cache node registered with {} bytes capacity and ID {}", capacityBytes, cacheNodeId);
   }
@@ -216,7 +215,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
                     cacheNodeAssignmentStore,
                     assignment,
                     snapshotsBySnapshotId.get(assignment.snapshotId),
-                    cacheNodeMetadataStore,
                     luceneConfig);
             executorService.submit(newChunk::downloadChunkData);
             chunkMap.put(assignment.assignmentId, newChunk);

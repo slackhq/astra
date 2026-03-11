@@ -11,7 +11,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
@@ -21,7 +20,6 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
   private static final Logger LOG = LoggerFactory.getLogger(SearchMetadataStore.class);
 
   public static final String SEARCH_PARTITIONED_METADATA_STORE_PATH = "/partitioned_search";
-  private final AstraConfigs.MetadataStoreConfig metadataStoreConfig;
   final SearchMetadataStoreLegacy legacyStore;
 
   public SearchMetadataStore(
@@ -56,24 +54,6 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
     this.legacyStore =
         new SearchMetadataStoreLegacy(
             curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, shouldCache);
-    this.metadataStoreConfig = metadataStoreConfig;
-  }
-
-  // ONLY updating the `searchable` field is allowed on SearchMetadata.
-  // This is needed to gate queries from hitting cache nodes until they're fully hydrated
-  public void updateSearchability(SearchMetadata oldSearchMetadata, boolean searchable) {
-    oldSearchMetadata.setSearchable(searchable);
-    try {
-      super.updateAsync(oldSearchMetadata)
-          .toCompletableFuture()
-          .get(
-              metadataStoreConfig.getZookeeperConfig().getZkConnectionTimeoutMs(),
-              TimeUnit.MILLISECONDS);
-    } catch (Exception e) {
-      legacyStore.updateSearchability(oldSearchMetadata, searchable);
-      // todo get rid of legacy store after transition and put this exception back
-      // throw new InternalMetadataStoreException("Error updating node: " + oldSearchMetadata, e);
-    }
   }
 
   @Override
