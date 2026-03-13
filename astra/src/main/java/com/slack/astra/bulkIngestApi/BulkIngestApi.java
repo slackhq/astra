@@ -6,6 +6,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.astra.bulkIngestApi.opensearch.BulkApiRequestParser;
+import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.schema.Schema;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
@@ -25,8 +26,13 @@ import org.slf4j.LoggerFactory;
  */
 public class BulkIngestApi {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestApi.class);
+
+  public static final String SCHEMA_ENFORCEMENT_FLAG = "astra.schema.enforcement.enabled";
+
   private final BulkIngestKafkaProducer bulkIngestKafkaProducer;
   private final DatasetRateLimitingService datasetRateLimitingService;
+  private final Schema.IngestSchema schema;
+  private final AstraConfigs.SchemaMode schemaMode;
   private final MeterRegistry meterRegistry;
   private final Counter incomingByteTotal;
   private final Counter incomingDocsTotal;
@@ -36,7 +42,6 @@ public class BulkIngestApi {
   private final String BULK_INGEST_ERROR = "astra_preprocessor_error";
   private final String BULK_INGEST_TIMER = "astra_preprocessor_bulk_ingest";
   private final int rateLimitExceededErrorCode;
-  private final Schema.IngestSchema schema;
 
   private final Counter bulkIngestErrorCounter;
 
@@ -45,10 +50,13 @@ public class BulkIngestApi {
       DatasetRateLimitingService datasetRateLimitingService,
       MeterRegistry meterRegistry,
       int rateLimitExceededErrorCode,
-      Schema.IngestSchema schema) {
+      Schema.IngestSchema schema,
+      AstraConfigs.SchemaMode schemaMode) {
 
     this.bulkIngestKafkaProducer = bulkIngestKafkaProducer;
     this.datasetRateLimitingService = datasetRateLimitingService;
+    this.schema = schema;
+    this.schemaMode = schemaMode;
     this.meterRegistry = meterRegistry;
     this.incomingByteTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_TOTAL);
     this.incomingDocsTotal = meterRegistry.counter(BULK_INGEST_INCOMING_BYTE_DOCS);
@@ -58,7 +66,6 @@ public class BulkIngestApi {
     } else {
       this.rateLimitExceededErrorCode = rateLimitExceededErrorCode;
     }
-    this.schema = schema;
     this.bulkIngestErrorCounter = meterRegistry.counter(BULK_INGEST_ERROR);
   }
 
@@ -75,7 +82,11 @@ public class BulkIngestApi {
       incomingByteTotal.increment(bulkRequestBytes.length);
       Map<String, List<Trace.Span>> docs = Map.of();
       try {
-        docs = BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
+        if (Boolean.getBoolean(SCHEMA_ENFORCEMENT_FLAG)) {
+          docs = BulkApiRequestParser.parseRequest(bulkRequestBytes, schema, schemaMode);
+        } else {
+          docs = BulkApiRequestParser.parseRequest(bulkRequestBytes, schema);
+        }
       } catch (Exception e) {
         LOG.error("Request failed ", e);
         bulkIngestErrorCounter.increment();
