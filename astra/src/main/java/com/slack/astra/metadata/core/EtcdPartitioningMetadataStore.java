@@ -4,6 +4,7 @@ import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.util.RuntimeHalterImpl;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.Watch;
@@ -25,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -65,6 +67,9 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final Map<String, AstraMetadataStoreChangeListener<T>> listenerMap =
       new ConcurrentHashMap<>();
   private final Map<String, Watch.Watcher> listenerWatcherMap = new ConcurrentHashMap<>();
+  private final ScheduledExecutorService watchRetryExecutor;
+  private final int etcdOperationsMaxRetries;
+  private final long retryDelayMs;
   private Watch.Watcher partitionDiscoveryWatcher;
   private Watch.Watcher cacheMaintenanceWatcher;
 
@@ -119,6 +124,13 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder()
                 .setNameFormat("etcd-watcher-" + storeFolder + "-%d")
+                .build());
+    this.etcdOperationsMaxRetries = Math.max(0, etcdConfig.getOperationsMaxRetries());
+    this.retryDelayMs = Math.max(0, etcdConfig.getRetryDelayMs());
+    this.watchRetryExecutor =
+        Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactoryBuilder()
+                .setNameFormat("etcd-watch-retry-" + storeFolder + "-%d")
                 .build());
 
     Watch.Listener watcher = buildWatcher();
@@ -223,7 +235,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
     // Create a default cache maintenance watcher to keep partition caches up-to-date
     // This ensures caches stay current even before explicit listeners are added
-    createCacheMaintenanceWatcher();
+    createCacheMaintenanceWatcher(0, 0);
 
     if (partitionFilters.isEmpty()) {
       LOG.info(
@@ -356,34 +368,43 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * Creates a default cache maintenance watcher that keeps partition caches up-to-date. This watch
    * is created automatically in the constructor to ensure caches stay current even before explicit
    * listeners are added.
+   *
+   * @param attemptNumber The current retry attempt (0-based)
+   * @param startRevision The etcd revision to start watching from (0 to fetch current)
    */
-  private void createCacheMaintenanceWatcher() {
+  private void createCacheMaintenanceWatcher(int attemptNumber, long startRevision) {
     ByteSequence prefix =
         ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
 
     // Get the current revision before starting the watch
     WatchOption watchOption;
+    long currentRevision = startRevision;
     try {
-      long currentRevision =
-          etcdClient
-              .getKVClient()
-              .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
-              .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
-              .getHeader()
-              .getRevision();
+      if (startRevision == 0) {
+        currentRevision =
+            etcdClient
+                .getKVClient()
+                .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
+                .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
+                .getHeader()
+                .getRevision();
+      }
 
       // Create watch option starting from the next revision
       watchOption =
           WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
       LOG.debug(
-          "Creating cache maintenance watcher at revision {} for store {}",
+          "Creating cache maintenance watcher at revision {} for store {} (attempt {})",
           currentRevision + 1,
-          storeFolder);
+          storeFolder,
+          attemptNumber);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to get current revision for cache maintenance watcher setup", e);
       // Fallback to basic watch without revision
       watchOption = WatchOption.builder().withPrefix(prefix).build();
     }
+
+    long finalCurrentRevision = currentRevision + 1;
 
     // Create the cache maintenance watcher
     cacheMaintenanceWatcher =
@@ -465,7 +486,40 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               @Override
               public void onError(Throwable throwable) {
                 LOG.error(
-                    "Error in cache maintenance watcher for store {}", storeFolder, throwable);
+                    "Cache maintenance watch failed for store {} on attempt {}: {}",
+                    storeFolder,
+                    attemptNumber,
+                    throwable.getMessage());
+
+                // Close the failed watcher
+                if (cacheMaintenanceWatcher != null) {
+                  try {
+                    cacheMaintenanceWatcher.close();
+                  } catch (Exception e) {
+                    LOG.debug("Error closing failed cache maintenance watcher", e);
+                  }
+                }
+
+                // Retry if we haven't exceeded max attempts
+                if (attemptNumber < etcdOperationsMaxRetries) {
+                  long delayMs = retryDelayMs > 0 ? retryDelayMs : 1000;
+                  LOG.info(
+                      "Retrying cache maintenance watcher for store {} in {} ms (attempt {} of {})",
+                      storeFolder,
+                      delayMs,
+                      attemptNumber + 1,
+                      etcdOperationsMaxRetries);
+                  watchRetryExecutor.schedule(
+                      () -> createCacheMaintenanceWatcher(attemptNumber + 1, finalCurrentRevision),
+                      delayMs,
+                      TimeUnit.MILLISECONDS);
+                } else {
+                  LOG.error(
+                      "Failed to establish cache maintenance watch for store {} after {} attempts, failing fatally",
+                      storeFolder,
+                      etcdOperationsMaxRetries);
+                  new RuntimeHalterImpl().handleFatal(throwable);
+                }
               }
 
               @Override
@@ -474,7 +528,14 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               }
             });
 
-    LOG.info("Created cache maintenance watcher for store {}", storeFolder);
+    if (attemptNumber == 0) {
+      LOG.info("Created cache maintenance watcher for store {}", storeFolder);
+    } else {
+      LOG.info(
+          "Re-established cache maintenance watcher for store {} after {} retries",
+          storeFolder,
+          attemptNumber);
+    }
   }
 
   public CompletionStage<String> createAsync(T metadataNode) {
@@ -774,34 +835,57 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     // Add this listener to the map for tracking
     listenerMap.put(listenerKey, listener);
 
+    // Create the watcher with retry support
+    createListenerWatcher(listener, listenerKey, 0, 0);
+  }
+
+  /**
+   * Creates a watcher for a specific listener with retry logic.
+   *
+   * @param listener The listener to notify on changes
+   * @param listenerKey The key used to track this listener's watcher
+   * @param attemptNumber The current retry attempt (0-based)
+   * @param startRevision The etcd revision to start watching from (0 to fetch current)
+   */
+  private void createListenerWatcher(
+      AstraMetadataStoreChangeListener<T> listener,
+      String listenerKey,
+      int attemptNumber,
+      long startRevision) {
     // Create a dedicated watch for this listener that monitors all partitions
     ByteSequence prefix =
         ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
 
     // Get the current revision before starting the watch to prevent race conditions
     WatchOption watchOption;
+    long currentRevision = startRevision;
     try {
-      long currentRevision =
-          etcdClient
-              .getKVClient()
-              .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
-              .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
-              .getHeader()
-              .getRevision();
+      if (startRevision == 0) {
+        currentRevision =
+            etcdClient
+                .getKVClient()
+                .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
+                .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
+                .getHeader()
+                .getRevision();
+      }
 
       // Create watch option starting from the next revision
       watchOption =
           WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
       LOG.debug(
-          "Creating watch for listener {} at revision {} for store {}",
+          "Creating watch for listener {} at revision {} for store {} (attempt {})",
           listener,
           currentRevision + 1,
-          storeFolder);
+          storeFolder,
+          attemptNumber);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Failed to get current revision for listener watch setup", e);
       // Fallback to basic watch without revision
       watchOption = WatchOption.builder().withPrefix(prefix).build();
     }
+
+    long finalCurrentRevision = currentRevision + 1;
 
     // Create the watcher for this listener
     Watch.Watcher watcher =
@@ -885,10 +969,44 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               @Override
               public void onError(Throwable throwable) {
                 LOG.error(
-                    "Error in listener watch for store {} (listener {})",
+                    "Listener watch failed for store {} (listener {}) on attempt {}: {}",
                     storeFolder,
                     listener,
-                    throwable);
+                    attemptNumber,
+                    throwable.getMessage());
+
+                // Close the failed watcher
+                Watch.Watcher existingWatcher = listenerWatcherMap.remove(listenerKey);
+                if (existingWatcher != null) {
+                  try {
+                    existingWatcher.close();
+                  } catch (Exception e) {
+                    LOG.debug("Error closing failed listener watcher", e);
+                  }
+                }
+
+                // Retry if we haven't exceeded max attempts
+                if (attemptNumber < etcdOperationsMaxRetries) {
+                  long delayMs = retryDelayMs > 0 ? retryDelayMs : 1000;
+                  LOG.info(
+                      "Retrying listener watcher for store {} in {} ms (attempt {} of {})",
+                      storeFolder,
+                      delayMs,
+                      attemptNumber + 1,
+                      etcdOperationsMaxRetries);
+                  watchRetryExecutor.schedule(
+                      () ->
+                          createListenerWatcher(
+                              listener, listenerKey, attemptNumber + 1, finalCurrentRevision),
+                      delayMs,
+                      TimeUnit.MILLISECONDS);
+                } else {
+                  LOG.error(
+                      "Failed to establish listener watch for store {} after {} attempts, failing fatally",
+                      storeFolder,
+                      etcdOperationsMaxRetries);
+                  new RuntimeHalterImpl().handleFatal(throwable);
+                }
               }
 
               @Override
@@ -901,11 +1019,19 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     // Store the watcher so we can close it later
     listenerWatcherMap.put(listenerKey, watcher);
 
-    LOG.info(
-        "Created dedicated watch for listener {} on store {} (total listeners: {})",
-        listener,
-        storeFolder,
-        listenerMap.size());
+    if (attemptNumber == 0) {
+      LOG.info(
+          "Created dedicated watch for listener {} on store {} (total listeners: {})",
+          listener,
+          storeFolder,
+          listenerMap.size());
+    } else {
+      LOG.info(
+          "Re-established watch for listener {} on store {} after {} retries",
+          listener,
+          storeFolder,
+          attemptNumber);
+    }
   }
 
   public void removeListener(AstraMetadataStoreChangeListener<T> listener) {
@@ -977,9 +1103,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       }
     }
 
-    // Close executor service for partition discovery watcher
+    // Close executor services
+    watchRetryExecutor.shutdownNow();
     executorService.shutdownNow();
     try {
+      watchRetryExecutor.awaitTermination(5, TimeUnit.SECONDS);
       executorService.awaitTermination(DEFAULT_START_STOP_DURATION.toSeconds(), TimeUnit.SECONDS);
     } catch (InterruptedException e) {
       LOG.warn("Interrupted while waiting for close", e);
