@@ -54,8 +54,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private static final Logger LOG = LoggerFactory.getLogger(EtcdPartitioningMetadataStore.class);
   private final Map<String, EtcdMetadataStore<T>> metadataStoreMap = new ConcurrentHashMap<>();
   private final ExecutorService executorService;
-  // Listeners are managed through the listenerMap instead of a list
-
   protected final String storeFolder;
   private final EtcdCreateMode createMode;
   protected final MetadataSerializer<T> serializer;
@@ -66,12 +64,12 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final Watch watchClient;
   private final Map<String, AstraMetadataStoreChangeListener<T>> listenerMap =
       new ConcurrentHashMap<>();
-  private final Map<String, Watch.Watcher> listenerWatcherMap = new ConcurrentHashMap<>();
   private final ScheduledExecutorService watchRetryExecutor;
   private final int etcdOperationsMaxRetries;
   private final long retryDelayMs;
+  private final String storeFolderPrefix;
   private Watch.Watcher partitionDiscoveryWatcher;
-  private Watch.Watcher cacheMaintenanceWatcher;
+  private Watch.Watcher prefixWatcher;
 
   /**
    * Constructor for EtcdPartitioningMetadataStore with default empty partition filters.
@@ -125,6 +123,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
             new ThreadFactoryBuilder()
                 .setNameFormat("etcd-watcher-" + storeFolder + "-%d")
                 .build());
+    this.storeFolderPrefix = storeFolder + "/";
     this.etcdOperationsMaxRetries = Math.max(0, etcdConfig.getOperationsMaxRetries());
     this.retryDelayMs = Math.max(0, etcdConfig.getRetryDelayMs());
     this.watchRetryExecutor =
@@ -183,8 +182,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 return CompletableFuture.completedFuture(List.<String>of());
               } else {
                 // Get all direct children (partitions) of the storeFolder
-                ByteSequence prefix =
-                    ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
+                ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
                 return etcdClient
                     .getKVClient()
                     .get(prefix, GetOption.builder().isPrefix(true).build())
@@ -197,12 +195,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                               .forEach(
                                   kv -> {
                                     String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
-                                    if (keyStr.startsWith(String.format("%s/", storeFolder))) {
+                                    if (keyStr.startsWith(storeFolderPrefix)) {
                                       // Extract partition name (the first segment after
                                       // storeFolder)
                                       String remaining =
-                                          keyStr.substring(
-                                              String.format("%s/", storeFolder).length());
+                                          keyStr.substring(storeFolderPrefix.length());
                                       int slashIdx = remaining.indexOf('/');
                                       if (slashIdx > 0) {
                                         String partition = remaining.substring(0, slashIdx);
@@ -233,9 +230,8 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         // wait for all the stores to be initialized prior to exiting the constructor
         .join();
 
-    // Create a default cache maintenance watcher to keep partition caches up-to-date
-    // This ensures caches stay current even before explicit listeners are added
-    createCacheMaintenanceWatcher(0, 0);
+    // Single watcher for cache maintenance and listener dispatch across all partitions
+    createPrefixWatcher(0, 0);
 
     if (partitionFilters.isEmpty()) {
       LOG.info(
@@ -276,9 +272,9 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                   LOG.debug("Processing watch event: {} for key: {}", event.getEventType(), keyStr);
 
                   // Only process events relevant to our partitions
-                  if (keyStr.startsWith(String.format("%s/", storeFolder))) {
+                  if (keyStr.startsWith(storeFolderPrefix)) {
                     // This is a change to a partition or its content
-                    String remaining = keyStr.substring(String.format("%s/", storeFolder).length());
+                    String remaining = keyStr.substring(storeFolderPrefix.length());
                     int slashIdx = remaining.indexOf('/');
                     String partition = slashIdx > 0 ? remaining.substring(0, slashIdx) : remaining;
                     LOG.debug("Identified partition '{}' from key: {}", partition, keyStr);
@@ -365,18 +361,16 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   /**
-   * Creates a default cache maintenance watcher that keeps partition caches up-to-date. This watch
-   * is created automatically in the constructor to ensure caches stay current even before explicit
-   * listeners are added.
+   * Creates a single prefix watcher that handles both cache maintenance and listener dispatch for
+   * all partitions. This avoids the N+1 watch problem where each listener would otherwise create
+   * its own independent etcd watch on the same prefix.
    *
    * @param attemptNumber The current retry attempt (0-based)
    * @param startRevision The etcd revision to start watching from (0 to fetch current)
    */
-  private void createCacheMaintenanceWatcher(int attemptNumber, long startRevision) {
-    ByteSequence prefix =
-        ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
+  private void createPrefixWatcher(int attemptNumber, long startRevision) {
+    ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
 
-    // Get the current revision before starting the watch
     WatchOption watchOption;
     long currentRevision = startRevision;
     try {
@@ -390,24 +384,22 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 .getRevision();
       }
 
-      // Create watch option starting from the next revision
       watchOption =
           WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
       LOG.debug(
-          "Creating cache maintenance watcher at revision {} for store {} (attempt {})",
+          "Creating prefix watcher at revision {} for store {} (attempt {})",
           currentRevision + 1,
           storeFolder,
           attemptNumber);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Failed to get current revision for cache maintenance watcher setup", e);
-      // Fallback to basic watch without revision
+      LOG.error(
+          "Failed to get current revision for prefix watcher setup on store {}", storeFolder, e);
       watchOption = WatchOption.builder().withPrefix(prefix).build();
     }
 
     long finalCurrentRevision = currentRevision + 1;
 
-    // Create the cache maintenance watcher
-    cacheMaintenanceWatcher =
+    prefixWatcher =
         watchClient.watch(
             prefix,
             watchOption,
@@ -415,107 +407,41 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               @Override
               public void onNext(WatchResponse watchResponse) {
                 if (!executorService.isShutdown()) {
-                  executorService.submit(
-                      () -> {
-                        for (WatchEvent event : watchResponse.getEvents()) {
-                          try {
-                            String keyStr =
-                                event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
-
-                            // Only process events for actual metadata nodes
-                            if (keyStr.startsWith(String.format("%s/", storeFolder))) {
-                              String remaining =
-                                  keyStr.substring(String.format("%s/", storeFolder).length());
-                              int firstSlash = remaining.indexOf('/');
-
-                              if (firstSlash > 0) {
-                                // This is a metadata node: storeFolder/partition/nodeName
-                                String partition = remaining.substring(0, firstSlash);
-                                String path = remaining.substring(firstSlash + 1);
-
-                                // Skip if partition filters are active and this partition isn't
-                                // included
-                                if (!partitionFilters.isEmpty()
-                                    && !partitionFilters.contains(partition)) {
-                                  continue;
-                                }
-
-                                // Get or create the partition store
-                                EtcdMetadataStore<T> store = getOrCreateMetadataStore(partition);
-
-                                // Handle the event based on type - update cache only, no listener
-                                // notification
-                                switch (event.getEventType()) {
-                                  case PUT:
-                                    // Deserialize and update cache
-                                    String json =
-                                        event
-                                            .getKeyValue()
-                                            .getValue()
-                                            .toString(StandardCharsets.UTF_8);
-                                    T node = serializer.fromJsonStr(json);
-                                    store.cache.put(path, node);
-                                    LOG.trace(
-                                        "Cache maintenance: updated {} in partition {}",
-                                        path,
-                                        partition);
-                                    break;
-
-                                  case DELETE:
-                                    // Remove from cache
-                                    store.cache.remove(path);
-                                    LOG.trace(
-                                        "Cache maintenance: removed {} from partition {}",
-                                        path,
-                                        partition);
-                                    break;
-
-                                  default:
-                                    LOG.warn("Unknown event type: {}", event.getEventType());
-                                }
-                              }
-                            }
-                          } catch (Exception e) {
-                            LOG.error("Error processing cache maintenance event", e);
-                          }
-                        }
-                      });
+                  executorService.submit(() -> processWatchEvents(watchResponse));
                 }
               }
 
               @Override
               public void onError(Throwable throwable) {
                 LOG.error(
-                    "Cache maintenance watch failed for store {} on attempt {}: {}",
+                    "Prefix watch failed for store {} on attempt {}: {}",
                     storeFolder,
                     attemptNumber,
                     throwable.getMessage());
 
-                // Close the failed watcher
-                if (cacheMaintenanceWatcher != null) {
+                if (prefixWatcher != null) {
                   try {
-                    cacheMaintenanceWatcher.close();
+                    prefixWatcher.close();
                   } catch (Exception e) {
-                    LOG.debug("Error closing failed cache maintenance watcher", e);
+                    LOG.debug("Error closing failed prefix watcher", e);
                   }
                 }
 
-                // Retry if we haven't exceeded max attempts
                 if (attemptNumber < etcdOperationsMaxRetries) {
                   long delayMs = retryDelayMs > 0 ? retryDelayMs : 1000;
                   LOG.info(
-                      "Retrying cache maintenance watcher for store {} in {} ms (attempt {} of {})",
+                      "Retrying prefix watcher for store {} in {} ms (attempt {} of {})",
                       storeFolder,
                       delayMs,
                       attemptNumber + 1,
                       etcdOperationsMaxRetries);
                   watchRetryExecutor.schedule(
-                      () -> createCacheMaintenanceWatcher(attemptNumber + 1, finalCurrentRevision),
+                      () -> createPrefixWatcher(attemptNumber + 1, finalCurrentRevision),
                       delayMs,
                       TimeUnit.MILLISECONDS);
                 } else {
                   LOG.error(
-                      "Failed to establish cache maintenance watch for store {} after {} attempts, failing fatally",
+                      "Failed to establish prefix watch for store {} after {} attempts, failing fatally",
                       storeFolder,
                       etcdOperationsMaxRetries);
                   new RuntimeHalterImpl().handleFatal(throwable);
@@ -524,17 +450,82 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
               @Override
               public void onCompleted() {
-                LOG.warn("Cache maintenance watcher completed for store {}", storeFolder);
+                LOG.warn("Prefix watcher completed for store {}", storeFolder);
               }
             });
 
     if (attemptNumber == 0) {
-      LOG.info("Created cache maintenance watcher for store {}", storeFolder);
+      LOG.info("Created prefix watcher for store {}", storeFolder);
     } else {
       LOG.info(
-          "Re-established cache maintenance watcher for store {} after {} retries",
+          "Re-established prefix watcher for store {} after {} retries",
           storeFolder,
           attemptNumber);
+    }
+  }
+
+  /**
+   * Processes watch events: updates the partition cache and dispatches to all registered listeners.
+   */
+  private void processWatchEvents(WatchResponse watchResponse) {
+    for (WatchEvent event : watchResponse.getEvents()) {
+      try {
+        String keyStr = event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
+
+        if (!keyStr.startsWith(storeFolderPrefix)) {
+          continue;
+        }
+
+        String remaining = keyStr.substring(storeFolderPrefix.length());
+        int firstSlash = remaining.indexOf('/');
+        if (firstSlash <= 0) {
+          continue;
+        }
+
+        String partition = remaining.substring(0, firstSlash);
+        String path = remaining.substring(firstSlash + 1);
+
+        if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
+          continue;
+        }
+
+        EtcdMetadataStore<T> store = getOrCreateMetadataStore(partition);
+
+        switch (event.getEventType()) {
+          case PUT:
+            String json = event.getKeyValue().getValue().toString(StandardCharsets.UTF_8);
+            T node = serializer.fromJsonStr(json);
+            store.cache.put(path, node);
+            LOG.trace("Updated cache for {} in partition {}", path, partition);
+            for (AstraMetadataStoreChangeListener<T> listener : listenerMap.values()) {
+              try {
+                listener.onMetadataStoreChanged(node);
+              } catch (Exception e) {
+                LOG.error("Error notifying listener {}", listener, e);
+              }
+            }
+            break;
+
+          case DELETE:
+            T deletedNode = store.cache.remove(path);
+            if (deletedNode != null) {
+              for (AstraMetadataStoreChangeListener<T> listener : listenerMap.values()) {
+                try {
+                  listener.onMetadataStoreChanged(deletedNode);
+                } catch (Exception e) {
+                  LOG.error("Error notifying listener {}", listener, e);
+                }
+              }
+            }
+            LOG.trace("Removed {} from partition {} cache", path, partition);
+            break;
+
+          default:
+            LOG.warn("Unknown event type: {}", event.getEventType());
+        }
+      } catch (Exception e) {
+        LOG.error("Error processing watch event", e);
+      }
     }
   }
 
@@ -721,8 +712,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private Set<String> getPartitionsFromEtcd() {
     try {
       // Get all keys with the store prefix
-      ByteSequence prefix =
-          ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
+      ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
       io.etcd.jetcd.options.GetOption getOption =
           io.etcd.jetcd.options.GetOption.builder().isPrefix(true).build();
 
@@ -737,8 +727,8 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       Set<String> partitions = new java.util.HashSet<>();
       for (io.etcd.jetcd.KeyValue kv : getResponse.getKvs()) {
         String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
-        if (keyStr.startsWith(String.format("%s/", storeFolder))) {
-          String remaining = keyStr.substring(String.format("%s/", storeFolder).length());
+        if (keyStr.startsWith(storeFolderPrefix)) {
+          String remaining = keyStr.substring(storeFolderPrefix.length());
           int slashIdx = remaining.indexOf('/');
           String partition = slashIdx > 0 ? remaining.substring(0, slashIdx) : remaining;
 
@@ -829,228 +819,17 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   public void addListener(AstraMetadataStoreChangeListener<T> listener) {
-    LOG.info("Adding listener {} for partitioning store {}", listener, storeFolder);
-    String listenerKey = System.identityHashCode(listener) + "";
-
-    // Add this listener to the map for tracking
+    String listenerKey = String.valueOf(System.identityHashCode(listener));
     listenerMap.put(listenerKey, listener);
-
-    // Create the watcher with retry support
-    createListenerWatcher(listener, listenerKey, 0, 0);
-  }
-
-  /**
-   * Creates a watcher for a specific listener with retry logic.
-   *
-   * @param listener The listener to notify on changes
-   * @param listenerKey The key used to track this listener's watcher
-   * @param attemptNumber The current retry attempt (0-based)
-   * @param startRevision The etcd revision to start watching from (0 to fetch current)
-   */
-  private void createListenerWatcher(
-      AstraMetadataStoreChangeListener<T> listener,
-      String listenerKey,
-      int attemptNumber,
-      long startRevision) {
-    // Create a dedicated watch for this listener that monitors all partitions
-    ByteSequence prefix =
-        ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
-
-    // Get the current revision before starting the watch to prevent race conditions
-    WatchOption watchOption;
-    long currentRevision = startRevision;
-    try {
-      if (startRevision == 0) {
-        currentRevision =
-            etcdClient
-                .getKVClient()
-                .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
-                .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
-                .getHeader()
-                .getRevision();
-      }
-
-      // Create watch option starting from the next revision
-      watchOption =
-          WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
-      LOG.debug(
-          "Creating watch for listener {} at revision {} for store {} (attempt {})",
-          listener,
-          currentRevision + 1,
-          storeFolder,
-          attemptNumber);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Failed to get current revision for listener watch setup", e);
-      // Fallback to basic watch without revision
-      watchOption = WatchOption.builder().withPrefix(prefix).build();
-    }
-
-    long finalCurrentRevision = currentRevision + 1;
-
-    // Create the watcher for this listener
-    Watch.Watcher watcher =
-        watchClient.watch(
-            prefix,
-            watchOption,
-            new Watch.Listener() {
-              @Override
-              public void onNext(WatchResponse watchResponse) {
-                if (!executorService.isShutdown()) {
-                  executorService.submit(
-                      () -> {
-                        for (WatchEvent event : watchResponse.getEvents()) {
-                          try {
-                            String keyStr =
-                                event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
-
-                            // Only process events for actual metadata nodes (not partition
-                            // directories)
-                            if (keyStr.startsWith(String.format("%s/", storeFolder))) {
-                              String remaining =
-                                  keyStr.substring(String.format("%s/", storeFolder).length());
-                              int firstSlash = remaining.indexOf('/');
-
-                              if (firstSlash > 0) {
-                                // This is a metadata node: storeFolder/partition/nodeName
-                                String partition = remaining.substring(0, firstSlash);
-                                String path = remaining.substring(firstSlash + 1);
-
-                                // Skip if partition filters are active and this partition isn't
-                                // included
-                                if (!partitionFilters.isEmpty()
-                                    && !partitionFilters.contains(partition)) {
-                                  continue;
-                                }
-
-                                // Get or create the partition store
-                                EtcdMetadataStore<T> store = getOrCreateMetadataStore(partition);
-
-                                // Handle the event based on type
-                                switch (event.getEventType()) {
-                                  case PUT:
-                                    // Deserialize the node
-                                    String json =
-                                        event
-                                            .getKeyValue()
-                                            .getValue()
-                                            .toString(StandardCharsets.UTF_8);
-                                    T node = serializer.fromJsonStr(json);
-
-                                    // Update cache directly
-                                    store.cache.put(path, node);
-
-                                    // Notify listener
-                                    listener.onMetadataStoreChanged(node);
-                                    break;
-
-                                  case DELETE:
-                                    // Remove from cache
-                                    T deletedNode = store.cache.remove(path);
-
-                                    // Notify listener if node was in cache
-                                    if (deletedNode != null) {
-                                      listener.onMetadataStoreChanged(deletedNode);
-                                    }
-                                    break;
-
-                                  default:
-                                    LOG.warn("Unknown event type: {}", event.getEventType());
-                                }
-                              }
-                            }
-                          } catch (Exception e) {
-                            LOG.error("Error processing watch event for listener {}", listener, e);
-                          }
-                        }
-                      });
-                }
-              }
-
-              @Override
-              public void onError(Throwable throwable) {
-                LOG.error(
-                    "Listener watch failed for store {} (listener {}) on attempt {}: {}",
-                    storeFolder,
-                    listener,
-                    attemptNumber,
-                    throwable.getMessage());
-
-                // Close the failed watcher
-                Watch.Watcher existingWatcher = listenerWatcherMap.remove(listenerKey);
-                if (existingWatcher != null) {
-                  try {
-                    existingWatcher.close();
-                  } catch (Exception e) {
-                    LOG.debug("Error closing failed listener watcher", e);
-                  }
-                }
-
-                // Retry if we haven't exceeded max attempts
-                if (attemptNumber < etcdOperationsMaxRetries) {
-                  long delayMs = retryDelayMs > 0 ? retryDelayMs : 1000;
-                  LOG.info(
-                      "Retrying listener watcher for store {} in {} ms (attempt {} of {})",
-                      storeFolder,
-                      delayMs,
-                      attemptNumber + 1,
-                      etcdOperationsMaxRetries);
-                  watchRetryExecutor.schedule(
-                      () ->
-                          createListenerWatcher(
-                              listener, listenerKey, attemptNumber + 1, finalCurrentRevision),
-                      delayMs,
-                      TimeUnit.MILLISECONDS);
-                } else {
-                  LOG.error(
-                      "Failed to establish listener watch for store {} after {} attempts, failing fatally",
-                      storeFolder,
-                      etcdOperationsMaxRetries);
-                  new RuntimeHalterImpl().handleFatal(throwable);
-                }
-              }
-
-              @Override
-              public void onCompleted() {
-                LOG.warn(
-                    "Listener watch completed for store {} (listener {})", storeFolder, listener);
-              }
-            });
-
-    // Store the watcher so we can close it later
-    listenerWatcherMap.put(listenerKey, watcher);
-
-    if (attemptNumber == 0) {
-      LOG.info(
-          "Created dedicated watch for listener {} on store {} (total listeners: {})",
-          listener,
-          storeFolder,
-          listenerMap.size());
-    } else {
-      LOG.info(
-          "Re-established watch for listener {} on store {} after {} retries",
-          listener,
-          storeFolder,
-          attemptNumber);
-    }
+    LOG.info(
+        "Added listener {} for store {} (total: {})", listener, storeFolder, listenerMap.size());
   }
 
   public void removeListener(AstraMetadataStoreChangeListener<T> listener) {
-    String listenerKey = System.identityHashCode(listener) + "";
-    LOG.info("Removing listener {} from partitioning store {}", listener, storeFolder);
-
-    // Remove from listener map
+    String listenerKey = String.valueOf(System.identityHashCode(listener));
     listenerMap.remove(listenerKey);
-
-    // Close and remove the watcher for this listener
-    Watch.Watcher watcher = listenerWatcherMap.remove(listenerKey);
-    if (watcher != null) {
-      try {
-        watcher.close();
-        LOG.debug("Closed watcher for listener {}", listener);
-      } catch (Exception e) {
-        LOG.warn("Error closing watcher for listener {}", listener, e);
-      }
-    }
+    LOG.info(
+        "Removed listener {} from store {} (total: {})", listener, storeFolder, listenerMap.size());
   }
 
   /**
@@ -1073,6 +852,16 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     LOG.info("Completed cache initialization for {} partitioned stores", metadataStoreMap.size());
   }
 
+  private void closeWatcherQuietly(Watch.Watcher watcher, String name) {
+    if (watcher != null) {
+      try {
+        watcher.close();
+      } catch (Exception e) {
+        LOG.warn("Error closing {} watcher", name, e);
+      }
+    }
+  }
+
   @Override
   public void close() throws IOException {
     LOG.info(
@@ -1080,30 +869,12 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         listenerMap.size(),
         metadataStoreMap.size());
 
-    // Remove all listeners (which will close their watchers)
-    new ArrayList<>(listenerMap.values()).forEach(this::removeListener);
+    listenerMap.clear();
 
-    // Close the cache maintenance watcher
-    if (cacheMaintenanceWatcher != null) {
-      try {
-        cacheMaintenanceWatcher.close();
-        LOG.debug("Closed cache maintenance watcher");
-      } catch (Exception e) {
-        LOG.warn("Error closing cache maintenance watcher", e);
-      }
-    }
+    // Close watchers
+    closeWatcherQuietly(prefixWatcher, "prefix");
+    closeWatcherQuietly(partitionDiscoveryWatcher, "partition discovery");
 
-    // Close the partition discovery watcher
-    if (partitionDiscoveryWatcher != null) {
-      try {
-        partitionDiscoveryWatcher.close();
-        LOG.debug("Closed partition discovery watcher");
-      } catch (Exception e) {
-        LOG.warn("Error closing partition discovery watcher", e);
-      }
-    }
-
-    // Close executor services
     watchRetryExecutor.shutdownNow();
     executorService.shutdownNow();
     try {
@@ -1113,12 +884,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       LOG.warn("Interrupted while waiting for close", e);
     }
 
-    // Close all partition stores
     metadataStoreMap.forEach((ignored, store) -> store.close());
-
-    // Clear the maps
-    listenerMap.clear();
     metadataStoreMap.clear();
-    listenerWatcherMap.clear();
   }
 }
