@@ -70,6 +70,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final String storeFolderPrefix;
   private Watch.Watcher partitionDiscoveryWatcher;
   private Watch.Watcher prefixWatcher;
+  private volatile long lastProcessedRevision;
 
   /**
    * Constructor for EtcdPartitioningMetadataStore with default empty partition filters.
@@ -169,6 +170,23 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     LOG.debug("Adding watch client for folder: {} with prefix option", storeFolderKey);
     partitionDiscoveryWatcher = watchClient.watch(storeFolderKey, watchOption, watcher);
 
+    // Capture the current revision before populating caches, so the prefix watcher can replay
+    // any events that occur during cache population
+    ByteSequence prefixKey = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
+    long prefixWatcherRevision = 0;
+    try {
+      prefixWatcherRevision =
+          etcdClient
+              .getKVClient()
+              .get(prefixKey, GetOption.builder().withPrefix(prefixKey).withKeysOnly(true).build())
+              .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
+              .getHeader()
+              .getRevision();
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error(
+          "Failed to get current revision for prefix watcher setup on store {}", storeFolder, e);
+    }
+
     // Init stores for each existing partition - similar to how ZookeeperPartitioningMetadataStore
     // works
     etcdClient
@@ -231,7 +249,9 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         .join();
 
     // Single watcher for cache maintenance and listener dispatch across all partitions
-    createPrefixWatcher(0, 0);
+    // Uses the revision captured before cache population to replay any events that occurred
+    // during initialization
+    createPrefixWatcher(prefixWatcherRevision);
 
     if (partitionFilters.isEmpty()) {
       LOG.info(
@@ -361,43 +381,39 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   /**
+   * Creates a single prefix watcher starting from the given revision. This is the initial entry
+   * point — the revision should be captured before cache population to avoid missing events.
+   *
+   * @param startRevision The etcd revision to start watching from
+   */
+  private void createPrefixWatcher(long startRevision) {
+    createPrefixWatcher(0, startRevision);
+  }
+
+  /**
    * Creates a single prefix watcher that handles both cache maintenance and listener dispatch for
    * all partitions. This avoids the N+1 watch problem where each listener would otherwise create
    * its own independent etcd watch on the same prefix.
    *
-   * @param attemptNumber The current retry attempt (0-based)
-   * @param startRevision The etcd revision to start watching from (0 to fetch current)
+   * @param attemptNumber The current retry attempt (0-based), used for retry tracking
+   * @param startRevision The etcd revision to start watching from
    */
   private void createPrefixWatcher(int attemptNumber, long startRevision) {
     ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
 
     WatchOption watchOption;
-    long currentRevision = startRevision;
     try {
-      if (startRevision == 0) {
-        currentRevision =
-            etcdClient
-                .getKVClient()
-                .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
-                .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
-                .getHeader()
-                .getRevision();
-      }
-
       watchOption =
-          WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
+          WatchOption.builder().withPrefix(prefix).withRevision(startRevision + 1).build();
       LOG.debug(
           "Creating prefix watcher at revision {} for store {} (attempt {})",
-          currentRevision + 1,
+          startRevision + 1,
           storeFolder,
           attemptNumber);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error(
-          "Failed to get current revision for prefix watcher setup on store {}", storeFolder, e);
+    } catch (Exception e) {
+      LOG.error("Failed to create watch option for prefix watcher on store {}", storeFolder, e);
       watchOption = WatchOption.builder().withPrefix(prefix).build();
     }
-
-    long finalCurrentRevision = currentRevision + 1;
 
     prefixWatcher =
         watchClient.watch(
@@ -428,15 +444,18 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 }
 
                 if (attemptNumber < etcdOperationsMaxRetries) {
+                  long retryFromRevision =
+                      lastProcessedRevision > 0 ? lastProcessedRevision : startRevision;
                   long delayMs = retryDelayMs > 0 ? retryDelayMs : 1000;
                   LOG.info(
-                      "Retrying prefix watcher for store {} in {} ms (attempt {} of {})",
+                      "Retrying prefix watcher for store {} in {} ms from revision {} (attempt {} of {})",
                       storeFolder,
                       delayMs,
+                      retryFromRevision,
                       attemptNumber + 1,
                       etcdOperationsMaxRetries);
                   watchRetryExecutor.schedule(
-                      () -> createPrefixWatcher(attemptNumber + 1, finalCurrentRevision),
+                      () -> createPrefixWatcher(attemptNumber + 1, retryFromRevision),
                       delayMs,
                       TimeUnit.MILLISECONDS);
                 } else {
@@ -495,7 +514,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           case PUT:
             String json = event.getKeyValue().getValue().toString(StandardCharsets.UTF_8);
             T node = serializer.fromJsonStr(json);
-            store.cache.put(path, node);
+            store.cachePut(path, node);
             LOG.trace("Updated cache for {} in partition {}", path, partition);
             for (AstraMetadataStoreChangeListener<T> listener : listenerMap.values()) {
               try {
@@ -507,7 +526,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
             break;
 
           case DELETE:
-            T deletedNode = store.cache.remove(path);
+            T deletedNode = store.cacheRemove(path);
             if (deletedNode != null) {
               for (AstraMetadataStoreChangeListener<T> listener : listenerMap.values()) {
                 try {
@@ -527,6 +546,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         LOG.error("Error processing watch event", e);
       }
     }
+    lastProcessedRevision = watchResponse.getHeader().getRevision();
   }
 
   public CompletionStage<String> createAsync(T metadataNode) {

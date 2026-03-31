@@ -451,6 +451,16 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
   }
 
+  /** Puts an entry into the local cache. Used by external watch managers. */
+  public void cachePut(String path, T node) {
+    cache.put(path, node);
+  }
+
+  /** Removes an entry from the local cache. Used by external watch managers. */
+  public T cacheRemove(String path) {
+    return cache.remove(path);
+  }
+
   /**
    * Gets a metadata node asynchronously.
    *
