@@ -30,7 +30,7 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
         <log4j.version>2.25.4</log4j.version>
-        <aws.sdk.version>2.42.23</aws.sdk.version>
+        <aws.sdk.version>2.42.28</aws.sdk.version>
         <error.prone.version>2.48.0</error.prone.version>
         <junit.jupiter.version>6.0.3</junit.jupiter.version>
         <jetcd.version>0.8.6</jetcd.version>
@@ -302,7 +302,7 @@
         <dependency>
             <groupId>org.checkerframework</groupId>
             <artifactId>checker-qual</artifactId>
-            <version>3.54.0</version>
+            <version>3.55.1</version>
         </dependency>
 
         <dependency>
@@ -489,7 +489,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.18.7</version>
+            <version>1.18.8</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
