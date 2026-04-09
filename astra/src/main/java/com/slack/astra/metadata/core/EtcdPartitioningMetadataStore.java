@@ -125,8 +125,8 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 .setNameFormat("etcd-watcher-" + storeFolder + "-%d")
                 .build());
     this.storeFolderPrefix = storeFolder + "/";
-    this.etcdOperationsMaxRetries = Math.max(0, etcdConfig.getOperationsMaxRetries());
-    this.retryDelayMs = Math.max(0, etcdConfig.getRetryDelayMs());
+    this.etcdOperationsMaxRetries = etcdConfig.getOperationsMaxRetries();
+    this.retryDelayMs = etcdConfig.getRetryDelayMs();
     this.watchRetryExecutor =
         Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder()
@@ -446,17 +446,16 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 if (attemptNumber < etcdOperationsMaxRetries) {
                   long retryFromRevision =
                       lastProcessedRevision > 0 ? lastProcessedRevision : startRevision;
-                  long delayMs = retryDelayMs > 0 ? retryDelayMs : 1000;
                   LOG.info(
                       "Retrying prefix watcher for store {} in {} ms from revision {} (attempt {} of {})",
                       storeFolder,
-                      delayMs,
+                      retryDelayMs,
                       retryFromRevision,
                       attemptNumber + 1,
                       etcdOperationsMaxRetries);
                   watchRetryExecutor.schedule(
                       () -> createPrefixWatcher(attemptNumber + 1, retryFromRevision),
-                      delayMs,
+                      retryDelayMs,
                       TimeUnit.MILLISECONDS);
                 } else {
                   LOG.error(
@@ -898,7 +897,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     watchRetryExecutor.shutdownNow();
     executorService.shutdownNow();
     try {
-      watchRetryExecutor.awaitTermination(5, TimeUnit.SECONDS);
       executorService.awaitTermination(DEFAULT_START_STOP_DURATION.toSeconds(), TimeUnit.SECONDS);
     } catch (InterruptedException e) {
       LOG.warn("Interrupted while waiting for close", e);
