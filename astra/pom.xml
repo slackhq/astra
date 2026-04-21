@@ -18,7 +18,7 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.9</protobuf.version>
-        <grpc.version>1.78.0</grpc.version>
+        <grpc.version>1.80.0</grpc.version>
         <micrometer.version>1.16.5</micrometer.version>
         <armeria.version>1.38.0</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
@@ -587,6 +587,17 @@
             <groupId>io.etcd</groupId>
             <artifactId>jetcd-core</artifactId>
             <version>${jetcd.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-netty</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty</artifactId>
+            <version>${grpc.version}</version>
         </dependency>
 
     </dependencies>
