@@ -80,6 +80,9 @@ public class AstraConfigUtil {
             .setNamespace(metadataPathPrefix) // Use same namespace as ZK pathPrefix for consistency
             .setEphemeralNodeTtlMs(3000)
             .setEphemeralNodeMaxRetries(3)
+            .setRetryTotalDurationMs(60000)
+            .setMaxRetryDelayMs(10000)
+            .setInitialRetryIntervalMs(2000)
             .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()
