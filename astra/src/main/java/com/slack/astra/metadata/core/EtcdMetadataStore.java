@@ -1066,6 +1066,13 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           storeFolder,
           currentRevision + 1);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      if (isClosing || Thread.currentThread().isInterrupted()) {
+        LOG.warn(
+            "Ignoring revision fetch error during shutdown for store {}: {}",
+            storeFolder,
+            e.getMessage());
+        return;
+      }
       LOG.error("Failed to get current revision for watch setup on store {}", storeFolder, e);
       watchRetryError.increment();
       if (!scheduleRetryWithBackoff(
