@@ -55,7 +55,7 @@ public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
     final File dataDirectory = new File(indexerConfig.getDataDirectory());
 
     LogStore logStore =
-        LuceneIndexStoreImpl.makeLogStore(dataDirectory, luceneConfig, meterRegistry);
+        LuceneIndexStoreImpl.makeLogStore(dataDirectory, luceneConfig, meterRegistry, false);
 
     return new RecoveryChunkImpl<>(
         logStore,

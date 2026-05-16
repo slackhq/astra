@@ -29,6 +29,10 @@ public class LuceneIndexStoreConfig {
   // A flag that turns on internal logging.
   public final boolean enableTracing;
 
+  // Recovery nodes don't serve queries and should disable this to avoid
+  // segment retention from DirectoryReader references.
+  public final boolean enableSearcher;
+
   // TODO: Tweak the default values once in prod.
   static final Duration defaultCommitDuration = Duration.ofSeconds(15);
   static final Duration defaultRefreshDuration = Duration.ofSeconds(15);
@@ -45,7 +49,7 @@ public class LuceneIndexStoreConfig {
 
   public LuceneIndexStoreConfig(
       Duration commitDuration, Duration refreshDuration, String indexRoot, boolean enableTracing) {
-    this(commitDuration, refreshDuration, indexRoot, DEFAULT_LOG_FILE_NAME, enableTracing);
+    this(commitDuration, refreshDuration, indexRoot, DEFAULT_LOG_FILE_NAME, enableTracing, true);
   }
 
   public LuceneIndexStoreConfig(
@@ -54,6 +58,16 @@ public class LuceneIndexStoreConfig {
       String indexRoot,
       String logFileName,
       boolean enableTracing) {
+    this(commitDuration, refreshDuration, indexRoot, logFileName, enableTracing, true);
+  }
+
+  public LuceneIndexStoreConfig(
+      Duration commitDuration,
+      Duration refreshDuration,
+      String indexRoot,
+      String logFileName,
+      boolean enableTracing,
+      boolean enableSearcher) {
     ensureTrue(
         !(commitDuration.isZero() || commitDuration.isNegative()),
         "Commit duration should be greater than zero");
@@ -65,6 +79,7 @@ public class LuceneIndexStoreConfig {
     this.indexRoot = indexRoot;
     this.logFileName = logFileName;
     this.enableTracing = enableTracing;
+    this.enableSearcher = enableSearcher;
   }
 
   public File indexFolder(String id) {
