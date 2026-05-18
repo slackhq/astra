@@ -4,9 +4,11 @@ import static com.slack.astra.server.AstraConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.util.ExponentialBackOff;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.Watch;
+import io.etcd.jetcd.kv.GetResponse;
 import io.etcd.jetcd.options.GetOption;
 import io.etcd.jetcd.options.WatchOption;
 import io.etcd.jetcd.watch.WatchEvent;
@@ -16,6 +18,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,8 +28,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,11 +56,14 @@ import org.slf4j.LoggerFactory;
 public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(EtcdPartitioningMetadataStore.class);
+  private static final long REVISION_LATEST = 0;
+  private static final long REVISION_RESYNC = -1;
+
   private final Map<String, EtcdMetadataStore<T>> metadataStoreMap = new ConcurrentHashMap<>();
   private final ExecutorService executorService;
-  // Listeners are managed through the listenerMap instead of a list
 
   protected final String storeFolder;
+  private final String storeFolderPrefix;
   private final EtcdCreateMode createMode;
   protected final MetadataSerializer<T> serializer;
   private final List<String> partitionFilters;
@@ -64,6 +73,15 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final Watch watchClient;
   private final Map<String, AstraMetadataStoreChangeListener<T>> listenerMap =
       new ConcurrentHashMap<>();
+
+  private final ScheduledExecutorService watchRetryExecutor;
+  private final long retryTotalDurationMs;
+  private final long maxRetryDelayMs;
+  private final long initialRetryIntervalMs;
+  private final ReentrantLock watchLock = new ReentrantLock();
+  private Watch.Watcher partitionWatcher;
+  private volatile boolean closing = false;
+  private volatile boolean closingPartitionWatcher = false;
 
   /**
    * Constructor for EtcdPartitioningMetadataStore with default empty partition filters.
@@ -107,56 +125,44 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     this.etcdClient = etcdClient;
     this.watchClient = etcdClient.getWatchClient();
     this.storeFolder = storeFolder;
+    this.storeFolderPrefix = storeFolder + "/";
     this.createMode = createMode;
     this.serializer = serializer;
     this.partitionFilters = partitionFilters;
     this.etcdConfig = etcdConfig;
     this.meterRegistry = meterRegistry;
+    this.retryTotalDurationMs =
+        EtcdMetadataStore.positiveOrDefault(
+            etcdConfig.getRetryTotalDurationMs(),
+            EtcdMetadataStore.DEFAULT_RETRY_TOTAL_DURATION_MS);
+    this.maxRetryDelayMs =
+        EtcdMetadataStore.positiveOrDefault(
+            etcdConfig.getMaxRetryDelayMs(), EtcdMetadataStore.DEFAULT_MAX_RETRY_DELAY_MS);
+    this.initialRetryIntervalMs =
+        EtcdMetadataStore.positiveOrDefault(
+            etcdConfig.getInitialRetryIntervalMs(),
+            EtcdMetadataStore.DEFAULT_INITIAL_RETRY_INTERVAL_MS);
     this.executorService =
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder()
                 .setNameFormat("etcd-watcher-" + storeFolder + "-%d")
                 .build());
+    this.watchRetryExecutor =
+        Executors.newScheduledThreadPool(
+            1,
+            r -> {
+              Thread t = new Thread(r);
+              t.setDaemon(true);
+              t.setName("etcd-partition-watch-retry-" + storeFolder);
+              return t;
+            });
 
-    Watch.Listener watcher = buildWatcher();
+    startPartitionWatch(
+        REVISION_LATEST,
+        new EtcdMetadataStore.WatchRetryState(
+            initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs));
 
-    // register watchers for when partitions are added or removed
     ByteSequence storeFolderKey = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
-
-    // Get the current revision before starting the watch to prevent race conditions
-    // We start watching from the next revision to ensure we capture all events
-    // that occur during and after watch setup
-    WatchOption watchOption;
-    try {
-      long currentRevision =
-          etcdClient
-              .getKVClient()
-              .get(
-                  storeFolderKey,
-                  GetOption.builder().withPrefix(storeFolderKey).withKeysOnly(true).build())
-              .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
-              .getHeader()
-              .getRevision();
-
-      // Create watch option starting from the current revision
-      // This ensures we don't miss events that occur during watch registration
-      // and that we don't replay the last event
-      watchOption =
-          WatchOption.builder()
-              .withPrefix(storeFolderKey)
-              .withRevision(currentRevision + 1)
-              .build();
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Failed to get current revision for watch setup on store {}", storeFolder, e);
-      // Fallback to basic watch without revision
-      watchOption = WatchOption.builder().withPrefix(storeFolderKey).build();
-    }
-
-    LOG.debug("Adding watch client for folder: {} with prefix option", storeFolderKey);
-    watchClient.watch(storeFolderKey, watchOption, watcher);
-
-    // Init stores for each existing partition - similar to how ZookeeperPartitioningMetadataStore
-    // works
     etcdClient
         .getKVClient()
         .get(storeFolderKey, GetOption.builder().isPrefix(true).build())
@@ -167,9 +173,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                 // The storeFolder does not yet exist in etcd
                 return CompletableFuture.completedFuture(List.<String>of());
               } else {
-                // Get all direct children (partitions) of the storeFolder
-                ByteSequence prefix =
-                    ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
+                ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
                 return etcdClient
                     .getKVClient()
                     .get(prefix, GetOption.builder().isPrefix(true).build())
@@ -182,22 +186,9 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                               .forEach(
                                   kv -> {
                                     String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
-                                    if (keyStr.startsWith(String.format("%s/", storeFolder))) {
-                                      // Extract partition name (the first segment after
-                                      // storeFolder)
-                                      String remaining =
-                                          keyStr.substring(
-                                              String.format("%s/", storeFolder).length());
-                                      int slashIdx = remaining.indexOf('/');
-                                      if (slashIdx > 0) {
-                                        String partition = remaining.substring(0, slashIdx);
-                                        if (!children.contains(partition)) {
-                                          children.add(partition);
-                                        }
-                                      } else if (!remaining.isEmpty()) {
-                                        // This is a partition with no children yet
-                                        children.add(remaining);
-                                      }
+                                    String partition = extractPartition(keyStr);
+                                    if (partition != null && !children.contains(partition)) {
+                                      children.add(partition);
                                     }
                                   });
                           return children;
@@ -233,116 +224,305 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   }
 
   /**
-   * Builds a watcher that is responsible for updating our internal metadata stores to match what is
-   * stored in etcd.
+   * Starts (or restarts) the partition-discovery watch. On error or completion, the watch is
+   * re-established using two-tier exponential backoff matching the per-partition pattern in {@link
+   * EtcdMetadataStore}.
    *
-   * <p>This method creates stores internally when they are detected in etcd storing them to the
-   * store map, and handles partition deletions only when explicitly detected.
+   * @param startRevision {@link #REVISION_LATEST} to fetch current revision, {@link
+   *     #REVISION_RESYNC} to re-scan etcd first
+   * @param retryState two-tier backoff state carried across retries
    */
-  private Watch.Listener buildWatcher() {
-    return new Watch.Listener() {
-      @Override
-      public void onNext(WatchResponse watchResponse) {
-        if (!executorService.isShutdown()) {
-          executorService.submit(
-              () -> {
-                LOG.debug(
-                    "Watch event received: {} events for store {}",
-                    watchResponse.getEvents().size(),
-                    storeFolder);
+  private void startPartitionWatch(
+      long startRevision, EtcdMetadataStore.WatchRetryState retryState) {
+    if (closing) {
+      return;
+    }
 
-                // Check for any creation or deletion of partition directories
-                for (WatchEvent event : watchResponse.getEvents()) {
-                  String keyStr = event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
-                  LOG.debug("Processing watch event: {} for key: {}", event.getEventType(), keyStr);
+    ByteSequence storeFolderKey = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
 
-                  // Only process events relevant to our partitions
-                  if (keyStr.startsWith(String.format("%s/", storeFolder))) {
-                    // This is a change to a partition or its content
-                    String remaining = keyStr.substring(String.format("%s/", storeFolder).length());
-                    int slashIdx = remaining.indexOf('/');
-                    String partition = slashIdx > 0 ? remaining.substring(0, slashIdx) : remaining;
-                    LOG.debug("Identified partition '{}' from key: {}", partition, keyStr);
+    long currentRevision;
+    try {
+      if (startRevision == REVISION_RESYNC) {
+        currentRevision = resyncPartitionsFromEtcd();
+      } else if (startRevision == REVISION_LATEST) {
+        currentRevision =
+            etcdClient
+                .getKVClient()
+                .get(
+                    storeFolderKey,
+                    GetOption.builder().withPrefix(storeFolderKey).withKeysOnly(true).build())
+                .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
+                .getHeader()
+                .getRevision();
+      } else {
+        currentRevision = startRevision;
+      }
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Failed to get current revision for partition watch on store {}", storeFolder, e);
+      handleWatchError(e, startRevision, retryState);
+      return;
+    }
 
-                    // If we have partition filters, skip partitions not in our filter
-                    if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
-                      continue;
-                    }
+    WatchOption watchOption =
+        WatchOption.builder().withPrefix(storeFolderKey).withRevision(currentRevision + 1).build();
 
-                    // Handle PUT events - create metadata store if needed
-                    if (event.getEventType() == WatchEvent.EventType.PUT) {
-                      LOG.debug(
-                          "PUT event detected, creating/updating metadata store for partition: {}",
-                          partition);
-                      getOrCreateMetadataStore(partition);
-                    }
-                    // Handle DELETE events
-                    else if (event.getEventType() == WatchEvent.EventType.DELETE) {
-                      LOG.debug("DELETE event detected for key: {}", keyStr);
-                      handlePartitionDeletion(partition);
-                    }
-                  } else {
-                    LOG.debug("Ignoring event for key outside our store folder: {}", keyStr);
+    long finalCurrentRevision = currentRevision + 1;
+    long watcherCreatedTimeMs = System.currentTimeMillis();
+
+    // Lock only around the close-old/create-new/assign sequence to prevent concurrent
+    // watcher creation while allowing RPCs above to proceed without holding the lock.
+    watchLock.lock();
+    try {
+      if (closing) {
+        return;
+      }
+
+      closePartitionWatcherLocked();
+
+      LOG.debug(
+          "Starting partition watch for folder {} at revision {}",
+          storeFolder,
+          finalCurrentRevision);
+
+      partitionWatcher =
+          watchClient.watch(
+              storeFolderKey,
+              watchOption,
+              new Watch.Listener() {
+                @Override
+                public void onNext(WatchResponse watchResponse) {
+                  if (!executorService.isShutdown()) {
+                    executorService.submit(() -> processWatchEvents(watchResponse));
                   }
                 }
+
+                @Override
+                public void onError(Throwable throwable) {
+                  if (closing) {
+                    LOG.debug("Ignoring watch error during shutdown for {}", storeFolder);
+                    return;
+                  }
+                  if (closingPartitionWatcher) {
+                    LOG.debug(
+                        "Ignoring watch error during deliberate watcher close for {}: {}",
+                        storeFolder,
+                        throwable.getMessage());
+                    return;
+                  }
+                  closePartitionWatcher();
+                  retryState.resetIfNewEpisode(watcherCreatedTimeMs);
+                  handleWatchError(throwable, finalCurrentRevision, retryState);
+                }
+
+                @Override
+                public void onCompleted() {
+                  if (closing) {
+                    LOG.debug("Ignoring watch completion during shutdown for {}", storeFolder);
+                    return;
+                  }
+                  if (closingPartitionWatcher) {
+                    LOG.debug(
+                        "Ignoring watch completion during deliberate watcher close for {}",
+                        storeFolder);
+                    return;
+                  }
+                  LOG.warn("Partition watch completed unexpectedly for {}", storeFolder);
+                  closePartitionWatcher();
+                  retryState.resetIfNewEpisode(watcherCreatedTimeMs);
+                  handleWatchError(
+                      new RuntimeException("partition watch completed unexpectedly"),
+                      finalCurrentRevision,
+                      retryState);
+                }
               });
-        }
+    } finally {
+      watchLock.unlock();
+    }
+
+    boolean isRetry =
+        retryState.transientBackoff.getElapsedTimeMs() > 0
+            || retryState.errorBackoff.getElapsedTimeMs() > 0;
+    if (!isRetry) {
+      LOG.info("Successfully established initial partition watch for store {}", storeFolder);
+    } else {
+      LOG.info("Successfully re-established partition watch for store {}", storeFolder);
+    }
+  }
+
+  private void closePartitionWatcher() {
+    watchLock.lock();
+    try {
+      closePartitionWatcherLocked();
+    } finally {
+      watchLock.unlock();
+    }
+  }
+
+  private void closePartitionWatcherLocked() {
+    Watch.Watcher old = partitionWatcher;
+    if (old != null) {
+      closingPartitionWatcher = true;
+      try {
+        old.close();
+      } catch (Exception e) {
+        LOG.debug("Error closing partition watcher", e);
+      } finally {
+        closingPartitionWatcher = false;
+      }
+      partitionWatcher = null;
+    }
+  }
+
+  /**
+   * Handles a partition watch error or completion by classifying the error and scheduling a retry
+   * with two-tier exponential backoff. Transient errors (GOAWAY, compaction) share one budget; when
+   * exhausted they escalate to the error tier. Error budget exhaustion is fatal.
+   */
+  private void handleWatchError(
+      Throwable error, long lastRevision, EtcdMetadataStore.WatchRetryState retryState) {
+    if (EtcdMetadataStore.isGracefulStop(error)) {
+      if (scheduleRetryWithBackoff(
+          retryState.transientBackoff,
+          () -> startPartitionWatch(lastRevision, retryState),
+          "Partition watch for store " + storeFolder + " received GOAWAY: " + error.getMessage())) {
+        return;
+      }
+      LOG.error(
+          "Transient retry budget exhausted for partition watch on store {} after {} ms"
+              + " — treating as real error",
+          storeFolder,
+          retryState.transientBackoff.getElapsedTimeMs());
+      retryState.transientBackoff.reset();
+    } else if (EtcdMetadataStore.isCompactionError(error)) {
+      if (scheduleRetryWithBackoff(
+          retryState.transientBackoff,
+          () -> startPartitionWatch(REVISION_RESYNC, retryState),
+          "Partition watch for store "
+              + storeFolder
+              + " received compaction error: "
+              + error.getMessage())) {
+        return;
+      }
+      LOG.error(
+          "Transient retry budget exhausted for partition watch on store {} after {} ms"
+              + " — treating as real error",
+          storeFolder,
+          retryState.transientBackoff.getElapsedTimeMs());
+      retryState.transientBackoff.reset();
+    }
+
+    if (scheduleRetryWithBackoff(
+        retryState.errorBackoff,
+        () -> startPartitionWatch(lastRevision, retryState),
+        "Partition watch failed for store " + storeFolder + ": " + error.getMessage())) {
+      return;
+    }
+
+    LOG.error(
+        "Partition watch retry budget exhausted for store {} after {} ms — failing fatally",
+        storeFolder,
+        retryState.errorBackoff.getElapsedTimeMs());
+    EtcdMetadataStore.handleFatalAsync(error, "partition-watch-" + storeFolder);
+  }
+
+  private boolean scheduleRetryWithBackoff(
+      ExponentialBackOff backoff, Runnable retryAction, String context) {
+    long delayMs = backoff.nextBackOffMillis();
+    if (delayMs == ExponentialBackOff.STOP) {
+      return false;
+    }
+    LOG.warn(
+        "{} — retrying in {} ms ({} ms elapsed)", context, delayMs, backoff.getElapsedTimeMs());
+    try {
+      watchRetryExecutor.schedule(retryAction, delayMs, TimeUnit.MILLISECONDS);
+    } catch (java.util.concurrent.RejectedExecutionException e) {
+      LOG.warn("Retry executor already shut down for {}, retry not scheduled", storeFolder);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Processes watch events for partition discovery. Creates stores for new partitions and handles
+   * partition deletions.
+   */
+  private void processWatchEvents(WatchResponse watchResponse) {
+    LOG.debug(
+        "Watch event received: {} events for store {}",
+        watchResponse.getEvents().size(),
+        storeFolder);
+
+    for (WatchEvent event : watchResponse.getEvents()) {
+      String keyStr = event.getKeyValue().getKey().toString(StandardCharsets.UTF_8);
+      LOG.debug("Processing watch event: {} for key: {}", event.getEventType(), keyStr);
+
+      String partition = extractPartition(keyStr);
+      if (partition == null) {
+        LOG.debug("Ignoring event for key outside our store folder: {}", keyStr);
+        continue;
       }
 
-      /**
-       * Handles deletion of a partition root path by checking if the store is empty and then
-       * removing it if appropriate.
-       *
-       * @param partition The partition identifier that was deleted
-       */
-      private void handlePartitionDeletion(String partition) {
-        if (!metadataStoreMap.containsKey(partition)) {
-          LOG.debug("Ignoring deletion of unknown partition: {}", partition);
-          return;
-        }
+      LOG.debug("Identified partition '{}' from key: {}", partition, keyStr);
 
-        // Get the store and check if it has any cached items
-        EtcdMetadataStore<T> store = metadataStoreMap.get(partition);
-
-        try {
-          store
-              .listAsync()
-              .thenAcceptAsync(
-                  (items) -> {
-                    if (items.isEmpty()) {
-                      LOG.info("Closing unused store for deleted partition: {}", partition);
-                      metadataStoreMap.remove(partition);
-                      store.close();
-                    } else {
-                      // This could indicate a race condition where we have items in memory
-                      // that haven't been persisted to etcd yet, or the deletion was partial
-                      LOG.warn(
-                          "Detected deletion event on partition {}, but store still has {} cached elements. Keeping store active.",
-                          partition,
-                          items.size());
-                    }
-                  });
-        } catch (Exception e) {
-          // Safeguard against failures that could leave the store in a broken state
-          LOG.error("Error checking partition store for deletion: {}", partition, e);
-          // If we fail to check the store, it's likely in a bad state, so close it
-          // This may be aggressive but prevents resource leaks
-          metadataStoreMap.remove(partition);
-          store.close();
-        }
+      if (!partitionFilters.isEmpty() && !partitionFilters.contains(partition)) {
+        continue;
       }
 
-      @Override
-      public void onError(Throwable throwable) {
-        LOG.error("Error in etcd watcher for {}", storeFolder, throwable);
+      if (event.getEventType() == WatchEvent.EventType.PUT) {
+        LOG.debug(
+            "PUT event detected, creating/updating metadata store for partition: {}", partition);
+        getOrCreateMetadataStore(partition);
+      } else if (event.getEventType() == WatchEvent.EventType.DELETE) {
+        LOG.debug("DELETE event detected for key: {}", keyStr);
+        handlePartitionDeletion(partition);
       }
+    }
+  }
 
-      @Override
-      public void onCompleted() {
-        LOG.warn(
-            "Etcd watch completed for {} - object {}", storeFolder, System.identityHashCode(this));
-      }
-    };
+  /**
+   * Extracts the partition identifier from a full etcd key under this store's folder. Returns null
+   * if the key does not start with the store folder prefix or is empty after stripping.
+   */
+  private String extractPartition(String keyStr) {
+    if (!keyStr.startsWith(storeFolderPrefix)) {
+      return null;
+    }
+    String remaining = keyStr.substring(storeFolderPrefix.length());
+    if (remaining.isEmpty()) {
+      return null;
+    }
+    int slashIdx = remaining.indexOf('/');
+    return slashIdx > 0 ? remaining.substring(0, slashIdx) : remaining;
+  }
+
+  private void handlePartitionDeletion(String partition) {
+    EtcdMetadataStore<T> store = metadataStoreMap.get(partition);
+    if (store == null) {
+      LOG.debug("Ignoring deletion of unknown partition: {}", partition);
+      return;
+    }
+
+    try {
+      store
+          .listAsync()
+          .thenAcceptAsync(
+              (items) -> {
+                if (items.isEmpty()) {
+                  LOG.info("Closing unused store for deleted partition: {}", partition);
+                  metadataStoreMap.remove(partition);
+                  store.close();
+                } else {
+                  LOG.warn(
+                      "Detected deletion event on partition {}, but store still has {} cached elements. Keeping store active.",
+                      partition,
+                      items.size());
+                }
+              });
+    } catch (Exception e) {
+      LOG.error("Error checking partition store for deletion: {}", partition, e);
+      metadataStoreMap.remove(partition);
+      store.close();
+    }
   }
 
   public CompletionStage<String> createAsync(T metadataNode) {
@@ -527,40 +707,70 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    */
   private Set<String> getPartitionsFromEtcd() {
     try {
-      // Get all keys with the store prefix
-      ByteSequence prefix =
-          ByteSequence.from(String.format("%s/", storeFolder), StandardCharsets.UTF_8);
-      io.etcd.jetcd.options.GetOption getOption =
-          io.etcd.jetcd.options.GetOption.builder().isPrefix(true).build();
-
-      // Execute the query synchronously
-      io.etcd.jetcd.kv.GetResponse getResponse =
+      ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
+      GetResponse getResponse =
           etcdClient
               .getKVClient()
-              .get(prefix, getOption)
+              .get(prefix, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
               .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
 
-      // Extract partition names from the keys
-      Set<String> partitions = new java.util.HashSet<>();
-      for (io.etcd.jetcd.KeyValue kv : getResponse.getKvs()) {
-        String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
-        if (keyStr.startsWith(String.format("%s/", storeFolder))) {
-          String remaining = keyStr.substring(String.format("%s/", storeFolder).length());
-          int slashIdx = remaining.indexOf('/');
-          String partition = slashIdx > 0 ? remaining.substring(0, slashIdx) : remaining;
-
-          // Only add if it's not empty and matches our filters
-          if (!partition.isEmpty()
-              && (partitionFilters.isEmpty() || partitionFilters.contains(partition))) {
-            partitions.add(partition);
-          }
-        }
-      }
-
-      return partitions;
+      return extractPartitionsFromResponse(getResponse);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching partitions from etcd", e);
     }
+  }
+
+  private Set<String> extractPartitionsFromResponse(GetResponse getResponse) {
+    Set<String> partitions = new HashSet<>();
+    for (io.etcd.jetcd.KeyValue kv : getResponse.getKvs()) {
+      String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
+      String partition = extractPartition(keyStr);
+      if (partition != null
+          && (partitionFilters.isEmpty() || partitionFilters.contains(partition))) {
+        partitions.add(partition);
+      }
+    }
+    return partitions;
+  }
+
+  /**
+   * Re-scans etcd for partitions and ensures each one has a metadata store. Used on watch recovery
+   * (compaction or gap) to discover partitions created while the watch was down.
+   *
+   * @return the etcd revision from the list response, suitable for starting a watch from revision+1
+   */
+  private long resyncPartitionsFromEtcd()
+      throws InterruptedException, ExecutionException, TimeoutException {
+    ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
+    GetResponse getResponse =
+        etcdClient
+            .getKVClient()
+            .get(prefix, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
+            .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
+
+    long listRevision = getResponse.getHeader().getRevision();
+
+    Set<String> discoveredPartitions = extractPartitionsFromResponse(getResponse);
+    discoveredPartitions.forEach(this::getOrCreateMetadataStore);
+
+    // Remove stores for partitions that no longer exist in etcd
+    for (String existing : metadataStoreMap.keySet()) {
+      if (!discoveredPartitions.contains(existing)) {
+        EtcdMetadataStore<T> staleStore = metadataStoreMap.remove(existing);
+        if (staleStore != null) {
+          LOG.info("Removing stale partition store during resync: {}", existing);
+          staleStore.close();
+        }
+      }
+    }
+
+    LOG.info(
+        "Partition resync for store {} complete: {} partitions from etcd at revision {}",
+        storeFolder,
+        discoveredPartitions.size(),
+        listRevision);
+
+    return listRevision;
   }
 
   /**
@@ -582,21 +792,48 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           "Partitioning metadata store using filters that does not include provided partition");
     }
 
-    // Create a new store for this partition or return existing one
-    return metadataStoreMap.computeIfAbsent(
-        partition,
-        (p1) -> {
-          String path = String.format("%s/%s", storeFolder, p1);
-          LOG.debug(
-              "Creating new etcd metadata store for partition - {}, at path - {}", partition, path);
+    AtomicBoolean created = new AtomicBoolean(false);
 
-          EtcdMetadataStore<T> newStore =
-              new EtcdMetadataStore<>(
-                  path, etcdConfig, true, meterRegistry, serializer, createMode, etcdClient);
-          listenerMap.forEach((_, listener) -> newStore.addListener(listener));
+    EtcdMetadataStore<T> store =
+        metadataStoreMap.computeIfAbsent(
+            partition,
+            (p1) -> {
+              String path = String.format("%s/%s", storeFolder, p1);
+              LOG.debug(
+                  "Creating new etcd metadata store for partition - {}, at path - {}",
+                  partition,
+                  path);
 
-          return newStore;
-        });
+              EtcdMetadataStore<T> newStore =
+                  new EtcdMetadataStore<>(
+                      path, etcdConfig, true, meterRegistry, serializer, createMode, etcdClient);
+              listenerMap.forEach((_, listener) -> newStore.addListener(listener));
+
+              created.set(true);
+              return newStore;
+            });
+
+    if (created.get()) {
+      List<T> cachedItems = store.listSync();
+      if (!cachedItems.isEmpty()) {
+        LOG.info(
+            "Notifying {} listeners of {} pre-existing items in new partition {}",
+            listenerMap.size(),
+            cachedItems.size(),
+            partition);
+        for (T item : cachedItems) {
+          for (AstraMetadataStoreChangeListener<T> listener : listenerMap.values()) {
+            try {
+              listener.onMetadataStoreChanged(item);
+            } catch (Exception e) {
+              LOG.warn("Listener notification failed for partition {}", partition, e);
+            }
+          }
+        }
+      }
+    }
+
+    return store;
   }
 
   /**
@@ -669,10 +906,12 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         listenerMap.size(),
         metadataStoreMap.size());
 
+    closing = true;
+    closePartitionWatcher();
+
     // Remove all listeners and close all stores
     new ArrayList<>(listenerMap.values()).forEach(this::removeListener);
 
-    // All watchers are automatically closed when the client is closed
     executorService.shutdownNow();
     try {
       executorService.awaitTermination(DEFAULT_START_STOP_DURATION.toSeconds(), TimeUnit.SECONDS);
@@ -680,7 +919,14 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       LOG.warn("Interrupted while waiting for close", e);
     }
 
-    metadataStoreMap.forEach((ignored, store) -> store.close());
+    watchRetryExecutor.shutdownNow();
+    try {
+      watchRetryExecutor.awaitTermination(5, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+
+    metadataStoreMap.forEach((_, store) -> store.close());
 
     // Clear the maps
     listenerMap.clear();

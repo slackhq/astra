@@ -127,10 +127,11 @@ public class ReplicaRestoreServiceTest {
 
   @AfterEach
   public void tearDown() throws IOException {
-    meterRegistry.close();
-    testingServer.close();
-    if (etcdClient != null) etcdClient.close();
+    replicaMetadataStore.close();
     curatorFramework.unwrap().close();
+    if (etcdClient != null) etcdClient.close();
+    testingServer.close();
+    meterRegistry.close();
   }
 
   @Test

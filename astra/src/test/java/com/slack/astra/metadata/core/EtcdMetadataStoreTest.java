@@ -9,6 +9,8 @@ import com.slack.astra.testlib.TestEtcdClusterFactory;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.ClientBuilder;
 import io.etcd.jetcd.launcher.EtcdCluster;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.charset.StandardCharsets;
@@ -530,6 +532,9 @@ public class EtcdMetadataStoreTest {
             .setNamespace("test")
             .setEphemeralNodeTtlMs(1000) // Short TTL
             .setEphemeralNodeMaxRetries(1) // Only 1 retry attempt
+            .setRetryTotalDurationMs(5000)
+            .setMaxRetryDelayMs(1000)
+            .setInitialRetryIntervalMs(100)
             .build();
 
     // Create client for failure test
@@ -716,5 +721,57 @@ public class EtcdMetadataStoreTest {
       testClient.close();
       testMeterRegistry.close();
     }
+  }
+
+  @Test
+  public void testIsGracefulStop() {
+    // Exact message produced by jetcd when etcd sends GOAWAY with NO_ERROR
+    assertThat(
+            EtcdMetadataStore.isGracefulStop(
+                new RuntimeException(
+                    "Connection closed after GOAWAY. HTTP/2 error code: NO_ERROR, debug data: graceful_stop")))
+        .isTrue();
+
+    // Must contain both NO_ERROR and graceful_stop
+    assertThat(
+            EtcdMetadataStore.isGracefulStop(
+                new RuntimeException(
+                    "Connection closed after GOAWAY. HTTP/2 error code: NO_ERROR, debug data: something_else")))
+        .isFalse();
+
+    assertThat(
+            EtcdMetadataStore.isGracefulStop(
+                new RuntimeException("Connection closed after GOAWAY. debug data: graceful_stop")))
+        .isFalse();
+
+    // Other error types should not match
+    assertThat(EtcdMetadataStore.isGracefulStop(new RuntimeException("connection refused")))
+        .isFalse();
+
+    assertThat(EtcdMetadataStore.isGracefulStop(new RuntimeException((String) null))).isFalse();
+  }
+
+  @Test
+  public void testIsCompactionError() {
+    // gRPC OUT_OF_RANGE status
+    assertThat(
+            EtcdMetadataStore.isCompactionError(
+                new StatusRuntimeException(Status.OUT_OF_RANGE.withDescription("compacted"))))
+        .isTrue();
+
+    // Message-based detection
+    assertThat(
+            EtcdMetadataStore.isCompactionError(
+                new RuntimeException("etcd revision has been compacted")))
+        .isTrue();
+
+    // Non-compaction errors
+    assertThat(
+            EtcdMetadataStore.isCompactionError(
+                new StatusRuntimeException(Status.UNAVAILABLE.withDescription("connection reset"))))
+        .isFalse();
+
+    assertThat(EtcdMetadataStore.isCompactionError(new RuntimeException("connection refused")))
+        .isFalse();
   }
 }
