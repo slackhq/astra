@@ -20,7 +20,7 @@
         <protobuf.version>3.25.9</protobuf.version>
         <grpc.version>1.81.0</grpc.version>
         <micrometer.version>1.16.5</micrometer.version>
-        <armeria.version>1.38.0</armeria.version>
+        <armeria.version>1.39.0</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.21.3</jackson.version>
@@ -30,9 +30,9 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
         <log4j.version>2.26.0</log4j.version>
-        <aws.sdk.version>2.44.4</aws.sdk.version>
+        <aws.sdk.version>2.44.12</aws.sdk.version>
         <error.prone.version>2.49.0</error.prone.version>
-        <junit.jupiter.version>6.0.3</junit.jupiter.version>
+        <junit.jupiter.version>6.1.0</junit.jupiter.version>
         <jetcd.version>0.8.6</jetcd.version>
     </properties>
 
@@ -53,7 +53,7 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>2.0.17</version>
+            <version>2.0.18</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -284,7 +284,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20251224</version>
+            <version>20260522</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -302,7 +302,7 @@
         <dependency>
             <groupId>org.checkerframework</groupId>
             <artifactId>checker-qual</artifactId>
-            <version>4.1.0</version>
+            <version>4.2.0</version>
         </dependency>
 
         <dependency>
@@ -377,7 +377,7 @@
         <dependency>
             <groupId>software.amazon.awssdk.crt</groupId>
             <artifactId>aws-crt</artifactId>
-            <version>0.45.3</version>
+            <version>0.46.1</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -433,7 +433,7 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>6.0.3</version>
+            <version>6.1.0</version>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
@@ -797,7 +797,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.6.2</version>
+                <version>3.6.3</version>
                 <configuration>
                     <rules>
                         <dependencyConvergence/>
@@ -829,7 +829,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-site-plugin</artifactId>
-                    <version>3.21.0</version>
+                    <version>3.22.0</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-source-plugin</artifactId>
@@ -837,7 +837,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.5</version>
+                    <version>3.5.6</version>
                     <configuration>
                         <argLine>--enable-preview</argLine>
                         <trimStackTrace>false</trimStackTrace>
