@@ -3,9 +3,11 @@ package com.slack.astra.blobfs;
 import static software.amazon.awssdk.services.s3.model.ListObjectsV2Request.builder;
 
 import com.slack.astra.chunk.ReadWriteChunk;
+import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -18,13 +20,14 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryDownload;
-import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
 import software.amazon.awssdk.transfer.s3.model.DownloadDirectoryRequest;
 import software.amazon.awssdk.transfer.s3.model.DownloadRequest;
-import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
+import software.amazon.awssdk.transfer.s3.model.FileUpload;
+import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 
 /**
  * Blob store abstraction for basic operations on chunk/snapshots on remote storage. All operations
@@ -33,6 +36,7 @@ import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
  */
 public class BlobStore {
   private static final Logger LOG = LoggerFactory.getLogger(BlobStore.class);
+  private static final int MAX_CONCURRENT_UPLOADS = 100;
 
   protected final String bucketName;
   protected final S3AsyncClient s3AsyncClient;
@@ -45,46 +49,88 @@ public class BlobStore {
   }
 
   /**
-   * Uploads a directory to the object store by prefix
-   *
-   * @param prefix Prefix to store (ie, chunk id)
-   * @param directoryToUpload Directory to upload
-   * @throws IllegalStateException Thrown if any files fail to upload
-   * @throws RuntimeException Thrown when error is considered generally non-retryable
+   * Uploads all files in a directory to the object store by prefix. Primarily used by tests to
+   * stage data in S3. Production callers should prefer the 3-arg overload with an explicit file
+   * list to avoid race conditions with concurrent file deletions.
    */
   public void upload(String prefix, Path directoryToUpload) {
     assert prefix != null && !prefix.isEmpty();
     assert directoryToUpload.toFile().isDirectory();
-    assert Objects.requireNonNull(directoryToUpload.toFile().listFiles()).length > 0;
 
-    try {
-      CompletedDirectoryUpload upload =
-          transferManager
-              .uploadDirectory(
-                  UploadDirectoryRequest.builder()
-                      .source(directoryToUpload)
-                      .s3Prefix(prefix)
-                      .bucket(bucketName)
-                      .build())
-              .completionFuture()
-              .get();
-      if (!upload.failedTransfers().isEmpty()) {
-        // Log each failed transfer with its exception
-        upload
-            .failedTransfers()
-            .forEach(
-                failedFileUpload ->
-                    LOG.error(
-                        "Error attempting to upload file to S3", failedFileUpload.exception()));
+    File[] entries = directoryToUpload.toFile().listFiles();
+    assert entries != null && entries.length > 0;
 
-        throw new IllegalStateException(
-            String.format(
-                "Some files failed to upload - attempted to upload %s files, failed %s.",
-                Objects.requireNonNull(directoryToUpload.toFile().listFiles()).length,
-                upload.failedTransfers().size()));
+    List<String> fileNames = new ArrayList<>();
+    for (File file : entries) {
+      if (file.isFile()) {
+        fileNames.add(file.getName());
       }
-    } catch (ExecutionException | InterruptedException e) {
-      throw new RuntimeException(e);
+    }
+    upload(prefix, directoryToUpload, fileNames);
+  }
+
+  /**
+   * Uploads only the specified files from a directory to the object store by prefix. This prevents
+   * race conditions where files in the directory may be deleted by concurrent processes (e.g.,
+   * Lucene segment merges) between directory enumeration and file read.
+   *
+   * @param prefix Prefix to store (ie, chunk id)
+   * @param directoryToUpload Directory containing the files
+   * @param fileNames Collection of file names to upload (only these will be included)
+   * @throws IllegalStateException Thrown if any files fail to upload
+   * @throws RuntimeException Thrown when error is considered generally non-retryable
+   */
+  public void upload(String prefix, Path directoryToUpload, Collection<String> fileNames) {
+    assert prefix != null && !prefix.isEmpty();
+    assert directoryToUpload.toFile().isDirectory();
+    assert fileNames != null && !fileNames.isEmpty();
+
+    List<Exception> failures = new ArrayList<>();
+    List<String> keysBatch = new ArrayList<>(MAX_CONCURRENT_UPLOADS);
+    List<FileUpload> uploadsBatch = new ArrayList<>(MAX_CONCURRENT_UPLOADS);
+
+    for (String fileName : fileNames) {
+      Path filePath = directoryToUpload.resolve(fileName);
+      String key = prefix + "/" + fileName;
+      FileUpload fileUpload =
+          transferManager.uploadFile(
+              UploadFileRequest.builder()
+                  .putObjectRequest(PutObjectRequest.builder().bucket(bucketName).key(key).build())
+                  .source(filePath)
+                  .build());
+      keysBatch.add(key);
+      uploadsBatch.add(fileUpload);
+
+      if (uploadsBatch.size() >= MAX_CONCURRENT_UPLOADS) {
+        awaitUploads(uploadsBatch, keysBatch, failures);
+        uploadsBatch.clear();
+        keysBatch.clear();
+      }
+    }
+    if (!uploadsBatch.isEmpty()) {
+      awaitUploads(uploadsBatch, keysBatch, failures);
+    }
+
+    if (!failures.isEmpty()) {
+      throw new IllegalStateException(
+          String.format(
+              "Some files failed to upload - attempted to upload %s files, failed %s.",
+              fileNames.size(), failures.size()),
+          failures.get(0));
+    }
+  }
+
+  private void awaitUploads(List<FileUpload> uploads, List<String> keys, List<Exception> failures) {
+    for (int i = 0; i < uploads.size(); i++) {
+      try {
+        uploads.get(i).completionFuture().get();
+      } catch (ExecutionException e) {
+        LOG.error("Error attempting to upload file '{}' to S3", keys.get(i), e.getCause());
+        failures.add(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException(e);
+      }
     }
   }
 

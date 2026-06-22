@@ -56,6 +56,51 @@ class BlobStoreTest {
   }
 
   @Test
+  void testUploadOnlyListedFiles() throws IOException {
+    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
+
+    Path directoryUpload = Files.createTempDirectory("");
+    Path included = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(included.toFile())) {
+      fileWriter.write("Example test");
+    }
+    // A second file exists in the directory but is intentionally not in the upload list.
+    Path excluded = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(excluded.toFile())) {
+      fileWriter.write("Should not be uploaded");
+    }
+    String chunkId = UUID.randomUUID().toString();
+    blobStore.upload(chunkId, directoryUpload, List.of(included.getFileName().toString()));
+
+    assertThat(blobStore.listFiles(chunkId))
+        .containsExactly(String.format("%s/%s", chunkId, included.getFileName().toString()));
+  }
+
+  @Test
+  void testUploadMissingListedFileThrows() throws IOException {
+    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
+
+    Path directoryUpload = Files.createTempDirectory("");
+    Path foo = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(foo.toFile())) {
+      fileWriter.write("Example test");
+    }
+    String chunkId = UUID.randomUUID().toString();
+    // Listing a file that does not exist on disk must fail loudly rather than silently skipping it.
+    // The transfer manager rejects the missing source synchronously while the batch is being built,
+    // so this surfaces as an UncheckedIOException rather than the aggregated IllegalStateException
+    // used for async transfer failures. Production never hits this path because the IndexCommit
+    // snapshot guarantees every listed file exists for the duration of the upload.
+    assertThatThrownBy(
+            () ->
+                blobStore.upload(
+                    chunkId,
+                    directoryUpload,
+                    List.of(foo.getFileName().toString(), "does-not-exist")))
+        .isInstanceOf(RuntimeException.class);
+  }
+
+  @Test
   void testUploadEmptyPrefix() throws IOException {
     BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
 
