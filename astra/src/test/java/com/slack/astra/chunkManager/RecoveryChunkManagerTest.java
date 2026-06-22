@@ -245,7 +245,7 @@ public class RecoveryChunkManagerTest {
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
 
-    // Search query
+    // Recovery chunks don't support search
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_DATASET_NAME,
@@ -257,8 +257,8 @@ public class RecoveryChunkManagerTest {
             null,
             createGenericDateHistogramAggregatorFactoriesBuilder(),
             List.of());
-    SearchResult<LogMessage> results = chunkManager.getActiveChunk().query(searchQuery);
-    assertThat(results.hits.size()).isEqualTo(1);
+    assertThatThrownBy(() -> chunkManager.getActiveChunk().query(searchQuery))
+        .isInstanceOf(UnsupportedOperationException.class);
 
     // Test chunk metadata.
     ChunkInfo chunkInfo = chunkManager.getActiveChunk().info();
@@ -286,23 +286,6 @@ public class RecoveryChunkManagerTest {
         veryHighOffset);
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
     chunkManager.getActiveChunk().commit();
-    assertThat(
-            chunkManager
-                .getActiveChunk()
-                .query(
-                    new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME,
-                        0,
-                        MAX_TIME,
-                        10,
-                        Collections.emptyList(),
-                        QueryBuilderUtil.generateQueryBuilder("Message101", 0L, MAX_TIME),
-                        null,
-                        createGenericDateHistogramAggregatorFactoriesBuilder(),
-                        List.of()))
-                .hits
-                .size())
-        .isEqualTo(1);
 
     // Add a message with a lower offset.
     final int lowerOffset = 500;
@@ -317,23 +300,6 @@ public class RecoveryChunkManagerTest {
         lowerOffset);
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
     chunkManager.getActiveChunk().commit();
-    assertThat(
-            chunkManager
-                .getActiveChunk()
-                .query(
-                    new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME,
-                        0,
-                        MAX_TIME,
-                        10,
-                        Collections.emptyList(),
-                        QueryBuilderUtil.generateQueryBuilder("Message102", 0L, MAX_TIME),
-                        null,
-                        createGenericDateHistogramAggregatorFactoriesBuilder(),
-                        List.of()))
-                .hits
-                .size())
-        .isEqualTo(1);
 
     // Inserting a message from a different kafka partition fails
     Trace.Span messageWithInvalidTopic = SpanUtil.makeSpan(103);
@@ -446,14 +412,11 @@ public class RecoveryChunkManagerTest {
     //noinspection UnusedAssignment
     offset++;
 
-    // Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    testChunkManagerSearch(chunkManager, "Message1", 1);
-    testChunkManagerSearch(chunkManager, "Message100", 1);
 
     // Check metadata.
     List<SnapshotMetadata> snapshots =
