@@ -325,6 +325,14 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     final int totalChunksToDelete = sortedChunks.size() - limit;
 
+    if (totalChunksToDelete <= 0) {
+      LOG.info(
+          "No snapshotted chunks over limit (sortedChunks={}, limit={}). Doing nothing.",
+          sortedChunks.size(),
+          limit);
+      return;
+    }
+
     final List<Chunk<T>> chunksToDelete = sortedChunks.subList(0, totalChunksToDelete);
 
     LOG.info("Number of chunks past limit of {} is {}", limit, chunksToDelete.size());
