@@ -18,8 +18,8 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.9</protobuf.version>
-        <grpc.version>1.81.0</grpc.version>
-        <micrometer.version>1.16.5</micrometer.version>
+        <grpc.version>1.82.1</grpc.version>
+        <micrometer.version>1.17.0</micrometer.version>
         <armeria.version>1.40.0</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
@@ -32,7 +32,7 @@
         <log4j.version>2.26.0</log4j.version>
         <aws.sdk.version>2.44.12</aws.sdk.version>
         <error.prone.version>2.50.0</error.prone.version>
-        <junit.jupiter.version>6.1.0</junit.jupiter.version>
+        <junit.jupiter.version>6.1.1</junit.jupiter.version>
         <jetcd.version>0.8.6</jetcd.version>
     </properties>
 
@@ -433,7 +433,7 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>6.1.0</version>
+            <version>6.1.1</version>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
@@ -489,7 +489,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.18.10</version>
+            <version>1.18.11</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
