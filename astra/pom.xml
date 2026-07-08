@@ -18,8 +18,8 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.9</protobuf.version>
-        <grpc.version>1.81.0</grpc.version>
-        <micrometer.version>1.16.5</micrometer.version>
+        <grpc.version>1.82.1</grpc.version>
+        <micrometer.version>1.17.0</micrometer.version>
         <armeria.version>1.40.0</armeria.version>
         <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
@@ -489,7 +489,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.18.10</version>
+            <version>1.18.11</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
