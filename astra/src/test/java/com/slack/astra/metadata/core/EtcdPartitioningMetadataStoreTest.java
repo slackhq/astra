@@ -176,7 +176,13 @@ public class EtcdPartitioningMetadataStoreTest {
     store =
         new EtcdPartitioningMetadataStore<>(
             etcdClient, etcdConfig, meterRegistry, EtcdCreateMode.PERSISTENT, serializer, "/test");
+
+    // Delete any nodes left behind by a prior test. The delete watch events propagate
+    // asynchronously, so wait until the cached view drains to empty before running the test body.
+    // Otherwise a stale DELETE event can tear down and recreate a partition store concurrently with
+    // the test, dropping the listener notification the test is awaiting.
     store.listSyncUncached().forEach(s -> store.deleteSync(s));
+    await().atMost(5, TimeUnit.SECONDS).until(() -> store.listSync().isEmpty());
   }
 
   @AfterEach

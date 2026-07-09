@@ -447,6 +447,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * partition deletions.
    */
   private void processWatchEvents(WatchResponse watchResponse) {
+    if (closing) {
+      LOG.debug("Ignoring watch events during shutdown for store {}", storeFolder);
+      return;
+    }
+
     LOG.debug(
         "Watch event received: {} events for store {}",
         watchResponse.getEvents().size(),
@@ -792,6 +797,14 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           "Partitioning metadata store using filters that does not include provided partition");
     }
 
+    // Reject new partition stores once shutdown has begun. Watch events arriving on background
+    // threads can otherwise create a store after close() has swept metadataStoreMap, orphaning its
+    // lease and keepalive thread for the lifetime of the etcd client.
+    if (closing) {
+      throw new InternalMetadataStoreException(
+          "Partitioning metadata store is closing, refusing to create partition " + partition);
+    }
+
     AtomicBoolean created = new AtomicBoolean(false);
 
     EtcdMetadataStore<T> store =
@@ -926,7 +939,20 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       Thread.currentThread().interrupt();
     }
 
-    metadataStoreMap.forEach((_, store) -> store.close());
+    // Close every partition store, re-sweeping until the map is stable. A watch callback that
+    // passed the closing check before close() set the flag can still insert into the map after the
+    // executors are shut down; draining here guarantees its lease and keepalive thread are revoked
+    // rather than orphaned.
+    Set<EtcdMetadataStore<T>> closed = new HashSet<>();
+    while (!metadataStoreMap.isEmpty()) {
+      List<String> partitions = new ArrayList<>(metadataStoreMap.keySet());
+      for (String partition : partitions) {
+        EtcdMetadataStore<T> store = metadataStoreMap.remove(partition);
+        if (store != null && closed.add(store)) {
+          store.close();
+        }
+      }
+    }
 
     // Clear the maps
     listenerMap.clear();
