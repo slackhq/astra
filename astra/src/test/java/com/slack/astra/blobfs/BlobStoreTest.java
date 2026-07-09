@@ -77,6 +77,33 @@ class BlobStoreTest {
   }
 
   @Test
+  void testUploadIgnoresUnlistedFileDeletedFromDirectory() throws IOException {
+    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
+
+    Path directoryUpload = Files.createTempDirectory("");
+    Path listed = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(listed.toFile())) {
+      fileWriter.write("committed segment");
+    }
+    // previously, the S3 upload logic took a whole directory as input
+    // and some files could get deleted before being uploaded. This would
+    // result in a FileNotFoundException of a file we didn't actually need.
+    // this simple unit test ensures that even though we pass the dir as
+    // an arg, only what was provided in the list is what we upload.
+    Path orphan = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(orphan.toFile())) {
+      fileWriter.write("pre-merge orphan");
+    }
+    Files.delete(orphan);
+
+    String chunkId = UUID.randomUUID().toString();
+    blobStore.upload(chunkId, directoryUpload, List.of(listed.getFileName().toString()));
+
+    assertThat(blobStore.listFiles(chunkId))
+        .containsExactly(String.format("%s/%s", chunkId, listed.getFileName().toString()));
+  }
+
+  @Test
   void testUploadMissingListedFileThrows() throws IOException {
     BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
 
