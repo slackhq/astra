@@ -403,7 +403,7 @@ public class CacheNodeAssignmentServiceTest {
     List<SnapshotMetadata> snapshots = makeSnapshotsWithSizes(List.of(5, 5, 5, 5));
 
     Map<String, CacheNodeBin> result =
-        assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
+        assign(cacheNodeAssignmentStore, snapshotMap(snapshots), List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(2);
     assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
@@ -424,7 +424,7 @@ public class CacheNodeAssignmentServiceTest {
     List<SnapshotMetadata> snapshots = makeSnapshotsWithSizes(List.of(3, 7, 2, 5));
 
     Map<String, CacheNodeBin> result =
-        assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
+        assign(cacheNodeAssignmentStore, snapshotMap(snapshots), List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(3);
     assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots())).contains("snapshot1");
@@ -446,7 +446,7 @@ public class CacheNodeAssignmentServiceTest {
         makeSnapshotsWithSizes(List.of(1, 1, 1, 1, 1, 1, 1, 1, 1, 1));
 
     Map<String, CacheNodeBin> result =
-        assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
+        assign(cacheNodeAssignmentStore, snapshotMap(snapshots), List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(3);
     assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
@@ -469,7 +469,7 @@ public class CacheNodeAssignmentServiceTest {
     List<SnapshotMetadata> snapshots = makeSnapshotsWithSizes(List.of(2, 2, 2, 2, 2));
 
     Map<String, CacheNodeBin> result =
-        assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
+        assign(cacheNodeAssignmentStore, snapshotMap(snapshots), List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(1);
     assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
@@ -488,7 +488,7 @@ public class CacheNodeAssignmentServiceTest {
     List<SnapshotMetadata> snapshots = makeSnapshotsWithSizes(List.of());
 
     Map<String, CacheNodeBin> result =
-        assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
+        assign(cacheNodeAssignmentStore, snapshotMap(snapshots), List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(1);
     assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots())).isEmpty();
@@ -506,7 +506,7 @@ public class CacheNodeAssignmentServiceTest {
     List<SnapshotMetadata> snapshots = makeSnapshotsWithSizes(List.of(12));
 
     Map<String, CacheNodeBin> result =
-        assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
+        assign(cacheNodeAssignmentStore, snapshotMap(snapshots), List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(2);
     assertThat(result.get("node0").getSnapshots()).isEmpty();
@@ -524,7 +524,7 @@ public class CacheNodeAssignmentServiceTest {
     List<SnapshotMetadata> snapshots = makeSnapshotsWithSizes(List.of(4, 8, 1, 4, 7, 3, 6, 2, 5));
 
     Map<String, CacheNodeBin> result =
-        assign(cacheNodeAssignmentStore, snapshotMetadataStore, List.of(), snapshots, cacheNodes);
+        assign(cacheNodeAssignmentStore, snapshotMap(snapshots), List.of(), snapshots, cacheNodes);
 
     assertThat(result.size()).isEqualTo(6);
     assertThat(snapshotsToSnapshotIds(result.get("node0").getSnapshots()))
@@ -532,6 +532,93 @@ public class CacheNodeAssignmentServiceTest {
     assertThat(snapshotsToSnapshotIds(result.get("node1").getSnapshots()))
         .contains("snapshot0", "snapshot2");
     assertThat(snapshotsToSnapshotIds(result.get("node2").getSnapshots())).contains("snapshot1");
+  }
+
+  /*
+   * Existing assignments must be sized from the snapshot map assign() is handed, not by re-resolving
+   * each snapshot through SnapshotMetadataStore.findSync(). findSync() on the partitioned snapshot
+   * store scans partitions via hasSync(), so a per-assignment lookup amplifies into
+   * |assignments| x |partitions| ZK has-calls per pass (the astra_zk_has_call spike on
+   * store=/partitioned_snapshot).
+   *
+   * This is asserted behaviorally rather than by mocking findSync: the existing assignment's
+   * snapshot is placed ONLY in the map, never created in the store. Map-based sizing computes the
+   * remaining capacity correctly; a regression to findSync() would instead throw from
+   * findPartition() (the snapshot is in no partition), failing the test. A snapshot deleted from the
+   * map is skipped rather than throwing, consistent with getSnapshotsFromIds().
+   */
+  @Test
+  public void testExistingAssignmentsAreSizedFromMapNotStore() {
+    record TestCase(String name, boolean snapshotInMap, long expectedRemainingBytes) {}
+
+    List<TestCase> cases =
+        List.of(
+            new TestCase("snapshot present in map -> capacity subtracted", true, 6),
+            new TestCase("snapshot absent (deleted) -> assignment skipped", false, 10));
+
+    for (TestCase testCase : cases) {
+      List<CacheNodeMetadata> cacheNodes = makeCacheNodesWithCapacities(List.of(10));
+      // Size-4 snapshot backing an existing assignment on node0. Deliberately NOT created in the
+      // store, so findSync() would fail to resolve it -- only the map can size it.
+      SnapshotMetadata assigned = new SnapshotMetadata("assigned", 1, 2 * 1000, 3, "a", 4);
+
+      Map<String, SnapshotMetadata> snapshotIdsToMetadata = new HashMap<>();
+      if (testCase.snapshotInMap()) {
+        snapshotIdsToMetadata.put(assigned.snapshotId, assigned);
+      }
+
+      List<CacheNodeAssignment> currentAssignments =
+          List.of(
+              new CacheNodeAssignment(
+                  UUID.randomUUID().toString(),
+                  "node0",
+                  assigned.snapshotId,
+                  "replica0",
+                  "rep1",
+                  0,
+                  Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE));
+
+      Map<String, CacheNodeBin> result =
+          assign(
+              cacheNodeAssignmentStore,
+              snapshotIdsToMetadata,
+              currentAssignments,
+              List.of(),
+              cacheNodes);
+
+      assertThat(result.get("node0").getRemainingCapacityBytes())
+          .as(testCase.name())
+          .isEqualTo(testCase.expectedRemainingBytes());
+    }
+  }
+
+  /*
+   * An existing assignment whose cache node is no longer present must be deleted from the store, so
+   * stale assignments do not linger after a node leaves the cluster.
+   */
+  @Test
+  public void testAssignDeletesAssignmentsForMissingCacheNodes() {
+    CacheNodeAssignment orphaned =
+        new CacheNodeAssignment(
+            UUID.randomUUID().toString(),
+            "departed-node",
+            "snapshot0",
+            "replica0",
+            "rep1",
+            0,
+            Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE);
+    cacheNodeAssignmentStore.createSync(orphaned);
+    await().until(() -> cacheNodeAssignmentStore.listSync().size() == 1);
+
+    // "departed-node" is not among the existing cache nodes, so its assignment is orphaned.
+    assign(
+        cacheNodeAssignmentStore,
+        new HashMap<>(),
+        List.of(orphaned),
+        List.of(),
+        makeCacheNodesWithCapacities(List.of(10)));
+
+    await().until(() -> cacheNodeAssignmentStore.listSync().isEmpty());
   }
 
   @Test
@@ -767,6 +854,11 @@ public class CacheNodeAssignmentServiceTest {
 
   private static List<String> snapshotsToSnapshotIds(List<SnapshotMetadata> snapshots) {
     return snapshots.stream().map(snapshot -> snapshot.snapshotId).toList();
+  }
+
+  private static Map<String, SnapshotMetadata> snapshotMap(List<SnapshotMetadata> snapshots) {
+    return snapshots.stream()
+        .collect(Collectors.toMap(snapshot -> snapshot.snapshotId, Function.identity()));
   }
 
   private long filterAssignmentsByState(
