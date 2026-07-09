@@ -30,7 +30,7 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.8.0</curator.version>
         <log4j.version>2.26.0</log4j.version>
-        <aws.sdk.version>2.44.12</aws.sdk.version>
+        <aws.sdk.version>2.46.15</aws.sdk.version>
         <error.prone.version>2.50.0</error.prone.version>
         <junit.jupiter.version>6.1.1</junit.jupiter.version>
         <jetcd.version>0.8.6</jetcd.version>
@@ -497,6 +497,17 @@
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>2.22.0</version>
+        </dependency>
+        <!--
+            S3MockExtension (s3mock-junit5) requires Apache HttpClient 4.x at runtime. This was
+            previously provided transitively by the AWS SDK's apache-client, but the SDK migrated to
+            HttpClient 5.x, so it must now be declared explicitly for tests.
+        -->
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.13</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.adobe.testing</groupId>
