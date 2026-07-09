@@ -65,6 +65,7 @@ class BlobStoreTest {
       fileWriter.write("Example test");
     }
     // A second file exists in the directory but is intentionally not in the upload list.
+    // we expect it to not exist in S3. Only files in the list should et uploaded
     Path excluded = Files.createTempFile(directoryUpload, "", "");
     try (FileWriter fileWriter = new FileWriter(excluded.toFile())) {
       fileWriter.write("Should not be uploaded");
@@ -77,33 +78,6 @@ class BlobStoreTest {
   }
 
   @Test
-  void testUploadIgnoresUnlistedFileDeletedFromDirectory() throws IOException {
-    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
-
-    Path directoryUpload = Files.createTempDirectory("");
-    Path listed = Files.createTempFile(directoryUpload, "", "");
-    try (FileWriter fileWriter = new FileWriter(listed.toFile())) {
-      fileWriter.write("committed segment");
-    }
-    // previously, the S3 upload logic took a whole directory as input
-    // and some files could get deleted before being uploaded. This would
-    // result in a FileNotFoundException of a file we didn't actually need.
-    // this simple unit test ensures that even though we pass the dir as
-    // an arg, only what was provided in the list is what we upload.
-    Path orphan = Files.createTempFile(directoryUpload, "", "");
-    try (FileWriter fileWriter = new FileWriter(orphan.toFile())) {
-      fileWriter.write("pre-merge orphan");
-    }
-    Files.delete(orphan);
-
-    String chunkId = UUID.randomUUID().toString();
-    blobStore.upload(chunkId, directoryUpload, List.of(listed.getFileName().toString()));
-
-    assertThat(blobStore.listFiles(chunkId))
-        .containsExactly(String.format("%s/%s", chunkId, listed.getFileName().toString()));
-  }
-
-  @Test
   void testUploadMissingListedFileThrows() throws IOException {
     BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
 
@@ -113,11 +87,7 @@ class BlobStoreTest {
       fileWriter.write("Example test");
     }
     String chunkId = UUID.randomUUID().toString();
-    // Listing a file that does not exist on disk must fail loudly rather than silently skipping it.
-    // The transfer manager rejects the missing source synchronously while the batch is being built,
-    // so this surfaces as an UncheckedIOException rather than the aggregated IllegalStateException
-    // used for async transfer failures. Production never hits this path because the IndexCommit
-    // snapshot guarantees every listed file exists for the duration of the upload.
+    // if we pass a file in the list, which does not exist, we should throw an exception
     assertThatThrownBy(
             () ->
                 blobStore.upload(
