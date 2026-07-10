@@ -252,7 +252,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       }
       this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
-      blobStore.upload(chunkInfo.chunkId, dirPath);
+      blobStore.upload(chunkInfo.chunkId, dirPath, filesToUpload);
 
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       chunkInfo.setSizeInBytesOnDisk(totalBytes);
