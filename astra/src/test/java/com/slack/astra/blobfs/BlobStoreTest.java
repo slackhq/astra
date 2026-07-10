@@ -56,6 +56,48 @@ class BlobStoreTest {
   }
 
   @Test
+  void testUploadOnlyListedFiles() throws IOException {
+    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
+
+    Path directoryUpload = Files.createTempDirectory("");
+    Path included = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(included.toFile())) {
+      fileWriter.write("Example test");
+    }
+    // A second file exists in the directory but is intentionally not in the upload list.
+    // we expect it to not exist in S3. Only files in the list should et uploaded
+    Path excluded = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(excluded.toFile())) {
+      fileWriter.write("Should not be uploaded");
+    }
+    String chunkId = UUID.randomUUID().toString();
+    blobStore.upload(chunkId, directoryUpload, List.of(included.getFileName().toString()));
+
+    assertThat(blobStore.listFiles(chunkId))
+        .containsExactly(String.format("%s/%s", chunkId, included.getFileName().toString()));
+  }
+
+  @Test
+  void testUploadMissingListedFileThrows() throws IOException {
+    BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
+
+    Path directoryUpload = Files.createTempDirectory("");
+    Path foo = Files.createTempFile(directoryUpload, "", "");
+    try (FileWriter fileWriter = new FileWriter(foo.toFile())) {
+      fileWriter.write("Example test");
+    }
+    String chunkId = UUID.randomUUID().toString();
+    // if we pass a file in the list, which does not exist, we should throw an exception
+    assertThatThrownBy(
+            () ->
+                blobStore.upload(
+                    chunkId,
+                    directoryUpload,
+                    List.of(foo.getFileName().toString(), "does-not-exist")))
+        .isInstanceOf(RuntimeException.class);
+  }
+
+  @Test
   void testUploadEmptyPrefix() throws IOException {
     BlobStore blobStore = new BlobStore(s3Client, TEST_BUCKET);
 
