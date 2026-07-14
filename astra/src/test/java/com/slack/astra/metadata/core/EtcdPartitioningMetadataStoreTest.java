@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.TestEtcdClusterFactory;
+import com.slack.astra.util.CountingFatalErrorHandler;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.EtcdCluster;
@@ -153,6 +154,9 @@ public class EtcdPartitioningMetadataStoreTest {
             .setOperationsMaxRetries(3)
             .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
+            .setRetryTotalDurationMs(5000)
+            .setMaxRetryDelayMs(1000)
+            .setInitialRetryIntervalMs(100)
             .setNamespace("test")
             .build();
 
@@ -172,14 +176,20 @@ public class EtcdPartitioningMetadataStoreTest {
     store =
         new EtcdPartitioningMetadataStore<>(
             etcdClient, etcdConfig, meterRegistry, EtcdCreateMode.PERSISTENT, serializer, "/test");
+
+    // Delete any nodes left behind by a prior test. The delete watch events propagate
+    // asynchronously, so wait until the cached view drains to empty before running the test body.
+    // Otherwise a stale DELETE event can tear down and recreate a partition store concurrently with
+    // the test, dropping the listener notification the test is awaiting.
     store.listSyncUncached().forEach(s -> store.deleteSync(s));
+    await().atMost(5, TimeUnit.SECONDS).until(() -> store.listSync().isEmpty());
   }
 
   @AfterEach
   public void tearDown() throws IOException {
-    // Close the store and meter registry
     store.close();
     meterRegistry.close();
+    EtcdMetadataStore.resetFatalErrorHandler();
   }
 
   @Test
@@ -432,6 +442,9 @@ public class EtcdPartitioningMetadataStoreTest {
             .setOperationsMaxRetries(3)
             .setOperationsTimeoutMs(3000)
             .setRetryDelayMs(100)
+            .setRetryTotalDurationMs(5000)
+            .setMaxRetryDelayMs(1000)
+            .setInitialRetryIntervalMs(100)
             .setNamespace("test")
             .build();
 
@@ -484,6 +497,105 @@ public class EtcdPartitioningMetadataStoreTest {
       assertThat(partitionMap).hasSize(2);
       assertThat(partitionMap.get("partition1")).hasSize(1);
       assertThat(partitionMap.get("partition2")).hasSize(1);
+    }
+  }
+
+  private Client createNamespacedAdminClient() {
+    return Client.builder()
+        .endpoints(
+            etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+        .namespace(ByteSequence.from("test", StandardCharsets.UTF_8))
+        .build();
+  }
+
+  private void advanceAndCompact(Client adminClient, int writes) throws Exception {
+    ByteSequence key = ByteSequence.from("/compact-trigger", StandardCharsets.UTF_8);
+    ByteSequence val = ByteSequence.from("v", StandardCharsets.UTF_8);
+    long revision = 0;
+    for (int i = 0; i < writes; i++) {
+      revision =
+          adminClient
+              .getKVClient()
+              .put(key, val)
+              .get(3, TimeUnit.SECONDS)
+              .getHeader()
+              .getRevision();
+    }
+    adminClient.getKVClient().compact(revision).get(3, TimeUnit.SECONDS);
+  }
+
+  /**
+   * Regression test for the partition watch retry self-poisoning bug. When a compaction error
+   * occurs, the retry cycle should recover the watcher without exhausting the error budget. Before
+   * the fix, closePartitionWatcherLocked() -> old.close() triggered onCompleted() which fed a
+   * synthetic RuntimeException into the error budget, causing fatal halts during etcd node rolls.
+   */
+  @Test
+  public void testWatchRecoveryAfterCompaction() throws Exception {
+    CountingFatalErrorHandler fatalHandler = new CountingFatalErrorHandler();
+    EtcdMetadataStore.setFatalErrorHandler(fatalHandler);
+
+    store.createSync(new TestPartitionedMetadata("item1", "p1", "data1"));
+    await().atMost(5, TimeUnit.SECONDS).until(() -> store.hasPartition("p1"));
+
+    try (Client adminClient = createNamespacedAdminClient()) {
+      advanceAndCompact(adminClient, 10);
+
+      store.createSync(new TestPartitionedMetadata("item2", "p2", "data2"));
+      await().atMost(Duration.ofSeconds(10)).until(() -> store.hasPartition("p2"));
+
+      assertThat(fatalHandler.getCount()).isEqualTo(0);
+    }
+  }
+
+  /**
+   * Verifies that multiple compaction events don't cumulatively exhaust the retry budget. Each
+   * recovery should reset the backoff state, allowing indefinite compaction resilience.
+   */
+  @Test
+  public void testRepeatedCompactionDoesNotExhaustBudget() throws Exception {
+    CountingFatalErrorHandler fatalHandler = new CountingFatalErrorHandler();
+    EtcdMetadataStore.setFatalErrorHandler(fatalHandler);
+
+    store.createSync(new TestPartitionedMetadata("base", "p0", "data0"));
+    await().atMost(5, TimeUnit.SECONDS).until(() -> store.hasPartition("p0"));
+
+    try (Client adminClient = createNamespacedAdminClient()) {
+      for (int cycle = 1; cycle <= 3; cycle++) {
+        advanceAndCompact(adminClient, 10);
+
+        String partition = "cycle" + cycle;
+        store.createSync(new TestPartitionedMetadata("item-" + cycle, partition, "data-" + cycle));
+        await().atMost(Duration.ofSeconds(10)).until(() -> store.hasPartition(partition));
+      }
+
+      assertThat(fatalHandler.getCount()).isEqualTo(0);
+    }
+  }
+
+  /**
+   * Exercises a large revision gap by writing 50 keys before compacting, then verifies the watcher
+   * recovers and new data is accessible via findSync.
+   */
+  @Test
+  public void testWatchRecoveryAfterMultipleTransientErrors() throws Exception {
+    CountingFatalErrorHandler fatalHandler = new CountingFatalErrorHandler();
+    EtcdMetadataStore.setFatalErrorHandler(fatalHandler);
+
+    store.createSync(new TestPartitionedMetadata("seed1", "init-p", "seed-data"));
+    await().atMost(5, TimeUnit.SECONDS).until(() -> store.hasPartition("init-p"));
+
+    try (Client adminClient = createNamespacedAdminClient()) {
+      advanceAndCompact(adminClient, 50);
+
+      store.createSync(new TestPartitionedMetadata("post-compact", "new-p", "new-data"));
+      await().atMost(Duration.ofSeconds(10)).until(() -> store.hasPartition("new-p"));
+
+      TestPartitionedMetadata result = store.findSync("post-compact");
+      assertThat(result).isNotNull();
+      assertThat(result.getData()).isEqualTo("new-data");
+
+      assertThat(fatalHandler.getCount()).isEqualTo(0);
     }
   }
 }

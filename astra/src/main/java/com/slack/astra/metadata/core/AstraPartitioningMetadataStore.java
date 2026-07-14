@@ -48,6 +48,12 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       EtcdPartitioningMetadataStore<T> etcdStore,
       MetadataStoreMode mode,
       MeterRegistry meterRegistry) {
+    if (mode == MetadataStoreMode.ETCD_CREATES && etcdStore == null) {
+      throw new IllegalArgumentException("Mode is ETCD_CREATES but etcdStore is null");
+    }
+    if (mode == MetadataStoreMode.ZOOKEEPER_CREATES && zkStore == null) {
+      throw new IllegalArgumentException("Mode is ZOOKEEPER_CREATES but zkStore is null");
+    }
 
     this.zkStore = zkStore;
     this.etcdStore = etcdStore;

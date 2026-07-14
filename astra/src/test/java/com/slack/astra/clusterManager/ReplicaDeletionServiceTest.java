@@ -134,6 +134,7 @@ public class ReplicaDeletionServiceTest {
   public void shutdown() throws IOException {
     cacheSlotMetadataStore.close();
     replicaMetadataStore.close();
+    cacheNodeMetadataStore.close();
     curatorFramework.unwrap().close();
     etcdClient.close();
 

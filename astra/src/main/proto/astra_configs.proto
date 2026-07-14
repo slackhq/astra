@@ -96,6 +96,15 @@ message EtcdConfig {
   int32 ephemeral_node_ttl_ms = 11;
   // Max number of retries for ephemeral nodes
   int32 ephemeral_node_max_retries = 12;
+  // Maximum total time to keep retrying watch operations before giving up (ms).
+  // When 0, Java applies a default of 60000 ms.
+  int32 retry_total_duration_ms = 13;
+  // Maximum backoff delay between watch retries (ms). Used as the cap for
+  // exponential backoff with jitter.
+  int32 max_retry_delay_ms = 14;
+  // Initial interval for exponential backoff (ms). The first retry delay is
+  // randomized around this value; subsequent intervals grow by a multiplier.
+  int32 initial_retry_interval_ms = 15;
 }
 
 // Configuration for Zookeeper metadata store.

@@ -200,7 +200,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
       Map<String, CacheNodeBin> newAssignments =
           assign(
               cacheNodeAssignmentStore,
-              snapshotMetadataStore,
+              snapshotIdsToMetadata,
               currentAssignments,
               unassignedSnapshots,
               cacheNodes);
@@ -369,7 +369,8 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
    * to bins, putting them in new bins if required.
    *
    * @param cacheNodeAssignmentStore the store for cache node assignments
-   * @param snapshotMetadataStore the store for snapshot metadata
+   * @param snapshotIdsToMetadata snapshot metadata keyed by snapshot ID, used to size existing
+   *     assignments without re-resolving each snapshot through the (partitioned) snapshot store
    * @param currentAssignments the current assignments of cache nodes to snapshots
    * @param snapshotsToAssign the list of snapshots to be assigned
    * @param existingCacheNodes the list of existing cache nodes
@@ -378,7 +379,7 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   @VisibleForTesting
   public static Map<String, CacheNodeBin> assign(
       CacheNodeAssignmentStore cacheNodeAssignmentStore,
-      SnapshotMetadataStore snapshotMetadataStore,
+      Map<String, SnapshotMetadata> snapshotIdsToMetadata,
       List<CacheNodeAssignment> currentAssignments,
       List<SnapshotMetadata> snapshotsToAssign,
       List<CacheNodeMetadata> existingCacheNodes) {
@@ -394,9 +395,14 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     // Add existing assignments to bins
     for (CacheNodeAssignment assignment : currentAssignments) {
       if (cacheNodeBins.containsKey(assignment.cacheNodeId)) {
-        CacheNodeBin bin = cacheNodeBins.get(assignment.cacheNodeId);
-        bin.subtractFromSize(
-            snapshotMetadataStore.findSync(assignment.snapshotId).sizeInBytesOnDisk);
+        // Size the assignment from the pre-built map rather than findSync(). findSync() on the
+        // partitioned snapshot store scans partitions via hasSync(), so a per-assignment lookup
+        // would amplify into |assignments| x |partitions| ZK has-calls per pass.
+        SnapshotMetadata snapshot = snapshotIdsToMetadata.get(assignment.snapshotId);
+        if (snapshot != null) {
+          cacheNodeBins.get(assignment.cacheNodeId).subtractFromSize(snapshot.sizeInBytesOnDisk);
+        }
+        // else: the snapshot has been deleted; skip it (consistent with getSnapshotsFromIds).
       } else {
         // delete this assignment since its cache node is no longer around
         cacheNodeAssignmentStore.deleteSync(assignment);

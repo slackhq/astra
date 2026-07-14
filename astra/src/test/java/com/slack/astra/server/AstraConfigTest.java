@@ -229,6 +229,9 @@ public class AstraConfigTest {
     assertThat(etcdConfig.getOperationsTimeoutMs()).isEqualTo(60000);
     assertThat(etcdConfig.getEphemeralNodeTtlMs()).isEqualTo(60000);
     assertThat(etcdConfig.getEphemeralNodeMaxRetries()).isEqualTo(3);
+    assertThat(etcdConfig.getRetryTotalDurationMs()).isEqualTo(60000);
+    assertThat(etcdConfig.getMaxRetryDelayMs()).isEqualTo(10000);
+    assertThat(etcdConfig.getInitialRetryIntervalMs()).isEqualTo(2000);
 
     final AstraConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final AstraConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
@@ -416,6 +419,9 @@ public class AstraConfigTest {
     assertThat(etcdConfig.getOperationsTimeoutMs()).isEqualTo(60000);
     assertThat(etcdConfig.getEphemeralNodeTtlMs()).isEqualTo(60000);
     assertThat(etcdConfig.getEphemeralNodeMaxRetries()).isEqualTo(3);
+    assertThat(etcdConfig.getRetryTotalDurationMs()).isEqualTo(60000);
+    assertThat(etcdConfig.getMaxRetryDelayMs()).isEqualTo(10000);
+    assertThat(etcdConfig.getInitialRetryIntervalMs()).isEqualTo(2000);
 
     final AstraConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final AstraConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
