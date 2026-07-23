@@ -57,15 +57,14 @@ public class LuceneIndexStoreImpl implements LogStore {
 
   public static final String FINAL_MERGES_TIMER = "astra_index_final_merges";
 
-  private final AstraSearcherManager astraSearcherManager;
+  private final AstraSearcherManager astraSearcherManager; // null when enableSearcher=false
   private final DocumentBuilder documentBuilder;
   private final FSDirectory indexDirectory;
   private final AstraConfigs.LuceneConfig luceneConfig;
 
   private final ScheduledExecutorService scheduledCommit =
       Executors.newSingleThreadScheduledExecutor();
-  private final ScheduledExecutorService scheduledRefresh =
-      Executors.newSingleThreadScheduledExecutor();
+  private final ScheduledExecutorService scheduledRefresh;
   private final SnapshotDeletionPolicy snapshotDeletionPolicy;
   private Optional<IndexWriter> indexWriter;
 
@@ -88,6 +87,15 @@ public class LuceneIndexStoreImpl implements LogStore {
   public static LuceneIndexStoreImpl makeLogStore(
       File dataDirectory, AstraConfigs.LuceneConfig luceneConfig, MeterRegistry metricsRegistry)
       throws IOException {
+    return makeLogStore(dataDirectory, luceneConfig, metricsRegistry, true);
+  }
+
+  public static LuceneIndexStoreImpl makeLogStore(
+      File dataDirectory,
+      AstraConfigs.LuceneConfig luceneConfig,
+      MeterRegistry metricsRegistry,
+      boolean enableSearcher)
+      throws IOException {
     return makeLogStore(
         dataDirectory,
         LuceneIndexStoreConfig.getCommitDuration(luceneConfig.getCommitDurationSecs()),
@@ -95,7 +103,8 @@ public class LuceneIndexStoreImpl implements LogStore {
         luceneConfig.getEnableFullTextSearch(),
         SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
         metricsRegistry,
-        luceneConfig);
+        luceneConfig,
+        enableSearcher);
   }
 
   public static LuceneIndexStoreImpl makeLogStore(
@@ -113,7 +122,8 @@ public class LuceneIndexStoreImpl implements LogStore {
         enableFullTextSearch,
         fieldConflictPolicy,
         metricsRegistry,
-        null);
+        null,
+        true);
   }
 
   public static LuceneIndexStoreImpl makeLogStore(
@@ -123,13 +133,17 @@ public class LuceneIndexStoreImpl implements LogStore {
       boolean enableFullTextSearch,
       SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy,
       MeterRegistry metricsRegistry,
-      AstraConfigs.LuceneConfig luceneConfig)
+      AstraConfigs.LuceneConfig luceneConfig,
+      boolean enableSearcher)
       throws IOException {
-    // TODO: Move all these config values into chunk?
-    // TODO: Chunk should create log store?
     LuceneIndexStoreConfig indexStoreCfg =
         new LuceneIndexStoreConfig(
-            commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), false);
+            commitInterval,
+            refreshInterval,
+            dataDirectory.getAbsolutePath(),
+            LuceneIndexStoreConfig.DEFAULT_LOG_FILE_NAME,
+            false,
+            enableSearcher);
 
     return new LuceneIndexStoreImpl(
         indexStoreCfg,
@@ -162,13 +176,30 @@ public class LuceneIndexStoreImpl implements LogStore {
     indexDirectory = new MMapDirectory(config.indexFolder(id).toPath());
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
 
-    RedactionFilterDirectoryReader reader =
-        new RedactionFilterDirectoryReader(DirectoryReader.open(indexWriter.get(), false, false));
-    OpenSearchDirectoryReader openSearchDirectoryReader =
-        OpenSearchDirectoryReader.wrap(
-            reader,
-            ShardId.fromString("[shard-index][%d]".formatted(UUID.fromString(id).hashCode())));
-    this.astraSearcherManager = new AstraSearcherManager(openSearchDirectoryReader);
+    if (config.enableSearcher) {
+      RedactionFilterDirectoryReader reader =
+          new RedactionFilterDirectoryReader(DirectoryReader.open(indexWriter.get(), false, false));
+      OpenSearchDirectoryReader openSearchDirectoryReader =
+          OpenSearchDirectoryReader.wrap(
+              reader,
+              ShardId.fromString("[shard-index][%d]".formatted(UUID.fromString(id).hashCode())));
+      this.astraSearcherManager = new AstraSearcherManager(openSearchDirectoryReader);
+      this.scheduledRefresh = Executors.newSingleThreadScheduledExecutor();
+      scheduledRefresh.scheduleWithFixedDelay(
+          () -> {
+            try {
+              refresh();
+            } catch (Exception e) {
+              LOG.error("Error running scheduled refresh", e);
+            }
+          },
+          config.refreshDuration.toMillis(),
+          config.refreshDuration.toMillis(),
+          TimeUnit.MILLISECONDS);
+    } else {
+      this.astraSearcherManager = null;
+      this.scheduledRefresh = null;
+    }
 
     scheduledCommit.scheduleWithFixedDelay(
         () -> {
@@ -180,18 +211,6 @@ public class LuceneIndexStoreImpl implements LogStore {
         },
         config.commitDuration.toMillis(),
         config.commitDuration.toMillis(),
-        TimeUnit.MILLISECONDS);
-
-    scheduledRefresh.scheduleWithFixedDelay(
-        () -> {
-          try {
-            refresh();
-          } catch (Exception e) {
-            LOG.error("Error running scheduled commit", e);
-          }
-        },
-        config.refreshDuration.toMillis(),
-        config.refreshDuration.toMillis(),
         TimeUnit.MILLISECONDS);
 
     // Initialize stats counters
@@ -272,6 +291,9 @@ public class LuceneIndexStoreImpl implements LogStore {
   }
 
   private void syncRefresh() throws IOException {
+    if (astraSearcherManager == null) {
+      return;
+    }
     indexWriterLock.lock();
     try {
       if (indexWriter.isPresent()) {
@@ -347,6 +369,9 @@ public class LuceneIndexStoreImpl implements LogStore {
 
   @Override
   public void refresh() {
+    if (astraSearcherManager == null) {
+      return;
+    }
     refreshesTimer.record(
         () -> {
           LOG.debug("Indexer starting refresh for: " + indexDirectory.getDirectory().toString());
@@ -416,12 +441,14 @@ public class LuceneIndexStoreImpl implements LogStore {
   public void close() throws IOException {
     LOG.info("Closing index {}", id);
     scheduledCommit.close();
-    scheduledRefresh.close();
+    if (scheduledRefresh != null) {
+      scheduledRefresh.close();
+    }
     try {
       if (!scheduledCommit.awaitTermination(30, TimeUnit.SECONDS)) {
         LOG.error("Timed out waiting for scheduled commit to close");
       }
-      if (!scheduledRefresh.awaitTermination(30, TimeUnit.SECONDS)) {
+      if (scheduledRefresh != null && !scheduledRefresh.awaitTermination(30, TimeUnit.SECONDS)) {
         LOG.error("Timed out waiting for scheduled refresh to close");
       }
     } catch (InterruptedException e) {

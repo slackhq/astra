@@ -12,12 +12,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A recovery chunk is a read write chunk used in the recovery service. A recovery chunk is
- * optimized for indexing the data as fast as it can. So, we don't plan to expose it for reads for
- * the time being.
+ * optimized for indexing the data as fast as it can and does not support search.
  *
  * <p>To prevent external queries, a recovery node doesn't publish any live snapshots or search
- * nodes to be queried by query nodes. We don't block the local read API since we need it for tests
- * and helps with code reuse.
+ * nodes to be queried by query nodes. The SearcherManager is disabled to avoid holding
+ * DirectoryReader references that prevent segment cleanup during long-running indexing.
  */
 public class RecoveryChunkImpl<T> extends ReadWriteChunk<T> {
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);

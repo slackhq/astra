@@ -102,10 +102,14 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     this.logStore = logStore;
     String logStoreId = ((LuceneIndexStoreImpl) logStore).getId();
     AstraConfigs.LuceneConfig luceneConfig = ((LuceneIndexStoreImpl) logStore).getLuceneConfig();
-    this.logSearcher =
-        (LogIndexSearcher<T>)
-            new LogIndexSearcherImpl(
-                logStore.getAstraSearcherManager(), logStore.getSchema(), luceneConfig);
+    if (logStore.getAstraSearcherManager() != null) {
+      this.logSearcher =
+          (LogIndexSearcher<T>)
+              new LogIndexSearcherImpl(
+                  logStore.getAstraSearcherManager(), logStore.getSchema(), luceneConfig);
+    } else {
+      this.logSearcher = null;
+    }
 
     // Create chunk metadata
     Instant chunkCreationTime = Instant.now();
@@ -181,7 +185,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public void close() throws IOException {
     preClose();
 
-    logSearcher.close();
+    if (logSearcher != null) {
+      logSearcher.close();
+    }
     logStore.close();
     logger.info("Closed chunk {}", chunkInfo);
 
@@ -282,6 +288,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
 
   @Override
   public SearchResult<T> query(SearchQuery query) {
+    if (logSearcher == null) {
+      throw new UnsupportedOperationException("Search is disabled for chunk " + chunkInfo.chunkId);
+    }
     return logSearcher.search(
         query.dataset,
         query.howMany,
