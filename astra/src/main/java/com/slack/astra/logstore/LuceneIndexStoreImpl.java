@@ -373,7 +373,7 @@ public class LuceneIndexStoreImpl implements LogStore {
             LOG.debug(
                 "Indexer finished final merge for: " + indexDirectory.getDirectory().toString());
           } catch (IOException e) {
-            log.error(
+            LOG.error(
                 "Indexer failed final merge for: " + indexDirectory.getDirectory().toString());
             handleNonFatal(e);
           }
