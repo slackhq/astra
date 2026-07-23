@@ -308,7 +308,8 @@ public class LuceneIndexStoreImpl implements LogStore {
 
   private void handleNonFatal(Throwable ex) {
     messagesFailedCounter.increment();
-    LOG.error(String.format("Exception %s processing", ex));
+    // Log the full stack trace
+    LOG.error("Exception processing", ex);
   }
 
   @Override
@@ -340,6 +341,7 @@ public class LuceneIndexStoreImpl implements LogStore {
             syncCommit();
             LOG.debug("Indexer finished commit for: " + indexDirectory.getDirectory().toString());
           } catch (IOException e) {
+            LOG.error("Indexer failed commit for: " + indexDirectory.getDirectory().toString());
             handleNonFatal(e);
           }
         });
@@ -354,6 +356,7 @@ public class LuceneIndexStoreImpl implements LogStore {
             syncRefresh();
             LOG.debug("Indexer finished refresh for: " + indexDirectory.getDirectory().toString());
           } catch (IOException e) {
+            LOG.error("Indexer failed refresh for: " + indexDirectory.getDirectory().toString());
             handleNonFatal(e);
           }
         });
@@ -370,6 +373,8 @@ public class LuceneIndexStoreImpl implements LogStore {
             LOG.debug(
                 "Indexer finished final merge for: " + indexDirectory.getDirectory().toString());
           } catch (IOException e) {
+            LOG.error(
+                "Indexer failed final merge for: " + indexDirectory.getDirectory().toString());
             handleNonFatal(e);
           }
         });
