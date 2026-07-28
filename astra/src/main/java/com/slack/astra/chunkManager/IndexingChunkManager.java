@@ -25,6 +25,7 @@ import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.util.InterruptLoggingThreadFactory;
 import com.slack.service.murron.trace.Trace;
 import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -107,10 +108,15 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
    */
   @SuppressWarnings("UnstableApiUsage")
   public static ListeningExecutorService makeDefaultRollOverExecutor() {
-    // TODO: Create a named thread pool and pass it in.
     ThreadPoolExecutor rollOverExecutor =
         new ThreadPoolExecutor(
-            1, 1, 0, MILLISECONDS, new SynchronousQueue<>(), new ThreadPoolExecutor.AbortPolicy());
+            1,
+            1,
+            0,
+            MILLISECONDS,
+            new SynchronousQueue<>(),
+            new InterruptLoggingThreadFactory("lucene-rollover-%d"),
+            new ThreadPoolExecutor.AbortPolicy());
     return MoreExecutors.listeningDecorator(
         MoreExecutors.getExitingExecutorService(rollOverExecutor));
   }

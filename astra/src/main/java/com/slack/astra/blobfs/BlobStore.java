@@ -128,6 +128,16 @@ public class BlobStore {
         LOG.error("Error attempting to upload file '{}' to S3", keys.get(i), e.getCause());
         failures.add(e);
       } catch (InterruptedException e) {
+        // Lucene shares one write.lock FileChannel per chunk; an interrupt flag left set on a
+        // write-path thread will later invalidate that lock (see
+        // docs/indexer-filelock-interrupt-crash.md).
+        // This is a known site where an interrupt surfaces on the rollover thread, so log which
+        // upload was in flight before restoring the flag to help identify the source in prod.
+        LOG.warn(
+            "Thread '{}' interrupted while awaiting S3 upload of '{}'; restoring interrupt flag and aborting batch",
+            Thread.currentThread().getName(),
+            keys.get(i),
+            e);
         Thread.currentThread().interrupt();
         throw new RuntimeException(e);
       }

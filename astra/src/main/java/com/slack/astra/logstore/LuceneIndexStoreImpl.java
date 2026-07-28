@@ -5,6 +5,7 @@ import com.slack.astra.logstore.search.AstraSearcherManager;
 import com.slack.astra.logstore.search.fieldRedaction.RedactionFilterDirectoryReader;
 import com.slack.astra.metadata.schema.LuceneFieldDef;
 import com.slack.astra.proto.config.AstraConfigs;
+import com.slack.astra.util.InterruptLoggingThreadFactory;
 import com.slack.astra.util.RuntimeHalterImpl;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.Counter;
@@ -63,9 +64,11 @@ public class LuceneIndexStoreImpl implements LogStore {
   private final AstraConfigs.LuceneConfig luceneConfig;
 
   private final ScheduledExecutorService scheduledCommit =
-      Executors.newSingleThreadScheduledExecutor();
+      Executors.newSingleThreadScheduledExecutor(
+          new InterruptLoggingThreadFactory("lucene-commit-%d"));
   private final ScheduledExecutorService scheduledRefresh =
-      Executors.newSingleThreadScheduledExecutor();
+      Executors.newSingleThreadScheduledExecutor(
+          new InterruptLoggingThreadFactory("lucene-refresh-%d"));
   private final SnapshotDeletionPolicy snapshotDeletionPolicy;
   private Optional<IndexWriter> indexWriter;
 
