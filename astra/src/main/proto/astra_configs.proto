@@ -72,6 +72,31 @@ message MetadataStoreConfig {
   ZookeeperConfig zookeeper_config = 1;
   EtcdConfig etcd_config = 2;
   map<string, MetadataStoreMode> store_modes = 4;
+  // POC-only: standalone DynamoDB metadata store backend. Not yet wired into
+  // the ZK/etcd bridge (no DYNAMODB_CREATES mode); exercised directly by tests.
+  DynamoDbConfig dynamodb_config = 5;
+}
+
+// Configuration for the DynamoDB metadata store (POC).
+message DynamoDbConfig {
+  // Whether to enable DynamoDB client initialization
+  bool enabled = 1;
+  // Table name backing the metadata store
+  string table_name = 2;
+  // AWS region
+  string region = 3;
+  // Optional endpoint override (e.g. http://localhost:8000 for DynamoDB Local)
+  string endpoint = 4;
+  // Optional static access key (falls back to DefaultCredentialsProvider if empty)
+  string access_key = 5;
+  // Optional static secret key
+  string secret_key = 6;
+  // TTL in milliseconds for ephemeral nodes
+  int32 ephemeral_node_ttl_ms = 7;
+  // Operations timeout in milliseconds
+  int32 operations_timeout_ms = 8;
+  // Max number of retries for operations
+  int32 operations_max_retries = 9;
 }
 
 // Configuration for etcd metadata store.
