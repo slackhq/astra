@@ -81,6 +81,16 @@ metadataStoreConfig:
     retryTotalDurationMs: ${ASTRA_ETCD_RETRY_TOTAL_DURATION_MS:-60000}
     maxRetryDelayMs: ${ASTRA_ETCD_MAX_RETRY_DELAY_MS:-10000}
     initialRetryIntervalMs: ${ASTRA_ETCD_INITIAL_RETRY_INTERVAL_MS:-2000}
+  dynamodbConfig:
+    enabled: ${ASTRA_DYNAMODB_ENABLED:-false}
+    tableName: ${ASTRA_DYNAMODB_TABLE_NAME:-astra_metadata}
+    region: ${ASTRA_DYNAMODB_REGION:-us-east-1}
+    endpoint: ${ASTRA_DYNAMODB_ENDPOINT:-}
+    accessKey: ${ASTRA_DYNAMODB_ACCESS_KEY:-}
+    secretKey: ${ASTRA_DYNAMODB_SECRET_KEY:-}
+    ephemeralNodeTtlMs: ${ASTRA_DYNAMODB_EPHEMERAL_NODE_TTL_MS:-60000}
+    operationsTimeoutMs: ${ASTRA_DYNAMODB_OPERATIONS_TIMEOUT_MS:-60000}
+    operationsMaxRetries: ${ASTRA_DYNAMODB_OPERATIONS_MAX_RETRIES:-3}
   storeModes:
     DatasetMetadataStore: ${ASTRA_DATASET_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
     SnapshotMetadataStore: ${ASTRA_SNAPSHOT_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}

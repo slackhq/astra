@@ -7,6 +7,7 @@ import com.slack.astra.proto.config.AstraConfigs.DynamoDbConfig;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -80,7 +81,7 @@ public class DynamoDbClientBuilder {
     return DefaultCredentialsProvider.create();
   }
 
-  private static void applyEndpointOverride(DynamoDbConfig config, EndpointConsumer consumer) {
+  private static void applyEndpointOverride(DynamoDbConfig config, Consumer<URI> consumer) {
     if (!Strings.isNullOrEmpty(config.getEndpoint())) {
       try {
         consumer.accept(new URI(config.getEndpoint()));
@@ -90,7 +91,8 @@ public class DynamoDbClientBuilder {
     }
   }
 
-  private static void applyOverrideConfiguration(DynamoDbConfig config, OverrideConsumer consumer) {
+  private static void applyOverrideConfiguration(
+      DynamoDbConfig config, Consumer<ClientOverrideConfiguration> consumer) {
     // POC keeps overrides minimal; only the (stable) api-call timeout is applied. Retry tuning is
     // deferred to the follow-up production work.
     if (config.getOperationsTimeoutMs() > 0) {
@@ -99,15 +101,5 @@ public class DynamoDbClientBuilder {
               .apiCallTimeout(Duration.ofMillis(config.getOperationsTimeoutMs()))
               .build());
     }
-  }
-
-  @FunctionalInterface
-  private interface EndpointConsumer {
-    void accept(URI uri);
-  }
-
-  @FunctionalInterface
-  private interface OverrideConsumer {
-    void accept(ClientOverrideConfiguration configuration);
   }
 }

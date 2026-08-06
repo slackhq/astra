@@ -35,6 +35,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
 
   protected final ZookeeperMetadataStore<T> zkStore;
   protected final EtcdMetadataStore<T> etcdStore;
+  protected final DynamoDbMetadataStore<T> dynamoStore;
   protected final MetadataStoreMode mode;
 
   private final MeterRegistry meterRegistry;
@@ -43,7 +44,7 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
   private final List<AstraMetadataStoreChangeListener<T>> listeners = new ArrayList<>();
 
   /**
-   * Constructor for AstraMetadataStore.
+   * Constructor for the ZK/etcd bridge (no DynamoDB backend).
    *
    * @param zkStore the ZookeeperMetadataStore implementation, may be null
    * @param etcdStore the EtcdMetadataStore implementation, may be null
@@ -55,23 +56,53 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       EtcdMetadataStore<T> etcdStore,
       MetadataStoreMode mode,
       MeterRegistry meterRegistry) {
+    this(zkStore, etcdStore, null, mode, meterRegistry);
+  }
+
+  /**
+   * Constructor that additionally accepts a DynamoDB backend. When {@code mode} is {@code
+   * DYNAMODB_CREATES}, every operation is routed exclusively to {@code dynamoStore} (no ZK/etcd
+   * fallback, merge, or dual-write); otherwise this behaves exactly like the ZK/etcd bridge.
+   *
+   * @param zkStore the ZookeeperMetadataStore implementation, may be null
+   * @param etcdStore the EtcdMetadataStore implementation, may be null
+   * @param dynamoStore the DynamoDbMetadataStore implementation, may be null
+   * @param mode the operation mode (overridden if the sole non-null store differs)
+   * @param meterRegistry the metrics registry
+   */
+  public AstraMetadataStore(
+      ZookeeperMetadataStore<T> zkStore,
+      EtcdMetadataStore<T> etcdStore,
+      DynamoDbMetadataStore<T> dynamoStore,
+      MetadataStoreMode mode,
+      MeterRegistry meterRegistry) {
 
     this.zkStore = zkStore;
     this.etcdStore = etcdStore;
+    this.dynamoStore = dynamoStore;
 
-    // Override mode if one of the stores is null
-    if (zkStore == null && etcdStore != null) {
+    // Override mode if only one store is present. DynamoDB is exclusive: if it's the only store,
+    // force DYNAMODB_CREATES; otherwise fall back to the existing ZK/etcd override logic.
+    if (dynamoStore != null && zkStore == null && etcdStore == null) {
+      this.mode = MetadataStoreMode.DYNAMODB_CREATES;
+      LOG.info("Only DynamoDB store is present, overriding mode to DYNAMODB_CREATES");
+    } else if (zkStore == null && etcdStore != null) {
       this.mode = MetadataStoreMode.ETCD_CREATES;
       LOG.info("ZK store is null, overriding mode to ETCD_CREATES regardless of configured mode");
     } else if (etcdStore == null && zkStore != null) {
       this.mode = MetadataStoreMode.ZOOKEEPER_CREATES;
       LOG.info(
           "Etcd store is null, overriding mode to ZOOKEEPER_CREATES regardless of configured mode");
-    } else if (etcdStore == null) {
-      throw new IllegalArgumentException("Both zkStore and etcdStore cannot be null");
+    } else if (etcdStore == null && zkStore == null) {
+      throw new IllegalArgumentException("At least one backing store must be non-null");
     } else {
       this.mode = mode;
       LOG.info("Using metadata store mode {}", mode);
+    }
+
+    // A DYNAMODB_CREATES store must have a Dynamo backend to route to.
+    if (this.mode == MetadataStoreMode.DYNAMODB_CREATES && dynamoStore == null) {
+      throw new IllegalArgumentException("mode is DYNAMODB_CREATES but no DynamoDB store provided");
     }
 
     this.meterRegistry = meterRegistry;
@@ -92,6 +123,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     </ul>
    */
   public CompletionStage<String> createAsync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.createAsync(metadataNode);
+    }
     return switch (mode) {
       case ZOOKEEPER_CREATES -> zkStore.createAsync(metadataNode);
       case ETCD_CREATES -> etcdStore.createAsync(metadataNode);
@@ -110,6 +144,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     error occurs
    */
   public void createSync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.createSync(metadataNode);
+      return;
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         zkStore.createSync(metadataNode);
@@ -159,6 +197,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     </ul>
    */
   public CompletionStage<T> getAsync(String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.getAsync(path);
+    }
     return switch (mode) {
       case ZOOKEEPER_CREATES ->
           // Try ZK first, fall back to Etcd if not found
@@ -226,6 +267,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     another error occurs
    */
   public T getSync(String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.getSync(path);
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Try ZK first, fall back to Etcd if not found
@@ -273,6 +317,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     exceptionally.
    */
   public CompletionStage<Boolean> hasAsync(String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.hasAsync(path);
+    }
     return switch (mode) {
       case ZOOKEEPER_CREATES ->
           // Try ZK first, fall back to Etcd if not found
@@ -319,6 +366,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     error; in that case, the method returns false.
    */
   public boolean hasSync(String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.hasSync(path);
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Try ZK first, fall back to Etcd if not found
@@ -375,6 +425,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws IllegalArgumentException if the metadata store mode is invalid
    */
   public CompletionStage<String> updateAsync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.updateAsync(metadataNode);
+    }
     return switch (mode) {
       case ZOOKEEPER_CREATES ->
           // Try ZK first, fall back to Etcd if not found
@@ -426,6 +479,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws RuntimeException from EtcdMetadataStore if serialization fails or another error occurs
    */
   public void updateSync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.updateSync(metadataNode);
+      return;
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Try ZK first, fall back to Etcd if not found
@@ -467,6 +524,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws IllegalStateException if the node does not exist in either store
    */
   public CompletionStage<Void> deleteAsync(String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.deleteAsync(path);
+    }
     return hasAsync(path)
         .thenCompose(
             exists -> {
@@ -547,6 +607,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws IllegalStateException if the node does not exist in either store
    */
   public void deleteSync(String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.deleteSync(path);
+      return;
+    }
     boolean existsInZk = zkStore != null && zkStore.hasSync(path);
     boolean existsInEtcd = etcdStore != null && etcdStore.hasSync(path);
 
@@ -594,6 +658,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws IllegalStateException if the node does not exist in either store
    */
   public CompletionStage<Void> deleteAsync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.deleteAsync(metadataNode);
+    }
     String path = metadataNode.getName();
     return hasAsync(path)
         .thenCompose(
@@ -675,6 +742,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws IllegalStateException if the node does not exist in either store
    */
   public void deleteSync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.deleteSync(metadataNode);
+      return;
+    }
     String path = metadataNode.getName();
     boolean existsInZk = zkStore != null && zkStore.hasSync(path);
     boolean existsInEtcd = etcdStore != null && etcdStore.hasSync(path);
@@ -744,6 +815,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     </ul>
    */
   public CompletionStage<List<T>> listAsync() {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.listAsync();
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
       case ETCD_CREATES:
@@ -810,6 +884,9 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    * @throws InternalMetadataStoreException from EtcdMetadataStore if the list operation fails
    */
   public List<T> listSync() {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.listSync();
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
       case ETCD_CREATES:
@@ -877,6 +954,11 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
     if (!listeners.contains(watcher)) {
       listeners.add(watcher);
 
+      if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+        dynamoStore.addListener(watcher);
+        return;
+      }
+
       switch (mode) {
         case ZOOKEEPER_CREATES:
         case ETCD_CREATES:
@@ -903,6 +985,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    */
   public void removeListener(AstraMetadataStoreChangeListener<T> watcher) {
     if (listeners.remove(watcher)) {
+      if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+        dynamoStore.removeListener(watcher);
+        return;
+      }
       switch (mode) {
         case ZOOKEEPER_CREATES:
         case ETCD_CREATES:
@@ -928,6 +1014,10 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
    *     ZookeeperMetadataStore and EtcdMetadataStore which uses RuntimeHalterImpl)
    */
   public void awaitCacheInitialized() {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.awaitCacheInitialized();
+      return;
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         zkStore.awaitCacheInitialized();
@@ -973,6 +1063,14 @@ public class AstraMetadataStore<T extends AstraMetadata> implements Closeable {
       }
     } catch (Exception e) {
       LOG.warn("Failed to close Etcd metadata store", e);
+    }
+
+    try {
+      if (dynamoStore != null) {
+        dynamoStore.close();
+      }
+    } catch (Exception e) {
+      LOG.warn("Failed to close DynamoDB metadata store", e);
     }
   }
 

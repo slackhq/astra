@@ -66,14 +66,18 @@ message KafkaConfig {
 enum MetadataStoreMode {
   ZOOKEEPER_CREATES = 0;
   ETCD_CREATES = 1;
+  // Route this store exclusively to the DynamoDB backend (no ZK/etcd
+  // dual-write or fallback). POC: wired only for the stores in the vertical
+  // slice (DatasetMetadataStore, SearchMetadataStore).
+  DYNAMODB_CREATES = 2;
 }
 
 message MetadataStoreConfig {
   ZookeeperConfig zookeeper_config = 1;
   EtcdConfig etcd_config = 2;
   map<string, MetadataStoreMode> store_modes = 4;
-  // POC-only: standalone DynamoDB metadata store backend. Not yet wired into
-  // the ZK/etcd bridge (no DYNAMODB_CREATES mode); exercised directly by tests.
+  // DynamoDB metadata store backend (POC). Selectable per-store via
+  // store_modes = DYNAMODB_CREATES for the vertical-slice stores.
   DynamoDbConfig dynamodb_config = 5;
 }
 

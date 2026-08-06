@@ -1,5 +1,6 @@
 package com.slack.astra.metadata.core;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.astra.proto.config.AstraConfigs.DynamoDbConfig;
 import io.micrometer.core.instrument.Counter;
@@ -17,7 +18,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -137,9 +137,9 @@ public class DynamoDbMetadataStore<T extends AstraMetadata> implements Closeable
     this.shouldCache = shouldCache;
     this.createMode = createMode;
     this.ephemeralTtlMs =
-        config.getEphemeralNodeTtlMs() > 0 ? config.getEphemeralNodeTtlMs() : 60_000;
+        EtcdMetadataStore.positiveOrDefault(config.getEphemeralNodeTtlMs(), 60_000);
     this.operationTimeoutMs =
-        config.getOperationsTimeoutMs() > 0 ? config.getOperationsTimeoutMs() : 60_000;
+        EtcdMetadataStore.positiveOrDefault(config.getOperationsTimeoutMs(), 60_000);
     this.serializer = serializer;
 
     String storeTag = storeFolder.startsWith("/") ? storeFolder : "/" + storeFolder;
@@ -153,7 +153,11 @@ public class DynamoDbMetadataStore<T extends AstraMetadata> implements Closeable
     boolean ephemeral = createMode == EtcdCreateMode.EPHEMERAL;
     if (ephemeral || shouldCache) {
       this.maintenanceExecutor =
-          Executors.newSingleThreadScheduledExecutor(daemonFactory("dynamodb-maintenance"));
+          Executors.newSingleThreadScheduledExecutor(
+              new ThreadFactoryBuilder()
+                  .setNameFormat("dynamodb-maintenance-%d")
+                  .setDaemon(true)
+                  .build());
     } else {
       this.maintenanceExecutor = null;
     }
@@ -208,7 +212,7 @@ public class DynamoDbMetadataStore<T extends AstraMetadata> implements Closeable
     return (System.currentTimeMillis() + ephemeralTtlMs) / 1000;
   }
 
-  private static long nowSeconds() {
+  static long nowSeconds() {
     return System.currentTimeMillis() / 1000;
   }
 
@@ -222,7 +226,7 @@ public class DynamoDbMetadataStore<T extends AstraMetadata> implements Closeable
   }
 
   /** True when an item carries a ttl attribute already in the past. */
-  private static boolean isExpiredItem(Map<String, AttributeValue> item) {
+  static boolean isExpiredItem(Map<String, AttributeValue> item) {
     long ttl = ttlOf(item);
     return ttl > 0 && ttl < nowSeconds();
   }
@@ -581,14 +585,6 @@ public class DynamoDbMetadataStore<T extends AstraMetadata> implements Closeable
   }
 
   // ---- helpers -----------------------------------------------------------
-
-  private static ThreadFactory daemonFactory(String name) {
-    return r -> {
-      Thread t = new Thread(r, name);
-      t.setDaemon(true);
-      return t;
-    };
-  }
 
   private static Throwable unwrap(Throwable t) {
     return (t instanceof java.util.concurrent.CompletionException && t.getCause() != null)

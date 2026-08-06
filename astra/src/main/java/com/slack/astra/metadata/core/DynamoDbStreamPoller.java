@@ -1,5 +1,6 @@
 package com.slack.astra.metadata.core;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
@@ -7,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -71,13 +71,12 @@ class DynamoDbStreamPoller implements Closeable {
     this.pkFilter = pkFilter;
     this.handler = handler;
     this.timeoutMs = timeoutMs;
-    ThreadFactory factory =
-        r -> {
-          Thread t = new Thread(r, "dynamodb-stream-poller-" + tableName);
-          t.setDaemon(true);
-          return t;
-        };
-    this.executor = Executors.newSingleThreadScheduledExecutor(factory);
+    this.executor =
+        Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactoryBuilder()
+                .setNameFormat("dynamodb-stream-poller-" + tableName + "-%d")
+                .setDaemon(true)
+                .build());
   }
 
   void start() {

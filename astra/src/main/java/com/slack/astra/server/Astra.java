@@ -31,6 +31,7 @@ import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.cache.CacheSlotMetadataStore;
 import com.slack.astra.metadata.core.CloseableLifecycleManager;
 import com.slack.astra.metadata.core.CuratorBuilder;
+import com.slack.astra.metadata.core.DynamoDbClientBuilder;
 import com.slack.astra.metadata.core.EtcdClientBuilder;
 import com.slack.astra.metadata.dataset.DatasetMetadataStore;
 import com.slack.astra.metadata.fieldredaction.FieldRedactionMetadataStore;
@@ -69,6 +70,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.streams.DynamoDbStreamsAsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 /**
@@ -85,6 +88,8 @@ public class Astra {
   protected ServiceManager serviceManager;
   protected AsyncCuratorFramework curatorFramework;
   protected Client etcdClient;
+  protected DynamoDbAsyncClient dynamoClient;
+  protected DynamoDbStreamsAsyncClient dynamoStreamsClient;
 
   Astra(
       AstraConfigs.AstraConfig astraConfig,
@@ -161,10 +166,26 @@ public class Astra {
       LOG.info("Initialized etcd client");
     }
 
+    // Initialize DynamoDB client if enabled (POC: consumed only by the vertical-slice stores)
+    if (metadataStoreConfig.hasDynamodbConfig()
+        && metadataStoreConfig.getDynamodbConfig().getEnabled()) {
+      dynamoClient = DynamoDbClientBuilder.build(metadataStoreConfig.getDynamodbConfig());
+      dynamoStreamsClient =
+          DynamoDbClientBuilder.buildStreamsClient(metadataStoreConfig.getDynamodbConfig());
+      LOG.info("Initialized DynamoDB client");
+    }
+
     BlobStore blobStore = new BlobStore(s3Client, astraConfig.getS3Config().getS3Bucket());
 
     Set<Service> services =
-        getServices(curatorFramework, etcdClient, astraConfig, blobStore, prometheusMeterRegistry);
+        getServices(
+            curatorFramework,
+            etcdClient,
+            dynamoClient,
+            dynamoStreamsClient,
+            astraConfig,
+            blobStore,
+            prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
 
@@ -174,6 +195,8 @@ public class Astra {
   private static Set<Service> getServices(
       AsyncCuratorFramework curatorFramework,
       Client etcdClient,
+      DynamoDbAsyncClient dynamoClient,
+      DynamoDbStreamsAsyncClient dynamoStreamsClient,
       AstraConfigs.AstraConfig astraConfig,
       BlobStore blobStore,
       PrometheusMeterRegistry meterRegistry)
@@ -240,6 +263,8 @@ public class Astra {
           new SearchMetadataStore(
               curatorFramework,
               etcdClient,
+              dynamoClient,
+              dynamoStreamsClient,
               astraConfig.getMetadataStoreConfig(),
               meterRegistry,
               true);
@@ -250,6 +275,8 @@ public class Astra {
           new DatasetMetadataStore(
               curatorFramework,
               etcdClient,
+              dynamoClient,
+              dynamoStreamsClient,
               astraConfig.getMetadataStoreConfig(),
               meterRegistry,
               true);
@@ -373,6 +400,8 @@ public class Astra {
           new DatasetMetadataStore(
               curatorFramework,
               etcdClient,
+              dynamoClient,
+              dynamoStreamsClient,
               astraConfig.getMetadataStoreConfig(),
               meterRegistry,
               true);
@@ -525,6 +554,8 @@ public class Astra {
           new DatasetMetadataStore(
               curatorFramework,
               etcdClient,
+              dynamoClient,
+              dynamoStreamsClient,
               astraConfig.getMetadataStoreConfig(),
               meterRegistry,
               true);
@@ -628,6 +659,22 @@ public class Astra {
         etcdClient.close();
       } catch (Exception e) {
         LOG.error("Error while closing etcdClient", e);
+      }
+    }
+
+    // Close DynamoDB clients if initialized
+    if (dynamoClient != null) {
+      try {
+        dynamoClient.close();
+      } catch (Exception e) {
+        LOG.error("Error while closing dynamoClient", e);
+      }
+    }
+    if (dynamoStreamsClient != null) {
+      try {
+        dynamoStreamsClient.close();
+      } catch (Exception e) {
+        LOG.error("Error while closing dynamoStreamsClient", e);
       }
     }
     LOG.info("Shutting down LogManager");

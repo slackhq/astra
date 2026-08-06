@@ -5,6 +5,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.slack.astra.proto.config.AstraConfigs;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.logging.log4j.util.Strings;
 
 public class ValidateAstraConfig {
 
@@ -23,6 +24,23 @@ public class ValidateAstraConfig {
     }
     if (AstraConfig.getNodeRolesList().contains(AstraConfigs.NodeRole.CACHE)) {
       validateCacheConfig(AstraConfig.getCacheConfig());
+    }
+    validateMetadataStoreConfig(AstraConfig.getMetadataStoreConfig());
+  }
+
+  private static void validateMetadataStoreConfig(
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig) {
+    boolean anyDynamo =
+        metadataStoreConfig.getStoreModesMap().values().stream()
+            .anyMatch(mode -> mode == AstraConfigs.MetadataStoreMode.DYNAMODB_CREATES);
+    if (anyDynamo) {
+      AstraConfigs.DynamoDbConfig dynamodbConfig = metadataStoreConfig.getDynamodbConfig();
+      checkArgument(
+          metadataStoreConfig.hasDynamodbConfig() && dynamodbConfig.getEnabled(),
+          "A store is set to DYNAMODB_CREATES but dynamodbConfig is missing or not enabled");
+      checkArgument(
+          Strings.isNotBlank(dynamodbConfig.getTableName()),
+          "dynamodbConfig.tableName is required when a store uses DYNAMODB_CREATES");
     }
   }
 

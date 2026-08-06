@@ -66,8 +66,9 @@ is chosen so that the **partitioned** store maps onto DynamoDB natively:
   - Partitioned store: `storeFolder + "/" + partitionId` (e.g.
     `/partitioned_search/{snapshotName}`). A per-partition `list()` / watch then
     becomes a single DynamoDB `Query` on `pk` — exactly the scaling problem
-    partitioning exists to solve. A cross-partition `findAsync` / full
-    `listSync` is a `Scan` (POC-acceptable; cost documented).
+    partitioning exists to solve. A full cross-partition `listSync` is a `Scan`
+    (POC-acceptable; cost documented). Note the legacy bridge's
+    partition-unaware `find(name)` is **not** carried into the POC (see below).
 - **Sort key** `sk` (String) = the node name (`AstraMetadata#getName()`).
 - Attribute `payload` (String) = the protobuf-as-JSON produced by the existing
   `MetadataSerializer<T>` — reused as-is, no new serialization code.
@@ -125,19 +126,57 @@ in-memory `ConcurrentHashMap<String,T>` cache, listener fan-out):
    checkpointing, multi-node) is non-trivial.
 2. **Best-effort TTL vs. lease revocation** — liveness correctness depends on
    the read-path expiry filter, not on DynamoDB actually deleting on time.
-3. **Cross-partition scans** — `findAsync` / full list is a `Scan`; fine for the
-   POC, needs a GSI or redesign at scale.
+3. **Cross-partition scans** — a full cross-partition `listSync` is a `Scan`;
+   fine for the POC, needs a GSI or redesign at scale.
+
+## Access model: no partition-unaware `find`
+
+The legacy two-backend bridge exposes a partition-unaware `find(name)` that
+locates a node without knowing its partition — on ZK/etcd it loops `has(name)`
+over every partition, and a naive DynamoDB port would be a full-table `Scan` on
+the `sk` (node name) with no usable index. The POC **deliberately omits it**.
+All point access is partition-aware — `getAsync(partition, path)` /
+`hasAsync(partition, path)` / `listSync(partition)` — which folds the partition
+into the `pk` and maps to a native single-partition `GetItem`/`Query`, i.e.
+Dynamo's model. This is safe because `find` has no production callers: its one
+historical caller (`CacheNodeAssignmentService`) already removed its `findSync`
+(commit `2dadb2e3`), hoisting resolution into a caller-supplied map rather than
+scanning partitions. Consequently the POC needs no GSI on `sk`.
+
+## Local selection: wiring a vertical slice (implemented)
+
+To exercise the backend inside a running Astra (e.g. the local kind harness), two
+stores — `DatasetMetadataStore` (persistent, non-partitioned) and
+`SearchMetadataStore` (ephemeral, partitioned) — can now be **configured** onto
+DynamoDB, without touching the other 11 stores:
+
+- `MetadataStoreMode.DYNAMODB_CREATES` added to the proto enum.
+- The two bridge classes (`AstraMetadataStore`, `AstraPartitioningMetadataStore`)
+  gained a nullable `dynamoStore` field and an **exclusive delegate**: each public
+  op early-returns `dynamoStore.op(...)` when the mode is `DYNAMODB_CREATES`,
+  leaving the pairwise ZK/etcd fallback/merge/dual-delete logic byte-for-byte
+  unchanged. `addListener`/`removeListener`/`awaitCacheInitialized` route to the
+  Dynamo store only; `close()` also closes it. The partition-unaware `find*` arms
+  throw `UnsupportedOperationException` (see access model above).
+- `Astra.java#start()` builds the `DynamoDbAsyncClient` /
+  `DynamoDbStreamsAsyncClient` (gated on `dynamodbConfig.enabled`) and threads
+  them into **only** the two sliced store constructors; both are closed on
+  shutdown. A dynamo-only `SearchMetadataStore` skips its ZK/etcd legacy
+  `/search` fallback store.
+- `config/config.yaml` / `test_config.yaml` carry a `dynamodbConfig:` block with
+  `${ASTRA_DYNAMODB_*}` env overrides. Select a store by setting its
+  `*_METADATA_STORE_MODE=DYNAMODB_CREATES` and `ASTRA_DYNAMODB_ENABLED=true`.
+  `ValidateAstraConfig` requires an enabled config + table name when any store
+  uses `DYNAMODB_CREATES`.
+- `DynamoDbBridgeWiringTest` proves config-driven selection end-to-end against
+  DynamoDB Local (no kind cluster needed).
 
 ## Out of scope (follow-up if the POC succeeds)
 
-- Adding `DYNAMODB_CREATES` to `MetadataStoreMode` and extending the ~96
-  `switch (mode)` sites in the two bridge classes.
-- Threading a Dynamo client through `Astra.java#start()` / `getServices()` and
-  the 13 concrete store constructors.
+- Extending `DYNAMODB_CREATES` to the other 11 concrete stores and their
+  `getServices` call sites (only the two sliced stores are wired).
 - Production Streams consumption (Kinesis Adapter + KCL) and a durable
   ephemeral-expiry strategy that doesn't depend on best-effort TTL.
-- `config/config.yaml` / `test_config.yaml` `dynamodbConfig:` blocks with
-  `${ASTRA_DYNAMODB_*}` env overrides.
 
 ## Verification
 
@@ -147,4 +186,6 @@ in-memory `ConcurrentHashMap<String,T>` cache, listener fan-out):
    - `mvn test -Dtest=DynamoDbMetadataStoreTest` — persistent CRUD+list + watch.
    - `mvn test -Dtest=DynamoDbPartitioningMetadataStoreTest` — partitioned CRUD,
      the ephemeral-liveness/TTL case, and partitioned watch.
+   - `mvn test -Dtest=DynamoDbBridgeWiringTest` — config-driven selection through
+     the `DatasetMetadataStore` / `SearchMetadataStore` bridge delegate.
 4. Format: `mvn fmt:format`.

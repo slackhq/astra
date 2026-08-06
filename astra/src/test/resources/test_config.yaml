@@ -71,6 +71,13 @@ metadataStoreConfig:
     retryTotalDurationMs: 60000
     maxRetryDelayMs: 10000
     initialRetryIntervalMs: 2000
+  dynamodbConfig:
+    enabled: false
+    tableName: "astra_metadata"
+    region: "us-east-1"
+    ephemeralNodeTtlMs: 60000
+    operationsTimeoutMs: 60000
+    operationsMaxRetries: 3
   storeModes:
     DatasetMetadataStore: ETCD_CREATES
     SnapshotMetadataStore: ETCD_CREATES

@@ -99,8 +99,7 @@ public class DynamoDbPartitioningMetadataStoreTest {
       assertThat(store.listSync("p2").stream().map(SearchMetadata::getName).toList())
           .containsExactly("s_p2_a");
 
-      // cross-partition find locates a node by name regardless of partition
-      assertThat(store.findSync("s_p2_a")).isEqualTo(p2a);
+      // a full cross-partition list surfaces every node regardless of partition
       assertThat(store.listSync().stream().map(SearchMetadata::getName).sorted().toList())
           .containsExactly("s_p1_a", "s_p1_b", "s_p2_a");
     }

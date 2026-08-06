@@ -29,6 +29,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
   protected final ZookeeperPartitioningMetadataStore<T> zkStore;
   protected final EtcdPartitioningMetadataStore<T> etcdStore;
+  protected final DynamoDbPartitioningMetadataStore<T> dynamoStore;
   protected final MetadataStoreMode mode;
   private final MeterRegistry meterRegistry;
 
@@ -36,7 +37,7 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final List<AstraMetadataStoreChangeListener<T>> listeners = new ArrayList<>();
 
   /**
-   * Constructor for AstraPartitioningMetadataStore.
+   * Constructor for the ZK/etcd partitioning bridge (no DynamoDB backend).
    *
    * @param zkStore the ZookeeperPartitioningMetadataStore implementation
    * @param etcdStore the EtcdPartitioningMetadataStore implementation
@@ -48,15 +49,40 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       EtcdPartitioningMetadataStore<T> etcdStore,
       MetadataStoreMode mode,
       MeterRegistry meterRegistry) {
+    this(zkStore, etcdStore, null, mode, meterRegistry);
+  }
+
+  /**
+   * Constructor that additionally accepts a DynamoDB backend. When {@code mode} is {@code
+   * DYNAMODB_CREATES}, every operation is routed exclusively to {@code dynamoStore} (no ZK/etcd
+   * fallback, merge, or dual-write); otherwise this behaves exactly like the ZK/etcd bridge. The
+   * partition-unaware {@code find*} operations are unsupported on the DynamoDB backend.
+   *
+   * @param zkStore the ZookeeperPartitioningMetadataStore implementation, may be null
+   * @param etcdStore the EtcdPartitioningMetadataStore implementation, may be null
+   * @param dynamoStore the DynamoDbPartitioningMetadataStore implementation, may be null
+   * @param mode the operation mode (overridden if the sole non-null store differs)
+   * @param meterRegistry the metrics registry
+   */
+  public AstraPartitioningMetadataStore(
+      ZookeeperPartitioningMetadataStore<T> zkStore,
+      EtcdPartitioningMetadataStore<T> etcdStore,
+      DynamoDbPartitioningMetadataStore<T> dynamoStore,
+      MetadataStoreMode mode,
+      MeterRegistry meterRegistry) {
     if (mode == MetadataStoreMode.ETCD_CREATES && etcdStore == null) {
       throw new IllegalArgumentException("Mode is ETCD_CREATES but etcdStore is null");
     }
     if (mode == MetadataStoreMode.ZOOKEEPER_CREATES && zkStore == null) {
       throw new IllegalArgumentException("Mode is ZOOKEEPER_CREATES but zkStore is null");
     }
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES && dynamoStore == null) {
+      throw new IllegalArgumentException("Mode is DYNAMODB_CREATES but dynamoStore is null");
+    }
 
     this.zkStore = zkStore;
     this.etcdStore = etcdStore;
+    this.dynamoStore = dynamoStore;
     this.mode = mode;
     this.meterRegistry = meterRegistry;
   }
@@ -78,6 +104,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     </ul>
    */
   public CompletionStage<String> createAsync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.createAsync(metadataNode);
+    }
     return switch (mode) {
       case ZOOKEEPER_CREATES -> zkStore.createAsync(metadataNode);
       case ETCD_CREATES -> etcdStore.createAsync(metadataNode);
@@ -96,6 +125,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     fails or another error occurs
    */
   public void createSync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.createSync(metadataNode);
+      return;
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         zkStore.createSync(metadataNode);
@@ -116,6 +149,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @param partitionId
    */
   public void createPartitionSync(String partitionId) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.createPartitionSync(partitionId);
+      return;
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         zkStore.createPartitionSync(partitionId);
@@ -149,6 +186,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     </ul>
    */
   public CompletionStage<T> getAsync(String partition, String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.getAsync(partition, path);
+    }
     return switch (mode) {
       case ZOOKEEPER_CREATES ->
           // Try ZK first, fall back to Etcd if not found
@@ -219,6 +259,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     store after attempted fallback reads
    */
   public T getSync(String partition, String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.getSync(partition, path);
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Try ZK first, fall back to Etcd if not found
@@ -272,6 +315,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     </ul>
    */
   public CompletionStage<T> findAsync(String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      throw new UnsupportedOperationException(
+          "find is not supported on the DynamoDB backend; use partition-aware get/has");
+    }
     return switch (mode) {
       case ZOOKEEPER_CREATES ->
           // Try ZK first, fall back to Etcd if not found
@@ -343,6 +390,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     exceptionally with InternalMetadataStoreException.
    */
   public CompletionStage<Boolean> hasAsync(String partition, String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.hasAsync(partition, path);
+    }
     return switch (mode) {
       case ZOOKEEPER_CREATES ->
           // Try ZK first, fall back to Etcd if not found
@@ -391,6 +441,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     method returns false.
    */
   public boolean hasSync(String partition, String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.hasSync(partition, path);
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Try ZK first, fall back to Etcd if not found
@@ -431,6 +484,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     store after attempted fallback reads
    */
   public T findSync(String path) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      throw new UnsupportedOperationException(
+          "find is not supported on the DynamoDB backend; use partition-aware get/has");
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Try ZK first, fall back to Etcd if not found
@@ -476,6 +533,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    * @return a CompletionStage that completes with the update result
    */
   public CompletionStage<String> updateAsync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.updateAsync(metadataNode);
+    }
     return switch (mode) {
       case ZOOKEEPER_CREATES ->
           // Try ZK first, fall back to Etcd if not found
@@ -559,6 +619,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     store while maintaining consistency.
    */
   public void updateSync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.updateSync(metadataNode);
+      return;
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Try ZK first, fall back to Etcd if not found
@@ -610,6 +674,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     as the primary deletion succeeds.
    */
   public CompletionStage<Void> deleteAsync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.deleteAsync(metadataNode);
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Delete from ZK and also try to delete from Etcd
@@ -651,6 +718,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     to prevent cascading failures.
    */
   public void deleteSync(T metadataNode) {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.deleteSync(metadataNode);
+      return;
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // Delete from ZK and also try to delete from Etcd
@@ -724,6 +795,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     </ul>
    */
   public CompletionStage<List<T>> listAsync() {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.listAsync();
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
       case ETCD_CREATES:
@@ -793,6 +867,9 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     </ul>
    */
   public List<T> listSync() {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      return dynamoStore.listSync();
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
       case ETCD_CREATES:
@@ -872,6 +949,11 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     if (!listeners.contains(watcher)) {
       listeners.add(watcher);
 
+      if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+        dynamoStore.addListener(watcher);
+        return;
+      }
+
       switch (mode) {
         case ZOOKEEPER_CREATES:
         case ETCD_CREATES:
@@ -905,6 +987,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    */
   public void removeListener(AstraMetadataStoreChangeListener<T> watcher) {
     if (listeners.remove(watcher)) {
+      if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+        dynamoStore.removeListener(watcher);
+        return;
+      }
       switch (mode) {
         case ZOOKEEPER_CREATES:
         case ETCD_CREATES:
@@ -942,6 +1028,10 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
    *     waiting for the secondary store which may be less critical during migration.
    */
   public void awaitCacheInitialized() {
+    if (mode == MetadataStoreMode.DYNAMODB_CREATES) {
+      dynamoStore.awaitCacheInitialized();
+      return;
+    }
     switch (mode) {
       case ZOOKEEPER_CREATES:
         // ZK partition store initializes cache during construction
@@ -986,6 +1076,14 @@ public class AstraPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       }
     } catch (Exception e) {
       LOG.warn("Failed to close Etcd metadata store", e);
+    }
+
+    try {
+      if (dynamoStore != null) {
+        dynamoStore.close();
+      }
+    } catch (Exception e) {
+      LOG.warn("Failed to close DynamoDB metadata store", e);
     }
   }
 }

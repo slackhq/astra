@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -21,8 +22,10 @@ import software.amazon.awssdk.services.dynamodb.streams.DynamoDbStreamsAsyncClie
  * list()} / watch is then a single DynamoDB {@code Query} on {@code pk}, which is exactly the
  * scaling problem partitioning exists to solve. Each partition gets its own lazily-created {@link
  * DynamoDbMetadataStore} sub-store (so each has its own cache + stream poller scoped to that {@code
- * pk}); a cross-partition {@code findAsync} / full {@code listSync} falls back to a table {@code
- * Scan} (POC-acceptable; documented as a cost to revisit with a GSI).
+ * pk}); a full cross-partition {@code listSync} falls back to a table {@code Scan} (POC-acceptable;
+ * documented as a cost to revisit). All point access is partition-aware ({@code getAsync} / {@code
+ * hasAsync} / {@code listSync(partition)}), so it maps to a native single-partition operation — the
+ * partition-unaware {@code find} of the legacy bridge is deliberately not carried into the POC.
  */
 public class DynamoDbPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     implements Closeable {
@@ -39,7 +42,7 @@ public class DynamoDbPartitioningMetadataStore<T extends AstraPartitionedMetadat
 
   private final ConcurrentHashMap<String, DynamoDbMetadataStore<T>> partitionStores =
       new ConcurrentHashMap<>();
-  private final List<AstraMetadataStoreChangeListener<T>> listeners = new java.util.ArrayList<>();
+  private final List<AstraMetadataStoreChangeListener<T>> listeners = new ArrayList<>();
 
   public DynamoDbPartitioningMetadataStore(
       DynamoDbAsyncClient client,
@@ -139,6 +142,10 @@ public class DynamoDbPartitioningMetadataStore<T extends AstraPartitionedMetadat
     return storeFor(partition).getSync(path);
   }
 
+  public CompletionStage<Boolean> hasAsync(String partition, String path) {
+    return storeFor(partition).hasAsync(path);
+  }
+
   public boolean hasSync(String partition, String path) {
     return storeFor(partition).hasSync(path);
   }
@@ -154,60 +161,32 @@ public class DynamoDbPartitioningMetadataStore<T extends AstraPartitionedMetadat
   // ---- cross-partition reads (Scan) --------------------------------------
 
   /**
-   * Locates a node by name across all partitions with a table {@code Scan} on {@code sk}. This is
-   * the cross-partition escape hatch; at scale it should become a GSI on {@code sk}. Returns a
-   * failed stage if no live node matches.
+   * Full cross-partition list via {@code Scan}, scoped to this store's {@code pk} prefix. Async
+   * form of {@link #listSync()}.
    */
-  public CompletionStage<T> findAsync(String path) {
+  public CompletionStage<List<T>> listAsync() {
     return client
-        .scan(
-            b ->
-                b.tableName(tableName)
-                    .filterExpression(DynamoDbMetadataStore.SK + " = :sk")
-                    .expressionAttributeValues(java.util.Map.of(":sk", AttributeValue.fromS(path))))
+        .scan(b -> b.tableName(tableName))
         .thenApply(
             resp -> {
-              long now = System.currentTimeMillis() / 1000;
-              for (var item : resp.items()) {
-                if (belongsToThisStore(item) && !expired(item, now)) {
+              List<T> result = new ArrayList<>();
+              for (Map<String, AttributeValue> item : resp.items()) {
+                if (belongsToThisStore(item) && !DynamoDbMetadataStore.isExpiredItem(item)) {
                   try {
-                    return serializer.fromJsonStr(item.get(DynamoDbMetadataStore.PAYLOAD).s());
+                    result.add(serializer.fromJsonStr(item.get(DynamoDbMetadataStore.PAYLOAD).s()));
                   } catch (Exception e) {
                     throw new InternalMetadataStoreException("Failed to deserialize node", e);
                   }
                 }
               }
-              throw new InternalMetadataStoreException("Node not found in any partition: " + path);
+              return result;
             });
-  }
-
-  public T findSync(String path) {
-    try {
-      return findAsync(path).toCompletableFuture().get();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new InternalMetadataStoreException("Interrupted during find " + path, e);
-    } catch (java.util.concurrent.ExecutionException e) {
-      Throwable cause = e.getCause();
-      if (cause instanceof InternalMetadataStoreException ime) {
-        throw ime;
-      }
-      throw new InternalMetadataStoreException("Failed to find " + path, cause);
-    }
   }
 
   /** Full cross-partition list via {@code Scan}, scoped to this store's {@code pk} prefix. */
   public List<T> listSync() {
     try {
-      var resp = client.scan(b -> b.tableName(tableName)).toCompletableFuture().get();
-      long now = System.currentTimeMillis() / 1000;
-      List<T> result = new ArrayList<>();
-      for (var item : resp.items()) {
-        if (belongsToThisStore(item) && !expired(item, now)) {
-          result.add(serializer.fromJsonStr(item.get(DynamoDbMetadataStore.PAYLOAD).s()));
-        }
-      }
-      return result;
+      return listAsync().toCompletableFuture().get();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new InternalMetadataStoreException("Interrupted during list", e);
@@ -216,17 +195,9 @@ public class DynamoDbPartitioningMetadataStore<T extends AstraPartitionedMetadat
     }
   }
 
-  private boolean belongsToThisStore(java.util.Map<String, AttributeValue> item) {
+  private boolean belongsToThisStore(Map<String, AttributeValue> item) {
     AttributeValue pk = item.get(DynamoDbMetadataStore.PK);
     return pk != null && pk.s() != null && pk.s().startsWith(storeFolder + "/");
-  }
-
-  private static boolean expired(java.util.Map<String, AttributeValue> item, long nowSeconds) {
-    AttributeValue ttl = item.get(DynamoDbMetadataStore.TTL);
-    if (ttl == null || ttl.n() == null) {
-      return false;
-    }
-    return Long.parseLong(ttl.n()) < nowSeconds;
   }
 
   // ---- listeners ---------------------------------------------------------
@@ -250,6 +221,17 @@ public class DynamoDbPartitioningMetadataStore<T extends AstraPartitionedMetadat
       for (DynamoDbMetadataStore<T> store : partitionStores.values()) {
         store.removeListener(watcher);
       }
+    }
+  }
+
+  /**
+   * Waits for every live partition sub-store's cache to be initialized. Mirrors {@code
+   * EtcdPartitioningMetadataStore#awaitCacheInitialized}. Sub-stores created later initialize their
+   * own cache on construction ({@link #storeFor}).
+   */
+  public void awaitCacheInitialized() {
+    for (DynamoDbMetadataStore<T> store : partitionStores.values()) {
+      store.awaitCacheInitialized();
     }
   }
 
