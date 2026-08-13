@@ -174,6 +174,8 @@ public class ChunkManagerUtil<T> {
             MoreExecutors.newDirectExecutorService(),
             curatorFramework,
             etcdClient,
+            null,
+            null,
             searchContext,
             indexerConfig,
             AstraConfigs.LuceneConfig.newBuilder()

@@ -172,7 +172,8 @@ public class RecoveryServiceTest {
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(astraCfg, curatorFramework, etcdClient, meterRegistry, blobStore);
+        new RecoveryService(
+            astraCfg, curatorFramework, etcdClient, null, null, meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -262,7 +263,13 @@ public class RecoveryServiceTest {
     // Start recovery service
     recoveryService =
         new RecoveryService(
-            astraCfg, curatorFramework, etcdClient, components.meterRegistry, blobStore);
+            astraCfg,
+            curatorFramework,
+            etcdClient,
+            null,
+            null,
+            components.meterRegistry,
+            blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
     long startOffset = 1;
@@ -349,7 +356,13 @@ public class RecoveryServiceTest {
     // Start recovery service
     recoveryService =
         new RecoveryService(
-            astraCfg, curatorFramework, etcdClient, components.meterRegistry, blobStore);
+            astraCfg,
+            curatorFramework,
+            etcdClient,
+            null,
+            null,
+            components.meterRegistry,
+            blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -391,6 +404,8 @@ public class RecoveryServiceTest {
             astraCfg,
             curatorFramework,
             etcdClient,
+            null,
+            null,
             meterRegistry,
             new BlobStore(s3AsyncClient, fakeS3Bucket));
     recoveryService.startAsync();
@@ -436,7 +451,8 @@ public class RecoveryServiceTest {
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(astraCfg, curatorFramework, etcdClient, meterRegistry, blobStore);
+        new RecoveryService(
+            astraCfg, curatorFramework, etcdClient, null, null, meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -530,6 +546,8 @@ public class RecoveryServiceTest {
             astraCfg,
             curatorFramework,
             etcdClient,
+            null,
+            null,
             meterRegistry,
             new BlobStore(s3AsyncClient, fakeS3Bucket));
     recoveryService.startAsync();
@@ -715,7 +733,8 @@ public class RecoveryServiceTest {
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(astraCfg, curatorFramework, etcdClient, meterRegistry, blobStore);
+        new RecoveryService(
+            astraCfg, curatorFramework, etcdClient, null, null, meterRegistry, blobStore);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 

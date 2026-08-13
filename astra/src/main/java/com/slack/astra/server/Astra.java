@@ -211,6 +211,8 @@ public class Astra {
               meterRegistry,
               curatorFramework,
               etcdClient,
+              dynamoClient,
+              dynamoStreamsClient,
               astraConfig.getIndexerConfig(),
               astraConfig.getLuceneConfig(),
               astraConfig.getMetadataStoreConfig(),
@@ -320,6 +322,8 @@ public class Astra {
               meterRegistry,
               curatorFramework,
               etcdClient,
+              dynamoClient,
+              dynamoStreamsClient,
               astraConfig.getMetadataStoreConfig(),
               astraConfig.getCacheConfig(),
               blobStore,
@@ -545,7 +549,14 @@ public class Astra {
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(astraConfig, curatorFramework, etcdClient, meterRegistry, blobStore);
+          new RecoveryService(
+              astraConfig,
+              curatorFramework,
+              etcdClient,
+              dynamoClient,
+              dynamoStreamsClient,
+              meterRegistry,
+              blobStore);
       services.add(recoveryService);
     }
 

@@ -239,6 +239,8 @@ public class IndexingChunkManagerTest {
             listeningExecutorService,
             curatorFramework,
             etcdClient,
+            null,
+            null,
             searchContext,
             AstraConfigUtil.makeIndexerConfig(TEST_PORT, 1000, 100),
             AstraConfigs.LuceneConfig.newBuilder()
@@ -268,6 +270,8 @@ public class IndexingChunkManagerTest {
             listeningExecutorService,
             curatorFramework,
             etcdClient,
+            null,
+            null,
             searchContext,
             indexerConfig,
             AstraConfigs.LuceneConfig.newBuilder()

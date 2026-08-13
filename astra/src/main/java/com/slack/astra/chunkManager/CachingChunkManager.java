@@ -31,6 +31,8 @@ import java.util.concurrent.Executors;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.streams.DynamoDbStreamsAsyncClient;
 
 /**
  * Chunk manager implementation that supports loading chunks from S3. All chunks are readonly, and
@@ -53,6 +55,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   protected SnapshotMetadataStore snapshotMetadataStore;
   protected SearchMetadataStore searchMetadataStore;
   private Client etcdClient;
+  private final DynamoDbAsyncClient dynamoClient;
+  private final DynamoDbStreamsAsyncClient dynamoStreamsClient;
 
   private final String cacheNodeId;
   private final AstraConfigs.LuceneConfig luceneConfig;
@@ -67,6 +71,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       MeterRegistry registry,
       AsyncCuratorFramework curatorFramework,
       Client etcdClient,
+      DynamoDbAsyncClient dynamoClient,
+      DynamoDbStreamsAsyncClient dynamoStreamsClient,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       BlobStore blobStore,
       SearchContext searchContext,
@@ -77,6 +83,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     this.meterRegistry = registry;
     this.curatorFramework = curatorFramework;
     this.etcdClient = etcdClient;
+    this.dynamoClient = dynamoClient;
+    this.dynamoStreamsClient = dynamoStreamsClient;
     this.metadataStoreConfig = metadataStoreConfig;
     this.blobStore = blobStore;
     this.searchContext = searchContext;
@@ -97,7 +105,13 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
         new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     searchMetadataStore =
         new SearchMetadataStore(
-            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, false);
+            curatorFramework,
+            etcdClient,
+            dynamoClient,
+            dynamoStreamsClient,
+            metadataStoreConfig,
+            meterRegistry,
+            false);
     cacheNodeAssignmentStore =
         new CacheNodeAssignmentStore(
             curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, cacheNodeId);
@@ -147,6 +161,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       MeterRegistry meterRegistry,
       AsyncCuratorFramework curatorFramework,
       Client etcdClient,
+      DynamoDbAsyncClient dynamoClient,
+      DynamoDbStreamsAsyncClient dynamoStreamsClient,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       AstraConfigs.CacheConfig cacheConfig,
       BlobStore blobStore,
@@ -156,6 +172,8 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
         meterRegistry,
         curatorFramework,
         etcdClient,
+        dynamoClient,
+        dynamoStreamsClient,
         metadataStoreConfig,
         blobStore,
         SearchContext.fromConfig(cacheConfig.getServerConfig()),

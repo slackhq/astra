@@ -192,6 +192,8 @@ public class CachingChunkManagerTest {
             meterRegistry,
             curatorFramework,
             etcdClient,
+            null,
+            null,
             metadataStoreConfig,
             blobStore,
             SearchContext.fromConfig(AstraConfig.getCacheConfig().getServerConfig()),

@@ -41,6 +41,8 @@ import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.streams.DynamoDbStreamsAsyncClient;
 
 /**
  * The recovery service is intended to be executed on a recovery node, and is responsible for
@@ -60,6 +62,8 @@ public class RecoveryService extends AbstractIdleService {
   private final SearchContext searchContext;
   private final AsyncCuratorFramework curatorFramework;
   private final Client etcdClient;
+  private final DynamoDbAsyncClient dynamoClient;
+  private final DynamoDbStreamsAsyncClient dynamoStreamsClient;
   private final MeterRegistry meterRegistry;
   private final BlobStore blobStore;
   private final AstraConfigs.AstraConfig AstraConfig;
@@ -94,10 +98,14 @@ public class RecoveryService extends AbstractIdleService {
       AstraConfigs.AstraConfig AstraConfig,
       AsyncCuratorFramework curatorFramework,
       Client etcdClient,
+      DynamoDbAsyncClient dynamoClient,
+      DynamoDbStreamsAsyncClient dynamoStreamsClient,
       MeterRegistry meterRegistry,
       BlobStore blobStore) {
     this.curatorFramework = curatorFramework;
     this.etcdClient = etcdClient;
+    this.dynamoClient = dynamoClient;
+    this.dynamoStreamsClient = dynamoStreamsClient;
     this.searchContext =
         SearchContext.fromConfig(AstraConfig.getRecoveryConfig().getServerConfig());
     this.meterRegistry = meterRegistry;
@@ -160,6 +168,8 @@ public class RecoveryService extends AbstractIdleService {
         new SearchMetadataStore(
             curatorFramework,
             etcdClient,
+            dynamoClient,
+            dynamoStreamsClient,
             AstraConfig.getMetadataStoreConfig(),
             meterRegistry,
             false);

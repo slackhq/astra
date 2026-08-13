@@ -43,6 +43,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.streams.DynamoDbStreamsAsyncClient;
 
 /**
  * Chunk manager implementation that supports appending messages to open chunks. This also is
@@ -65,6 +67,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final AsyncCuratorFramework curatorFramework;
   private final Client etcdClient;
+  private final DynamoDbAsyncClient dynamoClient;
+  private final DynamoDbStreamsAsyncClient dynamoStreamsClient;
   private final SearchContext searchContext;
   private final AstraConfigs.IndexerConfig indexerConfig;
   private final AstraConfigs.LuceneConfig luceneConfig;
@@ -124,6 +128,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       ListeningExecutorService rolloverExecutorService,
       AsyncCuratorFramework curatorFramework,
       Client etcdClient,
+      DynamoDbAsyncClient dynamoClient,
+      DynamoDbStreamsAsyncClient dynamoStreamsClient,
       SearchContext searchContext,
       AstraConfigs.IndexerConfig indexerConfig,
       AstraConfigs.LuceneConfig luceneConfig,
@@ -144,6 +150,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     this.rolloverFuture = null;
     this.curatorFramework = curatorFramework;
     this.etcdClient = etcdClient;
+    this.dynamoClient = dynamoClient;
+    this.dynamoStreamsClient = dynamoStreamsClient;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
     this.luceneConfig = luceneConfig;
@@ -396,7 +404,13 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
     searchMetadataStore =
         new SearchMetadataStore(
-            curatorFramework, etcdClient, metadataStoreConfig, meterRegistry, false);
+            curatorFramework,
+            etcdClient,
+            dynamoClient,
+            dynamoStreamsClient,
+            metadataStoreConfig,
+            meterRegistry,
+            false);
     snapshotMetadataStore =
         new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
 
@@ -457,6 +471,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       MeterRegistry meterRegistry,
       AsyncCuratorFramework curatorFramework,
       Client etcdClient,
+      DynamoDbAsyncClient dynamoClient,
+      DynamoDbStreamsAsyncClient dynamoStreamsClient,
       AstraConfigs.IndexerConfig indexerConfig,
       AstraConfigs.LuceneConfig luceneConfig,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
@@ -475,6 +491,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
         makeDefaultRollOverExecutor(),
         curatorFramework,
         etcdClient,
+        dynamoClient,
+        dynamoStreamsClient,
         SearchContext.fromConfig(indexerConfig.getServerConfig()),
         indexerConfig,
         luceneConfig,
