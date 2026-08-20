@@ -195,7 +195,58 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
             });
 
     if (shouldCache) {
-      initPartitionCache();
+      startPartitionWatch(
+          REVISION_LATEST,
+          new EtcdMetadataStore.WatchRetryState(
+              initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs));
+
+      ByteSequence storeFolderKey = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
+      etcdClient
+          .getKVClient()
+          .get(storeFolderKey, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
+          .thenComposeAsync(
+              getResponse -> {
+                if (getResponse.getKvs().isEmpty()) {
+                  // This is similar to KeeperException.NoNodeException in ZK
+                  // The storeFolder does not yet exist in etcd
+                  return CompletableFuture.completedFuture(List.<String>of());
+                } else {
+                  ByteSequence prefix =
+                      ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
+                  return etcdClient
+                      .getKVClient()
+                      .get(prefix, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
+                      .orTimeout(etcdConfig.getOperationsTimeoutMs(), TimeUnit.MILLISECONDS)
+                      .thenApplyAsync(
+                          childResponse -> {
+                            List<String> children = new ArrayList<>();
+                            childResponse
+                                .getKvs()
+                                .forEach(
+                                    kv -> {
+                                      String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
+                                      String partition = extractPartition(keyStr);
+                                      if (partition != null && !children.contains(partition)) {
+                                        children.add(partition);
+                                      }
+                                    });
+                            return children;
+                          });
+                }
+              })
+          .thenAcceptAsync(
+              (children) -> {
+                if (partitionFilters.isEmpty()) {
+                  children.forEach(this::getOrCreateMetadataStore);
+                } else {
+                  children.stream()
+                      .filter(partitionFilters::contains)
+                      .forEach(this::getOrCreateMetadataStore);
+                }
+              })
+          .toCompletableFuture()
+          // wait for all the stores to be initialized prior to exiting the constructor
+          .join();
     }
 
     if (partitionFilters.isEmpty()) {
@@ -210,22 +261,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           metadataStoreMap.size(),
           String.join(",", partitionFilters));
     }
-  }
-
-  /**
-   * Establishes the cluster-wide partition watch and scans etcd for existing partitions, creating a
-   * sub-store for each before the constructor returns. Only invoked when {@code shouldCache} is
-   * true; nodes that only register their own entry skip this entirely.
-   */
-  private void initPartitionCache() {
-    startPartitionWatch(
-        REVISION_LATEST,
-        new EtcdMetadataStore.WatchRetryState(
-            initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs));
-
-    // Watch is established first, so any partition created during the scan is picked up via an
-    // event rather than missed. Wait for all sub-stores to initialize prior to returning.
-    getPartitionsFromEtcd().forEach(this::getOrCreateMetadataStore);
   }
 
   /**
