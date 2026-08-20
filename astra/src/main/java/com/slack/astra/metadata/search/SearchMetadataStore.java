@@ -30,6 +30,8 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
       boolean shouldCache) {
     super(
         curatorFramework != null
+            // The ZK store intentionally ignores shouldCache and always builds the cluster-wide
+            // mirror; only the etcd path honors it, since ZK is legacy and being retired.
             ? new ZookeeperPartitioningMetadataStore<>(
                 curatorFramework,
                 metadataStoreConfig.getZookeeperConfig(),
@@ -45,7 +47,9 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
                 meterRegistry,
                 EtcdCreateMode.EPHEMERAL,
                 new SearchMetadataSerializer(),
-                SEARCH_PARTITIONED_METADATA_STORE_PATH)
+                SEARCH_PARTITIONED_METADATA_STORE_PATH,
+                List.of(),
+                shouldCache)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
             "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
