@@ -67,6 +67,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final EtcdCreateMode createMode;
   protected final MetadataSerializer<T> serializer;
   private final List<String> partitionFilters;
+  private final boolean shouldCache;
   private final AstraConfigs.EtcdConfig etcdConfig;
   private final MeterRegistry meterRegistry;
   private final Client etcdClient;
@@ -122,6 +123,41 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       MetadataSerializer<T> serializer,
       String storeFolder,
       List<String> partitionFilters) {
+    this(
+        etcdClient,
+        etcdConfig,
+        meterRegistry,
+        createMode,
+        serializer,
+        storeFolder,
+        partitionFilters,
+        true);
+  }
+
+  /**
+   * Constructor for EtcdPartitioningMetadataStore.
+   *
+   * @param etcdClient the etcd client
+   * @param etcdConfig the etcd configuration
+   * @param meterRegistry metrics registry
+   * @param createMode whether to create persistent or ephemeral nodes
+   * @param serializer serializer for the metadata type
+   * @param storeFolder the folder to store data in
+   * @param partitionFilters optional list of partition IDs to filter on
+   * @param shouldCache when false, skip cluster-wide partition discovery and watching and do not
+   *     cache per-partition data. Nodes that only register and remove their own entries (e.g.
+   *     cache, index, recovery) never read the global set, so they can avoid mirroring every
+   *     partition.
+   */
+  public EtcdPartitioningMetadataStore(
+      Client etcdClient,
+      AstraConfigs.EtcdConfig etcdConfig,
+      MeterRegistry meterRegistry,
+      EtcdCreateMode createMode,
+      MetadataSerializer<T> serializer,
+      String storeFolder,
+      List<String> partitionFilters,
+      boolean shouldCache) {
     this.etcdClient = etcdClient;
     this.watchClient = etcdClient.getWatchClient();
     this.storeFolder = storeFolder;
@@ -129,6 +165,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     this.createMode = createMode;
     this.serializer = serializer;
     this.partitionFilters = partitionFilters;
+    this.shouldCache = shouldCache;
     this.etcdConfig = etcdConfig;
     this.meterRegistry = meterRegistry;
     this.retryTotalDurationMs =
@@ -157,57 +194,60 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
               return t;
             });
 
-    startPartitionWatch(
-        REVISION_LATEST,
-        new EtcdMetadataStore.WatchRetryState(
-            initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs));
+    if (shouldCache) {
+      startPartitionWatch(
+          REVISION_LATEST,
+          new EtcdMetadataStore.WatchRetryState(
+              initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs));
 
-    ByteSequence storeFolderKey = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
-    etcdClient
-        .getKVClient()
-        .get(storeFolderKey, GetOption.builder().isPrefix(true).build())
-        .thenComposeAsync(
-            getResponse -> {
-              if (getResponse.getKvs().isEmpty()) {
-                // This is similar to KeeperException.NoNodeException in ZK
-                // The storeFolder does not yet exist in etcd
-                return CompletableFuture.completedFuture(List.<String>of());
-              } else {
-                ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
-                return etcdClient
-                    .getKVClient()
-                    .get(prefix, GetOption.builder().isPrefix(true).build())
-                    .orTimeout(etcdConfig.getOperationsTimeoutMs(), TimeUnit.MILLISECONDS)
-                    .thenApplyAsync(
-                        childResponse -> {
-                          List<String> children = new ArrayList<>();
-                          childResponse
-                              .getKvs()
-                              .forEach(
-                                  kv -> {
-                                    String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
-                                    String partition = extractPartition(keyStr);
-                                    if (partition != null && !children.contains(partition)) {
-                                      children.add(partition);
-                                    }
-                                  });
-                          return children;
-                        });
-              }
-            })
-        .thenAcceptAsync(
-            (children) -> {
-              if (partitionFilters.isEmpty()) {
-                children.forEach(this::getOrCreateMetadataStore);
-              } else {
-                children.stream()
-                    .filter(partitionFilters::contains)
-                    .forEach(this::getOrCreateMetadataStore);
-              }
-            })
-        .toCompletableFuture()
-        // wait for all the stores to be initialized prior to exiting the constructor
-        .join();
+      ByteSequence storeFolderKey = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
+      etcdClient
+          .getKVClient()
+          .get(storeFolderKey, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
+          .thenComposeAsync(
+              getResponse -> {
+                if (getResponse.getKvs().isEmpty()) {
+                  // This is similar to KeeperException.NoNodeException in ZK
+                  // The storeFolder does not yet exist in etcd
+                  return CompletableFuture.completedFuture(List.<String>of());
+                } else {
+                  ByteSequence prefix =
+                      ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
+                  return etcdClient
+                      .getKVClient()
+                      .get(prefix, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
+                      .orTimeout(etcdConfig.getOperationsTimeoutMs(), TimeUnit.MILLISECONDS)
+                      .thenApplyAsync(
+                          childResponse -> {
+                            List<String> children = new ArrayList<>();
+                            childResponse
+                                .getKvs()
+                                .forEach(
+                                    kv -> {
+                                      String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
+                                      String partition = extractPartition(keyStr);
+                                      if (partition != null && !children.contains(partition)) {
+                                        children.add(partition);
+                                      }
+                                    });
+                            return children;
+                          });
+                }
+              })
+          .thenAcceptAsync(
+              (children) -> {
+                if (partitionFilters.isEmpty()) {
+                  children.forEach(this::getOrCreateMetadataStore);
+                } else {
+                  children.stream()
+                      .filter(partitionFilters::contains)
+                      .forEach(this::getOrCreateMetadataStore);
+                }
+              })
+          .toCompletableFuture()
+          // wait for all the stores to be initialized prior to exiting the constructor
+          .join();
+    }
 
     if (partitionFilters.isEmpty()) {
       LOG.info(
@@ -819,7 +859,13 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
 
               EtcdMetadataStore<T> newStore =
                   new EtcdMetadataStore<>(
-                      path, etcdConfig, true, meterRegistry, serializer, createMode, etcdClient);
+                      path,
+                      etcdConfig,
+                      shouldCache,
+                      meterRegistry,
+                      serializer,
+                      createMode,
+                      etcdClient);
               listenerMap.forEach((_, listener) -> newStore.addListener(listener));
 
               created.set(true);

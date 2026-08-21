@@ -45,7 +45,9 @@ public class SearchMetadataStore extends AstraPartitioningMetadataStore<SearchMe
                 meterRegistry,
                 EtcdCreateMode.EPHEMERAL,
                 new SearchMetadataSerializer(),
-                SEARCH_PARTITIONED_METADATA_STORE_PATH)
+                SEARCH_PARTITIONED_METADATA_STORE_PATH,
+                List.of(),
+                shouldCache)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
             "SearchMetadataStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
