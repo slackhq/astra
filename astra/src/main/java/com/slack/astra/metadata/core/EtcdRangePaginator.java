@@ -18,13 +18,9 @@ import java.util.concurrent.TimeoutException;
  * order, each after the first pinned to the first page's revision for a consistent snapshot.
  */
 final class EtcdRangePaginator {
-  /** Sentinel meaning "read at the latest revision"; etcd treats revision 0 as latest. */
+  /** etcd treats revision 0 as latest. */
   private static final long REVISION_LATEST = 0;
-
-  /** Max entries per page. Protects the 4 MiB limit while per-entry size stays under ~8 KiB. */
   static final long DEFAULT_PAGE_SIZE = 500;
-
-  /** Single zero byte appended to a key to form the smallest key strictly greater than it. */
   private static final ByteSequence NEXT_KEY_SUFFIX = ByteSequence.from(new byte[] {0});
 
   private EtcdRangePaginator() {}
@@ -51,7 +47,7 @@ final class EtcdRangePaginator {
     return options.build();
   }
 
-  /** Reads every key/value under {@code prefix} synchronously, one page at a time. */
+  /** Reads every key/value under prefix synchronously, one page at a time. */
   static PaginatedRange listRange(
       KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs)
       throws InterruptedException, ExecutionException, TimeoutException {
@@ -77,7 +73,7 @@ final class EtcdRangePaginator {
     }
   }
 
-  /** Non-blocking variant of {@link #listRange}; pages are chained sequentially via futures. */
+  /** Non-blocking variant of listRange pages are chained sequentially via futures. */
   static CompletableFuture<PaginatedRange> listRangeAsync(
       KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs) {
     return fetchPageAsync(
