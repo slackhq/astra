@@ -20,6 +20,7 @@ import java.util.concurrent.TimeoutException;
 final class EtcdRangePaginator {
   /** etcd treats revision 0 as latest. */
   private static final long REVISION_LATEST = 0;
+
   static final long DEFAULT_PAGE_SIZE = 500;
   private static final ByteSequence NEXT_KEY_SUFFIX = ByteSequence.from(new byte[] {0});
 
