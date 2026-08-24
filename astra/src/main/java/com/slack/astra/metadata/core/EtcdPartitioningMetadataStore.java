@@ -8,7 +8,6 @@ import com.slack.astra.util.ExponentialBackOff;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.Watch;
-import io.etcd.jetcd.kv.GetResponse;
 import io.etcd.jetcd.options.GetOption;
 import io.etcd.jetcd.options.WatchOption;
 import io.etcd.jetcd.watch.WatchEvent;
@@ -200,53 +199,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           new EtcdMetadataStore.WatchRetryState(
               initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs));
 
-      ByteSequence storeFolderKey = ByteSequence.from(storeFolder, StandardCharsets.UTF_8);
-      etcdClient
-          .getKVClient()
-          .get(storeFolderKey, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
-          .thenComposeAsync(
-              getResponse -> {
-                if (getResponse.getKvs().isEmpty()) {
-                  // This is similar to KeeperException.NoNodeException in ZK
-                  // The storeFolder does not yet exist in etcd
-                  return CompletableFuture.completedFuture(List.<String>of());
-                } else {
-                  ByteSequence prefix =
-                      ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
-                  return etcdClient
-                      .getKVClient()
-                      .get(prefix, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
-                      .orTimeout(etcdConfig.getOperationsTimeoutMs(), TimeUnit.MILLISECONDS)
-                      .thenApplyAsync(
-                          childResponse -> {
-                            List<String> children = new ArrayList<>();
-                            childResponse
-                                .getKvs()
-                                .forEach(
-                                    kv -> {
-                                      String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
-                                      String partition = extractPartition(keyStr);
-                                      if (partition != null && !children.contains(partition)) {
-                                        children.add(partition);
-                                      }
-                                    });
-                            return children;
-                          });
-                }
-              })
-          .thenAcceptAsync(
-              (children) -> {
-                if (partitionFilters.isEmpty()) {
-                  children.forEach(this::getOrCreateMetadataStore);
-                } else {
-                  children.stream()
-                      .filter(partitionFilters::contains)
-                      .forEach(this::getOrCreateMetadataStore);
-                }
-              })
-          .toCompletableFuture()
-          // wait for all the stores to be initialized prior to exiting the constructor
-          .join();
+      // Discover existing partitions and initialize a store for each before exiting the
+      // constructor. Paginated and keys-only so a store with many partitions cannot overflow the
+      // gRPC inbound message size limit; getPartitionsFromEtcd already applies any partition
+      // filters and returns empty when the folder does not yet exist.
+      getPartitionsFromEtcd().forEach(this::getOrCreateMetadataStore);
     }
 
     if (partitionFilters.isEmpty()) {
@@ -285,12 +242,13 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       if (startRevision == REVISION_RESYNC) {
         currentRevision = resyncPartitionsFromEtcd();
       } else if (startRevision == REVISION_LATEST) {
+        // Only the header revision is needed here, so count-only avoids transferring any keys.
         currentRevision =
             etcdClient
                 .getKVClient()
                 .get(
                     storeFolderKey,
-                    GetOption.builder().withPrefix(storeFolderKey).withKeysOnly(true).build())
+                    GetOption.builder().withPrefix(storeFolderKey).withCountOnly(true).build())
                 .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS)
                 .getHeader()
                 .getRevision();
@@ -753,21 +711,20 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private Set<String> getPartitionsFromEtcd() {
     try {
       ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
-      GetResponse getResponse =
-          etcdClient
-              .getKVClient()
-              .get(prefix, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
-              .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-
-      return extractPartitionsFromResponse(getResponse);
+      // Paginated and keys-only so a store with many partitions cannot overflow the gRPC inbound
+      // message size limit.
+      return extractPartitions(
+          EtcdRangePaginator.listRange(
+                  etcdClient.getKVClient(), prefix, true, etcdConfig.getConnectionTimeoutMs())
+              .keyValues());
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching partitions from etcd", e);
     }
   }
 
-  private Set<String> extractPartitionsFromResponse(GetResponse getResponse) {
+  private Set<String> extractPartitions(List<io.etcd.jetcd.KeyValue> keyValues) {
     Set<String> partitions = new HashSet<>();
-    for (io.etcd.jetcd.KeyValue kv : getResponse.getKvs()) {
+    for (io.etcd.jetcd.KeyValue kv : keyValues) {
       String keyStr = kv.getKey().toString(StandardCharsets.UTF_8);
       String partition = extractPartition(keyStr);
       if (partition != null
@@ -787,15 +744,15 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private long resyncPartitionsFromEtcd()
       throws InterruptedException, ExecutionException, TimeoutException {
     ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
-    GetResponse getResponse =
-        etcdClient
-            .getKVClient()
-            .get(prefix, GetOption.builder().isPrefix(true).withKeysOnly(true).build())
-            .get(etcdConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
+    // Paginated and keys-only so a store with many partitions cannot overflow the gRPC inbound
+    // message size limit.
+    EtcdRangePaginator.PaginatedRange range =
+        EtcdRangePaginator.listRange(
+            etcdClient.getKVClient(), prefix, true, etcdConfig.getConnectionTimeoutMs());
 
-    long listRevision = getResponse.getHeader().getRevision();
+    long listRevision = range.revision();
 
-    Set<String> discoveredPartitions = extractPartitionsFromResponse(getResponse);
+    Set<String> discoveredPartitions = extractPartitions(range.keyValues());
     discoveredPartitions.forEach(this::getOrCreateMetadataStore);
 
     // Remove stores for partitions that no longer exist in etcd

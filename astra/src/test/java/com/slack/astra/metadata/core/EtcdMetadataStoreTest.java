@@ -787,7 +787,8 @@ public class EtcdMetadataStoreTest {
   @Test
   public void testListPaginationHandlesResponsesLargerThanInboundLimit() throws Exception {
     // ~1 KiB per value so the full range response (~1.1 MiB) exceeds the reader's 1 MiB inbound
-    // limit, while any single LIST_PAGE_SIZE (500) page stays comfortably under it.
+    // limit, while any single page (EtcdRangePaginator.DEFAULT_PAGE_SIZE = 500) stays comfortably
+    // under it.
     int entryCount = 1100;
     String data = "x".repeat(1024);
 
