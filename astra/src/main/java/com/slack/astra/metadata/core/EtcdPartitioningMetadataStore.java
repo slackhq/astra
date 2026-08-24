@@ -199,10 +199,9 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
           new EtcdMetadataStore.WatchRetryState(
               initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs));
 
-      // Discover existing partitions and initialize a store for each before exiting the
-      // constructor. Paginated and keys-only so a store with many partitions cannot overflow the
-      // gRPC inbound message size limit; getPartitionsFromEtcd already applies any partition
-      // filters and returns empty when the folder does not yet exist.
+      // Initialize a store for each existing partition before exiting the constructor.
+      // getPartitionsFromEtcd applies any partition filters and returns empty if the folder is
+      // absent.
       getPartitionsFromEtcd().forEach(this::getOrCreateMetadataStore);
     }
 
@@ -711,8 +710,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private Set<String> getPartitionsFromEtcd() {
     try {
       ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
-      // Paginated and keys-only so a store with many partitions cannot overflow the gRPC inbound
-      // message size limit.
       return extractPartitions(
           EtcdRangePaginator.listRange(
                   etcdClient.getKVClient(), prefix, true, etcdConfig.getConnectionTimeoutMs())
@@ -744,8 +741,6 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private long resyncPartitionsFromEtcd()
       throws InterruptedException, ExecutionException, TimeoutException {
     ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
-    // Paginated and keys-only so a store with many partitions cannot overflow the gRPC inbound
-    // message size limit.
     EtcdRangePaginator.PaginatedRange range =
         EtcdRangePaginator.listRange(
             etcdClient.getKVClient(), prefix, true, etcdConfig.getConnectionTimeoutMs());

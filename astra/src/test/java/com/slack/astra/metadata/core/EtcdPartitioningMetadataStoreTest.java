@@ -602,17 +602,14 @@ public class EtcdPartitioningMetadataStoreTest {
   }
 
   /**
-   * Regression test for the RESOURCE_EXHAUSTED failure that occurred when partition discovery read
-   * every key under the store folder in a single gRPC response larger than the client's inbound
-   * message size limit. Discovery is now paginated (and keys-only), so no single response can
-   * overflow the limit even though the store holds far more keys than one message can carry.
+   * Regression test: partition discovery used to read every key in one gRPC response, overflowing
+   * the inbound limit. It is now paginated, so a large store no longer triggers RESOURCE_EXHAUSTED.
    */
   @Test
   public void testPartitionDiscoveryPaginatesLargeKeyOnlyResponses() throws Exception {
-    // ~1 KiB per key (via long names) so the full keys-only range response (~1.1 MiB) exceeds the
-    // reader's 1 MiB inbound limit, while any single page (DEFAULT_PAGE_SIZE = 500) stays under it.
-    // Keys are spread across a handful of partitions so discovery reads many keys but only a few
-    // partition stores are created.
+    // ~1 KiB per key so the full response (~1.1 MiB) exceeds the reader's 1 MiB inbound limit while
+    // any single page (500 keys) stays under it. Spread over a few partitions to keep store count
+    // low.
     int entryCount = 1100;
     int partitionCount = 4;
     String pad = "x".repeat(1000);
@@ -642,9 +639,8 @@ public class EtcdPartitioningMetadataStoreTest {
             .setNamespace("test")
             .build();
 
-    // A reader whose inbound message size is smaller than the full keys-only response. Before
-    // pagination, the cache-enabled constructor's partition discovery failed with
-    // RESOURCE_EXHAUSTED on this client.
+    // Reader with an inbound limit smaller than the full response; discovery failed here before
+    // pagination.
     Client readerClient =
         Client.builder()
             .endpoints(

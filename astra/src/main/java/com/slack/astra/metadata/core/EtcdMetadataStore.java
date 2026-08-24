@@ -868,8 +868,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return CompletableFuture.completedFuture(cachedNodes);
     }
 
-    // Add a trailing slash to the folder to make sure we only list entries directly under this
-    // folder. Paginated so a large store cannot overflow the gRPC inbound message size limit.
+    // Add a trailing slash to the folder to make sure we only list entries directly under it.
     ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
 
     return EtcdRangePaginator.listRangeAsync(
@@ -1277,8 +1276,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private void populateInitialCache() {
     try {
       LOG.debug("Populating cache for store {}", storeFolder);
-      // Get only nodes from this store folder. Paginated so a large store cannot overflow the
-      // gRPC inbound message size limit.
+      // Get only nodes from this store folder.
       ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
       List<KeyValue> keyValues =
           EtcdRangePaginator.listRange(

@@ -779,16 +779,13 @@ public class EtcdMetadataStoreTest {
   }
 
   /**
-   * Regression test for the RESOURCE_EXHAUSTED failure that occurred when a full-folder range read
-   * returned a single gRPC response larger than the client's inbound message size limit.
-   * Full-folder reads are now paginated, so no single response can overflow the limit even though
-   * the store holds far more data than one message can carry.
+   * Regression test: a full-folder read used to return one gRPC response larger than the inbound
+   * limit. Reads are now paginated, so a large store no longer triggers RESOURCE_EXHAUSTED.
    */
   @Test
   public void testListPaginationHandlesResponsesLargerThanInboundLimit() throws Exception {
-    // ~1 KiB per value so the full range response (~1.1 MiB) exceeds the reader's 1 MiB inbound
-    // limit, while any single page (EtcdRangePaginator.DEFAULT_PAGE_SIZE = 500) stays comfortably
-    // under it.
+    // ~1 KiB per value so the full response (~1.1 MiB) exceeds the reader's 1 MiB inbound limit
+    // while any single page (500 entries) stays under it.
     int entryCount = 1100;
     String data = "x".repeat(1024);
 
