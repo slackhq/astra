@@ -6,6 +6,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.testlib.TestEtcdClusterFactory;
+import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.ClientBuilder;
 import io.etcd.jetcd.launcher.EtcdCluster;
@@ -14,7 +15,9 @@ import io.grpc.StatusRuntimeException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -773,5 +776,82 @@ public class EtcdMetadataStoreTest {
 
     assertThat(EtcdMetadataStore.isCompactionError(new RuntimeException("connection refused")))
         .isFalse();
+  }
+
+  /**
+   * Regression test for the RESOURCE_EXHAUSTED failure that occurred when a full-folder range read
+   * returned a single gRPC response larger than the client's inbound message size limit.
+   * Full-folder reads are now paginated, so no single response can overflow the limit even though
+   * the store holds far more data than one message can carry.
+   */
+  @Test
+  public void testListPaginationHandlesResponsesLargerThanInboundLimit() throws Exception {
+    // ~1 KiB per value so the full range response (~1.1 MiB) exceeds the reader's 1 MiB inbound
+    // limit, while any single LIST_PAGE_SIZE (500) page stays comfortably under it.
+    int entryCount = 1100;
+    String data = "x".repeat(1024);
+
+    // Write via the default (large-limit) client. Names are zero-padded so key order is
+    // deterministic across page boundaries.
+    List<CompletableFuture<String>> creates = new ArrayList<>();
+    for (int i = 0; i < entryCount; i++) {
+      creates.add(
+          store
+              .createAsync(new TestMetadata(String.format("node-%05d", i), data))
+              .toCompletableFuture());
+    }
+    CompletableFuture.allOf(creates.toArray(new CompletableFuture[0])).get(60, TimeUnit.SECONDS);
+
+    AstraConfigs.EtcdConfig readerConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(10000)
+            .setRetryDelayMs(100)
+            .setNamespace("test")
+            .setEphemeralNodeTtlMs(3000)
+            .setEphemeralNodeMaxRetries(3)
+            .build();
+
+    // A reader whose inbound message size is smaller than the full range response. Before
+    // pagination, any full-folder read on this client failed with RESOURCE_EXHAUSTED.
+    Client readerClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", StandardCharsets.UTF_8))
+            .maxInboundMessageSize(1024 * 1024)
+            .build();
+
+    EtcdMetadataStore<TestMetadata> uncachedReader = null;
+    EtcdMetadataStore<TestMetadata> cachedReader = null;
+    try {
+      // cache disabled -> listSyncUncached()/listSync() page directly against etcd.
+      uncachedReader =
+          new EtcdMetadataStore<>(
+              "/test", readerConfig, false, meterRegistry, serializer, readerClient);
+
+      List<TestMetadata> uncached = uncachedReader.listSyncUncached();
+      assertThat(uncached).hasSize(entryCount);
+      assertThat(uncached.stream().map(TestMetadata::getName).distinct().count())
+          .isEqualTo(entryCount);
+      assertThat(uncachedReader.listSync()).hasSize(entryCount);
+
+      // cache enabled -> exercises the paginated populateInitialCache path (the query node path).
+      cachedReader =
+          new EtcdMetadataStore<>(
+              "/test", readerConfig, true, meterRegistry, serializer, readerClient);
+      assertThat(cachedReader.listSync()).hasSize(entryCount);
+    } finally {
+      if (uncachedReader != null) {
+        uncachedReader.close();
+      }
+      if (cachedReader != null) {
+        cachedReader.close();
+      }
+      readerClient.close();
+    }
   }
 }

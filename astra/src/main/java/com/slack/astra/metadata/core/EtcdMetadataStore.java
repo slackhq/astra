@@ -106,6 +106,17 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   static final long DEFAULT_MAX_RETRY_DELAY_MS = 10_000;
   static final long DEFAULT_INITIAL_RETRY_INTERVAL_MS = 2_000;
 
+  /**
+   * Maximum number of entries fetched per etcd range request. Full-folder reads are paginated so
+   * that no single gRPC response can exceed the client's inbound message size limit (4 MiB by
+   * default). A single unbounded range read over a large store previously overflowed this limit and
+   * failed with {@code RESOURCE_EXHAUSTED} (e.g. the query node loading the search metadata cache).
+   */
+  private static final long LIST_PAGE_SIZE = 500;
+
+  /** Single zero byte appended to a key to form the smallest key strictly greater than it. */
+  private static final ByteSequence NEXT_KEY_SUFFIX = ByteSequence.from(new byte[] {0});
+
   private static volatile FatalErrorHandler fatalErrorHandler = new RuntimeHalterImpl();
 
   static void setFatalErrorHandler(FatalErrorHandler handler) {
@@ -870,19 +881,15 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
 
     // Add a trailing slash to the folder to make sure we only list entries directly under this
-    // folder
+    // folder. Paginated so a large store cannot overflow the gRPC inbound message size limit.
     ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-    GetOption getOption = GetOption.builder().withPrefix(prefix).build();
 
-    return etcdClient
-        .getKVClient()
-        .get(prefix, getOption)
-        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
+    return listRangePaginatedAsync(prefix)
         .thenApplyAsync(
-            getResponse -> {
+            keyValues -> {
               List<T> nodes = new ArrayList<>();
 
-              for (KeyValue kv : getResponse.getKvs()) {
+              for (KeyValue kv : keyValues) {
                 try {
                   String json = kv.getValue().toString(StandardCharsets.UTF_8);
                   T node = serializer.fromJsonStr(json);
@@ -937,19 +944,13 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     try {
       // Add a trailing slash to the folder to make sure we only list entries directly under this
-      // folder
+      // folder. Paginated so a large store cannot overflow the gRPC inbound message size limit.
       ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-      GetOption getOption = GetOption.builder().withPrefix(prefix).build();
-
-      GetResponse getResponse =
-          etcdClient
-              .getKVClient()
-              .get(prefix, getOption)
-              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+      List<KeyValue> keyValues = listRangePaginated(prefix).keyValues();
 
       List<T> nodes = new ArrayList<>();
 
-      for (KeyValue kv : getResponse.getKvs()) {
+      for (KeyValue kv : keyValues) {
         try {
           String json = kv.getValue().toString(StandardCharsets.UTF_8);
           T node = serializer.fromJsonStr(json);
@@ -1279,22 +1280,117 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
   }
 
+  /**
+   * The key/values read under a folder prefix, together with the etcd revision the read was pinned
+   * to. All pages of a paginated read share a single revision so the aggregate is a consistent
+   * point-in-time snapshot.
+   */
+  private record PaginatedRange(List<KeyValue> keyValues, long revision) {}
+
+  /**
+   * Appends a single zero byte to a key to produce the smallest key strictly greater than it. Used
+   * to advance a range read past the last key of the previous page without skipping or repeating
+   * any key.
+   */
+  private static ByteSequence nextKey(ByteSequence key) {
+    return key.concat(NEXT_KEY_SUFFIX);
+  }
+
+  /**
+   * Builds the {@link GetOption} for a single page of a paginated range read: key-ascending order,
+   * bounded to {@link #LIST_PAGE_SIZE} entries. When {@code revision} is past {@link
+   * #REVISION_LATEST} the read is pinned to that revision so every page observes one consistent
+   * snapshot.
+   */
+  private static GetOption pageOption(ByteSequence prefix, long revision) {
+    GetOption.Builder options =
+        GetOption.builder()
+            .withPrefix(prefix)
+            .withLimit(LIST_PAGE_SIZE)
+            .withSortField(GetOption.SortTarget.KEY)
+            .withSortOrder(GetOption.SortOrder.ASCEND);
+    if (revision > REVISION_LATEST) {
+      options.withRevision(revision);
+    }
+    return options.build();
+  }
+
+  /**
+   * Reads every key/value under {@code prefix} synchronously, paging the range request so no single
+   * etcd response can exceed the gRPC inbound message size limit. Each page is individually bounded
+   * by the operation timeout, and every page after the first is pinned to the revision of the first
+   * page so the returned set is a consistent snapshot.
+   *
+   * @param prefix the folder prefix (including any trailing slash) to range over
+   * @return the aggregated key/values and the revision they were read at
+   */
+  private PaginatedRange listRangePaginated(ByteSequence prefix)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    List<KeyValue> keyValues = new ArrayList<>();
+    ByteSequence fromKey = prefix;
+    long revision = REVISION_LATEST;
+    while (true) {
+      GetResponse response =
+          etcdClient
+              .getKVClient()
+              .get(fromKey, pageOption(prefix, revision))
+              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+
+      List<KeyValue> page = response.getKvs();
+      keyValues.addAll(page);
+      if (revision == REVISION_LATEST) {
+        revision = response.getHeader().getRevision();
+      }
+
+      if (!response.isMore() || page.isEmpty()) {
+        return new PaginatedRange(keyValues, revision);
+      }
+      fromKey = nextKey(page.get(page.size() - 1).getKey());
+    }
+  }
+
+  /**
+   * Asynchronous, non-blocking variant of {@link #listRangePaginated} used by {@link #listAsync()}.
+   * Pages are fetched sequentially by chaining futures; each page is bounded by the operation
+   * timeout and pinned to the revision of the first page.
+   */
+  private CompletableFuture<List<KeyValue>> listRangePaginatedAsync(ByteSequence prefix) {
+    return fetchPageAsync(prefix, prefix, REVISION_LATEST, new ArrayList<>());
+  }
+
+  private CompletableFuture<List<KeyValue>> fetchPageAsync(
+      ByteSequence prefix, ByteSequence fromKey, long pinnedRevision, List<KeyValue> keyValues) {
+    return etcdClient
+        .getKVClient()
+        .get(fromKey, pageOption(prefix, pinnedRevision))
+        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
+        .thenCompose(
+            response -> {
+              List<KeyValue> page = response.getKvs();
+              keyValues.addAll(page);
+              long revision =
+                  pinnedRevision > REVISION_LATEST
+                      ? pinnedRevision
+                      : response.getHeader().getRevision();
+              if (!response.isMore() || page.isEmpty()) {
+                return CompletableFuture.completedFuture(keyValues);
+              }
+              return fetchPageAsync(
+                  prefix, nextKey(page.get(page.size() - 1).getKey()), revision, keyValues);
+            });
+  }
+
   /** Populates the cache with all nodes from etcd. This is called once during initialization. */
   private void populateInitialCache() {
     try {
       LOG.debug("Populating cache for store {}", storeFolder);
-      // Get only nodes from this store folder
+      // Get only nodes from this store folder. Paginated so a large store cannot overflow the
+      // gRPC inbound message size limit.
       ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-      GetOption getOption = GetOption.builder().withPrefix(prefix).build();
-
-      GetResponse getResponse =
-          etcdClient
-              .getKVClient()
-              .get(prefix, getOption)
-              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+      List<KeyValue> keyValues = listRangePaginated(prefix).keyValues();
 
       // Filter for only direct children of the store folder
-      for (KeyValue kv : getResponse.getKvs()) {
+      for (KeyValue kv : keyValues) {
         // Check for interruption on each iteration
         if (Thread.currentThread().isInterrupted()) {
           LOG.info(
@@ -1358,18 +1454,14 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private long resyncCacheFromEtcd(AstraMetadataStoreChangeListener<T> listener)
       throws InterruptedException, ExecutionException, TimeoutException {
     ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-    GetResponse getResponse =
-        etcdClient
-            .getKVClient()
-            .get(prefix, GetOption.builder().withPrefix(prefix).build())
-            .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+    PaginatedRange range = listRangePaginated(prefix);
 
-    long listRevision = getResponse.getHeader().getRevision();
+    long listRevision = range.revision();
 
     // Build the new state from etcd and collect names for delete detection
     Set<String> newKeys = new HashSet<>();
     List<T> newNodes = new ArrayList<>();
-    for (KeyValue kv : getResponse.getKvs()) {
+    for (KeyValue kv : range.keyValues()) {
       if (isDirectChild(kv.getKey())) {
         try {
           String json = kv.getValue().toString(StandardCharsets.UTF_8);
