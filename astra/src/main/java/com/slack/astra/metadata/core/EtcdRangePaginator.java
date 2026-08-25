@@ -3,10 +3,12 @@ package com.slack.astra.metadata.core;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.KV;
 import io.etcd.jetcd.KeyValue;
+import io.etcd.jetcd.kv.GetResponse;
 import io.etcd.jetcd.options.GetOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -52,51 +54,47 @@ final class EtcdRangePaginator {
     return options.build();
   }
 
-  /** Reads every key/value under prefix synchronously by blocking on {@link #listRangeAsync}. */
+  /** Reads every key/value under prefix, paging until etcd reports no more keys. */
   static PaginatedRange listRange(
       KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs)
       throws InterruptedException, ExecutionException, TimeoutException {
-    return listRangeAsync(kvClient, prefix, keysOnly, timeoutMs)
-        .get(timeoutMs, TimeUnit.MILLISECONDS);
+    List<KeyValue> keyValues = new ArrayList<>();
+    ByteSequence fromKey = prefix;
+    long revision = REVISION_LATEST;
+    GetResponse response;
+    do {
+      response =
+          kvClient
+              .get(fromKey, pageOption(prefix, keysOnly, revision))
+              .get(timeoutMs, TimeUnit.MILLISECONDS);
+
+      List<KeyValue> page = response.getKvs();
+      keyValues.addAll(page);
+      // Pin every page after the first to the first page's revision for a consistent snapshot.
+      if (revision == REVISION_LATEST) {
+        revision = response.getHeader().getRevision();
+      }
+      // Advance past this page; guard against an empty page before indexing into it.
+      if (!page.isEmpty()) {
+        fromKey = page.get(page.size() - 1).getKey().concat(NEXT_KEY_SUFFIX);
+      }
+    } while (response.isMore() && !response.getKvs().isEmpty());
+    return new PaginatedRange(keyValues, revision);
   }
 
-  /** Non-blocking variant of listRange pages are chained sequentially via futures. */
+  /** Non-blocking variant that runs {@link #listRange} on the common pool. */
   static CompletableFuture<PaginatedRange> listRangeAsync(
       KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs) {
-    return fetchPageAsync(
-        kvClient, prefix, prefix, keysOnly, timeoutMs, REVISION_LATEST, new ArrayList<>());
-  }
-
-  private static CompletableFuture<PaginatedRange> fetchPageAsync(
-      KV kvClient,
-      ByteSequence prefix,
-      ByteSequence fromKey,
-      boolean keysOnly,
-      long timeoutMs,
-      long pinnedRevision,
-      List<KeyValue> keyValues) {
-    return kvClient
-        .get(fromKey, pageOption(prefix, keysOnly, pinnedRevision))
-        .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-        .thenCompose(
-            response -> {
-              List<KeyValue> page = response.getKvs();
-              keyValues.addAll(page);
-              long revision =
-                  pinnedRevision > REVISION_LATEST
-                      ? pinnedRevision
-                      : response.getHeader().getRevision();
-              if (!response.isMore() || page.isEmpty()) {
-                return CompletableFuture.completedFuture(new PaginatedRange(keyValues, revision));
-              }
-              return fetchPageAsync(
-                  kvClient,
-                  prefix,
-                  page.get(page.size() - 1).getKey().concat(NEXT_KEY_SUFFIX),
-                  keysOnly,
-                  timeoutMs,
-                  revision,
-                  keyValues);
-            });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            return listRange(kvClient, prefix, keysOnly, timeoutMs);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CompletionException(e);
+          } catch (ExecutionException | TimeoutException e) {
+            throw new CompletionException(e);
+          }
+        });
   }
 }
