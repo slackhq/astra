@@ -3,7 +3,6 @@ package com.slack.astra.metadata.core;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.KV;
 import io.etcd.jetcd.KeyValue;
-import io.etcd.jetcd.kv.GetResponse;
 import io.etcd.jetcd.options.GetOption;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,17 +21,22 @@ final class EtcdRangePaginator {
   private static final long REVISION_LATEST = 0;
 
   static final long DEFAULT_PAGE_SIZE = 500;
+
+  /**
+   * Appended to a page's last key to resume the next page. etcd keys are byte strings sorted in
+   * lexical byte order, and a range read's start key is inclusive, so resuming from {@code lastKey
+   * + \0} — the smallest key that sorts after {@code lastKey} — reads the next key without
+   * repeating the last one. See the etcd data model for key ordering
+   * (https://etcd.io/docs/v3.5/learning/data_model/); the {@code lastKey + "\x00"} resume pattern
+   * matches the Kubernetes apiserver etcd3 store
+   * (https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/storage/etcd3/store.go).
+   */
   private static final ByteSequence NEXT_KEY_SUFFIX = ByteSequence.from(new byte[] {0});
 
   private EtcdRangePaginator() {}
 
   /** The key/values read under a prefix, with the revision the read was pinned to. */
   record PaginatedRange(List<KeyValue> keyValues, long revision) {}
-
-  /** Smallest key strictly greater than {@code key}, used to advance past the previous page. */
-  private static ByteSequence nextKey(ByteSequence key) {
-    return key.concat(NEXT_KEY_SUFFIX);
-  }
 
   private static GetOption pageOption(ByteSequence prefix, boolean keysOnly, long revision) {
     GetOption.Builder options =
@@ -48,30 +52,12 @@ final class EtcdRangePaginator {
     return options.build();
   }
 
-  /** Reads every key/value under prefix synchronously, one page at a time. */
+  /** Reads every key/value under prefix synchronously by blocking on {@link #listRangeAsync}. */
   static PaginatedRange listRange(
       KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs)
       throws InterruptedException, ExecutionException, TimeoutException {
-    List<KeyValue> keyValues = new ArrayList<>();
-    ByteSequence fromKey = prefix;
-    long revision = REVISION_LATEST;
-    while (true) {
-      GetResponse response =
-          kvClient
-              .get(fromKey, pageOption(prefix, keysOnly, revision))
-              .get(timeoutMs, TimeUnit.MILLISECONDS);
-
-      List<KeyValue> page = response.getKvs();
-      keyValues.addAll(page);
-      if (revision == REVISION_LATEST) {
-        revision = response.getHeader().getRevision();
-      }
-
-      if (!response.isMore() || page.isEmpty()) {
-        return new PaginatedRange(keyValues, revision);
-      }
-      fromKey = nextKey(page.get(page.size() - 1).getKey());
-    }
+    return listRangeAsync(kvClient, prefix, keysOnly, timeoutMs)
+        .get(timeoutMs, TimeUnit.MILLISECONDS);
   }
 
   /** Non-blocking variant of listRange pages are chained sequentially via futures. */
@@ -106,7 +92,7 @@ final class EtcdRangePaginator {
               return fetchPageAsync(
                   kvClient,
                   prefix,
-                  nextKey(page.get(page.size() - 1).getKey()),
+                  page.get(page.size() - 1).getKey().concat(NEXT_KEY_SUFFIX),
                   keysOnly,
                   timeoutMs,
                   revision,
