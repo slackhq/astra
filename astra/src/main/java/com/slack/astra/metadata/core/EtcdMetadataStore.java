@@ -9,7 +9,6 @@ import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.KeyValue;
 import io.etcd.jetcd.Watch.Watcher;
-import io.etcd.jetcd.kv.GetResponse;
 import io.etcd.jetcd.lease.LeaseKeepAliveResponse;
 import io.etcd.jetcd.options.GetOption;
 import io.etcd.jetcd.options.PutOption;
@@ -869,20 +868,16 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return CompletableFuture.completedFuture(cachedNodes);
     }
 
-    // Add a trailing slash to the folder to make sure we only list entries directly under this
-    // folder
+    // Add a trailing slash to the folder to make sure we only list entries directly under it.
     ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-    GetOption getOption = GetOption.builder().withPrefix(prefix).build();
 
-    return etcdClient
-        .getKVClient()
-        .get(prefix, getOption)
-        .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
+    return EtcdRangePaginator.listRangeAsync(
+            etcdClient.getKVClient(), prefix, false, etcdOperationTimeoutMs)
         .thenApplyAsync(
-            getResponse -> {
+            range -> {
               List<T> nodes = new ArrayList<>();
 
-              for (KeyValue kv : getResponse.getKvs()) {
+              for (KeyValue kv : range.keyValues()) {
                 try {
                   String json = kv.getValue().toString(StandardCharsets.UTF_8);
                   T node = serializer.fromJsonStr(json);
@@ -937,19 +932,16 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     try {
       // Add a trailing slash to the folder to make sure we only list entries directly under this
-      // folder
+      // folder. Paginated so a large store cannot overflow the gRPC inbound message size limit.
       ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-      GetOption getOption = GetOption.builder().withPrefix(prefix).build();
-
-      GetResponse getResponse =
-          etcdClient
-              .getKVClient()
-              .get(prefix, getOption)
-              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+      List<KeyValue> keyValues =
+          EtcdRangePaginator.listRange(
+                  etcdClient.getKVClient(), prefix, false, etcdOperationTimeoutMs)
+              .keyValues();
 
       List<T> nodes = new ArrayList<>();
 
-      for (KeyValue kv : getResponse.getKvs()) {
+      for (KeyValue kv : keyValues) {
         try {
           String json = kv.getValue().toString(StandardCharsets.UTF_8);
           T node = serializer.fromJsonStr(json);
@@ -1046,10 +1038,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       if (startRevision == REVISION_RESYNC) {
         currentRevision = resyncCacheFromEtcd(listener);
       } else if (startRevision == REVISION_LATEST) {
+        // Only the header revision is needed here, so count-only avoids transferring any keys.
         currentRevision =
             etcdClient
                 .getKVClient()
-                .get(prefix, GetOption.builder().withPrefix(prefix).withKeysOnly(true).build())
+                .get(prefix, GetOption.builder().withPrefix(prefix).withCountOnly(true).build())
                 .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
                 .getHeader()
                 .getRevision();
@@ -1283,18 +1276,15 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private void populateInitialCache() {
     try {
       LOG.debug("Populating cache for store {}", storeFolder);
-      // Get only nodes from this store folder
+      // Get only nodes from this store folder.
       ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-      GetOption getOption = GetOption.builder().withPrefix(prefix).build();
-
-      GetResponse getResponse =
-          etcdClient
-              .getKVClient()
-              .get(prefix, getOption)
-              .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+      List<KeyValue> keyValues =
+          EtcdRangePaginator.listRange(
+                  etcdClient.getKVClient(), prefix, false, etcdOperationTimeoutMs)
+              .keyValues();
 
       // Filter for only direct children of the store folder
-      for (KeyValue kv : getResponse.getKvs()) {
+      for (KeyValue kv : keyValues) {
         // Check for interruption on each iteration
         if (Thread.currentThread().isInterrupted()) {
           LOG.info(
@@ -1358,18 +1348,16 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private long resyncCacheFromEtcd(AstraMetadataStoreChangeListener<T> listener)
       throws InterruptedException, ExecutionException, TimeoutException {
     ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
-    GetResponse getResponse =
-        etcdClient
-            .getKVClient()
-            .get(prefix, GetOption.builder().withPrefix(prefix).build())
-            .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS);
+    EtcdRangePaginator.PaginatedRange range =
+        EtcdRangePaginator.listRange(
+            etcdClient.getKVClient(), prefix, false, etcdOperationTimeoutMs);
 
-    long listRevision = getResponse.getHeader().getRevision();
+    long listRevision = range.revision();
 
     // Build the new state from etcd and collect names for delete detection
     Set<String> newKeys = new HashSet<>();
     List<T> newNodes = new ArrayList<>();
-    for (KeyValue kv : getResponse.getKvs()) {
+    for (KeyValue kv : range.keyValues()) {
       if (isDirectChild(kv.getKey())) {
         try {
           String json = kv.getValue().toString(StandardCharsets.UTF_8);

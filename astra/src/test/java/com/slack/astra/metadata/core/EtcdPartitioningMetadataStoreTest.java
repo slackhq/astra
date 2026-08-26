@@ -14,8 +14,10 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -596,6 +598,73 @@ public class EtcdPartitioningMetadataStoreTest {
       assertThat(result.getData()).isEqualTo("new-data");
 
       assertThat(fatalHandler.getCount()).isEqualTo(0);
+    }
+  }
+
+  /**
+   * Regression test: partition discovery used to read every key in one gRPC response, overflowing
+   * the inbound limit. It is now paginated, so a large store no longer triggers RESOURCE_EXHAUSTED.
+   */
+  @Test
+  public void testPartitionDiscoveryPaginatesLargeKeyOnlyResponses() throws Exception {
+    // ~1 KiB per key so the full response (~1.1 MiB) exceeds the reader's 1 MiB inbound limit while
+    // any single page (500 keys) stays under it. Spread over a few partitions to keep store count
+    // low.
+    int entryCount = 1100;
+    int partitionCount = 4;
+    String pad = "x".repeat(1000);
+
+    List<CompletableFuture<String>> creates = new ArrayList<>();
+    for (int i = 0; i < entryCount; i++) {
+      String partition = "partition-" + (i % partitionCount);
+      String name = String.format("node-%05d-", i) + pad;
+      creates.add(
+          store
+              .createAsync(new TestPartitionedMetadata(name, partition, "d"))
+              .toCompletableFuture());
+    }
+    CompletableFuture.allOf(creates.toArray(new CompletableFuture[0])).get(60, TimeUnit.SECONDS);
+
+    AstraConfigs.EtcdConfig readerConfig =
+        AstraConfigs.EtcdConfig.newBuilder()
+            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+            .setConnectionTimeoutMs(5000)
+            .setKeepaliveTimeoutMs(3000)
+            .setOperationsMaxRetries(3)
+            .setOperationsTimeoutMs(10000)
+            .setRetryDelayMs(100)
+            .setRetryTotalDurationMs(5000)
+            .setMaxRetryDelayMs(1000)
+            .setInitialRetryIntervalMs(100)
+            .setNamespace("test")
+            .build();
+
+    // Reader with an inbound limit smaller than the full response; discovery failed here before
+    // pagination.
+    Client readerClient =
+        Client.builder()
+            .endpoints(
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", StandardCharsets.UTF_8))
+            .maxInboundMessageSize(1024 * 1024)
+            .build();
+
+    try (EtcdPartitioningMetadataStore<TestPartitionedMetadata> reader =
+        new EtcdPartitioningMetadataStore<>(
+            readerClient,
+            readerConfig,
+            meterRegistry,
+            EtcdCreateMode.PERSISTENT,
+            serializer,
+            "/test")) {
+      reader.awaitCacheInitialized();
+
+      for (int p = 0; p < partitionCount; p++) {
+        assertThat(reader.hasPartition("partition-" + p)).isTrue();
+      }
+      assertThat(reader.listSync()).hasSize(entryCount);
+    } finally {
+      readerClient.close();
     }
   }
 }
