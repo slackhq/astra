@@ -12,8 +12,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Pages are read in ascending key order, each after the first pinned to the first
- * page's revision for a consistent snapshot.
+ * Pages are read in ascending key order, each after the first pinned to the first page's revision
+ * for a consistent snapshot.
  */
 final class EtcdRangePaginator {
   /** etcd treats revision 0 as latest. */
