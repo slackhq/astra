@@ -199,7 +199,9 @@ public class ElasticsearchApiService {
         OpenSearchInternalAggregation.fromByteArray(byteInput.toByteArray());
     if (internalAggregations != null) {
       XContentBuilder builder = XContentFactory.jsonBuilder();
+      builder.startObject();
       internalAggregations.toXContent(builder, ToXContent.EMPTY_PARAMS);
+      builder.endObject();
       return objectMapper.readTree(builder.toString());
     }
     return null;
