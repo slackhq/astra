@@ -42,6 +42,9 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -195,7 +198,11 @@ public class ElasticsearchApiService {
     InternalAggregation internalAggregations =
         OpenSearchInternalAggregation.fromByteArray(byteInput.toByteArray());
     if (internalAggregations != null) {
-      return objectMapper.readTree(internalAggregations.toString());
+      XContentBuilder builder = XContentFactory.jsonBuilder();
+      builder.startObject();
+      internalAggregations.toXContent(builder, ToXContent.EMPTY_PARAMS);
+      builder.endObject();
+      return objectMapper.readTree(builder.toString());
     }
     return null;
   }
