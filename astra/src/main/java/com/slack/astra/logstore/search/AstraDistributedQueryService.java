@@ -811,6 +811,9 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                                       getStub(searchNode.getKey());
 
                                   if (stub == null) {
+                                    LOG.warn(
+                                        "No stub available for schema node '{}'; skipping",
+                                        searchNode.getKey());
                                     return null;
                                   }
 
@@ -819,14 +822,24 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
                                           .addAllChunkIds(searchNode.getValue())
                                           .build();
 
-                                  return stub.withDeadlineAfter(
-                                          SCHEMA_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                                      .withInterceptors(
-                                          GrpcTracing.newBuilder(Tracing.current())
-                                              .build()
-                                              .newClientInterceptor())
-                                      .schema(localSearchReq)
-                                      .get();
+                                  try {
+                                    return stub.withDeadlineAfter(
+                                            SCHEMA_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                                        .withInterceptors(
+                                            GrpcTracing.newBuilder(Tracing.current())
+                                                .build()
+                                                .newClientInterceptor())
+                                        .schema(localSearchReq)
+                                        .get();
+                                  } catch (Exception e) {
+                                    // Naming the node here is what lets an unhealthy replica be
+                                    // identified when schema fetches start degrading.
+                                    LOG.warn(
+                                        "Schema fetch from node '{}' failed",
+                                        searchNode.getKey(),
+                                        e);
+                                    throw e;
+                                  }
                                 })))
                 .toList();
 
@@ -838,20 +851,37 @@ public class AstraDistributedQueryService extends AstraQueryServiceBase implemen
         }
 
         AstraSearch.SchemaResult.Builder schemaBuilder = AstraSearch.SchemaResult.newBuilder();
+        int succeededNodes = 0;
+        int failedNodes = 0;
         for (StructuredTaskScope.Subtask<AstraSearch.SchemaResult> schemaResult : searchSubtasks) {
           try {
             if (schemaResult.state().equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
               if (schemaResult.get() != null) {
+                succeededNodes++;
                 schemaBuilder.putAllFieldDefinition(schemaResult.get().getFieldDefinitionMap());
               } else {
+                failedNodes++;
                 LOG.error("Schema result was unexpectedly null {}", schemaResult);
               }
             } else {
+              failedNodes++;
               LOG.error("Schema query result state was not success {}", schemaResult);
             }
           } catch (Exception e) {
+            failedNodes++;
             LOG.error("Error fetching search result", e);
           }
+        }
+
+        // A partial schema (some nodes failed or timed out) is returned rather than thrown, so
+        // without this summary the degradation is invisible. It also bounds how incomplete the
+        // resulting mapping may be.
+        if (failedNodes > 0) {
+          LOG.warn(
+              "Schema fetch completed with {}/{} nodes responding; {} failed or timed out",
+              succeededNodes,
+              succeededNodes + failedNodes,
+              failedNodes);
         }
         return schemaBuilder.build();
       }
