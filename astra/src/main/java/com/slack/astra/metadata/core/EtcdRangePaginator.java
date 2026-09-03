@@ -19,7 +19,7 @@ final class EtcdRangePaginator {
   /** etcd treats revision 0 as latest. */
   private static final long REVISION_LATEST = 0;
 
-  static final long DEFAULT_PAGE_SIZE = 500;
+  static final long DEFAULT_PAGE_SIZE = 10000;
 
   /**
    * Appended to a page's last key to resume the next page. etcd keys are byte strings sorted in
