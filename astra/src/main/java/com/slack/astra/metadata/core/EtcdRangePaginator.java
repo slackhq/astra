@@ -37,11 +37,12 @@ final class EtcdRangePaginator {
   /** The key/values read under a prefix, with the revision the read was pinned to. */
   record PaginatedRange(List<KeyValue> keyValues, long revision) {}
 
-  private static GetOption pageOption(ByteSequence prefix, boolean keysOnly, long revision) {
+  private static GetOption pageOption(
+      ByteSequence prefix, boolean keysOnly, long revision, long pageSize) {
     GetOption.Builder options =
         GetOption.builder()
             .withPrefix(prefix)
-            .withLimit(DEFAULT_PAGE_SIZE)
+            .withLimit(pageSize)
             .withSortField(GetOption.SortTarget.KEY)
             .withSortOrder(GetOption.SortOrder.ASCEND)
             .withKeysOnly(keysOnly);
@@ -52,9 +53,16 @@ final class EtcdRangePaginator {
   }
 
   static CompletableFuture<PaginatedRange> listRangeAsync(
-      KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs) {
+      KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs, long pageSize) {
     return fetchPage(
-        kvClient, prefix, prefix, keysOnly, timeoutMs, REVISION_LATEST, new ArrayList<>());
+        kvClient,
+        prefix,
+        prefix,
+        keysOnly,
+        timeoutMs,
+        pageSize,
+        REVISION_LATEST,
+        new ArrayList<>());
   }
 
   private static CompletableFuture<PaginatedRange> fetchPage(
@@ -63,10 +71,11 @@ final class EtcdRangePaginator {
       ByteSequence fromKey,
       boolean keysOnly,
       long timeoutMs,
+      long pageSize,
       long pinnedRevision,
       List<KeyValue> keyValues) {
     return kvClient
-        .get(fromKey, pageOption(prefix, keysOnly, pinnedRevision))
+        .get(fromKey, pageOption(prefix, keysOnly, pinnedRevision, pageSize))
         .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
         .thenCompose(
             response -> {
@@ -84,14 +93,15 @@ final class EtcdRangePaginator {
               }
 
               ByteSequence nextKey = page.get(page.size() - 1).getKey().concat(NEXT_KEY_SUFFIX);
-              return fetchPage(kvClient, prefix, nextKey, keysOnly, timeoutMs, revision, keyValues);
+              return fetchPage(
+                  kvClient, prefix, nextKey, keysOnly, timeoutMs, pageSize, revision, keyValues);
             });
   }
 
   static PaginatedRange listRange(
-      KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs)
+      KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs, long pageSize)
       throws InterruptedException, ExecutionException, TimeoutException {
-    return listRangeAsync(kvClient, prefix, keysOnly, timeoutMs)
+    return listRangeAsync(kvClient, prefix, keysOnly, timeoutMs, pageSize)
         .get(timeoutMs, TimeUnit.MILLISECONDS);
   }
 }

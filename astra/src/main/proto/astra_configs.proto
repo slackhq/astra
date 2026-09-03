@@ -105,6 +105,9 @@ message EtcdConfig {
   // Initial interval for exponential backoff (ms). The first retry delay is
   // randomized around this value; subsequent intervals grow by a multiplier.
   int32 initial_retry_interval_ms = 15;
+  // Maximum number of keys read per page when paginating range (list) reads.
+  // When 0, a default is applied.
+  int32 list_page_size = 16;
 }
 
 // Configuration for Zookeeper metadata store.

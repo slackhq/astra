@@ -78,6 +78,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final long retryTotalDurationMs;
   private final long maxRetryDelayMs;
   private final long initialRetryIntervalMs;
+  private final long listPageSize;
   private final ReentrantLock watchLock = new ReentrantLock();
   private Watch.Watcher partitionWatcher;
   private volatile boolean closing = false;
@@ -178,6 +179,9 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         EtcdMetadataStore.positiveOrDefault(
             etcdConfig.getInitialRetryIntervalMs(),
             EtcdMetadataStore.DEFAULT_INITIAL_RETRY_INTERVAL_MS);
+    this.listPageSize =
+        EtcdMetadataStore.positiveOrDefault(
+            etcdConfig.getListPageSize(), EtcdRangePaginator.DEFAULT_PAGE_SIZE);
     this.executorService =
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder()
@@ -712,7 +716,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
       return extractPartitions(
           EtcdRangePaginator.listRange(
-                  etcdClient.getKVClient(), prefix, true, etcdConfig.getConnectionTimeoutMs())
+                  etcdClient.getKVClient(),
+                  prefix,
+                  true,
+                  etcdConfig.getConnectionTimeoutMs(),
+                  listPageSize)
               .keyValues());
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching partitions from etcd", e);
@@ -743,7 +751,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     ByteSequence prefix = ByteSequence.from(storeFolderPrefix, StandardCharsets.UTF_8);
     EtcdRangePaginator.PaginatedRange range =
         EtcdRangePaginator.listRange(
-            etcdClient.getKVClient(), prefix, true, etcdConfig.getConnectionTimeoutMs());
+            etcdClient.getKVClient(),
+            prefix,
+            true,
+            etcdConfig.getConnectionTimeoutMs(),
+            listPageSize);
 
     long listRevision = range.revision();
 
