@@ -83,6 +83,7 @@ public class AstraConfigUtil {
             .setRetryTotalDurationMs(60000)
             .setMaxRetryDelayMs(10000)
             .setInitialRetryIntervalMs(2000)
+            .setListPageSize(10000)
             .build();
     AstraConfigs.MetadataStoreConfig metadataStoreConfig =
         AstraConfigs.MetadataStoreConfig.newBuilder()

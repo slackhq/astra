@@ -87,6 +87,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   protected final boolean shouldCache;
   protected final MetadataSerializer<T> serializer;
   private final long etcdOperationTimeoutMs;
+  private final long listPageSize;
+  private final long listPageTimeoutMs;
   private final long retryTotalDurationMs;
   private final long maxRetryDelayMs;
   private final long initialRetryIntervalMs;
@@ -191,6 +193,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.createMode = createMode;
     this.ephemeralTtlMs = config.getEphemeralNodeTtlMs();
     this.etcdOperationTimeoutMs = config.getOperationsTimeoutMs();
+    this.listPageSize = config.getListPageSize();
+    // Falls back to the operation timeout when unset, preserving prior behavior.
+    this.listPageTimeoutMs =
+        positiveOrDefault(config.getListPageTimeoutMs(), etcdOperationTimeoutMs);
 
     this.retryTotalDurationMs =
         positiveOrDefault(config.getRetryTotalDurationMs(), DEFAULT_RETRY_TOTAL_DURATION_MS);
@@ -872,7 +878,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
 
     return EtcdRangePaginator.listRangeAsync(
-            etcdClient.getKVClient(), prefix, false, etcdOperationTimeoutMs)
+            etcdClient.getKVClient(),
+            prefix,
+            false,
+            etcdOperationTimeoutMs,
+            listPageTimeoutMs,
+            listPageSize)
         .thenApplyAsync(
             range -> {
               List<T> nodes = new ArrayList<>();
@@ -936,7 +947,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
       List<KeyValue> keyValues =
           EtcdRangePaginator.listRange(
-                  etcdClient.getKVClient(), prefix, false, etcdOperationTimeoutMs)
+                  etcdClient.getKVClient(),
+                  prefix,
+                  false,
+                  etcdOperationTimeoutMs,
+                  listPageTimeoutMs,
+                  listPageSize)
               .keyValues();
 
       List<T> nodes = new ArrayList<>();
@@ -1280,7 +1296,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
       List<KeyValue> keyValues =
           EtcdRangePaginator.listRange(
-                  etcdClient.getKVClient(), prefix, false, etcdOperationTimeoutMs)
+                  etcdClient.getKVClient(),
+                  prefix,
+                  false,
+                  etcdOperationTimeoutMs,
+                  listPageTimeoutMs,
+                  listPageSize)
               .keyValues();
 
       // Filter for only direct children of the store folder
@@ -1350,7 +1371,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     ByteSequence prefix = ByteSequence.from(storeFolder + "/", StandardCharsets.UTF_8);
     EtcdRangePaginator.PaginatedRange range =
         EtcdRangePaginator.listRange(
-            etcdClient.getKVClient(), prefix, false, etcdOperationTimeoutMs);
+            etcdClient.getKVClient(),
+            prefix,
+            false,
+            etcdOperationTimeoutMs,
+            listPageTimeoutMs,
+            listPageSize);
 
     long listRevision = range.revision();
 

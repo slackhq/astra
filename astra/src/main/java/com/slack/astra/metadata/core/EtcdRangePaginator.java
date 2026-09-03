@@ -19,8 +19,6 @@ final class EtcdRangePaginator {
   /** etcd treats revision 0 as latest. */
   private static final long REVISION_LATEST = 0;
 
-  static final long DEFAULT_PAGE_SIZE = 500;
-
   /**
    * Appended to a page's last key to resume the next page. etcd keys are byte strings sorted in
    * lexical byte order, and a range read's start key is inclusive, so resuming from {@code lastKey
@@ -37,11 +35,12 @@ final class EtcdRangePaginator {
   /** The key/values read under a prefix, with the revision the read was pinned to. */
   record PaginatedRange(List<KeyValue> keyValues, long revision) {}
 
-  private static GetOption pageOption(ByteSequence prefix, boolean keysOnly, long revision) {
+  private static GetOption pageOption(
+      ByteSequence prefix, boolean keysOnly, long revision, long pageSize) {
     GetOption.Builder options =
         GetOption.builder()
             .withPrefix(prefix)
-            .withLimit(DEFAULT_PAGE_SIZE)
+            .withLimit(pageSize)
             .withSortField(GetOption.SortTarget.KEY)
             .withSortOrder(GetOption.SortOrder.ASCEND)
             .withKeysOnly(keysOnly);
@@ -51,10 +50,28 @@ final class EtcdRangePaginator {
     return options.build();
   }
 
+  /**
+   * {@code pageTimeoutMs} bounds each page read independently; {@code operationTimeoutMs} bounds
+   * the whole (possibly multi-page) list so the returned future cannot outlast it even when
+   * consumed without a blocking {@code get}.
+   */
   static CompletableFuture<PaginatedRange> listRangeAsync(
-      KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs) {
+      KV kvClient,
+      ByteSequence prefix,
+      boolean keysOnly,
+      long operationTimeoutMs,
+      long pageTimeoutMs,
+      long pageSize) {
     return fetchPage(
-        kvClient, prefix, prefix, keysOnly, timeoutMs, REVISION_LATEST, new ArrayList<>());
+            kvClient,
+            prefix,
+            prefix,
+            keysOnly,
+            pageTimeoutMs,
+            pageSize,
+            REVISION_LATEST,
+            new ArrayList<>())
+        .orTimeout(operationTimeoutMs, TimeUnit.MILLISECONDS);
   }
 
   private static CompletableFuture<PaginatedRange> fetchPage(
@@ -62,12 +79,13 @@ final class EtcdRangePaginator {
       ByteSequence prefix,
       ByteSequence fromKey,
       boolean keysOnly,
-      long timeoutMs,
+      long pageTimeoutMs,
+      long pageSize,
       long pinnedRevision,
       List<KeyValue> keyValues) {
     return kvClient
-        .get(fromKey, pageOption(prefix, keysOnly, pinnedRevision))
-        .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+        .get(fromKey, pageOption(prefix, keysOnly, pinnedRevision, pageSize))
+        .orTimeout(pageTimeoutMs, TimeUnit.MILLISECONDS)
         .thenCompose(
             response -> {
               // Pin every page after the first to the first page's revision for a consistent
@@ -84,14 +102,27 @@ final class EtcdRangePaginator {
               }
 
               ByteSequence nextKey = page.get(page.size() - 1).getKey().concat(NEXT_KEY_SUFFIX);
-              return fetchPage(kvClient, prefix, nextKey, keysOnly, timeoutMs, revision, keyValues);
+              return fetchPage(
+                  kvClient,
+                  prefix,
+                  nextKey,
+                  keysOnly,
+                  pageTimeoutMs,
+                  pageSize,
+                  revision,
+                  keyValues);
             });
   }
 
   static PaginatedRange listRange(
-      KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs)
+      KV kvClient,
+      ByteSequence prefix,
+      boolean keysOnly,
+      long operationTimeoutMs,
+      long pageTimeoutMs,
+      long pageSize)
       throws InterruptedException, ExecutionException, TimeoutException {
-    return listRangeAsync(kvClient, prefix, keysOnly, timeoutMs)
-        .get(timeoutMs, TimeUnit.MILLISECONDS);
+    return listRangeAsync(kvClient, prefix, keysOnly, operationTimeoutMs, pageTimeoutMs, pageSize)
+        .get(operationTimeoutMs, TimeUnit.MILLISECONDS);
   }
 }
