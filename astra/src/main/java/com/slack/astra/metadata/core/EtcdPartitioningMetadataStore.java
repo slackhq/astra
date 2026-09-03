@@ -79,6 +79,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
   private final long maxRetryDelayMs;
   private final long initialRetryIntervalMs;
   private final long listPageSize;
+  private final long listPageTimeoutMs;
   private final ReentrantLock watchLock = new ReentrantLock();
   private Watch.Watcher partitionWatcher;
   private volatile boolean closing = false;
@@ -180,6 +181,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
             etcdConfig.getInitialRetryIntervalMs(),
             EtcdMetadataStore.DEFAULT_INITIAL_RETRY_INTERVAL_MS);
     this.listPageSize = etcdConfig.getListPageSize();
+    // Falls back to the connection timeout (used as the operation timeout for list reads here) when
+    // unset, preserving prior behavior.
+    this.listPageTimeoutMs =
+        EtcdMetadataStore.positiveOrDefault(
+            etcdConfig.getListPageTimeoutMs(), etcdConfig.getConnectionTimeoutMs());
     this.executorService =
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder()
@@ -718,6 +724,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                   prefix,
                   true,
                   etcdConfig.getConnectionTimeoutMs(),
+                  listPageTimeoutMs,
                   listPageSize)
               .keyValues());
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -753,6 +760,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
             prefix,
             true,
             etcdConfig.getConnectionTimeoutMs(),
+            listPageTimeoutMs,
             listPageSize);
 
     long listRevision = range.revision();

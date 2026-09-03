@@ -50,17 +50,28 @@ final class EtcdRangePaginator {
     return options.build();
   }
 
+  /**
+   * {@code pageTimeoutMs} bounds each page read independently; {@code operationTimeoutMs} bounds
+   * the whole (possibly multi-page) list so the returned future cannot outlast it even when
+   * consumed without a blocking {@code get}.
+   */
   static CompletableFuture<PaginatedRange> listRangeAsync(
-      KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs, long pageSize) {
+      KV kvClient,
+      ByteSequence prefix,
+      boolean keysOnly,
+      long operationTimeoutMs,
+      long pageTimeoutMs,
+      long pageSize) {
     return fetchPage(
-        kvClient,
-        prefix,
-        prefix,
-        keysOnly,
-        timeoutMs,
-        pageSize,
-        REVISION_LATEST,
-        new ArrayList<>());
+            kvClient,
+            prefix,
+            prefix,
+            keysOnly,
+            pageTimeoutMs,
+            pageSize,
+            REVISION_LATEST,
+            new ArrayList<>())
+        .orTimeout(operationTimeoutMs, TimeUnit.MILLISECONDS);
   }
 
   private static CompletableFuture<PaginatedRange> fetchPage(
@@ -68,13 +79,13 @@ final class EtcdRangePaginator {
       ByteSequence prefix,
       ByteSequence fromKey,
       boolean keysOnly,
-      long timeoutMs,
+      long pageTimeoutMs,
       long pageSize,
       long pinnedRevision,
       List<KeyValue> keyValues) {
     return kvClient
         .get(fromKey, pageOption(prefix, keysOnly, pinnedRevision, pageSize))
-        .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+        .orTimeout(pageTimeoutMs, TimeUnit.MILLISECONDS)
         .thenCompose(
             response -> {
               // Pin every page after the first to the first page's revision for a consistent
@@ -92,14 +103,26 @@ final class EtcdRangePaginator {
 
               ByteSequence nextKey = page.get(page.size() - 1).getKey().concat(NEXT_KEY_SUFFIX);
               return fetchPage(
-                  kvClient, prefix, nextKey, keysOnly, timeoutMs, pageSize, revision, keyValues);
+                  kvClient,
+                  prefix,
+                  nextKey,
+                  keysOnly,
+                  pageTimeoutMs,
+                  pageSize,
+                  revision,
+                  keyValues);
             });
   }
 
   static PaginatedRange listRange(
-      KV kvClient, ByteSequence prefix, boolean keysOnly, long timeoutMs, long pageSize)
+      KV kvClient,
+      ByteSequence prefix,
+      boolean keysOnly,
+      long operationTimeoutMs,
+      long pageTimeoutMs,
+      long pageSize)
       throws InterruptedException, ExecutionException, TimeoutException {
-    return listRangeAsync(kvClient, prefix, keysOnly, timeoutMs, pageSize)
-        .get(timeoutMs, TimeUnit.MILLISECONDS);
+    return listRangeAsync(kvClient, prefix, keysOnly, operationTimeoutMs, pageTimeoutMs, pageSize)
+        .get(operationTimeoutMs, TimeUnit.MILLISECONDS);
   }
 }

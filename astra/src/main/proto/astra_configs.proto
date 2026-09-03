@@ -108,6 +108,11 @@ message EtcdConfig {
   // Maximum number of keys read per page when paginating range (list) reads.
   // When 0, a default is applied.
   int32 list_page_size = 16;
+  // Timeout for a single page read when paginating range (list) reads. This
+  // bounds each page independently, separately from the overall operation
+  // timeout that bounds the whole (possibly multi-page) list. When 0, the
+  // operation timeout is used per page.
+  int32 list_page_timeout_ms = 17;
 }
 
 // Configuration for Zookeeper metadata store.
