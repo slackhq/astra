@@ -192,8 +192,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.createMode = createMode;
     this.ephemeralTtlMs = config.getEphemeralNodeTtlMs();
     this.etcdOperationTimeoutMs = config.getOperationsTimeoutMs();
-    this.listPageSize =
-        positiveOrDefault(config.getListPageSize(), EtcdRangePaginator.DEFAULT_PAGE_SIZE);
+    this.listPageSize = config.getListPageSize();
 
     this.retryTotalDurationMs =
         positiveOrDefault(config.getRetryTotalDurationMs(), DEFAULT_RETRY_TOTAL_DURATION_MS);

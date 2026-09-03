@@ -160,6 +160,7 @@ public class EtcdPartitioningMetadataStoreTest {
             .setMaxRetryDelayMs(1000)
             .setInitialRetryIntervalMs(100)
             .setNamespace("test")
+            .setListPageSize(10000)
             .build();
 
     // Build the etcd client
@@ -448,6 +449,7 @@ public class EtcdPartitioningMetadataStoreTest {
             .setMaxRetryDelayMs(1000)
             .setInitialRetryIntervalMs(100)
             .setNamespace("test")
+            .setListPageSize(10000)
             .build();
 
     // Use try-with-resources to ensure proper closing
@@ -637,6 +639,7 @@ public class EtcdPartitioningMetadataStoreTest {
             .setMaxRetryDelayMs(1000)
             .setInitialRetryIntervalMs(100)
             .setNamespace("test")
+            .setListPageSize(500)
             .build();
 
     // Reader with an inbound limit smaller than the full response; discovery failed here before

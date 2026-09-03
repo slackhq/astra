@@ -136,6 +136,7 @@ public class EtcdMetadataStoreTest {
             .setNamespace("test")
             .setEphemeralNodeTtlMs(3000)
             .setEphemeralNodeMaxRetries(3)
+            .setListPageSize(10000)
             .build();
 
     // Create etcd client
@@ -362,6 +363,7 @@ public class EtcdMetadataStoreTest {
             .setNamespace("test")
             .setEphemeralNodeTtlMs(3000)
             .setEphemeralNodeMaxRetries(3)
+            .setListPageSize(10000)
             .build();
 
     EtcdMetadataStore<TestMetadata> newStore = null;
@@ -460,6 +462,7 @@ public class EtcdMetadataStoreTest {
             .setNamespace("test")
             .setEphemeralNodeTtlMs(2000) // Short TTL for faster testing
             .setEphemeralNodeMaxRetries(2) // Test retry logic with 2 retries
+            .setListPageSize(10000)
             .build();
 
     ClientBuilder clientBuilder =
@@ -538,6 +541,7 @@ public class EtcdMetadataStoreTest {
             .setRetryTotalDurationMs(5000)
             .setMaxRetryDelayMs(1000)
             .setInitialRetryIntervalMs(100)
+            .setListPageSize(10000)
             .build();
 
     // Create client for failure test
@@ -603,6 +607,7 @@ public class EtcdMetadataStoreTest {
             .setNamespace("test")
             .setEphemeralNodeTtlMs(1500) // Short TTL for faster testing
             .setEphemeralNodeMaxRetries(3)
+            .setListPageSize(10000)
             .build();
 
     // Create client for interrupt test
@@ -675,6 +680,7 @@ public class EtcdMetadataStoreTest {
             .setNamespace("test")
             .setEphemeralNodeTtlMs(3000)
             .setEphemeralNodeMaxRetries(3)
+            .setListPageSize(10000)
             .build();
 
     // Create client builder for test
@@ -811,6 +817,7 @@ public class EtcdMetadataStoreTest {
             .setNamespace("test")
             .setEphemeralNodeTtlMs(3000)
             .setEphemeralNodeMaxRetries(3)
+            .setListPageSize(500)
             .build();
 
     // A reader whose inbound message size is smaller than the full range response. Before

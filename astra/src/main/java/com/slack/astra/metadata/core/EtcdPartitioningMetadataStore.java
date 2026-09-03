@@ -179,9 +179,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
         EtcdMetadataStore.positiveOrDefault(
             etcdConfig.getInitialRetryIntervalMs(),
             EtcdMetadataStore.DEFAULT_INITIAL_RETRY_INTERVAL_MS);
-    this.listPageSize =
-        EtcdMetadataStore.positiveOrDefault(
-            etcdConfig.getListPageSize(), EtcdRangePaginator.DEFAULT_PAGE_SIZE);
+    this.listPageSize = etcdConfig.getListPageSize();
     this.executorService =
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder()
