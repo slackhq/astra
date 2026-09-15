@@ -22,6 +22,10 @@ import java.time.temporal.ChronoField;
  * here.
  */
 public class SnapshotMetadata extends AstraPartitionedMetadata {
+  // Prefix on the node name that marks a snapshot as live. Single source of truth for isLive();
+  // ReadWriteChunk uses it to build the live snapshot's name.
+  public static final String LIVE_SNAPSHOT_PREFIX = "LIVE_";
+
   public final String snapshotId;
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
@@ -138,10 +142,9 @@ public class SnapshotMetadata extends AstraPartitionedMetadata {
     }
   }
 
-  // todo - this is better than the previous version of storing a static "LIVE" string to a path
-  //  variable but not by a lot. The "isLive" functionality should be reconsidered more broadly.
-  //  The ideal way is likely to reconsider the ZK type for "LIVE" snapshots
+  // Keyed off the immutable name so getPartition() stays stable for a node's lifetime; the mutable
+  // fields (startTimeEpochMs, sizeInBytesOnDisk) are updated in place on rollover.
   public boolean isLive() {
-    return this.sizeInBytesOnDisk == 0;
+    return name.startsWith(LIVE_SNAPSHOT_PREFIX);
   }
 }

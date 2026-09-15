@@ -69,7 +69,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public static final String INDEX_FILES_UPLOAD = "index_files_upload";
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
   public static final String SNAPSHOT_TIMER = "snapshot.timer";
-  public static final String LIVE_SNAPSHOT_PREFIX = "LIVE_";
+  public static final String LIVE_SNAPSHOT_PREFIX = SnapshotMetadata.LIVE_SNAPSHOT_PREFIX;
   public static final String SCHEMA_FILE_NAME = "schema.json";
 
   private final LogStore logStore;
