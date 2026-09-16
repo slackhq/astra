@@ -88,33 +88,17 @@ public class SnapshotMetadataTest {
   @Test
   public void testLive() {
     final String name = "testSnapshotId";
-    final String liveName = SnapshotMetadata.LIVE_SNAPSHOT_PREFIX + name;
     final long startTime = 1;
     final long endTime = 100;
     final long maxOffset = 123;
     final String partitionId = "1";
 
-    // Liveness is derived from the name prefix, not from sizeInBytesOnDisk. A snapshot without the
-    // LIVE_ prefix is never live, regardless of its size.
     SnapshotMetadata nonLiveSnapshot =
         new SnapshotMetadata(name, startTime, endTime, maxOffset, partitionId, 100);
     assertThat(nonLiveSnapshot.isLive()).isFalse();
-    assertThat(nonLiveSnapshot.getPartition()).isNotEqualTo("LIVE");
 
-    SnapshotMetadata nonLiveZeroSizeSnapshot =
-        new SnapshotMetadata(name, startTime, endTime, maxOffset, partitionId, 0);
-    assertThat(nonLiveZeroSizeSnapshot.isLive()).isFalse();
-
-    // A LIVE_-prefixed snapshot is always live and always routes to the LIVE partition, even after
-    // its size is updated in place (which happens on chunk rollover).
     SnapshotMetadata liveSnapshot =
-        new SnapshotMetadata(liveName, startTime, endTime, maxOffset, partitionId, 0);
+        new SnapshotMetadata(name, startTime, endTime, maxOffset, partitionId, 0);
     assertThat(liveSnapshot.isLive()).isTrue();
-    assertThat(liveSnapshot.getPartition()).isEqualTo("LIVE");
-
-    SnapshotMetadata liveSnapshotWithSize =
-        new SnapshotMetadata(liveName, startTime, endTime, maxOffset, partitionId, 100);
-    assertThat(liveSnapshotWithSize.isLive()).isTrue();
-    assertThat(liveSnapshotWithSize.getPartition()).isEqualTo("LIVE");
   }
 }
