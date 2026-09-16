@@ -138,13 +138,20 @@ public class AstraIndexer extends AbstractExecutionThreadService {
     while (isRunning()) {
       try {
         kafkaConsumer.consumeMessages();
-      } catch (ChunkRollOverException | IOException e) {
-        // Once we hit these exceptions, we likely have an issue related to storage. So, terminate
-        // the program, since consuming more messages from Kafka would only make the issue worse.
-        LOG.error("FATAL: Encountered an unrecoverable storage exception.", e);
-        new RuntimeHalterImpl().handleFatal(e);
       } catch (Exception e) {
-        LOG.error("FATAL: Unhandled exception ", e);
+        if (!isRunning()) {
+          // Shutdown is in progress; the chunk manager closes chunks concurrently, so an in-flight
+          // write can fail (e.g. AlreadyClosedException). Offsets aren't committed to Kafka until a
+          // message is indexed, so this is benign - exit the loop cleanly instead of halting.
+          LOG.info("Ignoring exception encountered during indexer shutdown.", e);
+          break;
+        }
+        if (e instanceof ChunkRollOverException || e instanceof IOException) {
+          // A storage issue - terminate, since consuming more from Kafka would only make it worse.
+          LOG.error("FATAL: Encountered an unrecoverable storage exception.", e);
+        } else {
+          LOG.error("FATAL: Unhandled exception ", e);
+        }
         new RuntimeHalterImpl().handleFatal(e);
       }
     }

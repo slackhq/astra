@@ -522,8 +522,13 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
                   metadataStoreMap.remove(partition);
                   store.close();
                 } else {
-                  LOG.warn(
-                      "Detected deletion event on partition {}, but store still has {} cached elements. Keeping store active.",
+                  // The watch fires one DELETE event per key under the store folder, so this
+                  // branch is hit on every single-node deletion from a partition that still has
+                  // other members (the common case for busy partitions like LIVE). That is normal
+                  // - only the emptied-partition case above is noteworthy - so keep this at DEBUG
+                  // to avoid flooding logs on high-churn partitions.
+                  LOG.debug(
+                      "Deletion event on partition {}, but store still has {} cached elements. Keeping store active.",
                       partition,
                       items.size());
                 }

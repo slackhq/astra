@@ -797,14 +797,15 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         .orTimeout(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
         .thenAcceptAsync(
             deleteResponse -> {
+              // Evict before the getDeleted() check: a 0 response means the key is gone from etcd,
+              // so a cached entry is stale and must be dropped rather than retried forever.
+              if (shouldCache) {
+                cache.remove(path);
+              }
+
               // Note: deleteResponse.getDeleted() tells us how many keys were deleted
               if (deleteResponse.getDeleted() == 0) {
                 throw new InternalMetadataStoreException("Failed to delete node: " + path);
-              }
-
-              // Remove from cache if enabled
-              if (shouldCache) {
-                cache.remove(path);
               }
 
               // We don't need to take any special action for ephemeral nodes
