@@ -71,7 +71,8 @@ public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<Cac
                 meterRegistry,
                 EtcdCreateMode.PERSISTENT,
                 new CacheNodeAssignmentSerializer(),
-                CACHE_NODE_ASSIGNMENT_STORE_PATH)
+                CACHE_NODE_ASSIGNMENT_STORE_PATH,
+                List.of(cacheNodeId))
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
             "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
