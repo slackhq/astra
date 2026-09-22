@@ -10,16 +10,13 @@ import io.etcd.jetcd.Client;
 import io.etcd.jetcd.KeyValue;
 import io.etcd.jetcd.Watch.Watcher;
 import io.etcd.jetcd.lease.LeaseKeepAliveResponse;
-import io.etcd.jetcd.options.GetOption;
 import io.etcd.jetcd.options.PutOption;
 import io.etcd.jetcd.options.WatchOption;
+import io.etcd.jetcd.support.CloseableClient;
 import io.etcd.jetcd.watch.WatchEvent;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -33,9 +30,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +65,18 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   /** Shared lease ID for all ephemeral nodes. Only valid if createMode is EPHEMERAL. */
   private volatile long sharedLeaseId = -1;
 
+  /**
+   * Handle to the active keep-alive stream, retained because {@link io.etcd.jetcd.Lease#keepAlive}
+   * registers a new observer per call and discarding the handle leaks would leak one observer per
+   * retry.
+   */
+  private volatile CloseableClient keepAliveClient;
+
+  /**
+   * Incremented per keep-alive restart/start, so callbacks from a superseded stream get discarded.
+   */
+  private final AtomicLong keepAliveGeneration = new AtomicLong();
+
   /** Flag to track if the store is being closed to prevent keepalive restarts during shutdown. */
   private volatile boolean isClosing = false;
 
@@ -79,10 +91,22 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
   private static final Logger LOG = LoggerFactory.getLogger(EtcdMetadataStore.class);
 
+  /**
+   * A watcher paired with a latch for callbacks to check before treating a completion or error as a
+   * real failure.
+   */
+  record WatchHandle(Watcher watcher, AtomicBoolean disposed) {
+    /** Marks the stream disposed so its pending callbacks go away, then closes it. */
+    void dispose(String what) {
+      disposed.set(true);
+      closeQuietly(what, watcher);
+    }
+  }
+
   protected final String storeFolder;
   protected final String namespace;
   protected final Client etcdClient;
-  protected final ConcurrentHashMap<String, Watcher> watchers;
+  private final ConcurrentHashMap<String, WatchHandle> watchers;
   protected final ConcurrentHashMap<String, T> cache = new ConcurrentHashMap<>();
   protected final boolean shouldCache;
   protected final MetadataSerializer<T> serializer;
@@ -94,18 +118,15 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private final long initialRetryIntervalMs;
   private final ExponentialBackOff keepAliveBackoff;
 
-  /** Fetch the current etcd revision (keysOnly) and watch from there. Does not touch the cache. */
-  private static final long REVISION_LATEST = 0;
-
-  /**
-   * Re-list all keys from etcd, diff against the in-memory cache, and watch from the list revision.
-   * Used on compaction recovery where the watcher's old revision has been compacted away.
-   */
-  private static final long REVISION_RESYNC = -1;
+  /** Retained so each listener's watch driver resolves its config from one place. */
+  private final EtcdConfig etcdConfig;
 
   static final long DEFAULT_RETRY_TOTAL_DURATION_MS = 60_000;
   static final long DEFAULT_MAX_RETRY_DELAY_MS = 10_000;
   static final long DEFAULT_INITIAL_RETRY_INTERVAL_MS = 2_000;
+
+  /** How long a watch may keep failing before the JVM halts. default of 5-minutes */
+  static final long DEFAULT_WATCH_FATAL_AFTER_MS = 300_000;
 
   private static volatile FatalErrorHandler fatalErrorHandler = new RuntimeHalterImpl();
 
@@ -121,24 +142,30 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     return value > 0 ? value : defaultValue;
   }
 
+  /** The {@code store} metric tag for a store path: its top level */
+  static String storeTag(String storeFolder) {
+    int end = storeFolder.indexOf('/', 1);
+    return end < 0 ? storeFolder : storeFolder.substring(0, end);
+  }
+
   private final MeterRegistry meterRegistry;
+  private final String storeTag;
 
   private final CountDownLatch cacheInitialized = new CountDownLatch(1);
 
-  private final String ASTRA_ETCD_CREATE_CALL = "astra_etcd_create_call";
-  private final String ASTRA_ETCD_HAS_CALL = "astra_etcd_has_call";
-  private final String ASTRA_ETCD_DELETE_CALL = "astra_etcd_delete_call";
-  private final String ASTRA_ETCD_LIST_CALL = "astra_etcd_list_call";
-  private final String ASTRA_ETCD_GET_CALL = "astra_etcd_get_call";
-  private final String ASTRA_ETCD_UPDATE_CALL = "astra_etcd_update_call";
-  private final String ASTRA_ETCD_ADDED_LISTENER = "astra_etcd_added_listener";
-  private final String ASTRA_ETCD_REMOVED_LISTENER = "astra_etcd_removed_listener";
-  private final String ASTRA_ETCD_CACHE_INIT_HANDLER_FIRED = "astra_etcd_cache_init_handler_fired";
-  private final String ASTRA_ETCD_LEASE_REFRESH_HANDLER_FIRED =
+  private static final String ASTRA_ETCD_CREATE_CALL = "astra_etcd_create_call";
+  private static final String ASTRA_ETCD_HAS_CALL = "astra_etcd_has_call";
+  private static final String ASTRA_ETCD_DELETE_CALL = "astra_etcd_delete_call";
+  private static final String ASTRA_ETCD_LIST_CALL = "astra_etcd_list_call";
+  private static final String ASTRA_ETCD_GET_CALL = "astra_etcd_get_call";
+  private static final String ASTRA_ETCD_UPDATE_CALL = "astra_etcd_update_call";
+  private static final String ASTRA_ETCD_ADDED_LISTENER = "astra_etcd_added_listener";
+  private static final String ASTRA_ETCD_REMOVED_LISTENER = "astra_etcd_removed_listener";
+  private static final String ASTRA_ETCD_CACHE_INIT_HANDLER_FIRED =
+      "astra_etcd_cache_init_handler_fired";
+  private static final String ASTRA_ETCD_LEASE_REFRESH_HANDLER_FIRED =
       "astra_etcd_lease_refresh_handler_fired";
 
-  private static final String ASTRA_ETCD_WATCH_RETRY = "astra_etcd_watch_retry";
-  private static final String ASTRA_ETCD_WATCH_RETRY_DELAY = "astra_etcd_watch_retry_delay";
   private static final String ASTRA_ETCD_RESYNC_SKIP = "astra_etcd_resync_skip";
 
   private final Counter createCall;
@@ -151,10 +178,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   private final Counter removedListener;
   private final Counter cacheInitHandlerFired;
   private final Counter leaseRefreshHandlerFired;
-  private final Counter watchRetryError;
-  private final Counter watchRetryCompaction;
-  private final Counter watchRetryGracefulStop;
-  private final Timer watchRetryDelay;
+
   private final Counter resyncSkip;
 
   /** Constructor that accepts an external etcd client instance with default persistent mode. */
@@ -186,6 +210,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       Client etcdClient) {
     this.storeFolder = storeFolder;
     this.namespace = config.getNamespace();
+    this.etcdConfig = config;
     this.meterRegistry = meterRegistry;
     this.shouldCache = shouldCache;
     this.serializer = serializer;
@@ -204,10 +229,10 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         positiveOrDefault(config.getMaxRetryDelayMs(), DEFAULT_MAX_RETRY_DELAY_MS);
     this.initialRetryIntervalMs =
         positiveOrDefault(config.getInitialRetryIntervalMs(), DEFAULT_INITIAL_RETRY_INTERVAL_MS);
-    this.keepAliveBackoff =
-        new ExponentialBackOff(initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs);
+    this.keepAliveBackoff = newRetryBackoff();
 
-    String store = "/" + storeFolder.split("/")[1];
+    String store = storeTag(storeFolder);
+    this.storeTag = store;
     this.createCall = this.meterRegistry.counter(ASTRA_ETCD_CREATE_CALL, "store", store);
     this.deleteCall = this.meterRegistry.counter(ASTRA_ETCD_DELETE_CALL, "store", store);
     this.listCall = this.meterRegistry.counter(ASTRA_ETCD_LIST_CALL, "store", store);
@@ -220,14 +245,6 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         this.meterRegistry.counter(ASTRA_ETCD_CACHE_INIT_HANDLER_FIRED, "store", store);
     this.leaseRefreshHandlerFired =
         this.meterRegistry.counter(ASTRA_ETCD_LEASE_REFRESH_HANDLER_FIRED, "store", store);
-    this.watchRetryError =
-        this.meterRegistry.counter(ASTRA_ETCD_WATCH_RETRY, "store", store, "reason", "error");
-    this.watchRetryCompaction =
-        this.meterRegistry.counter(ASTRA_ETCD_WATCH_RETRY, "store", store, "reason", "compaction");
-    this.watchRetryGracefulStop =
-        this.meterRegistry.counter(
-            ASTRA_ETCD_WATCH_RETRY, "store", store, "reason", "graceful_stop");
-    this.watchRetryDelay = this.meterRegistry.timer(ASTRA_ETCD_WATCH_RETRY_DELAY, "store", store);
     this.resyncSkip = this.meterRegistry.counter(ASTRA_ETCD_RESYNC_SKIP, "store", store);
 
     if (etcdClient == null) {
@@ -240,7 +257,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
         createMode);
     this.etcdClient = etcdClient;
 
-    // Initialize watch retry executor - scheduled cached thread pool that scales to 0
+    // One retry thread per store, for the store's lifetime: core threads are never reclaimed.
     this.watchRetryExecutor =
         Executors.newScheduledThreadPool(
             1,
@@ -287,139 +304,159 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
   }
 
-  /** Closes a watcher, suppressing any exception. */
-  private static void closeQuietly(Watcher watcher) {
-    if (watcher != null) {
+  /**
+   * Closes a watcher or keep-alive handle, logging any failure: every caller is already tearing the
+   * stream down.
+   */
+  static void closeQuietly(String what, AutoCloseable closeable) {
+    if (closeable != null) {
       try {
-        watcher.close();
+        closeable.close();
       } catch (Exception e) {
-        LOG.debug("Error closing watcher", e);
+        LOG.debug("Error closing {}", what, e);
       }
     }
   }
 
   static void handleFatalAsync(Throwable error, String threadNameSuffix) {
     LOG.error("Fatal error detected ({}), initiating shutdown", threadNameSuffix, error);
-    Thread t = new Thread(() -> fatalErrorHandler.handleFatal(error));
+    // logic here to be able to swap the handler if we're in a test (to not fatal the tests)
+    FatalErrorHandler handler = fatalErrorHandler;
+    Thread t = new Thread(() -> handler.handleFatal(error));
     t.setName("etcd-fatal-" + threadNameSuffix);
     t.setDaemon(true);
     t.start();
   }
 
-  /**
-   * Attempts to schedule a retry using the given backoff. Returns true if a retry was scheduled,
-   * false if the backoff budget is exhausted (caller should handle escalation).
-   */
-  private boolean scheduleRetryWithBackoff(
-      ExponentialBackOff backoff, Runnable retryAction, String context) {
-    long delayMs = backoff.nextBackOffMillis();
-    if (delayMs == ExponentialBackOff.STOP) {
-      return false;
-    }
-    watchRetryDelay.record(delayMs, TimeUnit.MILLISECONDS);
-    LOG.warn(
-        "{} — retrying in {} ms ({} ms elapsed)", context, delayMs, backoff.getElapsedTimeMs());
-    try {
-      watchRetryExecutor.schedule(retryAction, delayMs, TimeUnit.MILLISECONDS);
-    } catch (java.util.concurrent.RejectedExecutionException e) {
-      LOG.warn("Retry executor already shut down for {}, retry not scheduled", storeFolder);
-      return false;
-    }
-    return true;
-  }
-
-  /**
-   * Detects whether a watch error is caused by etcd key-space compaction. When etcd compacts, any
-   * watcher holding a revision older than the compacted revision gets an OUT_OF_RANGE error.
-   */
-  static boolean isCompactionError(Throwable error) {
-    if (error instanceof StatusRuntimeException sre) {
-      return sre.getStatus().getCode() == Status.Code.OUT_OF_RANGE;
-    }
-    String msg = error.getMessage();
-    return msg != null && msg.contains("compacted");
-  }
-
-  /**
-   * Detects whether a watch error is a graceful GOAWAY from an etcd node shutting down cleanly.
-   * This is not a real error — it's HTTP/2's way of saying "I'm leaving, reconnect elsewhere." The
-   * error message from jetcd looks like: "Connection closed after GOAWAY. HTTP/2 error code:
-   * NO_ERROR, debug data: graceful_stop"
-   */
-  static boolean isGracefulStop(Throwable error) {
-    String msg = error.getMessage();
-    return msg != null && msg.contains("NO_ERROR") && msg.contains("graceful_stop");
-  }
-
-  /** Creates KeepAlive GRPC connection and handles error and completed cases */
+  /** Opens (or reopens) the lease keep-alive stream */
   private void startKeepAlive() {
-    this.etcdClient
-        .getLeaseClient()
-        .keepAlive(
-            sharedLeaseId,
-            new StreamObserver<LeaseKeepAliveResponse>() {
-              @Override
-              public void onNext(LeaseKeepAliveResponse response) {
-                LOG.debug(
-                    "Received keepAlive response for lease {}, TTL: {}",
-                    response.getID(),
-                    response.getTTL());
-                keepAliveBackoff.reset();
-                leaseRefreshHandlerFired.increment();
-              }
+    if (isClosing) {
+      return;
+    }
+    long generation = keepAliveGeneration.incrementAndGet();
+    closeKeepAliveClient();
 
-              @Override
-              public void onError(Throwable t) {
-                if (isClosing) {
-                  LOG.debug(
-                      "KeepAlive stream error during shutdown for lease {}, not restarting",
-                      sharedLeaseId);
-                  return;
-                }
-                long delayMs = keepAliveBackoff.nextBackOffMillis();
-                if (delayMs == ExponentialBackOff.STOP) {
-                  LOG.error(
-                      "KeepAlive retry budget exhausted for lease {} after {} ms — failing fatally",
-                      sharedLeaseId,
-                      keepAliveBackoff.getElapsedTimeMs());
-                  handleFatalAsync(t, "keepalive-" + sharedLeaseId);
-                  return;
-                }
-                LOG.warn(
-                    "KeepAlive error for lease {}: {}. Retrying in {} ms ({} ms elapsed)",
-                    sharedLeaseId,
-                    t.getMessage(),
-                    delayMs,
-                    keepAliveBackoff.getElapsedTimeMs());
-                try {
-                  watchRetryExecutor.schedule(
-                      EtcdMetadataStore.this::startKeepAlive, delayMs, TimeUnit.MILLISECONDS);
-                } catch (java.util.concurrent.RejectedExecutionException e) {
-                  LOG.warn(
-                      "Retry executor shut down during keepalive retry for lease {}",
-                      sharedLeaseId);
-                }
-              }
+    keepAliveClient =
+        this.etcdClient
+            .getLeaseClient()
+            .keepAlive(
+                sharedLeaseId,
+                new StreamObserver<LeaseKeepAliveResponse>() {
+                  /** True once a newer keep-alive stream has superseded this one. */
+                  private boolean superseded() {
+                    return keepAliveGeneration.get() != generation;
+                  }
 
-              @Override
-              public void onCompleted() {
-                if (isClosing) {
-                  LOG.debug(
-                      "KeepAlive stream completed during shutdown for lease {}, not restarting",
-                      sharedLeaseId);
-                  return;
-                }
-                LOG.warn("KeepAlive stream completed for shared lease {}", sharedLeaseId);
-                if (!scheduleRetryWithBackoff(
-                    keepAliveBackoff,
-                    EtcdMetadataStore.this::startKeepAlive,
-                    "keepalive-" + sharedLeaseId)) {
-                  handleFatalAsync(
-                      new RuntimeException("keepAlive stream completed, retry budget exhausted"),
-                      "keepalive-" + sharedLeaseId);
-                }
-              }
-            });
+                  @Override
+                  public void onNext(LeaseKeepAliveResponse response) {
+                    if (superseded()) {
+                      return;
+                    }
+                    LOG.debug(
+                        "Received keepAlive response for lease {}, TTL: {}",
+                        response.getID(),
+                        response.getTTL());
+                    keepAliveBackoff.reset();
+                    leaseRefreshHandlerFired.increment();
+                  }
+
+                  @Override
+                  public void onError(Throwable t) {
+                    if (isClosing || superseded()) {
+                      LOG.debug(
+                          "Ignoring keepAlive error for superseded or closing lease {}",
+                          sharedLeaseId);
+                      return;
+                    }
+                    if (EtcdErrorClassifier.isLeaseGone(t)) {
+                      handleLeaseLost(t);
+                      return;
+                    }
+                    retryOrLoseLease(
+                        t, "KeepAlive error for lease " + sharedLeaseId + ": " + t.getMessage());
+                  }
+
+                  @Override
+                  public void onCompleted() {
+                    if (isClosing || superseded()) {
+                      LOG.debug(
+                          "Ignoring keepAlive completion for superseded or closing lease {}",
+                          sharedLeaseId);
+                      return;
+                    }
+                    // A completion does not prove the lease is gone, since jetcd reports a broken
+                    // connection the same way; if it really is gone, the reopen fails lease-gone.
+                    retryOrLoseLease(
+                        new IllegalStateException(
+                            "etcd closed the keep-alive stream for lease " + sharedLeaseId),
+                        "KeepAlive stream completed for lease " + sharedLeaseId);
+                  }
+                });
+  }
+
+  /**
+   * Reopens the keep-alive after a backoff delay, reporting the lease lost once {@code
+   * retryTotalDurationMs} is spent.
+   */
+  private void retryOrLoseLease(Throwable cause, String context) {
+    if (EtcdErrorClassifier.classify(cause).isTerminal()) {
+      // Shutdown rather than lease loss: halting here would call System.exit from the shutdown
+      // hook.
+      LOG.info("{} — the etcd client is closed, not renewing the lease", context);
+      return;
+    }
+
+    long delayMs = keepAliveBackoff.nextBackOffMillis();
+    if (delayMs != ExponentialBackOff.STOP) {
+      LOG.warn(
+          "{} — retrying in {} ms ({} ms elapsed)",
+          context,
+          delayMs,
+          keepAliveBackoff.getElapsedTimeMs());
+      try {
+        watchRetryExecutor.schedule(this::reopenKeepAlive, delayMs, TimeUnit.MILLISECONDS);
+      } catch (RejectedExecutionException e) {
+        LOG.debug("Retry executor already shut down for {}, retry not scheduled", storeFolder);
+      }
+      return;
+    }
+    LOG.error(
+        "KeepAlive retry budget exhausted for lease {} after {} ms",
+        sharedLeaseId,
+        keepAliveBackoff.getElapsedTimeMs());
+    handleLeaseLost(cause);
+  }
+
+  /**
+   * Halts on definitive loss of the shared lease, since etcd deleted every ephemeral key this store
+   * registered and only startup registration can re-advertise them.
+   */
+  private void handleLeaseLost(Throwable cause) {
+    LOG.error(
+        "Shared lease {} for store {} is gone; ephemeral registrations were deleted by etcd",
+        sharedLeaseId,
+        storeFolder,
+        cause);
+    handleFatalAsync(cause, "keepalive-" + sharedLeaseId);
+  }
+
+  /**
+   * {@link #startKeepAlive()} for the retry executor, because jetcd throws synchronously once the
+   * lease client is closed and a scheduled task's throwable would go nowhere.
+   */
+  private void reopenKeepAlive() {
+    try {
+      startKeepAlive();
+    } catch (RuntimeException e) {
+      retryOrLoseLease(e, "Could not reopen keep-alive for lease " + sharedLeaseId);
+    }
+  }
+
+  /** Closes the current keep-alive handle, if any. */
+  private void closeKeepAliveClient() {
+    CloseableClient previous = keepAliveClient;
+    keepAliveClient = null;
+    closeQuietly("keepAlive client for lease " + sharedLeaseId, previous);
   }
 
   /**
@@ -909,6 +946,19 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   /**
+   * How many nodes this store holds, without materializing them.
+   *
+   * @return A CompletionStage that completes with the node count
+   */
+  CompletionStage<Integer> sizeAsync() {
+    if (shouldCache) {
+      awaitCacheInitialized();
+      return CompletableFuture.completedFuture(cache.size());
+    }
+    return listAsync().thenApply(List::size);
+  }
+
+  /**
    * Lists all nodes synchronously.
    *
    * @return The list of all nodes
@@ -976,62 +1026,37 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   }
 
   /**
-   * Two-tier backoff state for watch retry logic. Transient errors (GOAWAY, compaction) share one
-   * budget; when exhausted they escalate to the error tier. Error budget exhaustion is fatal.
-   */
-  static class WatchRetryState {
-    final ExponentialBackOff transientBackoff;
-    final ExponentialBackOff errorBackoff;
-    private final long initialIntervalMs;
-
-    WatchRetryState(long initialIntervalMs, long maxIntervalMs, long maxElapsedMs) {
-      this.initialIntervalMs = initialIntervalMs;
-      this.transientBackoff =
-          new ExponentialBackOff(initialIntervalMs, maxIntervalMs, maxElapsedMs);
-      this.errorBackoff = new ExponentialBackOff(initialIntervalMs, maxIntervalMs, maxElapsedMs);
-    }
-
-    /**
-     * Resets both backoff tiers if the watcher was alive long enough to be considered healthy. A
-     * watcher that survived more than 2x the initial retry interval is treated as a new disruption
-     * episode.
-     */
-    void resetIfNewEpisode(long watcherCreatedTimeMs) {
-      long timeSinceCreation = System.currentTimeMillis() - watcherCreatedTimeMs;
-      if (timeSinceCreation > initialIntervalMs * 2) {
-        transientBackoff.reset();
-        errorBackoff.reset();
-      }
-    }
-  }
-
-  /**
    * Adds a listener for metadata changes.
    *
    * @param listener The listener to add
    */
   public void addListener(AstraMetadataStoreChangeListener<T> listener) {
+    // One retry driver per listener, because each listener owns its own watch stream.
     addListener(
         listener,
-        REVISION_LATEST,
-        new WatchRetryState(initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs));
+        EtcdWatchRetry.REVISION_LATEST,
+        new EtcdWatchRetry(
+            etcdConfig,
+            meterRegistry,
+            storeTag,
+            watchRetryExecutor,
+            () -> isClosing,
+            (revision, retry) -> addListener(listener, revision, retry),
+            "watch for store " + storeFolder,
+            "cache is stale",
+            System::currentTimeMillis));
   }
 
   /**
-   * Internal method to add a listener with retry logic. Transient errors (GOAWAY, compaction) share
-   * one backoff budget; when exhausted they escalate to the error tier. Error budget exhaustion is
-   * fatal.
+   * Internal method to add a listener, re-establishing the watch with unbounded backoff on failure.
    *
    * @param listener The listener to add
-   * @param startRevision The ETCD revision number to start at. {@link #REVISION_LATEST} fetches
-   *     current revision (keysOnly). {@link #REVISION_RESYNC} triggers a full cache resync
-   *     (compaction recovery).
-   * @param retryState Two-tier backoff state carried across retries
+   * @param startRevision The ETCD revision to start at, or {@link EtcdWatchRetry#REVISION_LATEST}
+   *     or {@link EtcdWatchRetry#REVISION_RESYNC}
+   * @param retry Pacing state carried across retries of this listener's watch
    */
   private void addListener(
-      AstraMetadataStoreChangeListener<T> listener,
-      long startRevision,
-      WatchRetryState retryState) {
+      AstraMetadataStoreChangeListener<T> listener, long startRevision, EtcdWatchRetry retry) {
     this.addedListener.increment();
 
     if (!shouldCache) {
@@ -1050,31 +1075,27 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // We start watching from the next revision to ensure we capture all events
     // that occur during and after watch setup
     WatchOption watchOption;
-    long currentRevision = startRevision;
+    long watchFromRevision;
     try {
-      if (startRevision == REVISION_RESYNC) {
-        currentRevision = resyncCacheFromEtcd(listener);
-      } else if (startRevision == REVISION_LATEST) {
-        // Only the header revision is needed here, so count-only avoids transferring any keys.
-        currentRevision =
-            etcdClient
-                .getKVClient()
-                .get(prefix, GetOption.builder().withPrefix(prefix).withCountOnly(true).build())
-                .get(etcdOperationTimeoutMs, TimeUnit.MILLISECONDS)
-                .getHeader()
-                .getRevision();
+      if (startRevision == EtcdWatchRetry.REVISION_RESYNC) {
+        watchFromRevision = resyncCacheFromEtcd(listener) + 1;
+      } else if (startRevision == EtcdWatchRetry.REVISION_LATEST) {
+        watchFromRevision =
+            EtcdRangePaginator.currentRevision(
+                    etcdClient.getKVClient(), prefix, etcdOperationTimeoutMs)
+                + 1;
+      } else {
+        // A reconnect: startRevision came from EtcdWatchRetry.reachedRevision
+        watchFromRevision = startRevision;
       }
 
-      // Create watch option starting from the current revision + 1
-      // This ensures we don't miss events that occur during watch registration
-      // and that we don't replay the last event
       watchOption =
-          WatchOption.builder().withPrefix(prefix).withRevision(currentRevision + 1).build();
+          WatchOption.builder().withPrefix(prefix).withRevision(watchFromRevision).build();
       LOG.debug(
           "adding listener {} for store {} at revision {}",
           listener,
           storeFolder,
-          currentRevision + 1);
+          watchFromRevision);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       if (isClosing || Thread.currentThread().isInterrupted()) {
         LOG.warn(
@@ -1083,28 +1104,19 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
             e.getMessage());
         return;
       }
-      LOG.error("Failed to get current revision for watch setup on store {}", storeFolder, e);
-      watchRetryError.increment();
-      if (!scheduleRetryWithBackoff(
-          retryState.errorBackoff,
-          () -> addListener(listener, REVISION_RESYNC, retryState),
-          "Revision fetch failed for store " + storeFolder + ": " + e.getMessage())) {
-        LOG.error(
-            "Watch retry budget exhausted for store {} after {} ms — failing fatally",
-            storeFolder,
-            retryState.errorBackoff.getElapsedTimeMs());
-        handleFatalAsync(e, storeFolder);
-      }
+      // We didn't get a usable revision, retry has nothing to resume from and must resync.
+      retry.requireResync();
+      retry.onFailure(e, "Revision fetch failed for store " + storeFolder);
       return;
     }
 
-    // Create a watcher for this listener
-    long finalCurrentRevision = currentRevision + 1;
-    // Records when this watcher was created. Used to distinguish new disruption episodes from
-    // continuations of the same failure: if the watcher was alive longer than 2x the base retry
-    // delay, a subsequent error is a new episode and the retry window resets.
-    long watcherCreatedTimeMs = System.currentTimeMillis();
+    retry.openedAtRevision(watchFromRevision);
     AtomicReference<Watcher> watcherRef = new AtomicReference<>();
+    // Whichever callback fires first claims this, so an error and a completion for the same dead
+    // watcher cannot each schedule a retry.
+    AtomicBoolean disposed = new AtomicBoolean(false);
+    String listenerKey = listenerKey(listener);
+
     Watcher watcher =
         etcdClient
             .getWatchClient()
@@ -1112,6 +1124,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                 prefix,
                 watchOption,
                 response -> {
+                  // On the callback thread, so a failure racing this response still resumes from
+                  // the newer revision.
+                  if (response.getHeader() != null) {
+                    retry.reachedRevision(response.getHeader().getRevision() + 1);
+                  }
                   // Process watch events on a separate thread to avoid deadlocks
                   // This is critical when watch handlers need to make synchronous metadata
                   // operations
@@ -1158,81 +1175,89 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
                       });
                 },
                 error -> {
-                  if (isClosing) {
-                    LOG.debug("Ignoring watch error during shutdown for {}", storeFolder);
+                  if (!retry.claimDisposal(disposed, "watch error")) {
                     return;
                   }
-
-                  String listenerKey = String.valueOf(System.identityHashCode(listener));
-                  Watcher existingWatcher = watchers.remove(listenerKey);
-                  closeQuietly(existingWatcher != null ? existingWatcher : watcherRef.get());
-
-                  // GOAWAY: server is shutting down cleanly, reconnect with backoff.
-                  if (isGracefulStop(error)) {
-                    watchRetryGracefulStop.increment();
-                    if (scheduleRetryWithBackoff(
-                        retryState.transientBackoff,
-                        () -> addListener(listener, finalCurrentRevision, retryState),
-                        "Watch for store "
-                            + storeFolder
-                            + " received GOAWAY: "
-                            + error.getMessage())) {
-                      return;
-                    }
-                    LOG.error(
-                        "Transient retry budget exhausted for store {} after {} ms"
-                            + " — treating as real error",
-                        storeFolder,
-                        retryState.transientBackoff.getElapsedTimeMs());
-                    retryState.transientBackoff.reset();
-                  } else if (isCompactionError(error)) {
-                    // Compaction: revision is behind, need full resync.
-                    watchRetryCompaction.increment();
-                    if (scheduleRetryWithBackoff(
-                        retryState.transientBackoff,
-                        () -> addListener(listener, REVISION_RESYNC, retryState),
-                        "Watch for store "
-                            + storeFolder
-                            + " received compaction error: "
-                            + error.getMessage())) {
-                      return;
-                    }
-                    LOG.error(
-                        "Transient retry budget exhausted for store {} after {} ms"
-                            + " — treating as real error",
-                        storeFolder,
-                        retryState.transientBackoff.getElapsedTimeMs());
-                    retryState.transientBackoff.reset();
-                  }
-
-                  retryState.resetIfNewEpisode(watcherCreatedTimeMs);
-
-                  watchRetryError.increment();
-                  if (scheduleRetryWithBackoff(
-                      retryState.errorBackoff,
-                      () -> addListener(listener, finalCurrentRevision, retryState),
-                      "Watch failed for store " + storeFolder + ": " + error.getMessage())) {
+                  recoverOffCallbackThread(
+                      listenerKey,
+                      watcherRef,
+                      retry,
+                      error,
+                      "Watch failed for store " + storeFolder);
+                },
+                () -> {
+                  // The 4-argument watch overload supplies a no-op onCompleted, which leaves a
+                  // cleanly completed stream permanently deaf.
+                  if (!retry.claimDisposal(disposed, "watch completion")) {
                     return;
                   }
-
-                  LOG.error(
-                      "Watch retry budget exhausted for store {} after {} ms — failing fatally",
-                      storeFolder,
-                      retryState.errorBackoff.getElapsedTimeMs());
-                  handleFatalAsync(error, storeFolder);
+                  recoverOffCallbackThread(
+                      listenerKey,
+                      watcherRef,
+                      retry,
+                      new IllegalStateException("etcd closed the watch stream"),
+                      "Watch completed unexpectedly for store " + storeFolder);
                 });
 
     watcherRef.set(watcher);
-    watchers.put(String.valueOf(System.identityHashCode(listener)), watcher);
-
-    boolean isRetry =
-        retryState.transientBackoff.getElapsedTimeMs() > 0
-            || retryState.errorBackoff.getElapsedTimeMs() > 0;
-    if (!isRetry) {
-      LOG.info("Successfully established initial watch for store {}", storeFolder);
-    } else {
-      LOG.info("Successfully re-established watch for store {}", storeFolder);
+    if (disposed.get()) {
+      // Failed before registration finished; a retry is already scheduled, so this watcher must not
+      // be left in the map as the live one.
+      closeQuietly("watcher", watcher);
+      return;
     }
+
+    WatchHandle previous = watchers.put(listenerKey, new WatchHandle(watcher, disposed));
+    if (previous != null) {
+      closeQuietly("watcher", previous.watcher());
+    }
+    retry.onEstablished();
+  }
+
+  /**
+   * Closes the dead watcher and starts recovery off the thread jetcd called us on, since one
+   * callback executor is shared by every watcher in the process.
+   */
+  private void recoverOffCallbackThread(
+      String listenerKey,
+      AtomicReference<Watcher> watcherRef,
+      EtcdWatchRetry retry,
+      Throwable error,
+      String context) {
+    try {
+      watchRetryExecutor.execute(
+          () -> {
+            disposeWatcher(listenerKey, watcherRef.get());
+            retry.onFailure(error, context);
+          });
+    } catch (RejectedExecutionException e) {
+      // Only reachable once the store is closing, which closes every registered watcher itself.
+      LOG.debug("Store {} is closing, not recovering watch", storeFolder);
+      closeQuietly("watcher", watcherRef.get());
+    }
+  }
+
+  /**
+   * Removes a watcher from the registry and disposes it, claiming its latch first since {@link
+   * Watcher#close()} fires the watcher's own onCompleted synchronously.
+   *
+   * @param fallback closed instead when nothing was registered under the key, so a watcher that
+   *     failed before it was registered is still closed
+   * @return whether a registered watcher was found
+   */
+  private boolean disposeWatcher(String listenerKey, Watcher fallback) {
+    WatchHandle registered = watchers.remove(listenerKey);
+    if (registered != null) {
+      registered.dispose("watcher");
+    } else {
+      closeQuietly("watcher", fallback);
+    }
+    return registered != null;
+  }
+
+  /** Registry key for a listener's watcher. */
+  private static String listenerKey(AstraMetadataStoreChangeListener<?> listener) {
+    return String.valueOf(System.identityHashCode(listener));
   }
 
   /**
@@ -1252,12 +1277,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       return;
     }
 
-    String key = System.identityHashCode(listener) + "";
-    Watcher watcher = watchers.remove(key);
-
-    if (watcher != null) {
-      watcher.close();
-    } else {
+    if (!disposeWatcher(listenerKey(listener), null)) {
       LOG.warn("Attempted to remove unknown listener");
     }
   }
@@ -1275,9 +1295,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           // out
           if (!Thread.currentThread().isInterrupted()) {
             LOG.error("Timed out waiting for Etcd cache to initialize for store {}", storeFolder);
-            new RuntimeHalterImpl()
-                .handleFatal(
-                    new TimeoutException("Timed out waiting for Etcd cache to initialize"));
+            fatalErrorHandler.handleFatal(
+                new TimeoutException("Timed out waiting for Etcd cache to initialize"));
           } else {
             LOG.warn("Cache initialization wait interrupted for store {}", storeFolder);
           }
@@ -1289,8 +1308,55 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     }
   }
 
-  /** Populates the cache with all nodes from etcd. This is called once during initialization. */
+  /**
+   * A fresh backoff over this store's configured retry values, one per retry loop since {@link
+   * ExponentialBackOff} carries the elapsed time of the episode it paces.
+   */
+  private ExponentialBackOff newRetryBackoff() {
+    return new ExponentialBackOff(initialRetryIntervalMs, maxRetryDelayMs, retryTotalDurationMs);
+  }
+
+  /**
+   * Populates the cache with all nodes from etcd, retrying transient read failures within the
+   * budget rather than halting on the first one.
+   */
   private void populateInitialCache() {
+    ExponentialBackOff backoff = newRetryBackoff();
+    while (true) {
+      try {
+        loadInitialCache();
+        return;
+      } catch (ExecutionException | TimeoutException e) {
+        long delayMs = backoff.nextBackOffMillis();
+        if (delayMs == ExponentialBackOff.STOP) {
+          LOG.error(
+              "Failed to initialize cache for store {} after {} ms of retries",
+              storeFolder,
+              backoff.getElapsedTimeMs(),
+              e);
+          fatalErrorHandler.handleFatal(
+              new TimeoutException("Timed out waiting for Etcd cache to initialize"));
+          return;
+        }
+        LOG.warn(
+            "Failed to initialize cache for store {}, retrying in {} ms: {}",
+            storeFolder,
+            delayMs,
+            e.getMessage());
+        try {
+          Thread.sleep(delayMs);
+        } catch (InterruptedException interrupted) {
+          LOG.info("Cache initialization for store {} interrupted while retrying", storeFolder);
+          cacheInitialized.countDown();
+          Thread.currentThread().interrupt();
+          return;
+        }
+      }
+    }
+  }
+
+  /** Single attempt to read the store's contents into the cache. */
+  private void loadInitialCache() throws ExecutionException, TimeoutException {
     try {
       LOG.debug("Populating cache for store {}", storeFolder);
       // Get only nodes from this store folder.
@@ -1328,7 +1394,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
           } catch (InvalidProtocolBufferException e) {
             LOG.error("Failed to deserialize node from key: {}", kv.getKey(), e);
             // Fail the whole system if we can't deserialize a node
-            new RuntimeHalterImpl().handleFatal(e);
+            fatalErrorHandler.handleFatal(e);
           }
         }
       }
@@ -1345,12 +1411,11 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
       cacheInitialized.countDown();
       Thread.currentThread().interrupt(); // Preserve interrupt status
     } catch (ExecutionException | TimeoutException e) {
-      LOG.error("Error initializing cache for store {}: {}", storeFolder, e.getMessage());
-      new RuntimeHalterImpl()
-          .handleFatal(new TimeoutException("Timed out waiting for Etcd cache to initialize"));
+      // Propagated so the caller can retry; only a spent retry budget is fatal.
+      throw e;
     } catch (Exception e) {
       LOG.error("Failed to initialize cache for store {}", storeFolder, e);
-      new RuntimeHalterImpl().handleFatal(e);
+      fatalErrorHandler.handleFatal(e);
     }
     // Note: No finally block that always calls countDown - we only want to mark
     // as initialized on success or interruption, not on errors.
@@ -1438,9 +1503,12 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     // Set closing flag to prevent keepalive restarts during shutdown
     isClosing = true;
 
-    // Close all active watchers
-    watchers.values().forEach(Watcher::close);
+    // Claim disposal first: the completion each close triggers is self-inflicted and must not
+    // schedule a retry.
+    watchers.values().forEach(handle -> handle.dispose("watcher"));
     watchers.clear();
+
+    closeKeepAliveClient();
 
     // Mark cache as initialized to unblock any waiting calls to awaitCacheInitialized
     if (cacheInitialized.getCount() > 0) {

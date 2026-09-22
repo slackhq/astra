@@ -147,11 +147,6 @@ public class ReplicaCreationServiceTest {
 
   @Test
   public void shouldDoNothingIfReplicasAlreadyExist() throws Exception {
-    ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
-
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
             "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a", 0);

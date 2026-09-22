@@ -92,11 +92,14 @@ message EtcdConfig {
   int32 operations_timeout_ms = 9;
   // Max number of retries for operations
   int32 operations_max_retries = 10;
-  // TTL in seconds for ephemeral nodes
+  // TTL in milliseconds for ephemeral nodes. Keep it at or above
+  // retry_total_duration_ms so the keep-alive retry budget cannot outlive the
+  // lease etcd is renewing.
   int32 ephemeral_node_ttl_ms = 11;
   // Max number of retries for ephemeral nodes
   int32 ephemeral_node_max_retries = 12;
-  // Maximum total time to keep retrying watch operations before giving up (ms).
+  // Hard retry budget for lease keep-alive and initial cache load; watch
+  // retries are bounded by watch_fatal_after_ms instead.
   // When 0, Java applies a default of 60000 ms.
   int32 retry_total_duration_ms = 13;
   // Maximum backoff delay between watch retries (ms). Used as the cap for
@@ -113,6 +116,11 @@ message EtcdConfig {
   // timeout that bounds the whole (possibly multi-page) list. When 0, the
   // operation timeout is used per page.
   int32 list_page_timeout_ms = 17;
+  // Elapsed time a single watch may spend continuously failing to reconnect
+  // before the process halts, so keep it well past any leader election or
+  // network partition.
+  // When 0, Java applies a default of 300000 ms.
+  int32 watch_fatal_after_ms = 18;
 }
 
 // Configuration for Zookeeper metadata store.

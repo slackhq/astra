@@ -147,38 +147,15 @@ public class EtcdPartitioningMetadataStoreTest {
     meterRegistry = new SimpleMeterRegistry();
     serializer = new TestMetadataSerializer();
 
-    // Configure etcd
-    AstraConfigs.EtcdConfig etcdConfig =
-        AstraConfigs.EtcdConfig.newBuilder()
-            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
-            .setConnectionTimeoutMs(5000)
-            .setKeepaliveTimeoutMs(3000)
-            .setOperationsMaxRetries(3)
-            .setOperationsTimeoutMs(3000)
-            .setRetryDelayMs(100)
-            .setRetryTotalDurationMs(5000)
-            .setMaxRetryDelayMs(1000)
-            .setInitialRetryIntervalMs(100)
-            .setNamespace("test")
-            .setListPageSize(10000)
-            .build();
-
-    // Build the etcd client
-    Client etcdClient =
-        Client.builder()
-            .endpoints(
-                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .connectTimeout(Duration.ofMillis(5000))
-            .keepaliveTimeout(Duration.ofMillis(3000))
-            .retryMaxAttempts(3)
-            .retryDelay(100)
-            .namespace(ByteSequence.from("test", StandardCharsets.UTF_8))
-            .build();
-
     // Create store with cache enabled
     store =
         new EtcdPartitioningMetadataStore<>(
-            etcdClient, etcdConfig, meterRegistry, EtcdCreateMode.PERSISTENT, serializer, "/test");
+            testEtcdClient(),
+            testEtcdConfig(),
+            meterRegistry,
+            EtcdCreateMode.PERSISTENT,
+            serializer,
+            "/test");
 
     // Delete any nodes left behind by a prior test. The delete watch events propagate
     // asynchronously, so wait until the cached view drains to empty before running the test body.
@@ -426,31 +403,8 @@ public class EtcdPartitioningMetadataStoreTest {
     assertThat(filteredItems).hasSize(2);
 
     // Now create a new store with the same parameters and verify it can see the data
-    Client newEtcdClient =
-        Client.builder()
-            .endpoints(
-                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
-            .connectTimeout(Duration.ofMillis(5000))
-            .keepaliveTimeout(Duration.ofMillis(3000))
-            .retryMaxAttempts(3)
-            .retryDelay(100)
-            .namespace(ByteSequence.from("test", StandardCharsets.UTF_8))
-            .build();
-
-    AstraConfigs.EtcdConfig etcdConfig =
-        AstraConfigs.EtcdConfig.newBuilder()
-            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
-            .setConnectionTimeoutMs(5000)
-            .setKeepaliveTimeoutMs(3000)
-            .setOperationsMaxRetries(3)
-            .setOperationsTimeoutMs(3000)
-            .setRetryDelayMs(100)
-            .setRetryTotalDurationMs(5000)
-            .setMaxRetryDelayMs(1000)
-            .setInitialRetryIntervalMs(100)
-            .setNamespace("test")
-            .setListPageSize(10000)
-            .build();
+    Client newEtcdClient = testEtcdClient();
+    AstraConfigs.EtcdConfig etcdConfig = testEtcdConfig();
 
     // Use try-with-resources to ensure proper closing
     try (EtcdPartitioningMetadataStore<TestPartitionedMetadata> newStore =
@@ -627,20 +581,9 @@ public class EtcdPartitioningMetadataStoreTest {
     }
     CompletableFuture.allOf(creates.toArray(new CompletableFuture[0])).get(60, TimeUnit.SECONDS);
 
+    // A page small enough that the 1100 keys below span several pages.
     AstraConfigs.EtcdConfig readerConfig =
-        AstraConfigs.EtcdConfig.newBuilder()
-            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
-            .setConnectionTimeoutMs(5000)
-            .setKeepaliveTimeoutMs(3000)
-            .setOperationsMaxRetries(3)
-            .setOperationsTimeoutMs(10000)
-            .setRetryDelayMs(100)
-            .setRetryTotalDurationMs(5000)
-            .setMaxRetryDelayMs(1000)
-            .setInitialRetryIntervalMs(100)
-            .setNamespace("test")
-            .setListPageSize(500)
-            .build();
+        testEtcdConfig().toBuilder().setOperationsTimeoutMs(10000).setListPageSize(500).build();
 
     // Reader with an inbound limit smaller than the full response; discovery failed here before
     // pagination.
@@ -669,5 +612,84 @@ public class EtcdPartitioningMetadataStoreTest {
     } finally {
       readerClient.close();
     }
+  }
+
+  /**
+   * A filtered store probes each filter by prefix rather than scanning the folder, so the
+   * partitions it discovers must still be exactly its filters — notably not "p10" when filtering on
+   * "p1".
+   */
+  @Test
+  public void testFilteredPartitionDiscovery() throws Exception {
+    List<String> existing = List.of("p1", "p10", "p2");
+    for (String partition : existing) {
+      store
+          .createAsync(new TestPartitionedMetadata("node-" + partition, partition, "d"))
+          .toCompletableFuture()
+          .get(10, TimeUnit.SECONDS);
+    }
+
+    record Case(String name, List<String> filters, List<String> expected) {}
+    List<Case> cases =
+        List.of(
+            new Case("prefix collision", List.of("p1"), List.of("p1")),
+            new Case("several filters", List.of("p1", "p2"), List.of("p1", "p2")),
+            new Case("filter with no keys yet", List.of("p2", "absent"), List.of("p2")),
+            new Case("no filters discovers all", List.of(), existing));
+
+    // Closing a store leaves its client open, so one client serves every case.
+    Client client = createNamespacedAdminClient();
+    try {
+      for (Case testCase : cases) {
+        try (EtcdPartitioningMetadataStore<TestPartitionedMetadata> filtered =
+            new EtcdPartitioningMetadataStore<>(
+                client,
+                testEtcdConfig(),
+                meterRegistry,
+                EtcdCreateMode.PERSISTENT,
+                serializer,
+                "/test",
+                testCase.filters())) {
+          assertThat(
+                  filtered.listSyncUncached().stream()
+                      .map(TestPartitionedMetadata::getPartition)
+                      .distinct()
+                      .sorted()
+                      .toList())
+              .as(testCase.name())
+              .isEqualTo(testCase.expected().stream().sorted().toList());
+        }
+      }
+    } finally {
+      client.close();
+    }
+  }
+
+  private Client testEtcdClient() {
+    return Client.builder()
+        .endpoints(
+            etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+        .connectTimeout(Duration.ofMillis(5000))
+        .keepaliveTimeout(Duration.ofMillis(3000))
+        .retryMaxAttempts(3)
+        .retryDelay(100)
+        .namespace(ByteSequence.from("test", StandardCharsets.UTF_8))
+        .build();
+  }
+
+  private AstraConfigs.EtcdConfig testEtcdConfig() {
+    return AstraConfigs.EtcdConfig.newBuilder()
+        .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
+        .setConnectionTimeoutMs(5000)
+        .setKeepaliveTimeoutMs(3000)
+        .setOperationsMaxRetries(3)
+        .setOperationsTimeoutMs(3000)
+        .setRetryDelayMs(100)
+        .setRetryTotalDurationMs(5000)
+        .setMaxRetryDelayMs(1000)
+        .setInitialRetryIntervalMs(100)
+        .setNamespace("test")
+        .setListPageSize(10000)
+        .build();
   }
 }

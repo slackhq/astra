@@ -17,42 +17,35 @@ import org.apache.zookeeper.CreateMode;
 public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<CacheNodeAssignment> {
   public static final String CACHE_NODE_ASSIGNMENT_STORE_PATH = "/cacheAssignment";
 
+  /**
+   * Manager nodes watch assignments for all cache nodes. A cache node must use the {@code
+   * cacheNodeId} filter instead.
+   */
   public CacheNodeAssignmentStore(
       AsyncCuratorFramework curator,
       Client etcdClient,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry) {
-    super(
-        curator != null
-            ? new ZookeeperPartitioningMetadataStore<>(
-                curator,
-                metadataStoreConfig.getZookeeperConfig(),
-                meterRegistry,
-                CreateMode.PERSISTENT,
-                new CacheNodeAssignmentSerializer().toModelSerializer(),
-                CACHE_NODE_ASSIGNMENT_STORE_PATH)
-            : null,
-        etcdClient != null
-            ? new EtcdPartitioningMetadataStore<>(
-                etcdClient,
-                metadataStoreConfig.getEtcdConfig(),
-                meterRegistry,
-                EtcdCreateMode.PERSISTENT,
-                new CacheNodeAssignmentSerializer(),
-                CACHE_NODE_ASSIGNMENT_STORE_PATH)
-            : null,
-        metadataStoreConfig.getStoreModesOrDefault(
-            "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),
-        meterRegistry);
+    this(curator, etcdClient, metadataStoreConfig, meterRegistry, List.of());
   }
 
-  /** Restricts the cache node assignment store to only watching events for cacheNodeId */
+  /** Watches assignments for only {@code cacheNodeId}. */
   public CacheNodeAssignmentStore(
       AsyncCuratorFramework curator,
       Client etcdClient,
       AstraConfigs.MetadataStoreConfig metadataStoreConfig,
       MeterRegistry meterRegistry,
       String cacheNodeId) {
+    this(curator, etcdClient, metadataStoreConfig, meterRegistry, List.of(cacheNodeId));
+  }
+
+  /** An empty {@code partitionFilters} means watch every partition; see the public constructors. */
+  private CacheNodeAssignmentStore(
+      AsyncCuratorFramework curator,
+      Client etcdClient,
+      AstraConfigs.MetadataStoreConfig metadataStoreConfig,
+      MeterRegistry meterRegistry,
+      List<String> partitionFilters) {
     super(
         curator != null
             ? new ZookeeperPartitioningMetadataStore<>(
@@ -62,7 +55,7 @@ public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<Cac
                 CreateMode.PERSISTENT,
                 new CacheNodeAssignmentSerializer().toModelSerializer(),
                 CACHE_NODE_ASSIGNMENT_STORE_PATH,
-                List.of(cacheNodeId))
+                partitionFilters)
             : null,
         etcdClient != null
             ? new EtcdPartitioningMetadataStore<>(
@@ -72,7 +65,7 @@ public class CacheNodeAssignmentStore extends AstraPartitioningMetadataStore<Cac
                 EtcdCreateMode.PERSISTENT,
                 new CacheNodeAssignmentSerializer(),
                 CACHE_NODE_ASSIGNMENT_STORE_PATH,
-                List.of(cacheNodeId))
+                partitionFilters)
             : null,
         metadataStoreConfig.getStoreModesOrDefault(
             "CacheNodeAssignmentStore", AstraConfigs.MetadataStoreMode.ETCD_CREATES),

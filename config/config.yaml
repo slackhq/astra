@@ -83,6 +83,7 @@ metadataStoreConfig:
     initialRetryIntervalMs: ${ASTRA_ETCD_INITIAL_RETRY_INTERVAL_MS:-2000}
     listPageSize: ${ASTRA_ETCD_LIST_PAGE_SIZE:-10000}
     listPageTimeoutMs: ${ASTRA_ETCD_LIST_PAGE_TIMEOUT_MS:-15000}
+    watchFatalAfterMs: ${ASTRA_ETCD_WATCH_FATAL_AFTER_MS:-300000}
   storeModes:
     DatasetMetadataStore: ${ASTRA_DATASET_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
     SnapshotMetadataStore: ${ASTRA_SNAPSHOT_METADATA_STORE_MODE:-ZOOKEEPER_CREATES}
