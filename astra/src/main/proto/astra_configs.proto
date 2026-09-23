@@ -88,7 +88,9 @@ message EtcdConfig {
   int32 keepalive_timeout_ms = 5;
   // Time between retries in milliseconds
   int32 retry_delay_ms = 6;
-  // Operations timeout
+  // Operations timeout. Bounds a whole operation, including a multi-page list,
+  // so it is separate from the connection timeout that sizes socket setup.
+  // When 0, Java applies a default of 60000 ms.
   int32 operations_timeout_ms = 9;
   // Max number of retries for operations
   int32 operations_max_retries = 10;

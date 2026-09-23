@@ -172,10 +172,9 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     this.etcdConfig = etcdConfig;
     this.meterRegistry = meterRegistry;
     this.listPageSize = etcdConfig.getListPageSize();
-    // The connection timeout sizes establishing a socket; a paginated range read needs longer.
     this.operationsTimeoutMs =
         EtcdMetadataStore.positiveOrDefault(
-            etcdConfig.getOperationsTimeoutMs(), etcdConfig.getConnectionTimeoutMs());
+            etcdConfig.getOperationsTimeoutMs(), EtcdMetadataStore.DEFAULT_OPERATIONS_TIMEOUT_MS);
     this.listPageTimeoutMs =
         EtcdMetadataStore.positiveOrDefault(etcdConfig.getListPageTimeoutMs(), operationsTimeoutMs);
 

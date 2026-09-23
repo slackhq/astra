@@ -121,6 +121,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
   /** Retained so each listener's watch driver resolves its config from one place. */
   private final EtcdConfig etcdConfig;
 
+  static final long DEFAULT_OPERATIONS_TIMEOUT_MS = 60_000;
   static final long DEFAULT_RETRY_TOTAL_DURATION_MS = 60_000;
   static final long DEFAULT_MAX_RETRY_DELAY_MS = 10_000;
   static final long DEFAULT_INITIAL_RETRY_INTERVAL_MS = 2_000;
@@ -217,7 +218,8 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
     this.watchers = new ConcurrentHashMap<>();
     this.createMode = createMode;
     this.ephemeralTtlMs = config.getEphemeralNodeTtlMs();
-    this.etcdOperationTimeoutMs = config.getOperationsTimeoutMs();
+    this.etcdOperationTimeoutMs =
+        positiveOrDefault(config.getOperationsTimeoutMs(), DEFAULT_OPERATIONS_TIMEOUT_MS);
     this.listPageSize = config.getListPageSize();
     // Falls back to the operation timeout when unset, preserving prior behavior.
     this.listPageTimeoutMs =
