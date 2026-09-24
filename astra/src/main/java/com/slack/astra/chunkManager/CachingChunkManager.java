@@ -13,7 +13,6 @@ import com.slack.astra.metadata.cache.CacheNodeAssignmentStore;
 import com.slack.astra.metadata.cache.CacheNodeMetadata;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
 import com.slack.astra.metadata.core.AstraMetadataStoreChangeListener;
-import com.slack.astra.metadata.replica.ReplicaMetadataStore;
 import com.slack.astra.metadata.search.SearchMetadataStore;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.metadata.snapshot.SnapshotMetadataStore;
@@ -49,7 +48,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private final AstraMetadataStoreChangeListener<CacheNodeAssignment>
       cacheNodeAssignmentChangeListener = this::onAssignmentHandler;
   private final long capacityBytes;
-  protected ReplicaMetadataStore replicaMetadataStore;
   protected SnapshotMetadataStore snapshotMetadataStore;
   protected SearchMetadataStore searchMetadataStore;
   private Client etcdClient;
@@ -91,8 +89,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   protected void startUp() throws Exception {
     LOG.info("Starting caching chunk manager");
 
-    replicaMetadataStore =
-        new ReplicaMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     snapshotMetadataStore =
         new SnapshotMetadataStore(curatorFramework, etcdClient, metadataStoreConfig, meterRegistry);
     searchMetadataStore =
@@ -138,7 +134,6 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     cacheNodeAssignmentStore.close();
     searchMetadataStore.close();
     snapshotMetadataStore.close();
-    replicaMetadataStore.close();
 
     LOG.info("Closed caching chunk manager.");
   }

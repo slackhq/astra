@@ -71,6 +71,7 @@ metadataStoreConfig:
     retryTotalDurationMs: 60000
     maxRetryDelayMs: 10000
     initialRetryIntervalMs: 2000
+    watchFatalAfterMs: 300000
   storeModes:
     DatasetMetadataStore: ETCD_CREATES
     SnapshotMetadataStore: ETCD_CREATES

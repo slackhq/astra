@@ -35,6 +35,30 @@ final class EtcdRangePaginator {
   /** The key/values read under a prefix, with the revision the read was pinned to. */
   record PaginatedRange(List<KeyValue> keyValues, long revision) {}
 
+  /**
+   * Whether any key exists under {@code prefix}, as a one-key keys-only read so the cost is
+   * independent of how many keys the prefix actually holds.
+   */
+  static CompletableFuture<PaginatedRange> firstKeyAsync(
+      KV kvClient, ByteSequence prefix, long timeoutMs) {
+    return kvClient
+        .get(prefix, GetOption.builder().withPrefix(prefix).withLimit(1).withKeysOnly(true).build())
+        .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+        .thenApply(
+            response -> new PaginatedRange(response.getKvs(), response.getHeader().getRevision()));
+  }
+
+  /**
+   * The cluster's current revision, read with the smallest range etcd allows since the response
+   * header carries the revision regardless of what the range matched.
+   */
+  static long currentRevision(KV kvClient, ByteSequence prefix, long timeoutMs)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    return firstKeyAsync(kvClient, prefix, timeoutMs)
+        .get(timeoutMs, TimeUnit.MILLISECONDS)
+        .revision();
+  }
+
   private static GetOption pageOption(
       ByteSequence prefix, boolean keysOnly, long revision, long pageSize) {
     GetOption.Builder options =
