@@ -122,6 +122,11 @@ public class EtcdErrorClassifierTest {
             "connection reset with no status attached",
             new RuntimeException("Connection reset by peer"),
             Recovery.TRANSIENT),
+        new Case(
+            "a subchannel the load balancer shut down under a live client",
+            new StatusRuntimeException(
+                Status.UNAVAILABLE.withDescription("Subchannel shutdown invoked")),
+            Recovery.TRANSIENT),
 
         // Client closed: retrying cannot succeed, and each of these reads as transient on its code
         // alone — ClosedClientException carries CANCELLED, a dead channel reports UNAVAILABLE.
@@ -137,11 +142,6 @@ public class EtcdErrorClassifierTest {
             "a call on a channel the client already shut down",
             EtcdExceptionFactory.toEtcdException(
                 Status.UNAVAILABLE.withDescription("Channel shutdown invoked")),
-            Recovery.CLIENT_CLOSED),
-        new Case(
-            "a call on a subchannel the client already shut down",
-            new StatusRuntimeException(
-                Status.UNAVAILABLE.withDescription("Subchannel shutdown invoked")),
             Recovery.CLIENT_CLOSED),
         new Case(
             "work rejected by the client's terminated executor",

@@ -212,6 +212,26 @@ public class EtcdMetadataStoreTest {
     }
   }
 
+  /**
+   * {@link EtcdPartitioningMetadataStore#addListener} races its own lazy store creation, so the
+   * same listener can be registered on one store twice. Replacing a watch must not read as the
+   * watch failing, or the recovery tears down the watcher that replaced it.
+   */
+  @Test
+  public void reRegisteringAListenerReplacesItsWatchWithoutRecovering() {
+    AtomicInteger notifications = new AtomicInteger();
+    AstraMetadataStoreChangeListener<TestMetadata> listener =
+        unused -> notifications.incrementAndGet();
+
+    store.addListener(listener);
+    store.addListener(listener);
+
+    store.createSync(new TestMetadata("replaced-watch", "data"));
+    await().untilAsserted(() -> assertThat(notifications.get()).isPositive());
+
+    assertThat(meterRegistry.find("astra_etcd_watch_retry").counters()).isEmpty();
+  }
+
   @Test
   public void testCreateAndGet() throws ExecutionException, InterruptedException {
     // Create a test metadata object

@@ -1211,7 +1211,7 @@ public class EtcdMetadataStore<T extends AstraMetadata> implements Closeable {
 
     WatchHandle previous = watchers.put(listenerKey, new WatchHandle(watcher, disposed));
     if (previous != null) {
-      closeQuietly("watcher", previous.watcher());
+      previous.dispose("watcher");
     }
     retry.onEstablished();
   }

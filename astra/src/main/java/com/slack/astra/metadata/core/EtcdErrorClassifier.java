@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 
 /**
  * Classifies an etcd watch failure into the recovery action it requires, matching on error message
@@ -46,7 +47,12 @@ final class EtcdErrorClassifier {
           "connection closed",
           "goaway");
 
-  private static final String CHANNEL_SHUTDOWN_MESSAGE = "shutdown invoked";
+  /**
+   * A closed channel, anchored on a word boundary so gRPC's {@code Subchannel shutdown invoked} —
+   * one dropped subchannel under a live client — does not read as one.
+   */
+  private static final Pattern CHANNEL_SHUTDOWN_MESSAGE =
+      Pattern.compile("\\bchannel shutdown invoked");
 
   /** Message used when the lease no longer exists. */
   private static final List<String> LEASE_GONE_MESSAGES =
@@ -142,7 +148,7 @@ final class EtcdErrorClassifier {
     }
 
     String lower = lowerMessage(frame);
-    if (lower.contains(CHANNEL_SHUTDOWN_MESSAGE)) {
+    if (CHANNEL_SHUTDOWN_MESSAGE.matcher(lower).find()) {
       return Recovery.CLIENT_CLOSED;
     }
     if (lower.contains("compacted")) {
