@@ -621,6 +621,38 @@
             <version>2.0.5</version>
             <scope>test</scope>
         </dependency>
+        <!-- TODO: Remove the zookeeper and zookeeper-jute pins once a curator release depends on zookeeper >= 3.9.6.
+             Curator 5.9.0 is on 3.9.3; master moved to 3.9.4 (https://github.com/apache/curator/pull/1281) but is
+             unreleased, and no upstream PR or issue tracks going past 3.9.4. -->
+        <dependency>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+            <version>3.9.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper-jute</artifactId>
+            <version>3.9.6</version>
+        </dependency>
+        <!-- TODO: Remove the tools.jackson.core and netty-codec-http3 pins once jetcd is upgraded past 0.8.7.
+             jetcd 0.8.7 pulls them in via vertx-grpc 5.x; jetcd main downgraded to Vert.x 4.x
+             (https://github.com/etcd-io/jetcd/pull/1608), which depends on neither, but is unreleased.
+             Re-check before removing if https://github.com/etcd-io/jetcd/pull/1620 (back to Vert.x 5.x) has merged. -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>3.1.7</version>
+        </dependency>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>3.1.7</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http3</artifactId>
+            <version>4.2.18.Final</version>
+        </dependency>
         </dependencies>
     </dependencyManagement>
 
