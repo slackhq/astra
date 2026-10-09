@@ -634,7 +634,7 @@
             <artifactId>zookeeper-jute</artifactId>
             <version>3.9.6</version>
         </dependency>
-        <!-- TODO: Remove the tools.jackson.core and netty-codec-http3 pins once jetcd is upgraded past 0.8.7.
+        <!-- TODO: Remove the tools.jackson.core and netty quic/http3 pins once jetcd is upgraded past 0.8.7.
              jetcd 0.8.7 pulls them in via vertx-grpc 5.x; jetcd main downgraded to Vert.x 4.x
              (https://github.com/etcd-io/jetcd/pull/1608), which depends on neither, but is unreleased.
              Re-check before removing if https://github.com/etcd-io/jetcd/pull/1620 (back to Vert.x 5.x) has merged. -->
@@ -651,6 +651,12 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-http3</artifactId>
+            <version>4.2.18.Final</version>
+        </dependency>
+        <!-- Keeps the quic classes netty-codec-http3 depends on at the same netty version -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-classes-quic</artifactId>
             <version>4.2.18.Final</version>
         </dependency>
         </dependencies>
