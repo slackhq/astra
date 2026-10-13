@@ -21,7 +21,6 @@
         <grpc.version>1.84.2</grpc.version>
         <micrometer.version>1.17.1</micrometer.version>
         <armeria.version>1.42.0</armeria.version>
-        <armeria-brave.version>1.27.3</armeria-brave.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.22.3</jackson.version>
         <jackson.annotations.version>2.22</jackson.annotations.version>
@@ -47,6 +46,33 @@
             <comments>A business-friendly OSS license</comments>
         </license>
     </licenses>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>2.0.5</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.zipkin.reporter2</groupId>
+                <artifactId>zipkin-reporter-bom</artifactId>
+                <version>3.5.3</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.zipkin.brave</groupId>
+                <artifactId>brave-bom</artifactId>
+                <version>6.3.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Logging dependencies -->
@@ -95,8 +121,8 @@
         </dependency>
         <dependency>
             <groupId>com.linecorp.armeria</groupId>
-            <artifactId>armeria-brave</artifactId>
-            <version>${armeria-brave.version}</version>
+            <artifactId>armeria-brave6</artifactId>
+            <version>${armeria.version}</version>
         </dependency>
         <dependency>
             <groupId>io.netty.incubator</groupId>
@@ -575,22 +601,26 @@
         </dependency>
 
         <!-- Zipkin -->
+
+
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-instrumentation-grpc</artifactId>
-            <version>5.18.1</version>
         </dependency>
 
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-context-log4j2</artifactId>
-            <version>6.3.1</version>
         </dependency>
 
         <dependency>
             <groupId>io.zipkin.reporter2</groupId>
             <artifactId>zipkin-sender-urlconnection</artifactId>
-            <version>2.17.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
         </dependency>
 
         <!-- etcd client dependencies -->
@@ -613,16 +643,7 @@
 
     </dependencies>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-            <version>2.0.5</version>
-            <scope>test</scope>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
+
 
     <build>
         <defaultGoal>clean install</defaultGoal>
