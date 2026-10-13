@@ -21,7 +21,6 @@
         <grpc.version>1.84.2</grpc.version>
         <micrometer.version>1.17.1</micrometer.version>
         <armeria.version>1.42.0</armeria.version>
-        <armeria-brave6.version>1.42.0</armeria-brave6.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.22.3</jackson.version>
         <jackson.annotations.version>2.22</jackson.annotations.version>
@@ -123,7 +122,7 @@
         <dependency>
             <groupId>com.linecorp.armeria</groupId>
             <artifactId>armeria-brave6</artifactId>
-            <version>${armeria-brave6.version}</version>
+            <version>${armeria.version}</version>
         </dependency>
         <dependency>
             <groupId>io.netty.incubator</groupId>
