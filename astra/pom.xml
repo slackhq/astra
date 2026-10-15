@@ -18,10 +18,9 @@
         <uberjar.name>astra</uberjar.name>
         <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.25.9</protobuf.version>
-        <grpc.version>1.84.0</grpc.version>
+        <grpc.version>1.84.2</grpc.version>
         <micrometer.version>1.17.1</micrometer.version>
-        <armeria.version>1.41.1</armeria.version>
-        <armeria-brave.version>1.27.3</armeria-brave.version>
+        <armeria.version>1.42.0</armeria.version>
         <kafka.version>3.5.0</kafka.version>
         <jackson.version>2.22.3</jackson.version>
         <jackson.annotations.version>2.22</jackson.annotations.version>
@@ -30,7 +29,7 @@
         <opensearch.version>2.11.1</opensearch.version>
         <curator.version>5.9.0</curator.version>
         <log4j.version>2.26.1</log4j.version>
-        <aws.sdk.version>2.55.10</aws.sdk.version>
+        <aws.sdk.version>2.55.14</aws.sdk.version>
         <error.prone.version>2.50.0</error.prone.version>
         <junit.jupiter.version>6.1.3</junit.jupiter.version>
         <jetcd.version>0.8.7</jetcd.version>
@@ -47,6 +46,72 @@
             <comments>A business-friendly OSS license</comments>
         </license>
     </licenses>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>2.0.5</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.zipkin.reporter2</groupId>
+                <artifactId>zipkin-reporter-bom</artifactId>
+                <version>3.5.3</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.zipkin.brave</groupId>
+                <artifactId>brave-bom</artifactId>
+                <version>6.3.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- TODO: Remove the zookeeper and zookeeper-jute pins once a curator release depends on zookeeper >= 3.9.6.
+                 Curator 5.9.0 is on 3.9.3; master moved to 3.9.4 (https://github.com/apache/curator/pull/1281) but is
+                 unreleased, and no upstream PR or issue tracks going past 3.9.4. -->
+            <dependency>
+                <groupId>org.apache.zookeeper</groupId>
+                <artifactId>zookeeper</artifactId>
+                <version>3.9.6</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.zookeeper</groupId>
+                <artifactId>zookeeper-jute</artifactId>
+                <version>3.9.6</version>
+            </dependency>
+            <!-- TODO: Remove the tools.jackson.core and netty quic/http3 pins once jetcd is upgraded past 0.8.7.
+                 jetcd 0.8.7 pulls them in via vertx-grpc 5.x; jetcd main downgraded to Vert.x 4.x
+                 (https://github.com/etcd-io/jetcd/pull/1608), which depends on neither, but is unreleased.
+                 Re-check before removing if https://github.com/etcd-io/jetcd/pull/1620 (back to Vert.x 5.x) has merged. -->
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>3.1.7</version>
+            </dependency>
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>3.1.7</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec-http3</artifactId>
+                <version>4.2.18.Final</version>
+            </dependency>
+            <!-- Keeps the quic classes netty-codec-http3 depends on at the same netty version -->
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec-classes-quic</artifactId>
+                <version>4.2.18.Final</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Logging dependencies -->
@@ -95,8 +160,8 @@
         </dependency>
         <dependency>
             <groupId>com.linecorp.armeria</groupId>
-            <artifactId>armeria-brave</artifactId>
-            <version>${armeria-brave.version}</version>
+            <artifactId>armeria-brave6</artifactId>
+            <version>${armeria.version}</version>
         </dependency>
         <dependency>
             <groupId>io.netty.incubator</groupId>
@@ -118,7 +183,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-http</artifactId>
-            <version>4.2.18.Final</version>
+            <version>4.2.19.Final</version>
         </dependency>
 
         <!-- Apache curator dependencies -->
@@ -302,7 +367,7 @@
         <dependency>
             <groupId>org.checkerframework</groupId>
             <artifactId>checker-qual</artifactId>
-            <version>4.3.0</version>
+            <version>4.3.1</version>
         </dependency>
 
         <dependency>
@@ -575,22 +640,26 @@
         </dependency>
 
         <!-- Zipkin -->
+
+
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-instrumentation-grpc</artifactId>
-            <version>5.18.1</version>
         </dependency>
 
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-context-log4j2</artifactId>
-            <version>6.3.1</version>
         </dependency>
 
         <dependency>
             <groupId>io.zipkin.reporter2</groupId>
             <artifactId>zipkin-sender-urlconnection</artifactId>
-            <version>2.17.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
         </dependency>
 
         <!-- etcd client dependencies -->
@@ -613,54 +682,7 @@
 
     </dependencies>
 
-    <dependencyManagement>
-        <dependencies>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-            <version>2.0.5</version>
-            <scope>test</scope>
-        </dependency>
-        <!-- TODO: Remove the zookeeper and zookeeper-jute pins once a curator release depends on zookeeper >= 3.9.6.
-             Curator 5.9.0 is on 3.9.3; master moved to 3.9.4 (https://github.com/apache/curator/pull/1281) but is
-             unreleased, and no upstream PR or issue tracks going past 3.9.4. -->
-        <dependency>
-            <groupId>org.apache.zookeeper</groupId>
-            <artifactId>zookeeper</artifactId>
-            <version>3.9.6</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.zookeeper</groupId>
-            <artifactId>zookeeper-jute</artifactId>
-            <version>3.9.6</version>
-        </dependency>
-        <!-- TODO: Remove the tools.jackson.core and netty quic/http3 pins once jetcd is upgraded past 0.8.7.
-             jetcd 0.8.7 pulls them in via vertx-grpc 5.x; jetcd main downgraded to Vert.x 4.x
-             (https://github.com/etcd-io/jetcd/pull/1608), which depends on neither, but is unreleased.
-             Re-check before removing if https://github.com/etcd-io/jetcd/pull/1620 (back to Vert.x 5.x) has merged. -->
-        <dependency>
-            <groupId>tools.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <version>3.1.7</version>
-        </dependency>
-        <dependency>
-            <groupId>tools.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>3.1.7</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-codec-http3</artifactId>
-            <version>4.2.18.Final</version>
-        </dependency>
-        <!-- Keeps the quic classes netty-codec-http3 depends on at the same netty version -->
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-codec-classes-quic</artifactId>
-            <version>4.2.18.Final</version>
-        </dependency>
-        </dependencies>
-    </dependencyManagement>
+
 
     <build>
         <defaultGoal>clean install</defaultGoal>
