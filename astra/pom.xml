@@ -102,13 +102,13 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-codec-http3</artifactId>
-                <version>4.2.18.Final</version>
+                <version>4.2.19.Final</version>
             </dependency>
             <!-- Keeps the quic classes netty-codec-http3 depends on at the same netty version -->
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-codec-classes-quic</artifactId>
-                <version>4.2.18.Final</version>
+                <version>4.2.19.Final</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
