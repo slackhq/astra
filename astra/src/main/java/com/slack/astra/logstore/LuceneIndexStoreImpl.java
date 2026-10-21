@@ -33,6 +33,7 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.MMapDirectory;
+import org.apache.lucene.store.SimpleFSLockFactory;
 import org.opensearch.common.lucene.index.OpenSearchDirectoryReader;
 import org.opensearch.core.index.shard.ShardId;
 import org.slf4j.Logger;
@@ -159,7 +160,14 @@ public class LuceneIndexStoreImpl implements LogStore {
         new SnapshotDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
     IndexWriterConfig indexWriterConfig =
         buildIndexWriterConfig(analyzer, this.snapshotDeletionPolicy, config, registry);
-    indexDirectory = new MMapDirectory(config.indexFolder(id).toPath());
+    // SimpleFSLockFactory, not the default NativeFSLockFactory: the native lock validates itself
+    // through a FileChannel, so any interrupted thread touching this directory (a timed-out
+    // chunk-query thread releasing the last stale NRT reader runs IndexWriter file deletes) closes
+    // that channel and permanently invalidates write.lock (apache/lucene#9309), killing the live
+    // chunk. SimpleFSLock validates via file attributes only. Index dirs are per-UUID and wiped on
+    // startup, so stale lock files are not a concern.
+    indexDirectory =
+        new MMapDirectory(config.indexFolder(id).toPath(), SimpleFSLockFactory.INSTANCE);
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
 
     RedactionFilterDirectoryReader reader =
