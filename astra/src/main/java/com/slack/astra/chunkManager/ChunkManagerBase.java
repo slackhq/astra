@@ -54,6 +54,35 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     concurrentQueries = new Semaphore(semaphoreCount, true);
   }
 
+  /**
+   * Collapses chunks that share a chunk id so each is searched once. chunkMap is keyed by an
+   * implementation-specific key (e.g. a cache node assignment id), so the same chunk can be present
+   * more than once, and searching every copy returns its documents once per copy.
+   */
+  @VisibleForTesting
+  protected List<Chunk<T>> dedupeByChunkId(List<Chunk<T>> chunks) {
+    Map<String, Chunk<T>> byId = new HashMap<>();
+    List<Chunk<T>> deduped = new ArrayList<>(chunks.size());
+    for (Chunk<T> chunk : chunks) {
+      String id = chunk.id();
+      if (id == null) {
+        deduped.add(chunk);
+        continue;
+      }
+      Chunk<T> existing = byId.get(id);
+      if (existing == null || preferChunk(chunk, existing)) {
+        byId.put(id, chunk);
+      }
+    }
+    deduped.addAll(byId.values());
+    return deduped;
+  }
+
+  /** Whether {@code candidate} should be searched instead of {@code current} for the same id. */
+  protected boolean preferChunk(Chunk<T> candidate, Chunk<T> current) {
+    return false;
+  }
+
   /*
    * Query the chunks in the time range, aggregate the results per aggregation policy and return the results.
    * We aggregate locally and then the query aggregator will aggregate again.
@@ -74,6 +103,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
               .filter(c -> query.chunkIds.contains(c.id()))
               .collect(Collectors.toList());
     }
+    chunksMatchingQuery = dedupeByChunkId(chunksMatchingQuery);
 
     // Shuffle the chunks to query. The chunkList is ordered, meaning if you had multiple concurrent
     // queries that need to search the same N chunks, they would all attempt to search the same

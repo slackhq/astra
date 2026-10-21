@@ -227,6 +227,22 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
         && (assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
   }
 
+  /**
+   * chunkMap is keyed by assignment id, so two assignments for the same snapshot (e.g. from two
+   * managers assigning concurrently) load it twice. Search the LIVE copy, since a copy that is
+   * still downloading returns no hits.
+   */
+  @Override
+  protected boolean preferChunk(Chunk<T> candidate, Chunk<T> current) {
+    return isLive(candidate) && !isLive(current);
+  }
+
+  private static <T> boolean isLive(Chunk<T> chunk) {
+    return chunk instanceof ReadOnlyChunkImpl<T> readOnlyChunk
+        && readOnlyChunk.getLastKnownAssignmentState()
+            == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;
+  }
+
   public String getId() {
     return cacheNodeId;
   }
