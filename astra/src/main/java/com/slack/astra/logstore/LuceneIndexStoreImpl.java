@@ -160,9 +160,11 @@ public class LuceneIndexStoreImpl implements LogStore {
         new SnapshotDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
     IndexWriterConfig indexWriterConfig =
         buildIndexWriterConfig(analyzer, this.snapshotDeletionPolicy, config, registry);
-    // SimpleFSLockFactory: the native lock validates itself through a FileChannel, so any interrupted
+    // SimpleFSLockFactory: the native lock validates itself through a FileChannel, so any
+    // interrupted
     // thread touching this directory (a timed-out query thread) closes that channel and permanently
-    // invalidates write.lock (apache/lucene#9309), killing the live chunk. SimpleFSLock validates via
+    // invalidates write.lock (apache/lucene#9309), killing the live chunk. SimpleFSLock validates
+    // via
     // file attributes only.
     indexDirectory =
         new MMapDirectory(config.indexFolder(id).toPath(), SimpleFSLockFactory.INSTANCE);
