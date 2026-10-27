@@ -1184,7 +1184,6 @@ public class RecoveryTaskCreatorTest {
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
   }
 
-  @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
   public void testDetermineStartingOffsetClampsToBeginningOffsetWhenSnapshotIsExpired() {
     RecoveryTaskCreator recoveryTaskCreator =
@@ -1216,6 +1215,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
   }
 
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
   public void testDetermineStartingOffsetOnlySnapshotsWithDelay() {
     RecoveryTaskCreator recoveryTaskCreator =
