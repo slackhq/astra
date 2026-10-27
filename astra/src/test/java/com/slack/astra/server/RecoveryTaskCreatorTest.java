@@ -1186,6 +1186,37 @@ public class RecoveryTaskCreatorTest {
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
+  public void testDetermineStartingOffsetClampsToBeginningOffsetWhenSnapshotIsExpired() {
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
+
+    final SnapshotMetadata snapshot =
+        new SnapshotMetadata("testSnapshotId", 1, 100, 100, partitionId, 100);
+    snapshotMetadataStore.createSync(snapshot);
+    await().until(() -> snapshotMetadataStore.listSync().contains(snapshot));
+
+    // Within the max offset delay, but Kafka no longer has offsets 101-119.
+    assertThat(recoveryTaskCreator.determineStartingOffset(150, 120, indexerConfig)).isEqualTo(120);
+    assertThat(AstraMetadataTestUtils.listSyncUncached(recoveryTaskStore)).isEmpty();
+
+    // Beyond the max offset delay, the recovery task starts at the earliest retained offset.
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150, 500, indexerConfig))
+        .isEqualTo(1150);
+    List<RecoveryTaskMetadata> recoveryTasks =
+        AstraMetadataTestUtils.listSyncUncached(recoveryTaskStore);
+    assertThat(recoveryTasks.size()).isEqualTo(1);
+    assertThat(recoveryTasks.get(0).startOffset).isEqualTo(500);
+    assertThat(recoveryTasks.get(0).endOffset).isEqualTo(1149);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
+  }
+
+  @Test
   public void testDetermineStartingOffsetOnlySnapshotsWithDelay() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
