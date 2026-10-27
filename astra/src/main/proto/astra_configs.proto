@@ -365,4 +365,14 @@ message PreprocessorConfig {
   // SCHEMA_MODE_DYNAMIC (default): infer types for unknown fields
   // SCHEMA_MODE_DROP_UNKNOWN: drop fields not defined in schema
   SchemaMode schema_mode = 15;
+
+  // Max raw request body bytes admitted to the bulk API but not yet completed.
+  // Requests over the cap are rejected with 429 so clients retry later, instead
+  // of the preprocessor buffering without bound while Kafka produce is slow.
+  // 0 disables the cap; in-flight bytes are still reported as a gauge.
+  int64 max_inflight_request_bytes = 16;
+
+  // When true, requests over max_inflight_request_bytes are admitted and only
+  // counted and logged. Use to size the cap before enforcing it.
+  bool max_inflight_request_bytes_dry_run = 17;
 }
