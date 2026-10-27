@@ -582,7 +582,9 @@ public class Astra {
               meterRegistry,
               preprocessorConfig.getRateLimitExceededErrorCode(),
               schema,
-              preprocessorConfig.getSchemaMode());
+              preprocessorConfig.getSchemaMode(),
+              preprocessorConfig.getMaxInflightRequestBytes(),
+              preprocessorConfig.getMaxInflightRequestBytesDryRun());
       armeriaServiceBuilder.withAnnotatedService(openSearchBulkApiService);
       services.add(armeriaServiceBuilder.build());
     }
