@@ -258,6 +258,20 @@ public class RecoveryTaskCreator {
     // next message.
     long nextOffsetForPartition = highestDurableOffsetForPartition + 1;
 
+    // If retention has already removed the next offset from Kafka, seeking to it fails with an
+    // OffsetOutOfRangeException on every start. That data is unrecoverable, so resume from the
+    // earliest offset Kafka still has.
+    if (nextOffsetForPartition < currentBeginningOffsetForPartition) {
+      LOG.warn(
+          "The next offset {} for partition {} is below the earliest available offset {}, skipping"
+              + " {} messages no longer retained in Kafka",
+          nextOffsetForPartition,
+          partitionId,
+          currentBeginningOffsetForPartition,
+          currentBeginningOffsetForPartition - nextOffsetForPartition);
+      nextOffsetForPartition = currentBeginningOffsetForPartition;
+    }
+
     // Create a recovery task if needed.
     if (currentEndOffsetForPartition - highestDurableOffsetForPartition > maxOffsetDelay) {
       LOG.info(
