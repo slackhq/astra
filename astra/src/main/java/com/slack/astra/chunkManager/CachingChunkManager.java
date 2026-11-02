@@ -22,6 +22,9 @@ import com.slack.service.murron.trace.Trace;
 import io.etcd.jetcd.Client;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -225,6 +228,27 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       CacheNodeAssignment assignment, ReadOnlyChunkImpl<T> chunk) {
     return (chunk.getLastKnownAssignmentState() != assignment.state)
         && (assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
+  }
+
+  /**
+   * chunkMap is keyed by assignment id, so two assignments for the same snapshot (e.g. from two
+   * managers assigning concurrently) load it twice, and searching both returns its documents twice.
+   * Search each chunk id once, preferring the LIVE copy, since a copy that is still downloading
+   * returns no hits.
+   */
+  @Override
+  protected List<Chunk<T>> chunksToSearch(List<Chunk<T>> matchingChunks) {
+    Map<String, Chunk<T>> byId = new LinkedHashMap<>();
+    for (Chunk<T> chunk : matchingChunks) {
+      byId.merge(chunk.id(), chunk, (current, candidate) -> isLive(current) ? current : candidate);
+    }
+    return new ArrayList<>(byId.values());
+  }
+
+  private static <T> boolean isLive(Chunk<T> chunk) {
+    return chunk instanceof ReadOnlyChunkImpl<T> readOnlyChunk
+        && readOnlyChunk.getLastKnownAssignmentState()
+            == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;
   }
 
   public String getId() {

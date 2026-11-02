@@ -8,10 +8,12 @@ import static com.slack.astra.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.astra.testlib.MetricsUtil.getCount;
 import static com.slack.astra.testlib.MetricsUtil.getTimerCount;
 import static com.slack.astra.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
+import static com.slack.astra.util.AggregatorFactoriesUtil.createGenericDateHistogramAggregatorFactoriesBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.astra.blobfs.BlobStore;
 import com.slack.astra.blobfs.S3TestUtils;
@@ -19,6 +21,8 @@ import com.slack.astra.chunk.SearchContext;
 import com.slack.astra.logstore.LogMessage;
 import com.slack.astra.logstore.LuceneIndexStoreImpl;
 import com.slack.astra.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.astra.logstore.search.SearchQuery;
+import com.slack.astra.logstore.search.SearchResult;
 import com.slack.astra.metadata.cache.CacheNodeAssignment;
 import com.slack.astra.metadata.cache.CacheNodeMetadata;
 import com.slack.astra.metadata.cache.CacheNodeMetadataStore;
@@ -27,8 +31,10 @@ import com.slack.astra.metadata.schema.ChunkSchema;
 import com.slack.astra.metadata.snapshot.SnapshotMetadata;
 import com.slack.astra.proto.config.AstraConfigs;
 import com.slack.astra.proto.metadata.Metadata;
+import com.slack.astra.testlib.MessageUtil;
 import com.slack.astra.testlib.SpanUtil;
 import com.slack.astra.testlib.TestEtcdClusterFactory;
+import com.slack.astra.util.QueryBuilderUtil;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.EtcdCluster;
@@ -80,6 +86,7 @@ public class CachingChunkManagerTest {
 
   @BeforeEach
   public void startup() throws Exception {
+    Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
@@ -333,6 +340,61 @@ public class CachingChunkManagerTest {
         .timeout(10000, TimeUnit.MILLISECONDS)
         .until(() -> cachingChunkManager.getChunksMap().isEmpty());
     assertThat(cachingChunkManager.cacheNodeAssignmentStore.listSync().size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testDuplicateAssignmentsForSameSnapshotAreSearchedOnce() throws Exception {
+    String snapshotId = "abcd";
+
+    cachingChunkManager = initChunkManager();
+    initializeBlobStorageWithIndex(snapshotId);
+    await()
+        .ignoreExceptions()
+        .until(
+            () -> {
+              Path path = Path.of("/tmp/test3");
+              blobStore.download(snapshotId, path);
+              return Objects.requireNonNull(path.toFile().listFiles()).length > 0;
+            });
+
+    // Two assignments for one snapshot on this node, as two concurrent managers would create.
+    cachingChunkManager.snapshotMetadataStore.createSync(
+        new SnapshotMetadata(snapshotId, 1, 1, 0, "abcd", 29));
+    for (String assignmentId : List.of("assignment1", "assignment2")) {
+      cachingChunkManager.cacheNodeAssignmentStore.createSync(
+          new CacheNodeAssignment(
+              assignmentId,
+              cachingChunkManager.getId(),
+              snapshotId,
+              "replica1",
+              "rep1",
+              0,
+              Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LOADING));
+    }
+    await()
+        .timeout(10000, TimeUnit.MILLISECONDS)
+        .until(
+            () ->
+                cachingChunkManager.cacheNodeAssignmentStore.listSync().stream()
+                    .allMatch(
+                        a ->
+                            a.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE));
+    assertThat(cachingChunkManager.getChunksMap().size()).isEqualTo(2);
+
+    SearchResult<LogMessage> result =
+        cachingChunkManager.query(
+            new SearchQuery(
+                MessageUtil.TEST_DATASET_NAME,
+                0,
+                Long.MAX_VALUE,
+                100,
+                List.of(snapshotId),
+                QueryBuilderUtil.generateQueryBuilder("*:*", 0L, Long.MAX_VALUE),
+                null,
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of()),
+            Duration.ofSeconds(3));
+    assertThat(result.hits.size()).isEqualTo(10);
   }
 
   // TODO: Add a unit test to ensure caching chunk manager can search messages.
