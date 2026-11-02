@@ -208,14 +208,6 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
         for (BulkIngestRequest request : requests) {
           responseMap.put(request, produceDocuments(request.getInputDocs(), kafkaProducer));
         }
-        for (Map.Entry<BulkIngestRequest, BulkIngestResponse> entry : responseMap.entrySet()) {
-          BulkIngestRequest key = entry.getKey();
-          BulkIngestResponse value = entry.getValue();
-          if (!key.setResponse(value)) {
-            LOG.warn("Failed to add result to the bulk ingest request, consumer thread went away?");
-            failedSetResponseCounter.increment();
-          }
-        }
       } catch (Exception e) {
         LOG.error("Failed to write batch to kafka", e);
         for (BulkIngestRequest request : requests) {
@@ -228,6 +220,15 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
         }
       }
 
+      // Callers block until a response is set, so failed batches must be answered too
+      for (Map.Entry<BulkIngestRequest, BulkIngestResponse> entry : responseMap.entrySet()) {
+        BulkIngestRequest key = entry.getKey();
+        BulkIngestResponse value = entry.getValue();
+        if (!key.setResponse(value)) {
+          LOG.warn("Failed to add result to the bulk ingest request, consumer thread went away?");
+          failedSetResponseCounter.increment();
+        }
+      }
       return responseMap;
     }
   }

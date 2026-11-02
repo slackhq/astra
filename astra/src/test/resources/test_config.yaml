@@ -160,6 +160,8 @@ preprocessorConfig:
   bootstrapServers: localhost:9092
   useBulkApi: true
   rateLimitExceededErrorCode: 429
+  maxInflightRequestBytes: 1073741824
+  maxInflightRequestBytesDryRun: true
   schemaFile: "schema/test_schema.yaml"
 
 clusterConfig:

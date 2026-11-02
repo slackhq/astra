@@ -768,3 +768,30 @@ preprocessorConfig:
 Error code to return when the rate limit of the preprocessor is exceeded. If using OpenSearch 
 [Data Prepper](https://opensearch.org/docs/latest/data-prepper/) a return code of `400` or `404` would mark the request 
 as unable to be retried and sent to the dead letter queue.
+
+### maxInflightRequestBytes
+
+```yaml
+preprocessorConfig:
+  maxInflightRequestBytes: 0
+```
+
+Maximum raw request body bytes the bulk API holds at once, counted from when a request is received until its Kafka 
+produce completes. Requests that would exceed the cap are rejected with `429` so clients back off and retry, instead of 
+the preprocessor buffering requests without bound (and running out of heap) while Kafka is slow. A single request 
+larger than the cap is still admitted when nothing else is in flight. `0` disables the cap.
+
+In-flight usage is always reported via the `astra_preprocessor_inflight_bytes` and 
+`astra_preprocessor_inflight_requests` gauges, which can be used to size the cap. Parsed requests use several times 
+their raw size in heap, so size the cap well below the max heap.
+
+### maxInflightRequestBytesDryRun
+
+```yaml
+preprocessorConfig:
+  maxInflightRequestBytesDryRun: false
+```
+
+When `true`, requests over `maxInflightRequestBytes` are admitted rather than rejected, and counted in 
+`astra_preprocessor_inflight_limit_exceeded{action="dry_run"}` (enforced rejections use `action="rejected"`). Use this 
+to validate a cap before enforcing it.
