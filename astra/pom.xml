@@ -83,7 +83,7 @@
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper-jute</artifactId>
-                <version>3.9.6</version>
+                <version>3.9.7</version>
             </dependency>
             <!-- TODO: Remove the tools.jackson.core and netty quic/http3 pins once jetcd is upgraded past 0.8.7.
                  jetcd 0.8.7 pulls them in via vertx-grpc 5.x; jetcd main downgraded to Vert.x 4.x
