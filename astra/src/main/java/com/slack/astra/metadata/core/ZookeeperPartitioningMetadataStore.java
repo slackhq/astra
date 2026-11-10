@@ -96,27 +96,25 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
     curator
         .getChildren()
         .forPath(storeFolder)
-        .exceptionallyCompose(
-            (throwable) -> {
-              if (throwable instanceof KeeperException.NoNodeException) {
-                // This is thrown because the storeFolder does not yet exist in ZK
-                // This isn't a problem, as the node will be created once the first operation is
-                // attempted
-                return CompletableFuture.completedFuture(List.of());
-              } else {
-                return CompletableFuture.failedFuture(throwable);
-              }
-            })
-        .thenAccept(
-            (children) -> {
-              if (partitionFilters.isEmpty()) {
-                children.forEach(this::getOrCreateMetadataStore);
-              } else {
-                children.stream()
-                    .filter(partitionFilters::contains)
-                    .forEach(this::getOrCreateMetadataStore);
-              }
-            })
+        .exceptionallyCompose(throwable -> {
+          if (throwable instanceof KeeperException.NoNodeException) {
+            // This is thrown because the storeFolder does not yet exist in ZK
+            // This isn't a problem, as the node will be created once the first operation is
+            // attempted
+            return CompletableFuture.completedFuture(List.of());
+          } else {
+            return CompletableFuture.failedFuture(throwable);
+          }
+        })
+        .thenAccept(children -> {
+          if (partitionFilters.isEmpty()) {
+            children.forEach(this::getOrCreateMetadataStore);
+          } else {
+            children.stream()
+                .filter(partitionFilters::contains)
+                .forEach(this::getOrCreateMetadataStore);
+          }
+        })
         .toCompletableFuture()
         // wait for all the stores to be initialized prior to exiting the constructor
         .join();
@@ -153,39 +151,37 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
         curator
             .getChildren()
             .forPath(storeFolder)
-            .thenAcceptAsync(
-                (partitions) -> {
-                  if (partitionFilters.isEmpty()) {
-                    // create internal stores foreach partition that do not already exist
-                    partitions.forEach(this::getOrCreateMetadataStore);
-                  } else {
-                    partitions.stream()
-                        .filter(partitionFilters::contains)
-                        .forEach(this::getOrCreateMetadataStore);
-                  }
+            .thenAcceptAsync(partitions -> {
+              if (partitionFilters.isEmpty()) {
+                // create internal stores foreach partition that do not already exist
+                partitions.forEach(this::getOrCreateMetadataStore);
+              } else {
+                partitions.stream()
+                    .filter(partitionFilters::contains)
+                    .forEach(this::getOrCreateMetadataStore);
+              }
 
-                  // remove metadata stores that exist in memory but no longer exist on ZK
-                  Set<String> partitionsToRemove =
-                      Sets.difference(metadataStoreMap.keySet(), Sets.newHashSet(partitions));
-                  partitionsToRemove.forEach(
-                      partition -> {
-                        int cachedSize = metadataStoreMap.get(partition).listSync().size();
-                        if (cachedSize == 0) {
-                          LOG.debug("Closing unused store for partition - {}", partition);
-                          ZookeeperMetadataStore<T> store = metadataStoreMap.remove(partition);
-                          store.close();
-                        } else {
-                          // This extra check is to prevent a race condition where multiple items
-                          // are being quickly added. This can result in a scenario where the
-                          // watcher is triggered, but we haven't persisted the items to ZK yet.
-                          // When this happens it results in a premature close of the local cache.
-                          LOG.warn(
-                              "Skipping metadata store close for partition {}, still has {} cached elements",
-                              partition,
-                              cachedSize);
-                        }
-                      });
-                });
+              // remove metadata stores that exist in memory but no longer exist on ZK
+              Set<String> partitionsToRemove =
+                  Sets.difference(metadataStoreMap.keySet(), Sets.newHashSet(partitions));
+              partitionsToRemove.forEach(partition -> {
+                int cachedSize = metadataStoreMap.get(partition).listSync().size();
+                if (cachedSize == 0) {
+                  LOG.debug("Closing unused store for partition - {}", partition);
+                  ZookeeperMetadataStore<T> store = metadataStoreMap.remove(partition);
+                  store.close();
+                } else {
+                  // This extra check is to prevent a race condition where multiple items
+                  // are being quickly added. This can result in a scenario where the
+                  // watcher is triggered, but we haven't persisted the items to ZK yet.
+                  // When this happens it results in a premature close of the local cache.
+                  LOG.warn(
+                      "Skipping metadata store close for partition {}, still has {} cached elements",
+                      partition,
+                      cachedSize);
+                }
+              });
+            });
       }
     };
   }
@@ -313,12 +309,11 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
     }
 
     return CompletableFuture.allOf(completionStages.toArray(new CompletableFuture[0]))
-        .thenApply(
-            (unused) ->
-                completionStages.stream()
-                    .map(f -> f.toCompletableFuture().join())
-                    .flatMap(List::stream)
-                    .collect(Collectors.toList()));
+        .thenApply(unused ->
+            completionStages.stream()
+                .map(f -> f.toCompletableFuture().join())
+                .flatMap(List::stream)
+                .collect(Collectors.toList()));
   }
 
   public List<T> listSync() {
@@ -343,7 +338,7 @@ public class ZookeeperPartitioningMetadataStore<T extends AstraPartitionedMetada
 
     return metadataStoreMap.computeIfAbsent(
         partition,
-        (p1) -> {
+        p1 -> {
           String path = String.format("%s/%s", storeFolder, p1);
           LOG.debug(
               "Creating new ZK metadata store for partition - {}, at path - {}", partition, path);

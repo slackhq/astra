@@ -86,8 +86,8 @@ public class AstraLocalQueryServiceTest {
   private static String buildHistogramRequestJSON(long startMs, long endMs, int numBuckets) {
     String histogramRequest =
         """
-        {"%s":{"date_histogram":{"interval":"%ds","field":"%s","min_doc_count":"%d","extended_bounds":{"min":1676498801027,"max":1676500240688},"format":"epoch_millis","offset":"5s"},"aggs":{}}}
-    """
+            {"%s":{"date_histogram":{"interval":"%ds","field":"%s","min_doc_count":"%d","extended_bounds":{"min":1676498801027,"max":1676500240688},"format":"epoch_millis","offset":"5s"},"aggs":{}}}
+        """
             .formatted(
                 "1",
                 (endMs - startMs) / numBuckets,
@@ -339,19 +339,17 @@ public class AstraLocalQueryServiceTest {
     AstraSearch.SearchRequest.Builder searchRequestBuilder = AstraSearch.SearchRequest.newBuilder();
 
     assertThatExceptionOfType(RuntimeException.class)
-        .isThrownBy(
-            () ->
-                astraLocalQueryService.doSearch(
-                    searchRequestBuilder
-                        .setDataset(MessageUtil.TEST_DATASET_NAME)
-                        .setQuery(
-                            buildQueryFromQueryString(
-                                "Message1", chunk1StartTimeMs, chunk1EndTimeMs))
-                        .setStartTimeEpochMs(chunk1StartTimeMs)
-                        .setEndTimeEpochMs(chunk1EndTimeMs)
-                        .setHowMany(0)
-                        .setAggregationJson("")
-                        .build()));
+        .isThrownBy(() ->
+            astraLocalQueryService.doSearch(
+                searchRequestBuilder
+                    .setDataset(MessageUtil.TEST_DATASET_NAME)
+                    .setQuery(
+                        buildQueryFromQueryString("Message1", chunk1StartTimeMs, chunk1EndTimeMs))
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(0)
+                    .setAggregationJson("")
+                    .build()));
   }
 
   @Test
@@ -470,18 +468,16 @@ public class AstraLocalQueryServiceTest {
     final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
     assertThatExceptionOfType(StatusRuntimeException.class)
-        .isThrownBy(
-            () ->
-                blockingStub.search(
-                    AstraSearch.SearchRequest.newBuilder()
-                        .setDataset(MessageUtil.TEST_DATASET_NAME)
-                        .setQuery(
-                            buildQueryFromQueryString(
-                                "Message1", chunk1StartTimeMs, chunk1EndTimeMs))
-                        .setStartTimeEpochMs(chunk1StartTimeMs)
-                        .setEndTimeEpochMs(chunk1EndTimeMs)
-                        .setHowMany(0)
-                        .setAggregationJson("")
-                        .build()));
+        .isThrownBy(() ->
+            blockingStub.search(
+                AstraSearch.SearchRequest.newBuilder()
+                    .setDataset(MessageUtil.TEST_DATASET_NAME)
+                    .setQuery(
+                        buildQueryFromQueryString("Message1", chunk1StartTimeMs, chunk1EndTimeMs))
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(0)
+                    .setAggregationJson("")
+                    .build()));
   }
 }

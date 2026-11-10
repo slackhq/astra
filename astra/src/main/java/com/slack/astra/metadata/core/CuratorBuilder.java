@@ -51,31 +51,27 @@ public class CuratorBuilder {
     // A catch-all handler for any errors we may have missed.
     curator
         .getUnhandledErrorListenable()
-        .addListener(
-            (message, exception) -> {
-              LOG.error("Unhandled error {} could be a possible bug", message, exception);
-              failureCounter.increment();
-              throw new RuntimeException(exception);
-            });
+        .addListener((message, exception) -> {
+          LOG.error("Unhandled error {} could be a possible bug", message, exception);
+          failureCounter.increment();
+          throw new RuntimeException(exception);
+        });
 
     // Log all connection state changes to help debugging.
     curator
         .getConnectionStateListenable()
-        .addListener(
-            (listener, connectionState) ->
-                LOG.info("Curator connection state changed to {}", connectionState));
+        .addListener((listener, connectionState) ->
+            LOG.info("Curator connection state changed to {}", connectionState));
 
     curator
         .getCuratorListenable()
-        .addListener(
-            (listener, curatorEvent) -> {
-              if (curatorEvent.getType() == CuratorEventType.WATCHED
-                  && curatorEvent.getWatchedEvent().getState()
-                      == Watcher.Event.KeeperState.Expired) {
-                LOG.warn("The ZK session has expired {}.", curatorEvent);
-                new RuntimeHalterImpl().handleFatal(new Throwable("ZK session expired."));
-              }
-            });
+        .addListener((listener, curatorEvent) -> {
+          if (curatorEvent.getType() == CuratorEventType.WATCHED
+              && curatorEvent.getWatchedEvent().getState() == Watcher.Event.KeeperState.Expired) {
+            LOG.warn("The ZK session has expired {}.", curatorEvent);
+            new RuntimeHalterImpl().handleFatal(new Throwable("ZK session expired."));
+          }
+        });
     curator.start();
 
     LOG.info(

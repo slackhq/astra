@@ -140,18 +140,17 @@ public class LogMessageWriterImplTest {
 
     List<Trace.Span> spans =
         IntStream.range(0, 15)
-            .mapToObj(
-                i ->
-                    makeSpan(
-                        traceId,
-                        String.valueOf(i),
-                        "0",
-                        TimeUnit.MICROSECONDS.convert(
-                            timestamp.toEpochMilli() + i * 1000L, TimeUnit.MILLISECONDS),
-                        durationMicros,
-                        name,
-                        serviceName,
-                        TEST_MESSAGE_TYPE))
+            .mapToObj(i ->
+                makeSpan(
+                    traceId,
+                    String.valueOf(i),
+                    "0",
+                    TimeUnit.MICROSECONDS.convert(
+                        timestamp.toEpochMilli() + i * 1000L, TimeUnit.MILLISECONDS),
+                    durationMicros,
+                    name,
+                    serviceName,
+                    TEST_MESSAGE_TYPE))
             .collect(Collectors.toList());
 
     IndexingChunkManager<LogMessage> chunkManager = localChunkManagerUtil.chunkManager;
@@ -245,15 +244,15 @@ public class LogMessageWriterImplTest {
 
     String inputDocuments =
         """
-    { "index" : { "_index" : "test", "_id" : "1" } }
-    { "field1" : "value1", "field2" : "value2", "tags" :  [] }
-    { "index" : { "_index" : "test", "_id" : "2" } }
-    { "field1" : "value1", "field2" : "value2", "tags" :  ["tagValue1", "tagValue2"] }
-    { "index" : { "_index" : "test", "_id" : "3" } }
-    { "field1" : "value1", "field2" : "value2", "message" :  {} }
-    { "index" : { "_index" : "test", "_id" : "4" } }
-    { "field1" : "value1", "field2" : "value2", "message" :  { "nestedField1" : "nestedValue1", "nestedField2" : "nestedValue2" } }
-            """;
+        { "index" : { "_index" : "test", "_id" : "1" } }
+        { "field1" : "value1", "field2" : "value2", "tags" :  [] }
+        { "index" : { "_index" : "test", "_id" : "2" } }
+        { "field1" : "value1", "field2" : "value2", "tags" :  ["tagValue1", "tagValue2"] }
+        { "index" : { "_index" : "test", "_id" : "3" } }
+        { "field1" : "value1", "field2" : "value2", "message" :  {} }
+        { "index" : { "_index" : "test", "_id" : "4" } }
+        { "field1" : "value1", "field2" : "value2", "message" :  { "nestedField1" : "nestedValue1", "nestedField2" : "nestedValue2" } }
+        """;
 
     byte[] rawRequest = inputDocuments.getBytes(StandardCharsets.UTF_8);
 
@@ -414,11 +413,11 @@ public class LogMessageWriterImplTest {
 
     String request =
         """
-                  { "index" : { "_index" : "test", "_id" : "1" } }
-                  { "@timestamp" : "2014-09-01T12:00:10Z"}
-                  { "index" : { "_index" : "test", "_id" : "2" } }
-                  { "@timestamp" : "2014-09-01T12:10:10Z"}
-                  """;
+        { "index" : { "_index" : "test", "_id" : "1" } }
+        { "@timestamp" : "2014-09-01T12:00:10Z"}
+        { "index" : { "_index" : "test", "_id" : "2" } }
+        { "@timestamp" : "2014-09-01T12:10:10Z"}
+        """;
     List<IndexRequest> indexRequests =
         BulkApiRequestParser.parseBulkRequest(request.getBytes(StandardCharsets.UTF_8));
     assertThat(indexRequests.size()).isEqualTo(2);
@@ -458,20 +457,20 @@ public class LogMessageWriterImplTest {
   public void testTextFieldTokenizedSearch() throws IOException {
     String schemaDef =
         """
-              fields:
-                host:
-                  type: TEXT
+        fields:
+          host:
+            type: TEXT
 
-              """;
+        """;
     Schema.IngestSchema schema = SchemaUtil.parseSchemaYaml(schemaDef, System::getenv);
 
     String request =
         """
-              { "index" : { "_index" : "test", "_id" : "1" } }
-              { "host" : "service1-region1-1234"}
-              { "index" : { "_index" : "test", "_id" : "2" } }
-              { "host" : "service1-region2-1234"}
-              """;
+        { "index" : { "_index" : "test", "_id" : "1" } }
+        { "host" : "service1-region1-1234"}
+        { "index" : { "_index" : "test", "_id" : "2" } }
+        { "host" : "service1-region2-1234"}
+        """;
     List<IndexRequest> indexRequests =
         BulkApiRequestParser.parseBulkRequest(request.getBytes(StandardCharsets.UTF_8));
     assertThat(indexRequests.size()).isEqualTo(2);
@@ -511,20 +510,20 @@ public class LogMessageWriterImplTest {
   public void testKeywordFieldPartialSearch() throws IOException {
     String schemaDef =
         """
-              fields:
-                host:
-                  type: KEYWORD
+        fields:
+          host:
+            type: KEYWORD
 
-              """;
+        """;
     Schema.IngestSchema schema = SchemaUtil.parseSchemaYaml(schemaDef, System::getenv);
 
     String request =
         """
-              { "index" : { "_index" : "test", "_id" : "1" } }
-              { "host" : "service1-region1-1234"}
-              { "index" : { "_index" : "test", "_id" : "2" } }
-              { "host" : "service1-region2-1234"}
-              """;
+        { "index" : { "_index" : "test", "_id" : "1" } }
+        { "host" : "service1-region1-1234"}
+        { "index" : { "_index" : "test", "_id" : "2" } }
+        { "host" : "service1-region2-1234"}
+        """;
     List<IndexRequest> indexRequests =
         BulkApiRequestParser.parseBulkRequest(request.getBytes(StandardCharsets.UTF_8));
     assertThat(indexRequests.size()).isEqualTo(2);
@@ -561,23 +560,23 @@ public class LogMessageWriterImplTest {
   public void testMultifield() throws IOException {
     String schemaDef =
         """
+        fields:
+            host:
+              type: TEXT
               fields:
-                  host:
-                    type: TEXT
-                    fields:
-                      keyword:
-                        type: KEYWORD
-                        ignore_above: 256
-              """;
+                keyword:
+                  type: KEYWORD
+                  ignore_above: 256
+        """;
     Schema.IngestSchema schema = SchemaUtil.parseSchemaYaml(schemaDef, System::getenv);
 
     String request =
         """
-              { "index" : { "_index" : "test", "_id" : "1" } }
-              { "host": "foo-bar-test-multi-1234"}
-              { "index" : { "_index" : "test", "_id" : "2" } }
-              { "host": "foo-bar-test-multi-4321"}
-              """;
+        { "index" : { "_index" : "test", "_id" : "1" } }
+        { "host": "foo-bar-test-multi-1234"}
+        { "index" : { "_index" : "test", "_id" : "2" } }
+        { "host": "foo-bar-test-multi-4321"}
+        """;
     List<IndexRequest> indexRequests =
         BulkApiRequestParser.parseBulkRequest(request.getBytes(StandardCharsets.UTF_8));
     assertThat(indexRequests.size()).isEqualTo(2);

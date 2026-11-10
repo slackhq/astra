@@ -104,13 +104,12 @@ public class DatasetPartitionMetadata {
         .filter(serviceMetadata -> skipDatasetFilter || serviceMetadata.name.equals(dataset))
         .flatMap(
             serviceMetadata -> serviceMetadata.partitionConfigs.stream()) // will always return one
-        .filter(
-            partitionMetadata ->
-                ChunkInfo.containsDataInTimeRange(
-                    partitionMetadata.startTimeEpochMs,
-                    partitionMetadata.endTimeEpochMs,
-                    startTimeEpochMs,
-                    endTimeEpochMs))
+        .filter(partitionMetadata ->
+            ChunkInfo.containsDataInTimeRange(
+                partitionMetadata.startTimeEpochMs,
+                partitionMetadata.endTimeEpochMs,
+                startTimeEpochMs,
+                endTimeEpochMs))
         .collect(Collectors.toList());
   }
 }

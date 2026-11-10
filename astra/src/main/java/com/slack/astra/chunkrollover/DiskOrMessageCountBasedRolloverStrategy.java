@@ -146,14 +146,13 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
     try {
       if (activeChunkDirectory != null && activeChunkDirectory.listAll().length > 0) {
         return SegmentInfos.readLatestCommit(activeChunkDirectory).asList().stream()
-            .mapToLong(
-                segmentCommitInfo -> {
-                  try {
-                    return segmentCommitInfo.sizeInBytes();
-                  } catch (IOException e) {
-                    return 0;
-                  }
-                })
+            .mapToLong(segmentCommitInfo -> {
+              try {
+                return segmentCommitInfo.sizeInBytes();
+              } catch (IOException e) {
+                return 0;
+              }
+            })
             .sum();
       }
     } catch (IndexNotFoundException ignored) {

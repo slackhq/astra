@@ -212,10 +212,9 @@ public class SearchResultUtils {
     Map<String, FieldType> schemaMap = new HashMap<>();
     protoSchemaResult
         .getFieldDefinitionMap()
-        .forEach(
-            (key, value) -> {
-              schemaMap.put(key, fromSchemaDefinitionProto(value));
-            });
+        .forEach((key, value) -> {
+          schemaMap.put(key, fromSchemaDefinitionProto(value));
+        });
     return schemaMap;
   }
 

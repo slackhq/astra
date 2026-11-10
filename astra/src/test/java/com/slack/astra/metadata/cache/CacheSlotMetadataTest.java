@@ -91,106 +91,91 @@ public class CacheSlotMetadataTest {
   @Test
   public void invalidArgumentsShouldThrow() {
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new CacheSlotMetadata(
-                    "name",
-                    Metadata.CacheSlotMetadata.CacheSlotState.FREE,
-                    "123",
-                    Instant.now().toEpochMilli(),
-                    "hostname",
-                    "rep1"));
+        .isThrownBy(() ->
+            new CacheSlotMetadata(
+                "name",
+                Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+                "123",
+                Instant.now().toEpochMilli(),
+                "hostname",
+                "rep1"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new CacheSlotMetadata(
-                    "name",
-                    Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
-                    "",
-                    Instant.now().toEpochMilli(),
-                    "hostname",
-                    "rep1"));
+        .isThrownBy(() ->
+            new CacheSlotMetadata(
+                "name",
+                Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+                "",
+                Instant.now().toEpochMilli(),
+                "hostname",
+                "rep1"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new CacheSlotMetadata(
-                    "name",
-                    Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
-                    "",
-                    Instant.now().toEpochMilli(),
-                    "hostname",
-                    "rep1"));
+        .isThrownBy(() ->
+            new CacheSlotMetadata(
+                "name",
+                Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
+                "",
+                Instant.now().toEpochMilli(),
+                "hostname",
+                "rep1"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new CacheSlotMetadata(
-                    "name",
-                    Metadata.CacheSlotMetadata.CacheSlotState.EVICTING,
-                    "",
-                    Instant.now().toEpochMilli(),
-                    "hostname",
-                    "rep1"));
+        .isThrownBy(() ->
+            new CacheSlotMetadata(
+                "name",
+                Metadata.CacheSlotMetadata.CacheSlotState.EVICTING,
+                "",
+                Instant.now().toEpochMilli(),
+                "hostname",
+                "rep1"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new CacheSlotMetadata(
-                    "name",
-                    Metadata.CacheSlotMetadata.CacheSlotState.LOADING,
-                    "",
-                    Instant.now().toEpochMilli(),
-                    "hostname",
-                    "rep1"));
+        .isThrownBy(() ->
+            new CacheSlotMetadata(
+                "name",
+                Metadata.CacheSlotMetadata.CacheSlotState.LOADING,
+                "",
+                Instant.now().toEpochMilli(),
+                "hostname",
+                "rep1"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new CacheSlotMetadata(
-                    "name",
-                    Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
-                    "",
-                    Instant.now().toEpochMilli(),
-                    "hostname",
-                    "rep1"));
+        .isThrownBy(() ->
+            new CacheSlotMetadata(
+                "name",
+                Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
+                "",
+                Instant.now().toEpochMilli(),
+                "hostname",
+                "rep1"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new CacheSlotMetadata(
-                    "name",
-                    Metadata.CacheSlotMetadata.CacheSlotState.FREE,
-                    "",
-                    0,
-                    "hostname",
-                    "rep1"));
+        .isThrownBy(() ->
+            new CacheSlotMetadata(
+                "name", Metadata.CacheSlotMetadata.CacheSlotState.FREE, "", 0, "hostname", "rep1"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new CacheSlotMetadata(
-                    "name",
-                    Metadata.CacheSlotMetadata.CacheSlotState.FREE,
-                    null,
-                    Instant.now().toEpochMilli(),
-                    "hostname",
-                    "rep1"));
+        .isThrownBy(() ->
+            new CacheSlotMetadata(
+                "name",
+                Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+                null,
+                Instant.now().toEpochMilli(),
+                "hostname",
+                "rep1"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () -> {
-              new CacheSlotMetadata(
-                  "name",
-                  Metadata.CacheSlotMetadata.CacheSlotState.FREE,
-                  "123",
-                  100000,
-                  "hostname",
-                  "rep1");
-            });
+        .isThrownBy(() -> {
+          new CacheSlotMetadata(
+              "name",
+              Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+              "123",
+              100000,
+              "hostname",
+              "rep1");
+        });
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () -> {
-              new CacheSlotMetadata(
-                  "name",
-                  Metadata.CacheSlotMetadata.CacheSlotState.FREE,
-                  "123",
-                  100000,
-                  "hostname",
-                  "rep1");
-            });
+        .isThrownBy(() -> {
+          new CacheSlotMetadata(
+              "name",
+              Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+              "123",
+              100000,
+              "hostname",
+              "rep1");
+        });
   }
 }

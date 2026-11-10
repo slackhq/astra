@@ -88,12 +88,9 @@ class BlobStoreTest {
     }
     String chunkId = UUID.randomUUID().toString();
     // if we pass a file in the list, which does not exist, we should throw an exception
-    assertThatThrownBy(
-            () ->
-                blobStore.upload(
-                    chunkId,
-                    directoryUpload,
-                    List.of(foo.getFileName().toString(), "does-not-exist")))
+    assertThatThrownBy(() ->
+            blobStore.upload(
+                chunkId, directoryUpload, List.of(foo.getFileName().toString(), "does-not-exist")))
         .isInstanceOf(RuntimeException.class);
   }
 

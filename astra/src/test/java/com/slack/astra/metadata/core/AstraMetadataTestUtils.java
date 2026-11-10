@@ -45,9 +45,8 @@ public class AstraMetadataTestUtils {
                   .modeledClient
                   .withPath(ZPath.parse(store.zkStore.storeFolder))
                   .childrenAsZNodes()
-                  .thenApply(
-                      (zNodes) ->
-                          zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()))
+                  .thenApply(zNodes ->
+                      zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()))
                   .toCompletableFuture()
                   .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
         } catch (Exception e) {
@@ -117,7 +116,7 @@ public class AstraMetadataTestUtils {
           .withPath(ZPath.parse(store.storeFolder))
           .childrenAsZNodes()
           .thenApply(
-              (zNodes) -> zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()))
+              zNodes -> zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()))
           .toCompletableFuture()
           .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {

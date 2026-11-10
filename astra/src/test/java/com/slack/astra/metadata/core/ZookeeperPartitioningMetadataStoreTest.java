@@ -236,12 +236,11 @@ class ZookeeperPartitioningMetadataStoreTest {
 
       await()
           .atMost(Duration.ofSeconds(30))
-          .until(
-              () -> {
-                int cacheSize = partitionedMetadataStore.listSync().size();
-                LOG.info("current cache size {}", cacheSize);
-                return cacheSize == size;
-              });
+          .until(() -> {
+            int cacheSize = partitionedMetadataStore.listSync().size();
+            LOG.info("current cache size {}", cacheSize);
+            return cacheSize == size;
+          });
     }
   }
 
@@ -261,12 +260,11 @@ class ZookeeperPartitioningMetadataStoreTest {
 
       await().until(() -> partitionedMetadataStore.listSync().size() == 1);
       await()
-          .until(
-              () -> {
-                List<ExampleMetadata> snapshotMetadataList = partitionedMetadataStore.listSync();
-                return snapshotMetadataList.contains(exampleMetadata)
-                    && snapshotMetadataList.size() == 1;
-              });
+          .until(() -> {
+            List<ExampleMetadata> snapshotMetadataList = partitionedMetadataStore.listSync();
+            return snapshotMetadataList.contains(exampleMetadata)
+                && snapshotMetadataList.size() == 1;
+          });
     }
   }
 
@@ -286,21 +284,18 @@ class ZookeeperPartitioningMetadataStoreTest {
 
       AtomicReference<List<ExampleMetadata>> exampleMetadataList = new AtomicReference<>();
       await()
-          .until(
-              () -> {
-                exampleMetadataList.set(partitionedMetadataStore.listSync());
-                return exampleMetadataList.get().size() == 1;
-              });
+          .until(() -> {
+            exampleMetadataList.set(partitionedMetadataStore.listSync());
+            return exampleMetadataList.get().size() == 1;
+          });
       assertThat(exampleMetadataList.get()).containsExactly(exampleMetadata);
 
       exampleMetadata.setExtraField("foo");
       partitionedMetadataStore.updateSync(exampleMetadata);
 
       await()
-          .until(
-              () ->
-                  Objects.equals(
-                      partitionedMetadataStore.listSync().get(0).getExtraField(), "foo"));
+          .until(() ->
+              Objects.equals(partitionedMetadataStore.listSync().get(0).getExtraField(), "foo"));
     }
   }
 
@@ -320,12 +315,11 @@ class ZookeeperPartitioningMetadataStoreTest {
 
       await().until(() -> partitionedMetadataStore.listSync().size() == 1);
       await()
-          .until(
-              () -> {
-                List<ExampleMetadata> snapshotMetadataList = partitionedMetadataStore.listSync();
-                return snapshotMetadataList.contains(exampleMetadata)
-                    && snapshotMetadataList.size() == 1;
-              });
+          .until(() -> {
+            List<ExampleMetadata> snapshotMetadataList = partitionedMetadataStore.listSync();
+            return snapshotMetadataList.contains(exampleMetadata)
+                && snapshotMetadataList.size() == 1;
+          });
 
       partitionedMetadataStore.deleteSync(exampleMetadata);
       await().until(() -> partitionedMetadataStore.listSync().isEmpty());
@@ -474,7 +468,7 @@ class ZookeeperPartitioningMetadataStoreTest {
     try (ZookeeperPartitioningMetadataStore<ExampleMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<ExampleMetadata> listener =
-          (testMetadata) -> counter.incrementAndGet();
+          testMetadata -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);
@@ -510,10 +504,9 @@ class ZookeeperPartitioningMetadataStoreTest {
             "/partitioned_snapshot_listeners")) {
 
       AtomicInteger counter = new AtomicInteger(0);
-      partitionedMetadataStore.addListener(
-          (metadata) -> {
-            counter.incrementAndGet();
-          });
+      partitionedMetadataStore.addListener(metadata -> {
+        counter.incrementAndGet();
+      });
 
       int size = 100;
       Queue<ExampleMetadata> addedMetadata = new ArrayBlockingQueue<>(size);
@@ -524,12 +517,11 @@ class ZookeeperPartitioningMetadataStoreTest {
       }
 
       await()
-          .until(
-              () -> {
-                int currentSize = partitionedMetadataStore.listSync().size();
-                LOG.info("Current size - {}", currentSize);
-                return currentSize == size;
-              });
+          .until(() -> {
+            int currentSize = partitionedMetadataStore.listSync().size();
+            LOG.info("Current size - {}", currentSize);
+            return currentSize == size;
+          });
 
       // this can be higher than 100, due to container znodes contributing events during clean
       assertThat(counter.get()).isGreaterThanOrEqualTo(size);
@@ -541,21 +533,19 @@ class ZookeeperPartitioningMetadataStoreTest {
               .toCompletableFuture()
               .get();
 
-      partitions.forEach(
-          partition -> {
-            curatorFramework
-                .checkExists()
-                .forPath("/partitioned_snapshot_listeners/" + partition)
-                .thenAccept(
-                    stat -> {
-                      EphemeralType ephemeralType = EphemeralType.get(stat.getEphemeralOwner());
-                      // This is not clear why this is reported as a VOID type when inspecting the
-                      // nodes created. The persisted type is correct, but upon fetching later it
-                      // appears unset. This behavior is consistent directly using ZK or via
-                      // Curator, so we cannot do asserts on the node type here.
-                      LOG.info("Curator checked ephemeralType - {}", ephemeralType.toString());
-                    });
-          });
+      partitions.forEach(partition -> {
+        curatorFramework
+            .checkExists()
+            .forPath("/partitioned_snapshot_listeners/" + partition)
+            .thenAccept(stat -> {
+              EphemeralType ephemeralType = EphemeralType.get(stat.getEphemeralOwner());
+              // This is not clear why this is reported as a VOID type when inspecting the
+              // nodes created. The persisted type is correct, but upon fetching later it
+              // appears unset. This behavior is consistent directly using ZK or via
+              // Curator, so we cannot do asserts on the node type here.
+              LOG.info("Curator checked ephemeralType - {}", ephemeralType.toString());
+            });
+      });
 
       LOG.info("Deleting nodes");
       for (int i = 0; i < 50; i++) {
@@ -574,31 +564,30 @@ class ZookeeperPartitioningMetadataStoreTest {
 
       await().until(() -> partitionedMetadataStore.listSync().size() == 0);
       // this can be higher than 200, due to container znodes contributing events during clean
-      await().until(counter::get, (value) -> value >= 200);
+      await().until(counter::get, value -> value >= 200);
 
       await()
-          .until(
-              () -> {
-                if (curatorFramework
-                        .checkExists()
-                        .forPath("/partitioned_snapshot_listeners")
-                        .toCompletableFuture()
-                        .get()
-                    == null) {
-                  LOG.info("Parent node no longer exists");
-                  return true;
-                }
+          .until(() -> {
+            if (curatorFramework
+                    .checkExists()
+                    .forPath("/partitioned_snapshot_listeners")
+                    .toCompletableFuture()
+                    .get()
+                == null) {
+              LOG.info("Parent node no longer exists");
+              return true;
+            }
 
-                int childrenSize =
-                    curatorFramework
-                        .getChildren()
-                        .forPath("/partitioned_snapshot_listeners")
-                        .toCompletableFuture()
-                        .get()
-                        .size();
-                LOG.info("Children size - {}", childrenSize);
-                return childrenSize == 0;
-              });
+            int childrenSize =
+                curatorFramework
+                    .getChildren()
+                    .forPath("/partitioned_snapshot_listeners")
+                    .toCompletableFuture()
+                    .get()
+                    .size();
+            LOG.info("Children size - {}", childrenSize);
+            return childrenSize == 0;
+          });
     }
   }
 
@@ -619,7 +608,7 @@ class ZookeeperPartitioningMetadataStoreTest {
     try (ZookeeperPartitioningMetadataStore<ExampleMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<ExampleMetadata> listener =
-          (testMetadata) -> counter.incrementAndGet();
+          testMetadata -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);
@@ -667,7 +656,7 @@ class ZookeeperPartitioningMetadataStoreTest {
         new TestMetadataStore()) {
       AtomicInteger beforeCounter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<FixedPartitionExampleMetadata> beforeListener =
-          (testMetadata) -> {
+          testMetadata -> {
             LOG.info("testMetadata - {}", testMetadata);
             beforeCounter.incrementAndGet();
           };
@@ -692,13 +681,13 @@ class ZookeeperPartitioningMetadataStoreTest {
       await()
           .until(
               () -> store.listSync().size(),
-              (size) -> {
+              size -> {
                 LOG.info("size - {}", size);
                 return size == 10;
               });
 
       AstraMetadataStoreChangeListener<FixedPartitionExampleMetadata> afterListener =
-          (testMetadata) -> {
+          testMetadata -> {
             LOG.info("testMetadata - {}", testMetadata);
             afterCounter.incrementAndGet();
           };
@@ -710,8 +699,8 @@ class ZookeeperPartitioningMetadataStoreTest {
       metadata1.setExtraField("val2");
       store.updateSync(metadata1);
 
-      await().until(beforeCounter::get, (value) -> value == 12);
-      await().until(afterCounter::get, (value) -> value == 2);
+      await().until(beforeCounter::get, value -> value == 12);
+      await().until(afterCounter::get, value -> value == 2);
     }
   }
 

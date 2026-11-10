@@ -338,13 +338,12 @@ public class RecoveryChunkManagerTest {
     // Inserting a message from a different kafka partition fails
     Trace.Span messageWithInvalidTopic = SpanUtil.makeSpan(103);
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                chunkManager.addMessage(
-                    messageWithInvalidTopic,
-                    messageWithInvalidTopic.toString().length(),
-                    "differentKafkaTopic",
-                    lowerOffset + 1));
+        .isThrownBy(() ->
+            chunkManager.addMessage(
+                messageWithInvalidTopic,
+                messageWithInvalidTopic.toString().length(),
+                "differentKafkaTopic",
+                lowerOffset + 1));
 
     // Get the count of the amount of indices so that we can confirm we've cleaned them up
     // after the rollover
@@ -371,9 +370,8 @@ public class RecoveryChunkManagerTest {
             TimeUnit.MILLISECONDS.convert(messages.get(99).getTimestamp(), TimeUnit.MICROSECONDS));
 
     // Can't add messages to current chunk after roll over.
-    assertThatThrownBy(
-            () ->
-                currentChunk.addMessage(SpanUtil.makeSpan(100000), TEST_KAFKA_PARTITION_ID, 100000))
+    assertThatThrownBy(() ->
+            currentChunk.addMessage(SpanUtil.makeSpan(100000), TEST_KAFKA_PARTITION_ID, 100000))
         .isInstanceOf(IllegalStateException.class);
 
     // Ensure data is cleaned up in the manager
@@ -496,10 +494,8 @@ public class RecoveryChunkManagerTest {
 
     // Ensure can't add messages once roll over is complete.
     assertThatIllegalStateException()
-        .isThrownBy(
-            () ->
-                chunkManager.addMessage(
-                    SpanUtil.makeSpan(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
+        .isThrownBy(() ->
+            chunkManager.addMessage(SpanUtil.makeSpan(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // Check metadata.
     List<SnapshotMetadata> snapshots =
@@ -519,10 +515,8 @@ public class RecoveryChunkManagerTest {
 
     // Can't add messages to a chunk that's shutdown.
     assertThatIllegalStateException()
-        .isThrownBy(
-            () ->
-                chunkManager.addMessage(
-                    SpanUtil.makeSpan(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
+        .isThrownBy(() ->
+            chunkManager.addMessage(SpanUtil.makeSpan(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;

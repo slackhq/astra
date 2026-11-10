@@ -118,14 +118,13 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
     chunkMap
         .values()
-        .forEach(
-            chunk -> {
-              try {
-                chunk.close();
-              } catch (IOException e) {
-                LOG.error("Error closing readonly chunk", e);
-              }
-            });
+        .forEach(chunk -> {
+          try {
+            chunk.close();
+          } catch (IOException e) {
+            LOG.error("Error closing readonly chunk", e);
+          }
+        });
 
     cacheNodeAssignmentStore.removeListener(cacheNodeAssignmentChangeListener);
     cacheNodeMetadataStore.deleteSync(cacheNodeId);

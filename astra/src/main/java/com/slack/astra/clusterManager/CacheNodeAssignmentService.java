@@ -63,9 +63,9 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   private final CacheNodeAssignmentStore cacheNodeAssignmentStore;
 
   private final AstraMetadataStoreChangeListener<CacheNodeMetadata> cacheNodeListener =
-      (cacheNodeMetadata) -> runOneIteration();
+      cacheNodeMetadata -> runOneIteration();
   private final AstraMetadataStoreChangeListener<ReplicaMetadata> replicaListener =
-      (replicaMetadata) -> runOneIteration();
+      replicaMetadata -> runOneIteration();
   private final AstraMetadataStoreChangeListener<CacheNodeAssignment> cacheNodeAssignmentListener =
       this::assignmentListener;
 
@@ -266,23 +266,19 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> replicaEvictions =
         cacheNodeAssignments.stream()
-            .filter(
-                cacheNodeAssignment ->
-                    shouldEvictReplica(
-                        expireOlderThan, replicaMetadataBySnapshotId, cacheNodeAssignment))
-            .map(
-                (cacheNodeAssignment) -> {
-                  ListenableFuture<?> future =
-                      cacheNodeAssignmentStore.updateAssignmentState(
-                          cacheNodeAssignment,
-                          Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
+            .filter(cacheNodeAssignment ->
+                shouldEvictReplica(
+                    expireOlderThan, replicaMetadataBySnapshotId, cacheNodeAssignment))
+            .map(cacheNodeAssignment -> {
+              ListenableFuture<?> future =
+                  cacheNodeAssignmentStore.updateAssignmentState(
+                      cacheNodeAssignment,
+                      Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT);
 
-                  addCallback(
-                      future,
-                      successCountingCallback(successCounter),
-                      MoreExecutors.directExecutor());
-                  return future;
-                })
+              addCallback(
+                  future, successCountingCallback(successCounter), MoreExecutors.directExecutor());
+              return future;
+            })
             .collect(Collectors.toUnmodifiableList());
 
     ListenableFuture<?> futureList = Futures.successfulAsList(replicaEvictions);
@@ -469,9 +465,8 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
     Map<String, SnapshotMetadata> snapshotIdsToMetadata = new HashMap<>();
     snapshotMetadataStore
         .listSync()
-        .forEach(
-            snapshotMetadata ->
-                snapshotIdsToMetadata.putIfAbsent(snapshotMetadata.snapshotId, snapshotMetadata));
+        .forEach(snapshotMetadata ->
+            snapshotIdsToMetadata.putIfAbsent(snapshotMetadata.snapshotId, snapshotMetadata));
 
     return snapshotIdsToMetadata;
   }
@@ -486,9 +481,8 @@ public class CacheNodeAssignmentService extends AbstractScheduledService {
   public static Map<String, ReplicaMetadata> replicaMetadataBySnapshotId(
       List<ReplicaMetadata> replicaMetadataList) {
     Map<String, ReplicaMetadata> snapshotIdsToMetadata = new HashMap<>();
-    replicaMetadataList.forEach(
-        replicaMetadata ->
-            snapshotIdsToMetadata.putIfAbsent(replicaMetadata.snapshotId, replicaMetadata));
+    replicaMetadataList.forEach(replicaMetadata ->
+        snapshotIdsToMetadata.putIfAbsent(replicaMetadata.snapshotId, replicaMetadata));
 
     return snapshotIdsToMetadata;
   }

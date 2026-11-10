@@ -305,43 +305,42 @@ public class OpenSearchRequest {
       // Example: { "@timestamp": { "order": "desc", "unmapped_type": "boolean" } }
       sortFieldNode
           .fieldNames()
-          .forEachRemaining(
-              fieldName -> {
-                // fieldName = "@timestamp" (or "priority", etc.)
-                JsonNode fieldValue = sortFieldNode.get(fieldName);
-                AstraSearch.SortOrder order = AstraSearch.SortOrder.ASC; // Elasticsearch default
-                String unmappedType = null;
+          .forEachRemaining(fieldName -> {
+            // fieldName = "@timestamp" (or "priority", etc.)
+            JsonNode fieldValue = sortFieldNode.get(fieldName);
+            AstraSearch.SortOrder order = AstraSearch.SortOrder.ASC; // Elasticsearch default
+            String unmappedType = null;
 
-                if (fieldValue.isTextual()) {
-                  // Short form: { "fieldName": "desc" }
-                  // fieldValue = "desc"
-                  order = parseSortOrder(fieldValue.asText());
-                } else if (fieldValue.isObject()) {
-                  // Full form: { "fieldName": { "order": "desc", "unmapped_type": "boolean" } }
-                  // fieldValue = { "order": "desc", "unmapped_type": "boolean" }
-                  if (fieldValue.has("order")) {
-                    order = parseSortOrder(fieldValue.get("order").asText());
-                  }
-                  if (fieldValue.has("unmapped_type")) {
-                    unmappedType = fieldValue.get("unmapped_type").asText();
-                  }
-                }
+            if (fieldValue.isTextual()) {
+              // Short form: { "fieldName": "desc" }
+              // fieldValue = "desc"
+              order = parseSortOrder(fieldValue.asText());
+            } else if (fieldValue.isObject()) {
+              // Full form: { "fieldName": { "order": "desc", "unmapped_type": "boolean" } }
+              // fieldValue = { "order": "desc", "unmapped_type": "boolean" }
+              if (fieldValue.has("order")) {
+                order = parseSortOrder(fieldValue.get("order").asText());
+              }
+              if (fieldValue.has("unmapped_type")) {
+                unmappedType = fieldValue.get("unmapped_type").asText();
+              }
+            }
 
-                // Convert Elasticsearch/Grafana @timestamp to Astra's internal _timesinceepoch
-                AstraSearch.SortField.Builder sortFieldBuilder =
-                    AstraSearch.SortField.newBuilder()
-                        .setFieldName(
-                            fieldName.equals("@timestamp")
-                                ? LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName
-                                : fieldName)
-                        .setOrder(order);
+            // Convert Elasticsearch/Grafana @timestamp to Astra's internal _timesinceepoch
+            AstraSearch.SortField.Builder sortFieldBuilder =
+                AstraSearch.SortField.newBuilder()
+                    .setFieldName(
+                        fieldName.equals("@timestamp")
+                            ? LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName
+                            : fieldName)
+                    .setOrder(order);
 
-                if (unmappedType != null && !unmappedType.isEmpty()) {
-                  sortFieldBuilder.setUnmappedType(unmappedType);
-                }
+            if (unmappedType != null && !unmappedType.isEmpty()) {
+              sortFieldBuilder.setUnmappedType(unmappedType);
+            }
 
-                sortFields.add(sortFieldBuilder.build());
-              });
+            sortFields.add(sortFieldBuilder.build());
+          });
     }
   }
 

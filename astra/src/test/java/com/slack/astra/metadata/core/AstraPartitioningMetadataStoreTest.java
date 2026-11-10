@@ -329,14 +329,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Allow time for creation to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return store.hasSync(partition, testData.getName());
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return store.hasSync(partition, testData.getName());
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // In ZK implementation, path will be returned as a full path:
           // "/storeFolder/partition/name"
@@ -367,14 +366,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletion to complete
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, testData.getName());
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, testData.getName());
+                } catch (Exception e) {
+                  return false;
+                }
+              });
         });
   }
 
@@ -397,14 +395,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Allow time for creation to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return store.hasSync(partition, testData.getName());
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return store.hasSync(partition, testData.getName());
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Verify the node exists
           boolean exists = store.hasSync(partition, testData.getName());
@@ -423,14 +420,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletion to complete
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, testData.getName());
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, testData.getName());
+                } catch (Exception e) {
+                  return false;
+                }
+              });
         });
   }
 
@@ -522,14 +518,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Make sure the node really doesn't exist by waiting
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, nonExistentNodeName);
-                    } catch (Exception e) {
-                      return true; // If we get an exception, the node probably doesn't exist
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, nonExistentNodeName);
+                } catch (Exception e) {
+                  return true; // If we get an exception, the node probably doesn't exist
+                }
+              });
 
           try {
             // Attempt to get a non-existent node asynchronously
@@ -682,14 +677,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for creation to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Now, the node should exist
           exists = store.hasAsync(partition, nodeName).toCompletableFuture().get();
@@ -701,14 +695,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletion to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return true; // If we get an exception, assume node doesn't exist
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return true; // If we get an exception, assume node doesn't exist
+                }
+              });
 
           // After deletion, the node should not exist
           exists = store.hasAsync(partition, nodeName).toCompletableFuture().get();
@@ -739,14 +732,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for creation to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Now, the node should exist
           exists = store.hasSync(partition, nodeName);
@@ -758,14 +750,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletion to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return true; // If we get an exception, assume node doesn't exist
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return true; // If we get an exception, assume node doesn't exist
+                }
+              });
 
           // After deletion, the node should not exist
           exists = store.hasSync(partition, nodeName);
@@ -792,15 +783,14 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for creation to complete and be visible
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      TestPartitionedMetadata result = store.getSync(partition, nodeName);
-                      return result != null && "originalValue".equals(result.getValue());
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  TestPartitionedMetadata result = store.getSync(partition, nodeName);
+                  return result != null && "originalValue".equals(result.getValue());
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Create an updated version of the metadata
           TestPartitionedMetadata updatedData =
@@ -815,15 +805,14 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for update to complete and be visible
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      TestPartitionedMetadata result = store.getSync(partition, nodeName);
-                      return result != null && "updatedValue".equals(result.getValue());
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  TestPartitionedMetadata result = store.getSync(partition, nodeName);
+                  return result != null && "updatedValue".equals(result.getValue());
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Now verify the update
           TestPartitionedMetadata result = store.getSync(partition, nodeName);
@@ -838,14 +827,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletion to complete
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return false;
+                }
+              });
         });
   }
 
@@ -868,15 +856,14 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for creation to complete and be visible
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      TestPartitionedMetadata result = store.getSync(partition, nodeName);
-                      return result != null && "originalValue".equals(result.getValue());
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  TestPartitionedMetadata result = store.getSync(partition, nodeName);
+                  return result != null && "originalValue".equals(result.getValue());
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Create an updated version of the metadata
           TestPartitionedMetadata updatedData =
@@ -888,15 +875,14 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for update to complete and be visible
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      TestPartitionedMetadata result = store.getSync(partition, nodeName);
-                      return result != null && "updatedValue".equals(result.getValue());
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  TestPartitionedMetadata result = store.getSync(partition, nodeName);
+                  return result != null && "updatedValue".equals(result.getValue());
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Get the node to verify the update
           TestPartitionedMetadata result = store.getSync(partition, nodeName);
@@ -911,14 +897,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletion to complete
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return false;
+                }
+              });
         });
   }
 
@@ -941,14 +926,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for creation to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Verify the node exists
           assertThat(store.hasSync(partition, nodeName)).isTrue();
@@ -959,14 +943,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletion to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return true; // If we get an exception, assume node doesn't exist
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return true; // If we get an exception, assume node doesn't exist
+                }
+              });
 
           // Verify the node no longer exists
           assertThat(store.hasSync(partition, nodeName)).isFalse();
@@ -992,14 +975,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for creation to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Verify the node exists
           assertThat(store.hasSync(partition, nodeName)).isTrue();
@@ -1010,14 +992,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletion to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return true; // If we get an exception, assume node doesn't exist
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return true; // If we get an exception, assume node doesn't exist
+                }
+              });
 
           // Verify the node no longer exists
           assertThat(store.hasSync(partition, nodeName)).isFalse();
@@ -1051,34 +1032,30 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for all creations to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return store.hasSync(partition1, prefix + "1")
-                          && store.hasSync(partition1, prefix + "2")
-                          && store.hasSync(partition2, prefix + "3");
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return store.hasSync(partition1, prefix + "1")
+                      && store.hasSync(partition1, prefix + "2")
+                      && store.hasSync(partition2, prefix + "3");
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Wait for the nodes to be available in listing
           await()
               .atMost(10, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      List<TestPartitionedMetadata> results =
-                          store.listAsync().toCompletableFuture().get();
-                      List<TestPartitionedMetadata> filtered =
-                          results.stream()
-                              .filter(item -> item.getName().startsWith(prefix))
-                              .toList();
-                      return filtered.size() >= 3;
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  List<TestPartitionedMetadata> results =
+                      store.listAsync().toCompletableFuture().get();
+                  List<TestPartitionedMetadata> filtered =
+                      results.stream().filter(item -> item.getName().startsWith(prefix)).toList();
+                  return filtered.size() >= 3;
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // List the nodes asynchronously
           List<TestPartitionedMetadata> results = store.listAsync().toCompletableFuture().get();
@@ -1111,34 +1088,32 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletions to complete
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !(store.hasSync(partition1, prefix + "1")
-                          || store.hasSync(partition1, prefix + "2")
-                          || store.hasSync(partition2, prefix + "3"));
-                    } catch (Exception e) {
-                      return true; // If we get an exception, assume nodes don't exist
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !(store.hasSync(partition1, prefix + "1")
+                      || store.hasSync(partition1, prefix + "2")
+                      || store.hasSync(partition2, prefix + "3"));
+                } catch (Exception e) {
+                  return true; // If we get an exception, assume nodes don't exist
+                }
+              });
 
           // Wait for deletions to be reflected in the listing
           await()
               .atMost(10, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      List<TestPartitionedMetadata> finalResults =
-                          store.listAsync().toCompletableFuture().get();
-                      List<TestPartitionedMetadata> filtered =
-                          finalResults.stream()
-                              .filter(item -> item.getName().startsWith(prefix))
-                              .toList();
-                      return filtered.isEmpty();
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  List<TestPartitionedMetadata> finalResults =
+                      store.listAsync().toCompletableFuture().get();
+                  List<TestPartitionedMetadata> filtered =
+                      finalResults.stream()
+                          .filter(item -> item.getName().startsWith(prefix))
+                          .toList();
+                  return filtered.isEmpty();
+                } catch (Exception e) {
+                  return false;
+                }
+              });
         });
   }
 
@@ -1169,33 +1144,29 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for all creations to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return store.hasSync(partition1, prefix + "1")
-                          && store.hasSync(partition1, prefix + "2")
-                          && store.hasSync(partition2, prefix + "3");
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return store.hasSync(partition1, prefix + "1")
+                      && store.hasSync(partition1, prefix + "2")
+                      && store.hasSync(partition2, prefix + "3");
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Wait for the nodes to be available in listing
           await()
               .atMost(10, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      List<TestPartitionedMetadata> results = store.listSync();
-                      List<TestPartitionedMetadata> filtered =
-                          results.stream()
-                              .filter(item -> item.getName().startsWith(prefix))
-                              .toList();
-                      return filtered.size() >= 3;
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  List<TestPartitionedMetadata> results = store.listSync();
+                  List<TestPartitionedMetadata> filtered =
+                      results.stream().filter(item -> item.getName().startsWith(prefix)).toList();
+                  return filtered.size() >= 3;
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // List the nodes synchronously
           List<TestPartitionedMetadata> results = store.listSync();
@@ -1228,33 +1199,31 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletions to complete
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !(store.hasSync(partition1, prefix + "1")
-                          || store.hasSync(partition1, prefix + "2")
-                          || store.hasSync(partition2, prefix + "3"));
-                    } catch (Exception e) {
-                      return true; // If we get an exception, assume nodes don't exist
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !(store.hasSync(partition1, prefix + "1")
+                      || store.hasSync(partition1, prefix + "2")
+                      || store.hasSync(partition2, prefix + "3"));
+                } catch (Exception e) {
+                  return true; // If we get an exception, assume nodes don't exist
+                }
+              });
 
           // Wait for deletions to be reflected in the listing
           await()
               .atMost(10, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      List<TestPartitionedMetadata> finalResults = store.listSync();
-                      List<TestPartitionedMetadata> filtered =
-                          finalResults.stream()
-                              .filter(item -> item.getName().startsWith(prefix))
-                              .toList();
-                      return filtered.isEmpty();
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  List<TestPartitionedMetadata> finalResults = store.listSync();
+                  List<TestPartitionedMetadata> filtered =
+                      finalResults.stream()
+                          .filter(item -> item.getName().startsWith(prefix))
+                          .toList();
+                  return filtered.isEmpty();
+                } catch (Exception e) {
+                  return false;
+                }
+              });
         });
   }
 
@@ -1275,15 +1244,14 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for cache initialization before adding listener
           await()
               .atMost(10, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      store.awaitCacheInitialized();
-                      return true;
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  store.awaitCacheInitialized();
+                  return true;
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Add the listener
           store.addListener(listener);
@@ -1319,14 +1287,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for creation to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Wait for notification (should increment counter to 1)
           await().atMost(10, TimeUnit.SECONDS).until(() -> counter.get() == 1);
@@ -1339,15 +1306,14 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for update to propagate
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      TestPartitionedMetadata result = store.getSync(partition, nodeName);
-                      return result != null && "updatedListenerValue".equals(result.getValue());
-                    } catch (Exception e) {
-                      return false;
-                    }
-                  });
+              .until(() -> {
+                try {
+                  TestPartitionedMetadata result = store.getSync(partition, nodeName);
+                  return result != null && "updatedListenerValue".equals(result.getValue());
+                } catch (Exception e) {
+                  return false;
+                }
+              });
 
           // Wait for notification
           await().atMost(10, TimeUnit.SECONDS).until(() -> counter.get() == 2);
@@ -1358,31 +1324,28 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for listener removal to take effect
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .untilAsserted(
-                  () -> {
-                    // Update the node again to see if listener is removed
-                    TestPartitionedMetadata updatedData2 =
-                        new TestPartitionedMetadata(
-                            nodeName, partition, "updatedAgainListenerValue");
-                    store.updateSync(updatedData2);
+              .untilAsserted(() -> {
+                // Update the node again to see if listener is removed
+                TestPartitionedMetadata updatedData2 =
+                    new TestPartitionedMetadata(nodeName, partition, "updatedAgainListenerValue");
+                store.updateSync(updatedData2);
 
-                    // Wait for update to propagate
-                    await()
-                        .atMost(5, TimeUnit.SECONDS)
-                        .until(
-                            () -> {
-                              try {
-                                TestPartitionedMetadata result = store.getSync(partition, nodeName);
-                                return result != null
-                                    && "updatedAgainListenerValue".equals(result.getValue());
-                              } catch (Exception e) {
-                                return false;
-                              }
-                            });
+                // Wait for update to propagate
+                await()
+                    .atMost(5, TimeUnit.SECONDS)
+                    .until(() -> {
+                      try {
+                        TestPartitionedMetadata result = store.getSync(partition, nodeName);
+                        return result != null
+                            && "updatedAgainListenerValue".equals(result.getValue());
+                      } catch (Exception e) {
+                        return false;
+                      }
+                    });
 
-                    // Even after update, counter should not change
-                    assertThat(counter.get()).isEqualTo(2);
-                  });
+                // Even after update, counter should not change
+                assertThat(counter.get()).isEqualTo(2);
+              });
 
           // Clean up
           store.deleteSync(updatedData);
@@ -1390,14 +1353,13 @@ public class AstraPartitioningMetadataStoreTest {
           // Wait for deletion to complete
           await()
               .atMost(5, TimeUnit.SECONDS)
-              .until(
-                  () -> {
-                    try {
-                      return !store.hasSync(partition, nodeName);
-                    } catch (Exception e) {
-                      return true; // If we get an exception, assume node doesn't exist
-                    }
-                  });
+              .until(() -> {
+                try {
+                  return !store.hasSync(partition, nodeName);
+                } catch (Exception e) {
+                  return true; // If we get an exception, assume node doesn't exist
+                }
+              });
         });
   }
 
@@ -1433,16 +1395,15 @@ public class AstraPartitioningMetadataStoreTest {
             // Wait for all creations to propagate
             await()
                 .atMost(5, TimeUnit.SECONDS)
-                .until(
-                    () -> {
-                      try {
-                        return store.hasSync(partition1, key1)
-                            && store.hasSync(partition1, key2)
-                            && store.hasSync(partition2, key3);
-                      } catch (Exception e) {
-                        return false;
-                      }
-                    });
+                .until(() -> {
+                  try {
+                    return store.hasSync(partition1, key1)
+                        && store.hasSync(partition1, key2)
+                        && store.hasSync(partition2, key3);
+                  } catch (Exception e) {
+                    return false;
+                  }
+                });
 
             // Call awaitCacheInitialized on the existing store - should not throw exceptions
             try {

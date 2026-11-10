@@ -170,13 +170,10 @@ public class OpenSearchAdapterTest {
     Optional<IndexSortSortedNumericDocValuesRangeQuery> filterNullStartQuery =
         ((BooleanQuery) nullStartTimestamp)
             .clauses().stream()
-                .filter(
-                    booleanClause ->
-                        booleanClause.getQuery()
-                            instanceof IndexSortSortedNumericDocValuesRangeQuery)
-                .map(
-                    booleanClause ->
-                        (IndexSortSortedNumericDocValuesRangeQuery) booleanClause.getQuery())
+                .filter(booleanClause ->
+                    booleanClause.getQuery() instanceof IndexSortSortedNumericDocValuesRangeQuery)
+                .map(booleanClause ->
+                    (IndexSortSortedNumericDocValuesRangeQuery) booleanClause.getQuery())
                 .findFirst();
     assertThat(filterNullStartQuery).isPresent();
     // a null start and provided end should result in an optimized range query of min long to the
@@ -190,13 +187,10 @@ public class OpenSearchAdapterTest {
     Optional<IndexSortSortedNumericDocValuesRangeQuery> filterNullEndQuery =
         ((BooleanQuery) nullEndTimestamp)
             .clauses().stream()
-                .filter(
-                    booleanClause ->
-                        booleanClause.getQuery()
-                            instanceof IndexSortSortedNumericDocValuesRangeQuery)
-                .map(
-                    booleanClause ->
-                        (IndexSortSortedNumericDocValuesRangeQuery) booleanClause.getQuery())
+                .filter(booleanClause ->
+                    booleanClause.getQuery() instanceof IndexSortSortedNumericDocValuesRangeQuery)
+                .map(booleanClause ->
+                    (IndexSortSortedNumericDocValuesRangeQuery) booleanClause.getQuery())
                 .findFirst();
     assertThat(filterNullEndQuery).isPresent();
     // a null end and provided start should result in an optimized range query of start value to max

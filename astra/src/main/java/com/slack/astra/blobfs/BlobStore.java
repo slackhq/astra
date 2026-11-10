@@ -161,10 +161,9 @@ public class BlobStore {
         // Log each failed transfer with its exception
         download
             .failedTransfers()
-            .forEach(
-                failedFileUpload ->
-                    LOG.error(
-                        "Error attempting to download file from S3", failedFileUpload.exception()));
+            .forEach(failedFileUpload ->
+                LOG.error(
+                    "Error attempting to download file from S3", failedFileUpload.exception()));
 
         throw new IllegalStateException(
             String.format(
@@ -215,9 +214,8 @@ public class BlobStore {
     List<String> filesList = new CopyOnWriteArrayList<>();
     try {
       asyncPaginatedListResponse
-          .subscribe(
-              listResponse ->
-                  listResponse.contents().forEach(s3Object -> filesList.add(s3Object.key())))
+          .subscribe(listResponse ->
+              listResponse.contents().forEach(s3Object -> filesList.add(s3Object.key())))
           .get();
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
@@ -242,27 +240,26 @@ public class BlobStore {
     AtomicBoolean deleted = new AtomicBoolean(false);
     try {
       asyncPaginatedListResponse
-          .subscribe(
-              listResponse -> {
-                List<ObjectIdentifier> objects =
-                    listResponse.contents().stream()
-                        .map(s3Object -> ObjectIdentifier.builder().key(s3Object.key()).build())
-                        .toList();
-                if (objects.isEmpty()) {
-                  return;
-                }
-                DeleteObjectsRequest deleteRequest =
-                    DeleteObjectsRequest.builder()
-                        .bucket(bucketName)
-                        .delete(Delete.builder().objects(objects).build())
-                        .build();
-                try {
-                  s3AsyncClient.deleteObjects(deleteRequest).get();
-                  deleted.set(true);
-                } catch (InterruptedException | ExecutionException e) {
-                  throw new RuntimeException(e);
-                }
-              })
+          .subscribe(listResponse -> {
+            List<ObjectIdentifier> objects =
+                listResponse.contents().stream()
+                    .map(s3Object -> ObjectIdentifier.builder().key(s3Object.key()).build())
+                    .toList();
+            if (objects.isEmpty()) {
+              return;
+            }
+            DeleteObjectsRequest deleteRequest =
+                DeleteObjectsRequest.builder()
+                    .bucket(bucketName)
+                    .delete(Delete.builder().objects(objects).build())
+                    .build();
+            try {
+              s3AsyncClient.deleteObjects(deleteRequest).get();
+              deleted.set(true);
+            } catch (InterruptedException | ExecutionException e) {
+              throw new RuntimeException(e);
+            }
+          })
           .get();
       return deleted.get();
     } catch (InterruptedException | ExecutionException e) {

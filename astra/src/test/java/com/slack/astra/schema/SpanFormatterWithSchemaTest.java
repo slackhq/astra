@@ -532,86 +532,85 @@ public class SpanFormatterWithSchemaTest {
       FieldType fieldType = FieldType.valueOf(tag.getFieldType().name());
       // list since same field will have two entries - indexed and docvalues
       Arrays.asList(luceneDocument.getFields(key))
-          .forEach(
-              field -> {
-                if (fieldType == FieldType.TEXT) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.TEXT);
-                  assertThat(field.stringValue()).isEqualTo(tag.getVStr());
-                } else if (fieldType == FieldType.KEYWORD) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
-                  if (field instanceof SortedDocValuesField) {
-                    assertThat(field.binaryValue().utf8ToString()).isNotNull();
-                  } else {
-                    assertThat(field.stringValue()).isEqualTo(tag.getVStr());
-                  }
-                } else if (fieldType == FieldType.BOOLEAN) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.BOOLEAN);
+          .forEach(field -> {
+            if (fieldType == FieldType.TEXT) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.TEXT);
+              assertThat(field.stringValue()).isEqualTo(tag.getVStr());
+            } else if (fieldType == FieldType.KEYWORD) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.KEYWORD);
+              if (field instanceof SortedDocValuesField) {
+                assertThat(field.binaryValue().utf8ToString()).isNotNull();
+              } else {
+                assertThat(field.stringValue()).isEqualTo(tag.getVStr());
+              }
+            } else if (fieldType == FieldType.BOOLEAN) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.BOOLEAN);
 
-                  if (field instanceof SortedNumericDocValuesField) {
-                    assertThat(field.numericValue()).isEqualTo(1L);
-                  } else {
-                    assertThat(field.binaryValue().utf8ToString()).isEqualTo("T");
-                  }
-                } else if (fieldType == FieldType.DATE) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.DATE);
-                  assertThat(field.numericValue().longValue()).isEqualTo(tag.getVInt64());
-                } else if (fieldType == FieldType.DOUBLE) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.DOUBLE);
-                  if (field instanceof DoubleDocValuesField) {
-                    // reverse of Double.doubleToRawLongBits(value)
-                    assertThat(Double.longBitsToDouble(field.numericValue().longValue()))
-                        .isEqualTo(tag.getVFloat64());
-                  } else {
-                    assertThat(field.numericValue().doubleValue()).isEqualTo(tag.getVFloat64());
-                  }
-                } else if (fieldType == FieldType.FLOAT) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.FLOAT);
-                  if (field instanceof FloatDocValuesField) {
-                    // reverse of Float.floatToRawIntBits(value)
-                    assertThat(Float.intBitsToFloat(field.numericValue().intValue()))
-                        .isEqualTo(tag.getVFloat32());
-                  } else {
-                    assertThat(field.numericValue().floatValue()).isEqualTo(tag.getVFloat32());
-                  }
-                } else if (fieldType == FieldType.INTEGER) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.INTEGER);
-                  assertThat(field.numericValue().intValue()).isEqualTo(tag.getVInt32());
-                } else if (fieldType == FieldType.LONG) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.LONG);
-                  assertThat(field.numericValue().longValue()).isEqualTo(tag.getVInt64());
-                } else if (fieldType == FieldType.HALF_FLOAT) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.HALF_FLOAT);
-                  if (field instanceof HalfFloatPoint) {
-                    assertThat(Math.abs(field.numericValue().floatValue() - tag.getVFloat32()))
-                        .isLessThan(0.001F);
-                  } else {
-                    assertThat(
-                            Math.abs(
-                                HalfFloatPoint.sortableShortToHalfFloat(
-                                        field.numericValue().shortValue())
-                                    - tag.getVFloat32()))
-                        .isLessThan(0.001F);
-                  }
-                } else if (fieldType == FieldType.SCALED_LONG) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.SCALED_LONG);
-                  assertThat(field.numericValue().longValue()).isEqualTo(tag.getVInt64());
-                } else if (fieldType == FieldType.SHORT) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.SHORT);
-                  assertThat(field.numericValue().intValue()).isEqualTo(tag.getVInt32());
-                } else if (fieldType == FieldType.BINARY) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.BINARY);
-                  assertThat(field.binaryValue().utf8ToString()).isEqualTo(tag.getVStr());
-                } else if (fieldType == FieldType.IP) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.IP);
-                  assertThat(InetAddressPoint.decode(field.binaryValue().bytes).getHostName())
-                      .isEqualTo(tag.getVStr());
-                } else if (fieldType == FieldType.BYTE) {
-                  assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.BYTE);
-                  assertThat(field.numericValue().byteValue()).isEqualTo((byte) tag.getVInt32());
-                } else {
-                  fail("fieldType not defined for field: " + tag);
-                }
-              });
+              if (field instanceof SortedNumericDocValuesField) {
+                assertThat(field.numericValue()).isEqualTo(1L);
+              } else {
+                assertThat(field.binaryValue().utf8ToString()).isEqualTo("T");
+              }
+            } else if (fieldType == FieldType.DATE) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.DATE);
+              assertThat(field.numericValue().longValue()).isEqualTo(tag.getVInt64());
+            } else if (fieldType == FieldType.DOUBLE) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.DOUBLE);
+              if (field instanceof DoubleDocValuesField) {
+                // reverse of Double.doubleToRawLongBits(value)
+                assertThat(Double.longBitsToDouble(field.numericValue().longValue()))
+                    .isEqualTo(tag.getVFloat64());
+              } else {
+                assertThat(field.numericValue().doubleValue()).isEqualTo(tag.getVFloat64());
+              }
+            } else if (fieldType == FieldType.FLOAT) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.FLOAT);
+              if (field instanceof FloatDocValuesField) {
+                // reverse of Float.floatToRawIntBits(value)
+                assertThat(Float.intBitsToFloat(field.numericValue().intValue()))
+                    .isEqualTo(tag.getVFloat32());
+              } else {
+                assertThat(field.numericValue().floatValue()).isEqualTo(tag.getVFloat32());
+              }
+            } else if (fieldType == FieldType.INTEGER) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.INTEGER);
+              assertThat(field.numericValue().intValue()).isEqualTo(tag.getVInt32());
+            } else if (fieldType == FieldType.LONG) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.LONG);
+              assertThat(field.numericValue().longValue()).isEqualTo(tag.getVInt64());
+            } else if (fieldType == FieldType.HALF_FLOAT) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.HALF_FLOAT);
+              if (field instanceof HalfFloatPoint) {
+                assertThat(Math.abs(field.numericValue().floatValue() - tag.getVFloat32()))
+                    .isLessThan(0.001F);
+              } else {
+                assertThat(
+                        Math.abs(
+                            HalfFloatPoint.sortableShortToHalfFloat(
+                                    field.numericValue().shortValue())
+                                - tag.getVFloat32()))
+                    .isLessThan(0.001F);
+              }
+            } else if (fieldType == FieldType.SCALED_LONG) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.SCALED_LONG);
+              assertThat(field.numericValue().longValue()).isEqualTo(tag.getVInt64());
+            } else if (fieldType == FieldType.SHORT) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.SHORT);
+              assertThat(field.numericValue().intValue()).isEqualTo(tag.getVInt32());
+            } else if (fieldType == FieldType.BINARY) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.BINARY);
+              assertThat(field.binaryValue().utf8ToString()).isEqualTo(tag.getVStr());
+            } else if (fieldType == FieldType.IP) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.IP);
+              assertThat(InetAddressPoint.decode(field.binaryValue().bytes).getHostName())
+                  .isEqualTo(tag.getVStr());
+            } else if (fieldType == FieldType.BYTE) {
+              assertThat(tag.getFieldType()).isEqualTo(Schema.SchemaFieldType.BYTE);
+              assertThat(field.numericValue().byteValue()).isEqualTo((byte) tag.getVInt32());
+            } else {
+              fail("fieldType not defined for field: " + tag);
+            }
+          });
     }
   }
 
@@ -642,7 +641,7 @@ public class SpanFormatterWithSchemaTest {
         { "duration" : "0.20389771461486816 ms"}
         { "index" : { "_index" : "test", "_id" : "3" } }
         { "duration" : 1715025939317}
-                """;
+        """;
 
     byte[] rawRequest = inputDocuments.getBytes(StandardCharsets.UTF_8);
 
@@ -740,14 +739,14 @@ public class SpanFormatterWithSchemaTest {
     // field defined in schema
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("host"))
+                .filter(tag -> tag.getKey().equals("host"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("ip"))
+                .filter(tag -> tag.getKey().equals("ip"))
                 .findFirst()
                 .get()
                 .getFieldType())
@@ -756,28 +755,28 @@ public class SpanFormatterWithSchemaTest {
     // using default behavior
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("message"))
+                .filter(tag -> tag.getKey().equals("message"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("message.keyword"))
+                .filter(tag -> tag.getKey().equals("message.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("my_date"))
+                .filter(tag -> tag.getKey().equals("my_date"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("my_date.keyword"))
+                .filter(tag -> tag.getKey().equals("my_date.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
@@ -789,7 +788,7 @@ public class SpanFormatterWithSchemaTest {
     // field defined in schema
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("ip"))
+                .filter(tag -> tag.getKey().equals("ip"))
                 .findFirst()
                 .get()
                 .getFieldType())
@@ -798,56 +797,56 @@ public class SpanFormatterWithSchemaTest {
     // using default behavior
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("value1"))
+                .filter(tag -> tag.getKey().equals("value1"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("value1.keyword"))
+                .filter(tag -> tag.getKey().equals("value1.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("value2"))
+                .filter(tag -> tag.getKey().equals("value2"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("value2.keyword"))
+                .filter(tag -> tag.getKey().equals("value2.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("field1"))
+                .filter(tag -> tag.getKey().equals("field1"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("field1.keyword"))
+                .filter(tag -> tag.getKey().equals("field1.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("username"))
+                .filter(tag -> tag.getKey().equals("username"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("username.keyword"))
+                .filter(tag -> tag.getKey().equals("username.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
@@ -856,12 +855,12 @@ public class SpanFormatterWithSchemaTest {
     // default non-string behavior
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("number"))
+                .filter(tag -> tag.getKey().equals("number"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.INTEGER);
-    assertThat(doc2.getTagsList().stream().anyMatch((tag) -> tag.getKey().equals("bucket")))
+    assertThat(doc2.getTagsList().stream().anyMatch(tag -> tag.getKey().equals("bucket")))
         .isFalse();
   }
 
@@ -893,56 +892,56 @@ public class SpanFormatterWithSchemaTest {
     // using default behavior
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("host"))
+                .filter(tag -> tag.getKey().equals("host"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("host.keyword"))
+                .filter(tag -> tag.getKey().equals("host.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("ip"))
+                .filter(tag -> tag.getKey().equals("ip"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("ip.keyword"))
+                .filter(tag -> tag.getKey().equals("ip.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("message"))
+                .filter(tag -> tag.getKey().equals("message"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("message.keyword"))
+                .filter(tag -> tag.getKey().equals("message.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("my_date"))
+                .filter(tag -> tag.getKey().equals("my_date"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc1.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("my_date.keyword"))
+                .filter(tag -> tag.getKey().equals("my_date.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
@@ -954,70 +953,70 @@ public class SpanFormatterWithSchemaTest {
     // using default behavior
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("ip"))
+                .filter(tag -> tag.getKey().equals("ip"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("ip.keyword"))
+                .filter(tag -> tag.getKey().equals("ip.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("value1"))
+                .filter(tag -> tag.getKey().equals("value1"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("value1.keyword"))
+                .filter(tag -> tag.getKey().equals("value1.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("value2"))
+                .filter(tag -> tag.getKey().equals("value2"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("value2.keyword"))
+                .filter(tag -> tag.getKey().equals("value2.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("field1"))
+                .filter(tag -> tag.getKey().equals("field1"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("field1.keyword"))
+                .filter(tag -> tag.getKey().equals("field1.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.KEYWORD);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("username"))
+                .filter(tag -> tag.getKey().equals("username"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.TEXT);
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("username.keyword"))
+                .filter(tag -> tag.getKey().equals("username.keyword"))
                 .findFirst()
                 .get()
                 .getFieldType())
@@ -1026,12 +1025,12 @@ public class SpanFormatterWithSchemaTest {
     // default non-string behavior
     assertThat(
             doc2.getTagsList().stream()
-                .filter((tag) -> tag.getKey().equals("number"))
+                .filter(tag -> tag.getKey().equals("number"))
                 .findFirst()
                 .get()
                 .getFieldType())
         .isEqualTo(Schema.SchemaFieldType.INTEGER);
-    assertThat(doc2.getTagsList().stream().anyMatch((tag) -> tag.getKey().equals("bucket")))
+    assertThat(doc2.getTagsList().stream().anyMatch(tag -> tag.getKey().equals("bucket")))
         .isFalse();
   }
 }

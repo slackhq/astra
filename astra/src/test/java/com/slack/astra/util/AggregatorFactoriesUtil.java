@@ -152,17 +152,16 @@ public class AggregatorFactoriesUtil {
 
     List<BucketOrder> parsedOrder =
         order.entrySet().stream()
-            .map(
-                (entry) -> {
-                  boolean asc = !entry.getValue().equals("desc");
-                  if (entry.getKey().equals("_count") || !subAggNames.contains(entry.getKey())) {
-                    return BucketOrder.count(asc);
-                  } else if (entry.getKey().equals("_key") || entry.getKey().equals("_term")) {
-                    return BucketOrder.key(asc);
-                  } else {
-                    return BucketOrder.aggregation(entry.getKey(), asc);
-                  }
-                })
+            .map(entry -> {
+              boolean asc = !entry.getValue().equals("desc");
+              if (entry.getKey().equals("_count") || !subAggNames.contains(entry.getKey())) {
+                return BucketOrder.count(asc);
+              } else if (entry.getKey().equals("_key") || entry.getKey().equals("_term")) {
+                return BucketOrder.key(asc);
+              } else {
+                return BucketOrder.aggregation(entry.getKey(), asc);
+              }
+            })
             .toList();
 
     TermsAggregationBuilder termsAggregationBuilder = new TermsAggregationBuilder(name);

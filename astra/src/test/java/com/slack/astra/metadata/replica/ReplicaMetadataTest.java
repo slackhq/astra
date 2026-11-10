@@ -81,32 +81,28 @@ public class ReplicaMetadataTest {
   @Test
   public void invalidArgumentsShouldThrow() {
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new ReplicaMetadata(
-                    "name",
-                    "",
-                    "rep1",
-                    Instant.now().toEpochMilli(),
-                    Instant.now().toEpochMilli(),
-                    false));
+        .isThrownBy(() ->
+            new ReplicaMetadata(
+                "name",
+                "",
+                "rep1",
+                Instant.now().toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                false));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new ReplicaMetadata(
-                    "name",
-                    null,
-                    "rep1",
-                    Instant.now().toEpochMilli(),
-                    Instant.now().toEpochMilli(),
-                    true));
+        .isThrownBy(() ->
+            new ReplicaMetadata(
+                "name",
+                null,
+                "rep1",
+                Instant.now().toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                true));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new ReplicaMetadata("name", "123", "rep1", 0, Instant.now().toEpochMilli(), false));
+        .isThrownBy(() ->
+            new ReplicaMetadata("name", "123", "rep1", 0, Instant.now().toEpochMilli(), false));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new ReplicaMetadata("name", "123", "rep1", Instant.now().toEpochMilli(), -1, true));
+        .isThrownBy(() ->
+            new ReplicaMetadata("name", "123", "rep1", Instant.now().toEpochMilli(), -1, true));
   }
 }

@@ -254,9 +254,8 @@ public class ReplicaCreationServiceTest {
     replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     await()
-        .until(
-            () ->
-                MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry) == 4);
+        .until(() ->
+            MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry) == 4);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(4);
     await().until(() -> replicaMetadataStore.listSync().size() == 4);
@@ -303,12 +302,11 @@ public class ReplicaCreationServiceTest {
             replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     await()
-        .until(
-            () ->
-                snapshotMetadataStore
-                        .listSync()
-                        .containsAll(Arrays.asList(snapshotLive, snapshotNotLive))
-                    && snapshotMetadataStore.listSync().size() == 2);
+        .until(() ->
+            snapshotMetadataStore
+                    .listSync()
+                    .containsAll(Arrays.asList(snapshotLive, snapshotNotLive))
+                && snapshotMetadataStore.listSync().size() == 2);
     assertThat(replicaMetadataStore.listSync().isEmpty()).isTrue();
 
     Map<String, Integer> assignReplicas =
@@ -354,50 +352,47 @@ public class ReplicaCreationServiceTest {
 
     List<SnapshotMetadata> snapshotList = new ArrayList<>();
     IntStream.range(0, ineligibleSnapshotsToCreate)
-        .forEach(
-            (i) -> {
-              String snapshotId = UUID.randomUUID().toString();
-              SnapshotMetadata snapshot =
-                  new SnapshotMetadata(
-                      snapshotId,
-                      Instant.now().minus(1450, ChronoUnit.MINUTES).toEpochMilli(),
-                      Instant.now().minus(1441, ChronoUnit.MINUTES).toEpochMilli(),
-                      0,
-                      snapshotId,
-                      100);
-              snapshotList.add(snapshot);
-            });
+        .forEach(i -> {
+          String snapshotId = UUID.randomUUID().toString();
+          SnapshotMetadata snapshot =
+              new SnapshotMetadata(
+                  snapshotId,
+                  Instant.now().minus(1450, ChronoUnit.MINUTES).toEpochMilli(),
+                  Instant.now().minus(1441, ChronoUnit.MINUTES).toEpochMilli(),
+                  0,
+                  snapshotId,
+                  100);
+          snapshotList.add(snapshot);
+        });
 
     IntStream.range(0, liveSnapshotsToCreate)
-        .forEach(
-            (i) -> {
-              String snapshotId = UUID.randomUUID().toString();
-              SnapshotMetadata snapshot =
-                  new SnapshotMetadata(
-                      snapshotId,
-                      Instant.now().toEpochMilli() - 1,
-                      Instant.now().toEpochMilli(),
-                      0,
-                      snapshotId,
-                      0);
-              snapshotList.add(snapshot);
-            });
+        .forEach(i -> {
+          String snapshotId = UUID.randomUUID().toString();
+          SnapshotMetadata snapshot =
+              new SnapshotMetadata(
+                  snapshotId,
+                  Instant.now().toEpochMilli() - 1,
+                  Instant.now().toEpochMilli(),
+                  0,
+                  snapshotId,
+                  0);
+          snapshotList.add(snapshot);
+        });
 
     List<SnapshotMetadata> eligibleSnapshots = new ArrayList<>();
     IntStream.range(0, eligibleSnapshotsToCreate)
-        .forEach(
-            (i) -> {
-              String snapshotId = UUID.randomUUID().toString();
-              SnapshotMetadata snapshot =
-                  new SnapshotMetadata(
-                      snapshotId,
-                      Instant.now().toEpochMilli() - 1,
-                      Instant.now().toEpochMilli(),
-                      0,
-                      snapshotId,
-                      100);
-              eligibleSnapshots.add(snapshot);
-            });
+        .forEach(i -> {
+          String snapshotId = UUID.randomUUID().toString();
+          SnapshotMetadata snapshot =
+              new SnapshotMetadata(
+                  snapshotId,
+                  Instant.now().toEpochMilli() - 1,
+                  Instant.now().toEpochMilli(),
+                  0,
+                  snapshotId,
+                  100);
+          eligibleSnapshots.add(snapshot);
+        });
     snapshotList.addAll(eligibleSnapshots);
 
     // randomize the order of eligible, ineligible, and live snapshots and create them in parallel
@@ -421,10 +416,9 @@ public class ReplicaCreationServiceTest {
         .isEqualTo(expectedReplicas);
 
     await()
-        .until(
-            () ->
-                AstraMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()
-                    == expectedReplicas);
+        .until(() ->
+            AstraMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()
+                == expectedReplicas);
     await().until(() -> replicaMetadataStore.listSync().size() == expectedReplicas);
 
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
@@ -439,7 +433,7 @@ public class ReplicaCreationServiceTest {
     assertThat(
             AstraMetadataTestUtils.listSyncUncached(replicaMetadataStore).stream()
                 .allMatch(
-                    (replicaMetadata) -> eligibleSnapshotIds.contains(replicaMetadata.snapshotId)))
+                    replicaMetadata -> eligibleSnapshotIds.contains(replicaMetadata.snapshotId)))
         .isTrue();
     assertThat(replicaMetadataStore.listSync().stream().filter(r -> r.isRestored).count()).isZero();
   }
@@ -552,9 +546,8 @@ public class ReplicaCreationServiceTest {
         .until(() -> replicaMetadataStore.listSync().size() == 1);
     await()
         .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
-        .until(
-            () ->
-                MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry) == 1);
+        .until(() ->
+            MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry) == 1);
     await()
         .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
         .until(
@@ -570,9 +563,8 @@ public class ReplicaCreationServiceTest {
     assertThat(replicaMetadataStore.listSync().stream().filter(r -> r.isRestored).count()).isZero();
     await()
         .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
-        .until(
-            () ->
-                MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry) == 2);
+        .until(() ->
+            MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry) == 2);
     await()
         .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
         .until(
@@ -707,10 +699,9 @@ public class ReplicaCreationServiceTest {
             .build();
 
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                new ReplicaCreationService(
-                    replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry));
+        .isThrownBy(() ->
+            new ReplicaCreationService(
+                replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry));
   }
 
   @Test
@@ -730,9 +721,8 @@ public class ReplicaCreationServiceTest {
             .build();
 
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                new ReplicaCreationService(
-                    replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry));
+        .isThrownBy(() ->
+            new ReplicaCreationService(
+                replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry));
   }
 }

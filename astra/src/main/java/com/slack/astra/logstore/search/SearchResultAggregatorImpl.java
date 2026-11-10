@@ -140,7 +140,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
             InternalAggregation.ReduceContext.forFinalReduction(
                 AstraBigArrays.getInstance(),
                 ScriptServiceProvider.getInstance(),
-                (s) -> {},
+                s -> {},
                 pipelineTree);
       } else {
         reduceContext =

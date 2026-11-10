@@ -239,13 +239,12 @@ public class ManagerApiGrpcTest {
 
     StatusRuntimeException throwable =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createDatasetMetadata(
-                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
-                            .setName(datasetName)
-                            .setOwner(datasetOwner2)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createDatasetMetadata(
+                    ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                        .setName(datasetName)
+                        .setOwner(datasetOwner2)
+                        .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
     DatasetMetadata datasetMetadata = datasetMetadataStore.getSync(datasetName);
@@ -261,36 +260,33 @@ public class ManagerApiGrpcTest {
 
     StatusRuntimeException throwable1 =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createDatasetMetadata(
-                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
-                            .setName("")
-                            .setOwner(datasetOwner)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createDatasetMetadata(
+                    ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                        .setName("")
+                        .setOwner(datasetOwner)
+                        .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable1.getStatus().getDescription()).isEqualTo("name can't be null or empty.");
 
     StatusRuntimeException throwable2 =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createDatasetMetadata(
-                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
-                            .setName("/")
-                            .setOwner(datasetOwner)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createDatasetMetadata(
+                    ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                        .setName("/")
+                        .setOwner(datasetOwner)
+                        .build()));
     assertThat(throwable2.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
     StatusRuntimeException throwable3 =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createDatasetMetadata(
-                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
-                            .setName(".")
-                            .setOwner(datasetOwner)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createDatasetMetadata(
+                    ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                        .setName(".")
+                        .setOwner(datasetOwner)
+                        .build()));
     assertThat(throwable3.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size()).isEqualTo(0);
@@ -302,13 +298,12 @@ public class ManagerApiGrpcTest {
 
     StatusRuntimeException throwable =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createDatasetMetadata(
-                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
-                            .setName(datasetName)
-                            .setOwner("")
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createDatasetMetadata(
+                    ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                        .setName(datasetName)
+                        .setOwner("")
+                        .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable.getStatus().getDescription()).isEqualTo("owner must not be null or blank");
 
@@ -347,11 +342,10 @@ public class ManagerApiGrpcTest {
 
     AtomicReference<DatasetMetadata> datasetMetadata = new AtomicReference<>();
     await()
-        .until(
-            () -> {
-              datasetMetadata.set(datasetMetadataStore.getSync(datasetName));
-              return datasetMetadata.get().getOwner().equals(updatedDatasetOwner);
-            });
+        .until(() -> {
+          datasetMetadata.set(datasetMetadataStore.getSync(datasetName));
+          return datasetMetadata.get().getOwner().equals(updatedDatasetOwner);
+        });
 
     assertThat(datasetMetadata.get().getName()).isEqualTo(datasetName);
     assertThat(datasetMetadata.get().getServiceNamePattern()).isEqualTo(serviceNamePattern);
@@ -375,12 +369,11 @@ public class ManagerApiGrpcTest {
     assertThat(updatedServiceNamePatternResponse.getPartitionConfigsList().size()).isEqualTo(0);
 
     await()
-        .until(
-            () -> {
-              datasetMetadata.set(datasetMetadataStore.getSync(datasetName));
-              return Objects.equals(
-                  datasetMetadata.get().getServiceNamePattern(), updatedServiceNamePattern);
-            });
+        .until(() -> {
+          datasetMetadata.set(datasetMetadataStore.getSync(datasetName));
+          return Objects.equals(
+              datasetMetadata.get().getServiceNamePattern(), updatedServiceNamePattern);
+        });
 
     datasetMetadata.set(datasetMetadataStore.getSync(datasetName));
     assertThat(datasetMetadata.get().getName()).isEqualTo(datasetName);
@@ -455,11 +448,10 @@ public class ManagerApiGrpcTest {
 
     AtomicReference<DatasetMetadata> originalDataset = new AtomicReference<>();
     await()
-        .until(
-            () -> {
-              originalDataset.set(datasetMetadataStore.getSync(datasetName));
-              return originalDataset.get().getOwner().equals(datasetOwner);
-            });
+        .until(() -> {
+          originalDataset.set(datasetMetadataStore.getSync(datasetName));
+          return originalDataset.get().getOwner().equals(datasetOwner);
+        });
 
     assertThat(originalDataset.get().getName()).isEqualTo(datasetName);
     assertThat(originalDataset.get().getServiceNamePattern()).isEqualTo(serviceNamePattern);
@@ -483,11 +475,10 @@ public class ManagerApiGrpcTest {
     // Verify dataset exists in ZK before migration
     AtomicReference<DatasetMetadata> zkDataset = new AtomicReference<>();
     await()
-        .until(
-            () -> {
-              zkDataset.set(datasetMetadataStore.getSync(datasetName));
-              return zkDataset.get().getOwner().equals(datasetOwner);
-            });
+        .until(() -> {
+          zkDataset.set(datasetMetadataStore.getSync(datasetName));
+          return zkDataset.get().getOwner().equals(datasetOwner);
+        });
 
     assertThat(zkDataset.get().getName()).isEqualTo(datasetName);
     assertThat(zkDataset.get().getServiceNamePattern()).isEqualTo(serviceNamePattern);
@@ -544,10 +535,9 @@ public class ManagerApiGrpcTest {
   public void shouldErrorGettingNonexistentDataset() {
     StatusRuntimeException throwable =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.getDatasetMetadata(
-                        ManagerApi.GetDatasetMetadataRequest.newBuilder().setName("foo").build()));
+            catchThrowable(() ->
+                managerApiStub.getDatasetMetadata(
+                    ManagerApi.GetDatasetMetadataRequest.newBuilder().setName("foo").build()));
     Status status = throwable.getStatus();
     assertThat(status.getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
@@ -576,11 +566,9 @@ public class ManagerApiGrpcTest {
             .addAllPartitionIds(List.of("1", "2"))
             .build());
     await()
-        .until(
-            () ->
-                datasetMetadataStore.listSync().size() == 1
-                    && datasetMetadataStore.listSync().get(0).getThroughputBytes()
-                        == throughputBytes);
+        .until(() ->
+            datasetMetadataStore.listSync().size() == 1
+                && datasetMetadataStore.listSync().get(0).getThroughputBytes() == throughputBytes);
 
     Metadata.DatasetMetadata firstAssignment =
         managerApiStub.getDatasetMetadata(
@@ -611,15 +599,12 @@ public class ManagerApiGrpcTest {
 
     AtomicReference<Metadata.DatasetMetadata> secondAssignment = new AtomicReference<>();
     await()
-        .until(
-            () -> {
-              secondAssignment.set(
-                  managerApiStub.getDatasetMetadata(
-                      ManagerApi.GetDatasetMetadataRequest.newBuilder()
-                          .setName(datasetName)
-                          .build()));
-              return secondAssignment.get().getThroughputBytes() == throughputBytes;
-            });
+        .until(() -> {
+          secondAssignment.set(
+              managerApiStub.getDatasetMetadata(
+                  ManagerApi.GetDatasetMetadataRequest.newBuilder().setName(datasetName).build()));
+          return secondAssignment.get().getThroughputBytes() == throughputBytes;
+        });
 
     assertThat(secondAssignment.get().getThroughputBytes()).isEqualTo(throughputBytes);
     assertThat(secondAssignment.get().getPartitionConfigsList().size()).isEqualTo(2);
@@ -651,15 +636,12 @@ public class ManagerApiGrpcTest {
 
     AtomicReference<Metadata.DatasetMetadata> thirdAssignment = new AtomicReference<>();
     await()
-        .until(
-            () -> {
-              thirdAssignment.set(
-                  managerApiStub.getDatasetMetadata(
-                      ManagerApi.GetDatasetMetadataRequest.newBuilder()
-                          .setName(datasetName)
-                          .build()));
-              return thirdAssignment.get().getThroughputBytes() == updatedThroughputBytes;
-            });
+        .until(() -> {
+          thirdAssignment.set(
+              managerApiStub.getDatasetMetadata(
+                  ManagerApi.GetDatasetMetadataRequest.newBuilder().setName(datasetName).build()));
+          return thirdAssignment.get().getThroughputBytes() == updatedThroughputBytes;
+        });
 
     assertThat(thirdAssignment.get().getThroughputBytes()).isEqualTo(updatedThroughputBytes);
     assertThat(thirdAssignment.get().getPartitionConfigsList().size()).isEqualTo(2);
@@ -689,14 +671,13 @@ public class ManagerApiGrpcTest {
 
     StatusRuntimeException throwable1 =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.updatePartitionAssignment(
-                        ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
-                            .setName(datasetName)
-                            .setThroughputBytes(-1)
-                            .addAllPartitionIds(partitionList)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.updatePartitionAssignment(
+                    ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
+                        .setName(datasetName)
+                        .setThroughputBytes(-1)
+                        .addAllPartitionIds(partitionList)
+                        .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(datasetMetadataStore).size()).isEqualTo(0);
@@ -768,14 +749,13 @@ public class ManagerApiGrpcTest {
 
     StatusRuntimeException throwableCreate =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createDatasetMetadata(
-                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
-                            .setName(datasetName)
-                            .setOwner(datasetOwner)
-                            .setServiceNamePattern(datasetName)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createDatasetMetadata(
+                    ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                        .setName(datasetName)
+                        .setOwner(datasetOwner)
+                        .setServiceNamePattern(datasetName)
+                        .build()));
 
     assertThat(throwableCreate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwableCreate.getStatus().getDescription()).isEqualTo(errorString);
@@ -789,13 +769,12 @@ public class ManagerApiGrpcTest {
 
     StatusRuntimeException throwableUpdate =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.updateDatasetMetadata(
-                        ManagerApi.UpdateDatasetMetadataRequest.newBuilder()
-                            .setName(datasetName)
-                            .setOwner(datasetOwner)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.updateDatasetMetadata(
+                    ManagerApi.UpdateDatasetMetadataRequest.newBuilder()
+                        .setName(datasetName)
+                        .setOwner(datasetOwner)
+                        .build()));
 
     assertThat(throwableUpdate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwableUpdate.getStatus().getDescription()).contains(datasetName);
@@ -1136,15 +1115,14 @@ public class ManagerApiGrpcTest {
 
     StatusRuntimeException throwable =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createFieldRedaction(
-                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                            .setName(redactionName)
-                            .setFieldName(fieldName2)
-                            .setStartTimeEpochMs(start)
-                            .setEndTimeEpochMs(end)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createFieldRedaction(
+                    ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                        .setName(redactionName)
+                        .setFieldName(fieldName2)
+                        .setStartTimeEpochMs(start)
+                        .setEndTimeEpochMs(end)
+                        .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
     FieldRedactionMetadata fieldRedactionMetadata =
@@ -1164,42 +1142,39 @@ public class ManagerApiGrpcTest {
 
     StatusRuntimeException throwable1 =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createFieldRedaction(
-                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                            .setName("")
-                            .setFieldName(fieldName)
-                            .setStartTimeEpochMs(start)
-                            .setEndTimeEpochMs(end)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createFieldRedaction(
+                    ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                        .setName("")
+                        .setFieldName(fieldName)
+                        .setStartTimeEpochMs(start)
+                        .setEndTimeEpochMs(end)
+                        .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable1.getStatus().getDescription()).isEqualTo("name can't be null or empty.");
 
     StatusRuntimeException throwable2 =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createFieldRedaction(
-                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                            .setName("/")
-                            .setFieldName(fieldName)
-                            .setStartTimeEpochMs(start)
-                            .setEndTimeEpochMs(end)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createFieldRedaction(
+                    ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                        .setName("/")
+                        .setFieldName(fieldName)
+                        .setStartTimeEpochMs(start)
+                        .setEndTimeEpochMs(end)
+                        .build()));
     assertThat(throwable2.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
     StatusRuntimeException throwable3 =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createFieldRedaction(
-                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                            .setName(".")
-                            .setFieldName(fieldName)
-                            .setStartTimeEpochMs(start)
-                            .setEndTimeEpochMs(end)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createFieldRedaction(
+                    ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                        .setName(".")
+                        .setFieldName(fieldName)
+                        .setStartTimeEpochMs(start)
+                        .setEndTimeEpochMs(end)
+                        .build()));
     assertThat(throwable3.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size())
@@ -1215,15 +1190,14 @@ public class ManagerApiGrpcTest {
 
     StatusRuntimeException throwable =
         (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createFieldRedaction(
-                        ManagerApi.CreateFieldRedactionRequest.newBuilder()
-                            .setName(redactionName)
-                            .setFieldName("")
-                            .setStartTimeEpochMs(start)
-                            .setEndTimeEpochMs(end)
-                            .build()));
+            catchThrowable(() ->
+                managerApiStub.createFieldRedaction(
+                    ManagerApi.CreateFieldRedactionRequest.newBuilder()
+                        .setName(redactionName)
+                        .setFieldName("")
+                        .setStartTimeEpochMs(start)
+                        .setEndTimeEpochMs(end)
+                        .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable.getStatus().getDescription()).isEqualTo("field name cannot be null");
 

@@ -110,32 +110,24 @@ final class EtcdRangePaginator {
     return kvClient
         .get(fromKey, pageOption(prefix, keysOnly, pinnedRevision, pageSize))
         .orTimeout(pageTimeoutMs, TimeUnit.MILLISECONDS)
-        .thenCompose(
-            response -> {
-              // Pin every page after the first to the first page's revision for a consistent
-              // snapshot.
-              long revision =
-                  pinnedRevision > REVISION_LATEST
-                      ? pinnedRevision
-                      : response.getHeader().getRevision();
+        .thenCompose(response -> {
+          // Pin every page after the first to the first page's revision for a consistent
+          // snapshot.
+          long revision =
+              pinnedRevision > REVISION_LATEST
+                  ? pinnedRevision
+                  : response.getHeader().getRevision();
 
-              List<KeyValue> page = response.getKvs();
-              keyValues.addAll(page);
-              if (!response.isMore() || page.isEmpty()) {
-                return CompletableFuture.completedFuture(new PaginatedRange(keyValues, revision));
-              }
+          List<KeyValue> page = response.getKvs();
+          keyValues.addAll(page);
+          if (!response.isMore() || page.isEmpty()) {
+            return CompletableFuture.completedFuture(new PaginatedRange(keyValues, revision));
+          }
 
-              ByteSequence nextKey = page.get(page.size() - 1).getKey().concat(NEXT_KEY_SUFFIX);
-              return fetchPage(
-                  kvClient,
-                  prefix,
-                  nextKey,
-                  keysOnly,
-                  pageTimeoutMs,
-                  pageSize,
-                  revision,
-                  keyValues);
-            });
+          ByteSequence nextKey = page.get(page.size() - 1).getKey().concat(NEXT_KEY_SUFFIX);
+          return fetchPage(
+              kvClient, prefix, nextKey, keysOnly, pageTimeoutMs, pageSize, revision, keyValues);
+        });
   }
 
   static PaginatedRange listRange(

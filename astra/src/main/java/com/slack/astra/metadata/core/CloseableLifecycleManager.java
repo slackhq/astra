@@ -31,15 +31,14 @@ public class CloseableLifecycleManager extends AbstractIdleService {
   @Override
   protected void shutDown() throws Exception {
     LOG.info("Shutting down CloseableLifecycleManager for role - {}", nodeRole.toString());
-    closeableList.forEach(
-        closeable -> {
-          try {
-            closeable.close();
-          } catch (IOException e) {
-            LOG.error(
-                "Exception shutting down closeable - {}, ignoring and continuing shutdown",
-                closeable.getClass());
-          }
-        });
+    closeableList.forEach(closeable -> {
+      try {
+        closeable.close();
+      } catch (IOException e) {
+        LOG.error(
+            "Exception shutting down closeable - {}, ignoring and continuing shutdown",
+            closeable.getClass());
+      }
+    });
   }
 }

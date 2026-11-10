@@ -458,9 +458,8 @@ public class IndexingChunkImplTest {
 
       int finalOffset = offset;
       assertThatExceptionOfType(IllegalArgumentException.class)
-          .isThrownBy(
-              () ->
-                  chunk.addMessage(SpanUtil.makeSpan(101), "differentKafkaPartition", finalOffset));
+          .isThrownBy(() ->
+              chunk.addMessage(SpanUtil.makeSpan(101), "differentKafkaPartition", finalOffset));
     }
 
     @Test

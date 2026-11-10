@@ -42,17 +42,16 @@ public class DatasetMetadataTest {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new DatasetMetadata("test%", "owner", 0, null, "test%"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new DatasetMetadata(
-                    "jZOGhT2v86abA0h6yX6DUeKOkKE06nR0TlExO0bp7HBv"
-                        + "uVPS1xwXxZAK6pSW9zjdSDYe9v8JfuJvCsiyjGyQv2v0lYc1H3ZGkYTeGjdtnPCQ0I7EIxFRr1UpGpoud7b0"
-                        + "xq3sEboigNrDG8carETSj8c95Aj4EW4RudkDjRHjUhrA5aLZ688LfZVIJpnom3kgyxlAnhhrdVQsdN1J2qL7"
-                        + "FY9LMMsA2aPtQ7Q8g4eZzm6Kv51r0x26pFQhxfHCwUZqa",
-                    "owner",
-                    0,
-                    null,
-                    "jZOGhT2v86abA0h6yX6DUeKOkKE06nR0TlExO0bp7HBv"));
+        .isThrownBy(() ->
+            new DatasetMetadata(
+                "jZOGhT2v86abA0h6yX6DUeKOkKE06nR0TlExO0bp7HBv"
+                    + "uVPS1xwXxZAK6pSW9zjdSDYe9v8JfuJvCsiyjGyQv2v0lYc1H3ZGkYTeGjdtnPCQ0I7EIxFRr1UpGpoud7b0"
+                    + "xq3sEboigNrDG8carETSj8c95Aj4EW4RudkDjRHjUhrA5aLZ688LfZVIJpnom3kgyxlAnhhrdVQsdN1J2qL7"
+                    + "FY9LMMsA2aPtQ7Q8g4eZzm6Kv51r0x26pFQhxfHCwUZqa",
+                "owner",
+                0,
+                null,
+                "jZOGhT2v86abA0h6yX6DUeKOkKE06nR0TlExO0bp7HBv"));
 
     final DatasetPartitionMetadata partition =
         new DatasetPartitionMetadata(
@@ -61,10 +60,9 @@ public class DatasetMetadataTest {
             List.of("partition"));
     final List<DatasetPartitionMetadata> partitionConfigs1 = Collections.singletonList(partition);
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new DatasetMetadata(
-                    "name", "owner", 1, partitionConfigs1, RandomStringUtils.random(257)));
+        .isThrownBy(() ->
+            new DatasetMetadata(
+                "name", "owner", 1, partitionConfigs1, RandomStringUtils.random(257)));
   }
 
   @Test
@@ -176,51 +174,47 @@ public class DatasetMetadataTest {
     final long throughputBytes = 2000;
 
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new DatasetMetadata(
-                    name,
-                    owner,
-                    throughputBytes,
-                    List.of(
-                        new DatasetPartitionMetadata(0, 2000, partitionlist),
-                        new DatasetPartitionMetadata(0, 3000, partitionlist)),
-                    name));
+        .isThrownBy(() ->
+            new DatasetMetadata(
+                name,
+                owner,
+                throughputBytes,
+                List.of(
+                    new DatasetPartitionMetadata(0, 2000, partitionlist),
+                    new DatasetPartitionMetadata(0, 3000, partitionlist)),
+                name));
 
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new DatasetMetadata(
-                    name,
-                    owner,
-                    throughputBytes,
-                    List.of(
-                        new DatasetPartitionMetadata(0, 2000, partitionlist),
-                        new DatasetPartitionMetadata(2000, 3000, partitionlist)),
-                    name));
+        .isThrownBy(() ->
+            new DatasetMetadata(
+                name,
+                owner,
+                throughputBytes,
+                List.of(
+                    new DatasetPartitionMetadata(0, 2000, partitionlist),
+                    new DatasetPartitionMetadata(2000, 3000, partitionlist)),
+                name));
 
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new DatasetMetadata(
-                    name,
-                    owner,
-                    throughputBytes,
-                    List.of(
-                        new DatasetPartitionMetadata(0, 3000, partitionlist),
-                        new DatasetPartitionMetadata(0, 2000, partitionlist)),
-                    name));
+        .isThrownBy(() ->
+            new DatasetMetadata(
+                name,
+                owner,
+                throughputBytes,
+                List.of(
+                    new DatasetPartitionMetadata(0, 3000, partitionlist),
+                    new DatasetPartitionMetadata(0, 2000, partitionlist)),
+                name));
 
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new DatasetMetadata(
-                    name,
-                    owner,
-                    throughputBytes,
-                    List.of(
-                        new DatasetPartitionMetadata(0, 2000, partitionlist),
-                        new DatasetPartitionMetadata(1800, 3000, partitionlist)),
-                    name));
+        .isThrownBy(() ->
+            new DatasetMetadata(
+                name,
+                owner,
+                throughputBytes,
+                List.of(
+                    new DatasetPartitionMetadata(0, 2000, partitionlist),
+                    new DatasetPartitionMetadata(1800, 3000, partitionlist)),
+                name));
   }
 }

@@ -143,7 +143,7 @@ public class ElasticsearchApiService {
     try (var scope = new StructuredTaskScope<EsSearchResponse>()) {
       List<StructuredTaskScope.Subtask<EsSearchResponse>> requestSubtasks =
           openSearchRequest.parseHttpPostBody(postBody).stream()
-              .map((request) -> scope.fork(currentTraceContext.wrap(() -> doSearch(request))))
+              .map(request -> scope.fork(currentTraceContext.wrap(() -> doSearch(request))))
               .toList();
 
       scope.join();

@@ -453,18 +453,17 @@ public class LuceneIndexStoreImplTest {
       // https://github.com/aws/aws-sdk-java-v2/issues/3658
       await()
           .ignoreExceptions()
-          .until(
-              () -> {
-                // clean the directory, in case a previous await try failed (would cause new copy to
-                // then fail)
-                FileUtils.cleanDirectory(tmpPath.toFile());
-                // Download files from S3 to local FS.
-                blobStore.download(chunkId, tmpPath.toAbsolutePath());
-                // the delta is the presence of the write.lock file, which is released but still in
-                // the directory
-                return Objects.requireNonNull(tmpPath.toFile().listFiles()).length
-                    >= activeFiles.size();
-              });
+          .until(() -> {
+            // clean the directory, in case a previous await try failed (would cause new copy to
+            // then fail)
+            FileUtils.cleanDirectory(tmpPath.toFile());
+            // Download files from S3 to local FS.
+            blobStore.download(chunkId, tmpPath.toAbsolutePath());
+            // the delta is the presence of the write.lock file, which is released but still in
+            // the directory
+            return Objects.requireNonNull(tmpPath.toFile().listFiles()).length
+                >= activeFiles.size();
+          });
 
       // setup ZK and redaction metadata store for field redaction testing
       TestingServer testingServer = new TestingServer();
@@ -538,9 +537,8 @@ public class LuceneIndexStoreImplTest {
       fieldRedactionMetadataStore.createSync(
           new FieldRedactionMetadata(redactionName, fieldName, start, end));
       await()
-          .until(
-              () ->
-                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+          .until(() ->
+              AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
@@ -614,15 +612,11 @@ public class LuceneIndexStoreImplTest {
       assertThat(getTimerCount(COMMITS_TIMER, testLogStore.metricsRegistry)).isEqualTo(0);
 
       await()
-          .until(
-              () ->
-                  findAllMessages(
-                              testLogStore.logSearcher,
-                              MessageUtil.TEST_DATASET_NAME,
-                              "Message1",
-                              10)
-                          .size()
-                      == 1);
+          .until(() ->
+              findAllMessages(
+                          testLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 10)
+                      .size()
+                  == 1);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
@@ -630,11 +624,11 @@ public class LuceneIndexStoreImplTest {
       await()
           .until(
               () -> getTimerCount(REFRESHES_TIMER, testLogStore.metricsRegistry),
-              (value) -> value >= 1 && value <= 3);
+              value -> value >= 1 && value <= 3);
       await()
           .until(
               () -> getTimerCount(COMMITS_TIMER, testLogStore.metricsRegistry),
-              (value) -> value >= 1 && value <= 3);
+              value -> value >= 1 && value <= 3);
     }
   }
 

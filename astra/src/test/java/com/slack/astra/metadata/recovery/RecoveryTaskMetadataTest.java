@@ -77,13 +77,12 @@ public class RecoveryTaskMetadataTest {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new RecoveryTaskMetadata("name", "partitionId", 0, 1, 0));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryTaskMetadata(
-                    "name",
-                    "partitionId",
-                    Instant.now().toEpochMilli() + 10,
-                    Instant.now().toEpochMilli() - 10,
-                    Instant.now().toEpochMilli()));
+        .isThrownBy(() ->
+            new RecoveryTaskMetadata(
+                "name",
+                "partitionId",
+                Instant.now().toEpochMilli() + 10,
+                Instant.now().toEpochMilli() - 10,
+                Instant.now().toEpochMilli()));
   }
 }

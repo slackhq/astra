@@ -218,10 +218,8 @@ public class SearchMetadataStoreLegacyMigrationTest {
 
     // And also not available through the new searchMetadataStore
     Throwable newStoreThrown =
-        catchThrowable(
-            () ->
-                searchMetadataStore.getSync(
-                    legacyOnlyMetadata.getPartition(), "testLegacyDeletion"));
+        catchThrowable(() ->
+            searchMetadataStore.getSync(legacyOnlyMetadata.getPartition(), "testLegacyDeletion"));
     assertThat(newStoreThrown).isInstanceOf(RuntimeException.class);
   }
 

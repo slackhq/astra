@@ -115,22 +115,20 @@ public class ReplicaDeletionService extends AbstractScheduledService {
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> replicaDeletions =
         replicaMetadataStore.listSync().stream()
-            .filter(
-                replicaMetadata ->
-                    replicaMetadata.expireAfterEpochMs < deleteOlderThan.toEpochMilli()
-                        && !replicaIdsWithAssignments.contains(replicaMetadata.name))
-            .map(
-                (replicaMetadata) -> {
-                  // todo - consider refactoring this to return a completable future instead
-                  ListenableFuture<?> future =
-                      JdkFutureAdapters.listenInPoolThread(
-                          replicaMetadataStore.deleteAsync(replicaMetadata).toCompletableFuture());
-                  addCallback(
-                      future,
-                      FutureUtils.successCountingCallback(successCounter),
-                      MoreExecutors.directExecutor());
-                  return future;
-                })
+            .filter(replicaMetadata ->
+                replicaMetadata.expireAfterEpochMs < deleteOlderThan.toEpochMilli()
+                    && !replicaIdsWithAssignments.contains(replicaMetadata.name))
+            .map(replicaMetadata -> {
+              // todo - consider refactoring this to return a completable future instead
+              ListenableFuture<?> future =
+                  JdkFutureAdapters.listenInPoolThread(
+                      replicaMetadataStore.deleteAsync(replicaMetadata).toCompletableFuture());
+              addCallback(
+                  future,
+                  FutureUtils.successCountingCallback(successCounter),
+                  MoreExecutors.directExecutor());
+              return future;
+            })
             .collect(Collectors.toUnmodifiableList());
 
     ListenableFuture<?> futureList = Futures.successfulAsList(replicaDeletions);

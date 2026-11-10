@@ -42,14 +42,13 @@ public class EtcdErrorClassifierTest {
   private static List<Case> cases() {
     List<Case> cases = new ArrayList<>();
     cases.addAll(handWrittenCases());
-    TRANSIENT_STATUS_CODES.forEach(
-        code ->
-            cases.add(
-                new Case(
-                    code + " code maps to transient",
-                    EtcdExceptionFactory.newEtcdException(
-                        ErrorCode.valueOf(code.name()), code + " failure"),
-                    Recovery.TRANSIENT)));
+    TRANSIENT_STATUS_CODES.forEach(code ->
+        cases.add(
+            new Case(
+                code + " code maps to transient",
+                EtcdExceptionFactory.newEtcdException(
+                    ErrorCode.valueOf(code.name()), code + " failure"),
+                Recovery.TRANSIENT)));
     return cases;
   }
 

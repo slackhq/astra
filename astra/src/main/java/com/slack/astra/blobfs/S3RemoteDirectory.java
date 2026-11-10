@@ -34,11 +34,10 @@ public class S3RemoteDirectory extends Directory {
     if (files == null) {
       files =
           blobStore.listFiles(chunkId).stream()
-              .map(
-                  fullPath -> {
-                    String[] parts = fullPath.split("/");
-                    return parts[parts.length - 1];
-                  })
+              .map(fullPath -> {
+                String[] parts = fullPath.split("/");
+                return parts[parts.length - 1];
+              })
               .toArray(String[]::new);
       LOG.debug(
           "listed files for chunkId - {}, listResults - {}", chunkId, String.join(",", files));

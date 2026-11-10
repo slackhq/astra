@@ -26,22 +26,23 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setAggregationJson(
                 """
-              {
-                "2": {
-                  "date_histogram": {
-                    "interval": "10s",
-                    "field": "_timesinceepoch",
-                    "min_doc_count": "90000",
-                    "extended_bounds": {
-                      "min": 1676498801027,
-                      "max": 1676500240688
+                {
+                  "2": {
+                    "date_histogram": {
+                      "interval": "10s",
+                      "field": "_timesinceepoch",
+                      "min_doc_count": "90000",
+                      "extended_bounds": {
+                        "min": 1676498801027,
+                        "max": 1676500240688
+                      },
+                      "format": "epoch_millis",
+                      "offset": "5s"
                     },
-                    "format": "epoch_millis",
-                    "offset": "5s"
-                  },
-                  "aggs":{}
-                }
-              }""")
+                    "aggs":{}
+                  }
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.aggregatorFactoriesBuilder).isNotNull();
@@ -69,15 +70,16 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setQuery(
                 """
-            {
-              "bool": {
-                "must_not": {
-                  "query_string": {
-                    "query": "this is a test"
+                {
+                  "bool": {
+                    "must_not": {
+                      "query_string": {
+                        "query": "this is a test"
+                      }
+                    }
                   }
-                }
-              }
-            }""")
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
@@ -97,20 +99,21 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setQuery(
                 """
-            {
-              "bool": {
-                "must_not": {
-                  "terms": {
-                    "test_field": [
-                      "this",
-                      "is",
-                      "a",
-                      "test"
-                    ]
+                {
+                  "bool": {
+                    "must_not": {
+                      "terms": {
+                        "test_field": [
+                          "this",
+                          "is",
+                          "a",
+                          "test"
+                        ]
+                      }
+                    }
                   }
-                }
-              }
-            }""")
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
@@ -129,15 +132,16 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setQuery(
                 """
-            {
-              "bool": {
-                "filter": [{
-                  "query_string": {
-                    "query": "this is a test"
+                {
+                  "bool": {
+                    "filter": [{
+                      "query_string": {
+                        "query": "this is a test"
+                      }
+                    }]
                   }
-                }]
-              }
-            }""")
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
@@ -157,20 +161,21 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setQuery(
                 """
-            {
-              "bool": {
-                "filter": {
-                  "terms": {
-                    "test_field": [
-                      "this",
-                      "is",
-                      "a",
-                      "test"
-                    ]
+                {
+                  "bool": {
+                    "filter": {
+                      "terms": {
+                        "test_field": [
+                          "this",
+                          "is",
+                          "a",
+                          "test"
+                        ]
+                      }
+                    }
                   }
-                }
-              }
-            }""")
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
@@ -189,15 +194,16 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setQuery(
                 """
-            {
-              "bool": {
-                "must": {
-                  "query_string": {
-                    "query": "this is a test"
+                {
+                  "bool": {
+                    "must": {
+                      "query_string": {
+                        "query": "this is a test"
+                      }
+                    }
                   }
-                }
-              }
-            }""")
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
@@ -217,20 +223,21 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setQuery(
                 """
-            {
-              "bool": {
-                "must": {
-                  "terms": {
-                    "test_field": [
-                      "this",
-                      "is",
-                      "a",
-                      "test"
-                    ]
+                {
+                  "bool": {
+                    "must": {
+                      "terms": {
+                        "test_field": [
+                          "this",
+                          "is",
+                          "a",
+                          "test"
+                        ]
+                      }
+                    }
                   }
-                }
-              }
-            }""")
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
@@ -249,15 +256,16 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setQuery(
                 """
-            {
-              "bool": {
-                "should": {
-                  "query_string": {
-                    "query": "this is a test"
+                {
+                  "bool": {
+                    "should": {
+                      "query_string": {
+                        "query": "this is a test"
+                      }
+                    }
                   }
-                }
-              }
-            }""")
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
@@ -277,20 +285,21 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setQuery(
                 """
-            {
-              "bool": {
-                "should": {
-                  "terms": {
-                    "test_field": [
-                      "this",
-                      "is",
-                      "a",
-                      "test"
-                    ]
+                {
+                  "bool": {
+                    "should": {
+                      "terms": {
+                        "test_field": [
+                          "this",
+                          "is",
+                          "a",
+                          "test"
+                        ]
+                      }
+                    }
                   }
-                }
-              }
-            }""")
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.queryBuilder).isInstanceOf(BoolQueryBuilder.class);
@@ -309,32 +318,33 @@ public class SearchResultUtilsTest {
         AstraSearch.SearchRequest.newBuilder()
             .setQuery(
                 """
-            {
-              "intervals" : {
-                 "my_text" : {
-                   "all_of" : {
-                     "ordered" : true,
-                     "intervals" : [
-                       {
-                         "match" : {
-                           "query" : "my favorite food",
-                           "max_gaps" : 0,
-                           "ordered" : true
-                         }
-                       },
-                       {
-                         "any_of" : {
-                           "intervals" : [
-                             { "match" : { "query" : "hot water" } },
-                             { "match" : { "query" : "cold porridge" } }
-                           ]
-                         }
-                       }
-                   ]
-                 }
-               }
-              }
-            }""")
+                {
+                  "intervals" : {
+                     "my_text" : {
+                       "all_of" : {
+                         "ordered" : true,
+                         "intervals" : [
+                           {
+                             "match" : {
+                               "query" : "my favorite food",
+                               "max_gaps" : 0,
+                               "ordered" : true
+                             }
+                           },
+                           {
+                             "any_of" : {
+                               "intervals" : [
+                                 { "match" : { "query" : "hot water" } },
+                                 { "match" : { "query" : "cold porridge" } }
+                               ]
+                             }
+                           }
+                       ]
+                     }
+                   }
+                  }
+                }\
+                """)
             .build();
     SearchQuery output = SearchResultUtils.fromSearchRequest(searchRequest);
     assertThat(output.queryBuilder).isInstanceOf(IntervalQueryBuilder.class);

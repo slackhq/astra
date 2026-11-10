@@ -59,9 +59,9 @@ public class ClusterMonitorService extends AbstractScheduledService {
   private final CacheNodeMetadataStore cacheNodeMetadataStore;
   private final ReplicaMetadataStore replicaMetadataStore;
   private final AstraMetadataStoreChangeListener<CacheNodeMetadata> cacheNodeMetadataListener =
-      (_) -> runOneIteration();
+      _ -> runOneIteration();
   private final AstraMetadataStoreChangeListener<CacheNodeAssignment> cacheNodeAssignmentListener =
-      (_) -> runOneIteration();
+      _ -> runOneIteration();
   private final Map<String, AtomicInteger> cacheNodeIdToLiveChunksPerPod;
   private final Map<String, AtomicLong> cacheNodeIdToFreeSpaceBytes;
 
@@ -110,11 +110,9 @@ public class ClusterMonitorService extends AbstractScheduledService {
           cacheNodeAssignmentStore,
           store ->
               store.listSync().stream()
-                  .filter(
-                      assignment ->
-                          assignment.state
-                                  == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE
-                              && Objects.equals(assignment.replicaSet, replicaSet))
+                  .filter(assignment ->
+                      assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE
+                          && Objects.equals(assignment.replicaSet, replicaSet))
                   .mapToLong(assignment -> assignment.snapshotSize)
                   .sum());
 
@@ -138,11 +136,9 @@ public class ClusterMonitorService extends AbstractScheduledService {
           cacheNodeAssignmentStore,
           store ->
               store.listSync().stream()
-                  .filter(
-                      assignment ->
-                          assignment.state
-                                  == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE
-                              && Objects.equals(assignment.replicaSet, replicaSet))
+                  .filter(assignment ->
+                      assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE
+                          && Objects.equals(assignment.replicaSet, replicaSet))
                   .toList()
                   .size());
 
@@ -153,7 +149,7 @@ public class ClusterMonitorService extends AbstractScheduledService {
           cacheNodeMetadataStore,
           store ->
               store.listSync().stream()
-                  .filter((node) -> Objects.equals(node.getReplicaSet(), replicaSet))
+                  .filter(node -> Objects.equals(node.getReplicaSet(), replicaSet))
                   .mapToLong(node -> node.nodeCapacityBytes)
                   .sum());
     }
@@ -182,25 +178,23 @@ public class ClusterMonitorService extends AbstractScheduledService {
   private void updatePerPodMetrics() {
     liveChunksPerPod.register(
         cacheNodeMetadataStore.listSync().stream()
-            .map(
-                cacheNodeMetadata ->
-                    MultiGauge.Row.of(
-                        Tags.of(Tag.of("pod", cacheNodeMetadata.hostname)),
-                        cacheNodeIdToLiveChunksPerPod.computeIfAbsent(
-                            cacheNodeMetadata.hostname,
-                            (_) -> new AtomicInteger(calculateLiveChunks(cacheNodeMetadata.id)))))
+            .map(cacheNodeMetadata ->
+                MultiGauge.Row.of(
+                    Tags.of(Tag.of("pod", cacheNodeMetadata.hostname)),
+                    cacheNodeIdToLiveChunksPerPod.computeIfAbsent(
+                        cacheNodeMetadata.hostname,
+                        _ -> new AtomicInteger(calculateLiveChunks(cacheNodeMetadata.id)))))
             .collect(Collectors.toUnmodifiableList()),
         true);
 
     freeSpacePerPod.register(
         cacheNodeMetadataStore.listSync().stream()
-            .map(
-                cacheNodeMetadata ->
-                    MultiGauge.Row.of(
-                        Tags.of(Tag.of("pod", cacheNodeMetadata.hostname)),
-                        cacheNodeIdToFreeSpaceBytes.computeIfAbsent(
-                            cacheNodeMetadata.hostname,
-                            (_) -> new AtomicLong(calculateFreeSpaceForPod(cacheNodeMetadata.id)))))
+            .map(cacheNodeMetadata ->
+                MultiGauge.Row.of(
+                    Tags.of(Tag.of("pod", cacheNodeMetadata.hostname)),
+                    cacheNodeIdToFreeSpaceBytes.computeIfAbsent(
+                        cacheNodeMetadata.hostname,
+                        _ -> new AtomicLong(calculateFreeSpaceForPod(cacheNodeMetadata.id)))))
             .collect(Collectors.toUnmodifiableList()),
         true);
   }
@@ -218,11 +212,9 @@ public class ClusterMonitorService extends AbstractScheduledService {
   private static long getTotalLiveAssignmentSize(
       CacheNodeMetadata cacheNodeMetadata, CacheNodeAssignmentStore store) {
     return store.listSync().stream()
-        .filter(
-            assignment ->
-                Objects.equals(assignment.cacheNodeId, cacheNodeMetadata.id)
-                    && assignment.state
-                        == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
+        .filter(assignment ->
+            Objects.equals(assignment.cacheNodeId, cacheNodeMetadata.id)
+                && assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
         .mapToLong(assignment -> assignment.snapshotSize)
         .sum();
   }
@@ -286,11 +278,9 @@ public class ClusterMonitorService extends AbstractScheduledService {
 
   private int calculateLiveChunks(String cacheNodeId) {
     return cacheNodeAssignmentStore.listSync().stream()
-        .filter(
-            assignment ->
-                Objects.equals(assignment.cacheNodeId, cacheNodeId)
-                    && assignment.state
-                        == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
+        .filter(assignment ->
+            Objects.equals(assignment.cacheNodeId, cacheNodeId)
+                && assignment.state == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE)
         .toList()
         .size();
   }
@@ -342,6 +332,6 @@ public class ClusterMonitorService extends AbstractScheduledService {
     Set<String> liveCacheNodeKeys =
         cacheNodes.stream().map(node -> node.hostname).collect(Collectors.toSet());
     // remove key from map if it isn't a live cache node
-    perPodMetricsKeys.removeIf((key) -> !liveCacheNodeKeys.contains(key));
+    perPodMetricsKeys.removeIf(key -> !liveCacheNodeKeys.contains(key));
   }
 }

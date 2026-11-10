@@ -55,7 +55,7 @@ public class BulkIngestKafkaProducer extends AbstractExecutionThreadService {
 
   private final DatasetMetadataStore datasetMetadataStore;
   private final AstraMetadataStoreChangeListener<DatasetMetadata> datasetListener =
-      (_) -> cacheSortedDataset();
+      _ -> cacheSortedDataset();
 
   protected List<DatasetMetadata> throughputSortedDatasets;
 

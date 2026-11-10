@@ -286,9 +286,8 @@ public class AstraTest {
             kafkaServer.getBroker(), indexedMessagesStartTime, kafkaTopic, kafkaPartition);
 
     await()
-        .until(
-            () ->
-                getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry) == indexedMessagesCount);
+        .until(() ->
+            getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry) == indexedMessagesCount);
 
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexerMeterRegistry) == 1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexerMeterRegistry)).isZero();

@@ -38,10 +38,9 @@ public class RedactionUpdateService extends AbstractScheduledService {
     HashMap<String, FieldRedactionMetadata> map = new HashMap<>();
     fieldRedactionMetadataStore
         .listSync()
-        .forEach(
-            redaction -> {
-              map.put(redaction.getName(), redaction);
-            });
+        .forEach(redaction -> {
+          map.put(redaction.getName(), redaction);
+        });
     fieldRedactionsMap = map;
   }
 

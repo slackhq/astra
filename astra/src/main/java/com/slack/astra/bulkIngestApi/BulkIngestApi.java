@@ -122,20 +122,19 @@ public class BulkIngestApi {
       // threads to fulfill this
       Map<String, List<Trace.Span>> finalDocs = docs;
       Thread.ofVirtual()
-          .start(
-              () -> {
-                try {
-                  BulkIngestResponse response =
-                      bulkIngestKafkaProducer.submitRequest(finalDocs).getResponse();
-                  future.complete(HttpResponse.ofJson(response));
-                } catch (InterruptedException e) {
-                  LOG.error("Request failed ", e);
-                  bulkIngestErrorCounter.increment();
-                  future.complete(
-                      HttpResponse.ofJson(
-                          INTERNAL_SERVER_ERROR, new BulkIngestResponse(0, 0, e.getMessage())));
-                }
-              });
+          .start(() -> {
+            try {
+              BulkIngestResponse response =
+                  bulkIngestKafkaProducer.submitRequest(finalDocs).getResponse();
+              future.complete(HttpResponse.ofJson(response));
+            } catch (InterruptedException e) {
+              LOG.error("Request failed ", e);
+              bulkIngestErrorCounter.increment();
+              future.complete(
+                  HttpResponse.ofJson(
+                      INTERNAL_SERVER_ERROR, new BulkIngestResponse(0, 0, e.getMessage())));
+            }
+          });
     } catch (Exception e) {
       LOG.error("Request failed ", e);
       bulkIngestErrorCounter.increment();

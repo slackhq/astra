@@ -26,9 +26,9 @@ public class DatasetRateLimitingService extends AbstractScheduledService {
   private final DatasetMetadataStore datasetMetadataStore;
   private final PreprocessorMetadataStore preprocessorMetadataStore;
   private final AstraMetadataStoreChangeListener<DatasetMetadata> datasetListener =
-      (_) -> updateDatasetMetadataList();
+      _ -> updateDatasetMetadataList();
   private final AstraMetadataStoreChangeListener<PreprocessorMetadata> preprocessorListener =
-      (_) -> updatePreprocessorCount();
+      _ -> updatePreprocessorCount();
 
   private final PreprocessorRateLimiter rateLimiter;
   private ScheduledFuture<?> pendingTask;

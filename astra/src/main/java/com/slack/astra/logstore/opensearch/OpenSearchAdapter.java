@@ -197,12 +197,11 @@ public class OpenSearchAdapter {
   protected static XContentBuilder fieldMapping(
       String fieldName, CheckedConsumer<XContentBuilder, IOException> buildField)
       throws IOException {
-    return mapping(
-        b -> {
-          b.startObject(fieldName);
-          buildField.accept(b);
-          b.endObject();
-        });
+    return mapping(b -> {
+      b.startObject(fieldName);
+      buildField.accept(b);
+      b.endObject();
+    });
   }
 
   protected static XContentBuilder fieldMappingWithFields(
@@ -212,17 +211,16 @@ public class OpenSearchAdapter {
       CheckedConsumer<XContentBuilder, IOException> buildField)
       throws IOException {
 
-    return mapping(
-        b -> {
-          b.startObject(parentName);
-          b.field("type", parentType);
-          b.startObject("fields");
-          b.startObject(childName);
-          buildField.accept(b);
-          b.endObject();
-          b.endObject();
-          b.endObject();
-        });
+    return mapping(b -> {
+      b.startObject(parentName);
+      b.field("type", parentType);
+      b.startObject("fields");
+      b.startObject(childName);
+      buildField.accept(b);
+      b.endObject();
+      b.endObject();
+      b.endObject();
+    });
   }
 
   public CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
@@ -385,7 +383,7 @@ public class OpenSearchAdapter {
     try {
       XContentBuilder builder =
           XContentFactory.jsonBuilder().startObject().startObject("_doc").startObject("properties");
-      rootNode.fields().forEachRemaining((entry) -> buildObject(builder, entry));
+      rootNode.fields().forEachRemaining(entry -> buildObject(builder, entry));
       builder.endObject().endObject().endObject();
 
       mapperService.merge(
@@ -466,11 +464,10 @@ public class OpenSearchAdapter {
             .getValue()
             .get("fields")
             .fields()
-            .forEachRemaining(
-                (fieldEntry) -> {
-                  // do this same step all-over
-                  buildObject(builder, fieldEntry);
-                });
+            .forEachRemaining(fieldEntry -> {
+              // do this same step all-over
+              buildObject(builder, fieldEntry);
+            });
         builder.endObject();
       }
 
