@@ -188,15 +188,14 @@ public class EtcdCacheInvalidationTest {
     // Verify store2's cache is updated automatically through the default watcher
     await()
         .atMost(2, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              assertThat(store2.hasSync("cross-jvm-create")).isTrue();
+        .untilAsserted(() -> {
+          assertThat(store2.hasSync("cross-jvm-create")).isTrue();
 
-              TestMetadata result = store2.getSync("cross-jvm-create");
-              assertThat(result).isNotNull();
-              assertThat(result.getName()).isEqualTo("cross-jvm-create");
-              assertThat(result.getData()).isEqualTo("testData");
-            });
+          TestMetadata result = store2.getSync("cross-jvm-create");
+          assertThat(result).isNotNull();
+          assertThat(result.getName()).isEqualTo("cross-jvm-create");
+          assertThat(result.getData()).isEqualTo("testData");
+        });
   }
 
   @Test
@@ -215,13 +214,12 @@ public class EtcdCacheInvalidationTest {
     // Verify store2's cache is updated with the new data
     await()
         .atMost(2, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              TestMetadata result = store2.getSync("cross-jvm-update");
-              assertThat(result).isNotNull();
-              assertThat(result.getName()).isEqualTo("cross-jvm-update");
-              assertThat(result.getData()).isEqualTo("updatedData");
-            });
+        .untilAsserted(() -> {
+          TestMetadata result = store2.getSync("cross-jvm-update");
+          assertThat(result).isNotNull();
+          assertThat(result.getName()).isEqualTo("cross-jvm-update");
+          assertThat(result.getData()).isEqualTo("updatedData");
+        });
   }
 
   @Test
@@ -253,21 +251,19 @@ public class EtcdCacheInvalidationTest {
     // Verify store1 sees store2's changes
     await()
         .atMost(2, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              assertThat(store1.hasSync("bidirectional-2")).isTrue();
-              TestMetadata result = store1.getSync("bidirectional-2");
-              assertThat(result.getData()).isEqualTo("from-store2");
-            });
+        .untilAsserted(() -> {
+          assertThat(store1.hasSync("bidirectional-2")).isTrue();
+          TestMetadata result = store1.getSync("bidirectional-2");
+          assertThat(result.getData()).isEqualTo("from-store2");
+        });
 
     // Verify store2 sees store1's changes
     await()
         .atMost(2, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              assertThat(store2.hasSync("bidirectional-1")).isTrue();
-              TestMetadata result = store2.getSync("bidirectional-1");
-              assertThat(result.getData()).isEqualTo("from-store1");
-            });
+        .untilAsserted(() -> {
+          assertThat(store2.hasSync("bidirectional-1")).isTrue();
+          TestMetadata result = store2.getSync("bidirectional-1");
+          assertThat(result.getData()).isEqualTo("from-store1");
+        });
   }
 }

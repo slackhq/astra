@@ -218,9 +218,8 @@ public class LogIndexSearcherImplTest {
           new FieldRedactionMetadata(redactionName, fieldName, start, end));
 
       await()
-          .until(
-              () ->
-                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+          .until(() ->
+              AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
 
       // redaction service is currently set to update every <redaction_update_period_secs>
       // setRedactionUpdatePeriodSecs is set to 1 second in setup()
@@ -254,9 +253,8 @@ public class LogIndexSearcherImplTest {
           new FieldRedactionMetadata(redactionName, fieldName, start, end));
 
       await()
-          .until(
-              () ->
-                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+          .until(() ->
+              AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
       Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       // search
@@ -313,9 +311,8 @@ public class LogIndexSearcherImplTest {
           new FieldRedactionMetadata(redactionName, fieldName, start, end));
 
       await()
-          .until(
-              () ->
-                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+          .until(() ->
+              AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
       Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       // search
@@ -377,9 +374,8 @@ public class LogIndexSearcherImplTest {
           new FieldRedactionMetadata("testRedaction2", "binaryproperty", start, end));
 
       await()
-          .until(
-              () ->
-                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 2);
+          .until(() ->
+              AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 2);
       Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       // search
@@ -435,9 +431,8 @@ public class LogIndexSearcherImplTest {
           new FieldRedactionMetadata("testRedaction1", "message", start, end));
 
       await()
-          .until(
-              () ->
-                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+          .until(() ->
+              AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
       Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
@@ -492,9 +487,8 @@ public class LogIndexSearcherImplTest {
           new FieldRedactionMetadata("testRedaction1", "message", start, end));
 
       await()
-          .until(
-              () ->
-                  AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
+          .until(() ->
+              AstraMetadataTestUtils.listSyncUncached(fieldRedactionMetadataStore).size() == 1);
       Thread.sleep(redactionUpdateServiceConfig.getRedactionUpdatePeriodSecs() * 1000);
 
       TemporaryLogStoreAndSearcherExtension featureFlagEnabledStrictLogStore =
@@ -2311,15 +2305,14 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                strictLogStore.logSearcher.search(
-                    "",
-                    1000,
-                    QueryBuilderUtil.generateQueryBuilder("test", 0L, MAX_TIME),
-                    null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder(),
-                    List.of()));
+        .isThrownBy(() ->
+            strictLogStore.logSearcher.search(
+                "",
+                1000,
+                QueryBuilderUtil.generateQueryBuilder("test", 0L, MAX_TIME),
+                null,
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of()));
   }
 
   @Test
@@ -2327,15 +2320,14 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                strictLogStore.logSearcher.search(
-                    null,
-                    1000,
-                    QueryBuilderUtil.generateQueryBuilder("test", 0L, MAX_TIME),
-                    null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder(),
-                    List.of()));
+        .isThrownBy(() ->
+            strictLogStore.logSearcher.search(
+                null,
+                1000,
+                QueryBuilderUtil.generateQueryBuilder("test", 0L, MAX_TIME),
+                null,
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of()));
   }
 
   @Test
@@ -2343,16 +2335,15 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                strictLogStore.logSearcher.search(
-                    TEST_DATASET_NAME,
-                    0,
-                    QueryBuilderUtil.generateQueryBuilder(
-                        "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
-                    null,
-                    null,
-                    List.of()));
+        .isThrownBy(() ->
+            strictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                0,
+                QueryBuilderUtil.generateQueryBuilder(
+                    "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
+                null,
+                null,
+                List.of()));
   }
 
   @Test
@@ -2360,16 +2351,15 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                strictLogStore.logSearcher.search(
-                    TEST_DATASET_NAME,
-                    -1,
-                    QueryBuilderUtil.generateQueryBuilder(
-                        "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
-                    null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder(),
-                    List.of()));
+        .isThrownBy(() ->
+            strictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                -1,
+                QueryBuilderUtil.generateQueryBuilder(
+                    "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
+                null,
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of()));
   }
 
   @Test
@@ -2377,16 +2367,15 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                strictLogStore.logSearcher.search(
-                    TEST_DATASET_NAME,
-                    1,
-                    QueryBuilderUtil.generateQueryBuilder(
-                        "/", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
-                    null,
-                    createGenericDateHistogramAggregatorFactoriesBuilder(),
-                    List.of()));
+        .isThrownBy(() ->
+            strictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                1,
+                QueryBuilderUtil.generateQueryBuilder(
+                    "/", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli()),
+                null,
+                createGenericDateHistogramAggregatorFactoriesBuilder(),
+                List.of()));
   }
 
   @Test
@@ -2789,15 +2778,14 @@ public class LogIndexSearcherImplTest {
 
     // Attempting to sort on TEXT field should throw IllegalArgumentException
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                strictLogStore.logSearcher.search(
-                    TEST_DATASET_NAME,
-                    10,
-                    QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
-                    null,
-                    null,
-                    List.of(new SearchQuery.SortSpec("text_field", false, "text"))))
+        .isThrownBy(() ->
+            strictLogStore.logSearcher.search(
+                TEST_DATASET_NAME,
+                10,
+                QueryBuilderUtil.generateQueryBuilder("*", 0L, MAX_TIME),
+                null,
+                null,
+                List.of(new SearchQuery.SortSpec("text_field", false, "text"))))
         .withMessageContaining("Cannot sort on analyzed text field 'text_field'")
         .withMessageContaining("Use 'text_field.keyword' instead");
   }

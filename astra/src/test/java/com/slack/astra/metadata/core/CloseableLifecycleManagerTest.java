@@ -17,11 +17,10 @@ class CloseableLifecycleManagerTest {
     List<Closeable> closableList = new ArrayList<>();
 
     AtomicInteger failed = new AtomicInteger(0);
-    closableList.add(
-        () -> {
-          failed.incrementAndGet();
-          throw new IOException();
-        });
+    closableList.add(() -> {
+      failed.incrementAndGet();
+      throw new IOException();
+    });
 
     AtomicInteger successful = new AtomicInteger(0);
     closableList.add(successful::incrementAndGet);

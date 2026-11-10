@@ -290,9 +290,8 @@ public class AstraKafkaConsumer {
             TimeUnit.MILLISECONDS,
             queue,
             new ThreadFactoryBuilder()
-                .setUncaughtExceptionHandler(
-                    (t, e) ->
-                        LOG.error("Exception in recovery task on thread {}: {}", t.getName(), e))
+                .setUncaughtExceptionHandler((t, e) ->
+                    LOG.error("Exception in recovery task on thread {}: {}", t.getName(), e))
                 .setNameFormat("recovery-task-%d")
                 .build());
 
@@ -305,47 +304,44 @@ public class AstraKafkaConsumer {
       LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition);
       if (recordCount > 0) {
         messagesIndexed += recordCount;
-        executor.execute(
-            () -> {
-              long startTime = System.nanoTime();
-              try {
-                LOG.debug("Ingesting batch from {} with {} records", topicPartition, recordCount);
-                for (ConsumerRecord<String, byte[]> record : records) {
-                  if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
-                    messagesOutsideOffsetRange.incrementAndGet();
-                    recordsFailedCounter.increment();
-                  } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
-                    messagesOutsideOffsetRange.incrementAndGet();
-                    recordsFailedCounter.increment();
+        executor.execute(() -> {
+          long startTime = System.nanoTime();
+          try {
+            LOG.debug("Ingesting batch from {} with {} records", topicPartition, recordCount);
+            for (ConsumerRecord<String, byte[]> record : records) {
+              if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
+                messagesOutsideOffsetRange.incrementAndGet();
+                recordsFailedCounter.increment();
+              } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
+                messagesOutsideOffsetRange.incrementAndGet();
+                recordsFailedCounter.increment();
+              } else {
+                try {
+                  if (logMessageWriterImpl.insertRecord(record)) {
+                    recordsReceivedCounter.increment();
                   } else {
-                    try {
-                      if (logMessageWriterImpl.insertRecord(record)) {
-                        recordsReceivedCounter.increment();
-                      } else {
-                        recordsFailedCounter.increment();
-                      }
-                    } catch (IOException e) {
-                      LOG.error(
-                          "Encountered exception processing batch from {} with {} records: {}",
-                          topicPartition,
-                          recordCount,
-                          e);
-                    }
+                    recordsFailedCounter.increment();
                   }
+                } catch (IOException e) {
+                  LOG.error(
+                      "Encountered exception processing batch from {} with {} records: {}",
+                      topicPartition,
+                      recordCount,
+                      e);
                 }
-                LOG.debug(
-                    "Finished ingesting batch from {} with {} records",
-                    topicPartition,
-                    recordCount);
-              } finally {
-                long endTime = System.nanoTime();
-                LOG.info(
-                    "Batch from {} with {} records completed in {}ms",
-                    topicPartition,
-                    recordCount,
-                    nanosToMillis(endTime - startTime));
               }
-            });
+            }
+            LOG.debug(
+                "Finished ingesting batch from {} with {} records", topicPartition, recordCount);
+          } finally {
+            long endTime = System.nanoTime();
+            LOG.info(
+                "Batch from {} with {} records completed in {}ms",
+                topicPartition,
+                recordCount,
+                nanosToMillis(endTime - startTime));
+          }
+        });
         LOG.debug("Queued");
       } else {
         // temporary diagnostic logging

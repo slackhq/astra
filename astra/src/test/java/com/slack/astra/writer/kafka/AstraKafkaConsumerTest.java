@@ -245,10 +245,9 @@ public class AstraKafkaConsumerTest {
 
       localTestConsumer.prepConsumerForConsumption(1);
       assertThatExceptionOfType(OffsetOutOfRangeException.class)
-          .isThrownBy(
-              () ->
-                  localTestConsumer.consumeMessagesBetweenOffsetsInParallel(
-                      KAFKA_POLL_TIMEOUT_MS, 0, msgsToProduce));
+          .isThrownBy(() ->
+              localTestConsumer.consumeMessagesBetweenOffsetsInParallel(
+                  KAFKA_POLL_TIMEOUT_MS, 0, msgsToProduce));
     }
 
     @Test
@@ -258,15 +257,14 @@ public class AstraKafkaConsumerTest {
       assertThat(q.offer(new Object())).isTrue();
 
       Thread t =
-          new Thread(
-              () -> {
-                try {
-                  Thread.sleep(1000);
-                  q.take();
-                } catch (InterruptedException e) {
-                  // do nothing
-                }
-              });
+          new Thread(() -> {
+            try {
+              Thread.sleep(1000);
+              q.take();
+            } catch (InterruptedException e) {
+              // do nothing
+            }
+          });
       t.start();
 
       assertThat(q.offer(new Object())).isTrue();

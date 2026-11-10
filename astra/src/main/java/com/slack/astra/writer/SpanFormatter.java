@@ -187,16 +187,15 @@ public class SpanFormatter {
     if (value instanceof Map) {
       // todo - consider adding a depth param to prevent excessively nested fields
       ((Map<?, ?>) value)
-          .forEach(
-              (key1, value1) -> {
-                List<Trace.KeyValue> nestedValues =
-                    convertKVtoProtoDefault(String.format("%s.%s", key, key1), value1, schema);
-                tags.addAll(nestedValues);
-              });
+          .forEach((key1, value1) -> {
+            List<Trace.KeyValue> nestedValues =
+                convertKVtoProtoDefault(String.format("%s.%s", key, key1), value1, schema);
+            tags.addAll(nestedValues);
+          });
     } else if (value instanceof String || value instanceof List) {
       Optional<Schema.DefaultField> defaultStringField =
           schema.getDefaultsMap().values().stream()
-              .filter((defaultField) -> defaultField.getMatchMappingType().equals("string"))
+              .filter(defaultField -> defaultField.getMatchMappingType().equals("string"))
               .findFirst();
 
       if (defaultStringField.isPresent()) {

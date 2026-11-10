@@ -57,33 +57,29 @@ public class RecoveryNodeMetadataTest {
   @Test
   public void invalidArgumentsShouldThrow() {
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryNodeMetadata(
-                    "name",
-                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
-                    "123",
-                    Instant.now().toEpochMilli()));
+        .isThrownBy(() ->
+            new RecoveryNodeMetadata(
+                "name",
+                Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
+                "123",
+                Instant.now().toEpochMilli()));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryNodeMetadata(
-                    "name",
-                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
-                    "",
-                    Instant.now().toEpochMilli()));
+        .isThrownBy(() ->
+            new RecoveryNodeMetadata(
+                "name",
+                Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
+                "",
+                Instant.now().toEpochMilli()));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryNodeMetadata(
-                    "name",
-                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING,
-                    "",
-                    Instant.now().toEpochMilli()));
+        .isThrownBy(() ->
+            new RecoveryNodeMetadata(
+                "name",
+                Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING,
+                "",
+                Instant.now().toEpochMilli()));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryNodeMetadata(
-                    "name", Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED, "123", 0));
+        .isThrownBy(() ->
+            new RecoveryNodeMetadata(
+                "name", Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED, "123", 0));
   }
 }

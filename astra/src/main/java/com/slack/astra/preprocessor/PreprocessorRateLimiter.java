@@ -150,23 +150,21 @@ public class PreprocessorRateLimiter {
 
     rateLimitBytesLimit.register(
         throughputSortedDatasets.stream()
-            .map(
-                datasetMetadata -> {
-                  // get the currently active partition, and then calculate the active partitions
-                  Optional<Integer> activePartitionCount =
-                      datasetMetadata.getPartitionConfigs().stream()
-                          .filter((item) -> item.getEndTimeEpochMs() == Long.MAX_VALUE)
-                          .map(item -> item.getPartitions().size())
-                          .findFirst();
+            .map(datasetMetadata -> {
+              // get the currently active partition, and then calculate the active partitions
+              Optional<Integer> activePartitionCount =
+                  datasetMetadata.getPartitionConfigs().stream()
+                      .filter(item -> item.getEndTimeEpochMs() == Long.MAX_VALUE)
+                      .map(item -> item.getPartitions().size())
+                      .findFirst();
 
-                  return activePartitionCount
-                      .map(
-                          integer ->
-                              MultiGauge.Row.of(
-                                  Tags.of(Tag.of("service", datasetMetadata.getName())),
-                                  datasetMetadata.getThroughputBytes() / integer))
-                      .orElse(null);
-                })
+              return activePartitionCount
+                  .map(integer ->
+                      MultiGauge.Row.of(
+                          Tags.of(Tag.of("service", datasetMetadata.getName())),
+                          datasetMetadata.getThroughputBytes() / integer))
+                  .orElse(null);
+            })
             .filter(Objects::nonNull)
             .collect(Collectors.toUnmodifiableList()),
         true);

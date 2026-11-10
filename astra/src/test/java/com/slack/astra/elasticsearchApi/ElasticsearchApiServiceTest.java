@@ -437,19 +437,17 @@ public class ElasticsearchApiServiceTest {
         .isNotNull();
 
     when(searcher.getSchema(any()))
-        .thenAnswer(
-            invocationOnMock -> {
-              AstraSearch.SchemaRequest request =
-                  ((AstraSearch.SchemaRequest) invocationOnMock.getArguments()[0]);
-              assertThat(request.getDataset()).isEqualTo("bar");
-              assertThat(request.getStartTimeEpochMs())
-                  .isCloseTo(
-                      Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli(),
-                      Offset.offset(1000L));
-              assertThat(request.getEndTimeEpochMs())
-                  .isCloseTo(Instant.now().toEpochMilli(), Offset.offset(1000L));
-              return AstraSearch.SchemaResult.newBuilder().build();
-            });
+        .thenAnswer(invocationOnMock -> {
+          AstraSearch.SchemaRequest request =
+              ((AstraSearch.SchemaRequest) invocationOnMock.getArguments()[0]);
+          assertThat(request.getDataset()).isEqualTo("bar");
+          assertThat(request.getStartTimeEpochMs())
+              .isCloseTo(
+                  Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli(), Offset.offset(1000L));
+          assertThat(request.getEndTimeEpochMs())
+              .isCloseTo(Instant.now().toEpochMilli(), Offset.offset(1000L));
+          return AstraSearch.SchemaResult.newBuilder().build();
+        });
     serviceUnderTest.mapping(Optional.of("bar"), Optional.empty(), Optional.empty());
   }
 

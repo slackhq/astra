@@ -110,22 +110,17 @@ public class ReplicaEvictionService extends AbstractScheduledService {
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> replicaEvictions =
         cacheSlotMetadataStore.listSync().stream()
-            .filter(
-                cacheSlotMetadata ->
-                    shouldEvictReplica(
-                        expireOlderThan, replicaMetadataByReplicaId, cacheSlotMetadata))
-            .map(
-                (cacheSlotMetadata) -> {
-                  ListenableFuture<?> future =
-                      cacheSlotMetadataStore.updateNonFreeCacheSlotState(
-                          cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
+            .filter(cacheSlotMetadata ->
+                shouldEvictReplica(expireOlderThan, replicaMetadataByReplicaId, cacheSlotMetadata))
+            .map(cacheSlotMetadata -> {
+              ListenableFuture<?> future =
+                  cacheSlotMetadataStore.updateNonFreeCacheSlotState(
+                      cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
 
-                  addCallback(
-                      future,
-                      successCountingCallback(successCounter),
-                      MoreExecutors.directExecutor());
-                  return future;
-                })
+              addCallback(
+                  future, successCountingCallback(successCounter), MoreExecutors.directExecutor());
+              return future;
+            })
             .collect(Collectors.toUnmodifiableList());
 
     ListenableFuture<?> futureList = Futures.successfulAsList(replicaEvictions);

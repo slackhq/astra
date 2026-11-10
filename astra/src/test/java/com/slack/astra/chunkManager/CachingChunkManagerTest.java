@@ -272,12 +272,11 @@ public class CachingChunkManagerTest {
     initializeBlobStorageWithIndex(snapshotId);
     await()
         .ignoreExceptions()
-        .until(
-            () -> {
-              Path path = Path.of("/tmp/test1");
-              blobStore.download(snapshotId, path);
-              return Objects.requireNonNull(path.toFile().listFiles()).length > 0;
-            });
+        .until(() -> {
+          Path path = Path.of("/tmp/test1");
+          blobStore.download(snapshotId, path);
+          return Objects.requireNonNull(path.toFile().listFiles()).length > 0;
+        });
     initAssignment(snapshotId);
 
     await()
@@ -311,12 +310,11 @@ public class CachingChunkManagerTest {
     initializeBlobStorageWithIndex(snapshotId);
     await()
         .ignoreExceptions()
-        .until(
-            () -> {
-              Path path = Path.of("/tmp/test2");
-              blobStore.download(snapshotId, path);
-              return Objects.requireNonNull(path.toFile().listFiles()).length > 0;
-            });
+        .until(() -> {
+          Path path = Path.of("/tmp/test2");
+          blobStore.download(snapshotId, path);
+          return Objects.requireNonNull(path.toFile().listFiles()).length > 0;
+        });
 
     CacheNodeAssignment assignment = initAssignment(snapshotId);
 

@@ -169,17 +169,16 @@ public class RecoveryTaskCreator {
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     List<SnapshotMetadata> snapshotsForPartition =
         snapshots.stream()
-            .filter(
-                snapshotMetadata -> {
-                  if (snapshotMetadata == null || snapshotMetadata.partitionId == null) {
-                    LOG.warn(
-                        "snapshot metadata or partition id can't be null: {} ",
-                        Strings.join(snapshots, ','));
-                  }
-                  return snapshotMetadata != null
-                      && snapshotMetadata.partitionId != null
-                      && snapshotMetadata.partitionId.equals(partitionId);
-                })
+            .filter(snapshotMetadata -> {
+              if (snapshotMetadata == null || snapshotMetadata.partitionId == null) {
+                LOG.warn(
+                    "snapshot metadata or partition id can't be null: {} ",
+                    Strings.join(snapshots, ','));
+              }
+              return snapshotMetadata != null
+                  && snapshotMetadata.partitionId != null
+                  && snapshotMetadata.partitionId.equals(partitionId);
+            })
             .collect(Collectors.toUnmodifiableList());
     List<SnapshotMetadata> deletedSnapshots = deleteStaleLiveSnapshots(snapshotsForPartition);
 
@@ -326,18 +325,15 @@ public class RecoveryTaskCreator {
     AtomicInteger successCounter = new AtomicInteger(0);
     List<? extends ListenableFuture<?>> deletionFutures =
         snapshotsToBeDeleted.stream()
-            .map(
-                snapshot -> {
-                  // todo - consider refactoring this to return a completable future instead
-                  ListenableFuture<?> future =
-                      JdkFutureAdapters.listenInPoolThread(
-                          snapshotMetadataStore.deleteAsync(snapshot).toCompletableFuture());
-                  addCallback(
-                      future,
-                      successCountingCallback(successCounter),
-                      MoreExecutors.directExecutor());
-                  return future;
-                })
+            .map(snapshot -> {
+              // todo - consider refactoring this to return a completable future instead
+              ListenableFuture<?> future =
+                  JdkFutureAdapters.listenInPoolThread(
+                      snapshotMetadataStore.deleteAsync(snapshot).toCompletableFuture());
+              addCallback(
+                  future, successCountingCallback(successCounter), MoreExecutors.directExecutor());
+              return future;
+            })
             .collect(Collectors.toUnmodifiableList());
 
     //noinspection UnstableApiUsage

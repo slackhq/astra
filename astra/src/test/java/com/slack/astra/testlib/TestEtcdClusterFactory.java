@@ -61,11 +61,10 @@ public class TestEtcdClusterFactory {
 
       Runtime.getRuntime()
           .addShutdownHook(
-              new Thread(
-                  () -> {
-                    LOG.info("Shutdown hook for embedded etcd cluster");
-                    TestEtcdClusterFactory.close();
-                  }));
+              new Thread(() -> {
+                LOG.info("Shutdown hook for embedded etcd cluster");
+                TestEtcdClusterFactory.close();
+              }));
     } else {
       LOG.info(
           "Reusing existing etcd cluster with endpoints: {}",

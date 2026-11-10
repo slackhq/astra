@@ -163,10 +163,9 @@ public class SnapshotDeletionService extends AbstractScheduledService {
     List<ListenableFuture<?>> deletedSnapshotList =
         snapshotMetadataStore.listSync().stream()
             // only snapshots that only contain data prior to our cutoff, and have no replicas
-            .filter(
-                snapshotMetadata ->
-                    snapshotMetadata.endTimeEpochMs < expirationCutoff
-                        && !snapshotIdsWithReplicas.contains(snapshotMetadata.name))
+            .filter(snapshotMetadata ->
+                snapshotMetadata.endTimeEpochMs < expirationCutoff
+                    && !snapshotIdsWithReplicas.contains(snapshotMetadata.name))
 
             // There are cases where we will have LIVE snapshots that might be past the expiration.
             // The primary use case here would be for low traffic clusters. Since they might take
@@ -175,38 +174,35 @@ public class SnapshotDeletionService extends AbstractScheduledService {
             // different states we could be in, we should just disable the deletion of live
             // snapshots whole-cloth. We clean those up when a node boots anyhow
             .filter(snapshotMetadata -> !snapshotMetadata.isLive())
-            .map(
-                snapshotMetadata -> {
-                  ListenableFuture<?> future =
-                      Futures.submit(
-                          () -> {
-                            try {
-                              // These futures are rate-limited so that we can more evenly
-                              // distribute the load to the downstream services (metadata, s3).
-                              // There is no urgency to complete the deletes, so limiting the
-                              // maximum rate allows us to avoid unnecessary spikes.
-                              rateLimiter.acquire();
+            .map(snapshotMetadata -> {
+              ListenableFuture<?> future =
+                  Futures.submit(
+                      () -> {
+                        try {
+                          // These futures are rate-limited so that we can more evenly
+                          // distribute the load to the downstream services (metadata, s3).
+                          // There is no urgency to complete the deletes, so limiting the
+                          // maximum rate allows us to avoid unnecessary spikes.
+                          rateLimiter.acquire();
 
-                              // First try to delete the object from S3, then delete from metadata
-                              // store. If for some reason the object delete fails, it will throw
-                              // an exception, leaving the metadata and try again on the next run.
-                              LOG.debug("Starting delete of snapshot {}", snapshotMetadata);
-                              blobStore.delete(snapshotMetadata.snapshotId);
-                              snapshotMetadataStore.deleteSync(snapshotMetadata);
-                            } catch (Exception e) {
-                              LOG.error("Exception deleting snapshot", e);
-                              throw e;
-                            }
-                            return null;
-                          },
-                          executorService);
+                          // First try to delete the object from S3, then delete from metadata
+                          // store. If for some reason the object delete fails, it will throw
+                          // an exception, leaving the metadata and try again on the next run.
+                          LOG.debug("Starting delete of snapshot {}", snapshotMetadata);
+                          blobStore.delete(snapshotMetadata.snapshotId);
+                          snapshotMetadataStore.deleteSync(snapshotMetadata);
+                        } catch (Exception e) {
+                          LOG.error("Exception deleting snapshot", e);
+                          throw e;
+                        }
+                        return null;
+                      },
+                      executorService);
 
-                  addCallback(
-                      future,
-                      successCountingCallback(successCounter),
-                      MoreExecutors.directExecutor());
-                  return future;
-                })
+              addCallback(
+                  future, successCountingCallback(successCounter), MoreExecutors.directExecutor());
+              return future;
+            })
             .collect(Collectors.toUnmodifiableList());
 
     ListenableFuture<?> futureList = Futures.successfulAsList(deletedSnapshotList);

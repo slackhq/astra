@@ -161,7 +161,7 @@ public class ReplicaRestoreServiceTest {
             () ->
                 MetricsUtil.getTimerCount(
                     ReplicaRestoreService.REPLICAS_RESTORE_TIMER, meterRegistry),
-            (value) -> value == 1);
+            value -> value == 1);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 10);
     await()
@@ -169,7 +169,7 @@ public class ReplicaRestoreServiceTest {
             () ->
                 MetricsUtil.getTimerCount(
                     ReplicaRestoreService.REPLICAS_RESTORE_TIMER, meterRegistry),
-            (value) -> value == 2);
+            value -> value == 2);
   }
 
   @Test
@@ -187,21 +187,20 @@ public class ReplicaRestoreServiceTest {
     ExecutorService executorService = Executors.newFixedThreadPool(2);
 
     for (int i = 0; i < 2; i++) {
-      executorService.submit(
-          () -> {
-            for (int j = 0; j < 10; j++) {
-              long now = Instant.now().toEpochMilli();
-              String id = "loop" + UUID.randomUUID();
-              SnapshotMetadata snapshotIncluded =
-                  new SnapshotMetadata(id, now + 10, now + 15, 0, id, 0);
-              try {
-                replicaRestoreService.queueSnapshotsForRestoration(List.of(snapshotIncluded));
-                Thread.sleep(300);
-              } catch (Exception e) {
-                fail("Error in queueSnapshotsForRestoration", e);
-              }
-            }
-          });
+      executorService.submit(() -> {
+        for (int j = 0; j < 10; j++) {
+          long now = Instant.now().toEpochMilli();
+          String id = "loop" + UUID.randomUUID();
+          SnapshotMetadata snapshotIncluded =
+              new SnapshotMetadata(id, now + 10, now + 15, 0, id, 0);
+          try {
+            replicaRestoreService.queueSnapshotsForRestoration(List.of(snapshotIncluded));
+            Thread.sleep(300);
+          } catch (Exception e) {
+            fail("Error in queueSnapshotsForRestoration", e);
+          }
+        }
+      });
     }
 
     await().until(() -> replicaMetadataStore.listSync().size() == 14);
@@ -210,14 +209,14 @@ public class ReplicaRestoreServiceTest {
             () ->
                 MetricsUtil.getTimerCount(
                     ReplicaRestoreService.REPLICAS_RESTORE_TIMER, meterRegistry),
-            (value) -> value == 1);
+            value -> value == 1);
     await().until(() -> replicaMetadataStore.listSync().size() == 20);
     await()
         .until(
             () ->
                 MetricsUtil.getTimerCount(
                     ReplicaRestoreService.REPLICAS_RESTORE_TIMER, meterRegistry),
-            (value) -> value == 2);
+            value -> value == 2);
 
     executorService.shutdown();
   }
@@ -253,11 +252,11 @@ public class ReplicaRestoreServiceTest {
     await()
         .until(
             () -> MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_SKIPPED, meterRegistry),
-            (value) -> value == 9);
+            value -> value == 9);
     await()
         .until(
             () -> MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry),
-            (value) -> value == 1);
+            value -> value == 1);
 
     List<SnapshotMetadata> snapshots = new ArrayList<>();
     for (int i = 0; i < 3; i++) {

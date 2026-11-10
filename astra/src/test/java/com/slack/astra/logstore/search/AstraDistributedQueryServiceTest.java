@@ -333,18 +333,17 @@ public class AstraDistributedQueryServiceTest {
 
     AtomicReference<Map<String, List<String>>> searchNodes = new AtomicReference<>();
     await()
-        .until(
-            () -> {
-              searchNodes.set(
-                  getSearchNodesToQuery(
-                      snapshotMetadataStore,
-                      searchMetadataStore,
-                      datasetMetadataStore,
-                      chunk1CreationTime.toEpochMilli(),
-                      chunk1EndTime.toEpochMilli(),
-                      indexName));
-              return searchNodes.get().size() == 1;
-            });
+        .until(() -> {
+          searchNodes.set(
+              getSearchNodesToQuery(
+                  snapshotMetadataStore,
+                  searchMetadataStore,
+                  datasetMetadataStore,
+                  chunk1CreationTime.toEpochMilli(),
+                  chunk1EndTime.toEpochMilli(),
+                  indexName));
+          return searchNodes.get().size() == 1;
+        });
 
     assertThat(searchNodes.get().size()).isEqualTo(1);
     assertThat(searchNodes.get().keySet().iterator().next())
@@ -404,10 +403,9 @@ public class AstraDistributedQueryServiceTest {
     SnapshotMetadata snapshot2Metadata =
         createSnapshot(snapshot2CreationTime, snapshot2EndTime, false, "1");
     await()
-        .until(
-            () ->
-                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
-                    == 3); // snapshot1(live + non_live) + snapshot2
+        .until(() ->
+            AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
+                == 3); // snapshot1(live + non_live) + snapshot2
 
     registerTestSearchMetadata(searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
@@ -417,10 +415,9 @@ public class AstraDistributedQueryServiceTest {
     SnapshotMetadata snapshot3Metadata =
         createSnapshot(snapshot3CreationTime, snapshot3EndTime, false, "1");
     await()
-        .until(
-            () ->
-                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
-                    == 4); // snapshot1(live + non_live) + snapshot2 + snapshot3
+        .until(() ->
+            AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
+                == 4); // snapshot1(live + non_live) + snapshot2 + snapshot3
 
     registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 5);
@@ -490,8 +487,8 @@ public class AstraDistributedQueryServiceTest {
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(2);
     assertThat(AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(1);
 
-    await().until(() -> snapshotMetadataStore.listSync().size(), (size) -> size == 2);
-    await().until(() -> searchMetadataStore.listSync().size(), (size) -> size == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size(), size -> size == 2);
+    await().until(() -> searchMetadataStore.listSync().size(), size -> size == 1);
 
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
@@ -673,10 +670,9 @@ public class AstraDistributedQueryServiceTest {
     SnapshotMetadata snapshot2Metadata =
         createSnapshot(snapshot2CreationTime, snapshot2EndTime, false, "1");
     await()
-        .until(
-            () ->
-                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
-                    == 2); // snapshot1 + snapshot2
+        .until(() ->
+            AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
+                == 2); // snapshot1 + snapshot2
 
     registerTestSearchMetadata(searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
@@ -687,10 +683,9 @@ public class AstraDistributedQueryServiceTest {
     SnapshotMetadata snapshot3Metadata =
         createSnapshot(snapshot3CreationTime, snapshot3EndTime, false, "1");
     await()
-        .until(
-            () ->
-                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
-                    == 3); // snapshot1 + snapshot2 + snapshot3
+        .until(() ->
+            AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
+                == 3); // snapshot1 + snapshot2 + snapshot3
 
     registerTestSearchMetadata(searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
     await().until(() -> AstraMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
@@ -957,8 +952,8 @@ public class AstraDistributedQueryServiceTest {
             .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
             .setQuery(
                 """
-                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":400,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
-                                      """)
+                {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":400,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                """)
             .setHowMany(100)
             .build();
 
@@ -1055,8 +1050,8 @@ public class AstraDistributedQueryServiceTest {
             .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
             .setQuery(
                 """
-                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*:*"}}]}}
-                                      """)
+                {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*:*"}}]}}
+                """)
             .setHowMany(100)
             .build();
 
@@ -1114,8 +1109,8 @@ public class AstraDistributedQueryServiceTest {
             .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
             .setQuery(
                 """
-                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
-                                      """)
+                {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                """)
             .setHowMany(100)
             .build();
 
@@ -1152,8 +1147,8 @@ public class AstraDistributedQueryServiceTest {
             .setEndTimeEpochMs(200)
             .setQuery(
                 """
-                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
-                                      """)
+                {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                """)
             .setHowMany(100)
             .build();
 
@@ -1272,8 +1267,8 @@ public class AstraDistributedQueryServiceTest {
             .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
             .setQuery(
                 """
-                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
-                                      """)
+                {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                """)
             .setHowMany(100)
             .build();
 
@@ -1338,8 +1333,8 @@ public class AstraDistributedQueryServiceTest {
             .setEndTimeEpochMs(chunk1EndTime.toEpochMilli())
             .setQuery(
                 """
-                                      {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
-                                      """)
+                {"bool":{"filter":[{"range":{"@timestamp":{"gte":0,"lte":500,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}}
+                """)
             .setHowMany(100)
             .build();
 

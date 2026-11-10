@@ -86,25 +86,23 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
       try (var scope = new StructuredTaskScope<SearchResult<T>>()) {
         List<Pair<String, StructuredTaskScope.Subtask<SearchResult<T>>>> chunkSubtasks =
             chunksMatchingQuery.stream()
-                .map(
-                    (chunk) ->
-                        Pair.of(
-                            chunk.id(),
-                            scope.fork(
-                                currentTraceContext.wrap(
-                                    () -> {
-                                      ScopedSpan span =
-                                          Tracing.currentTracer()
-                                              .startScopedSpan("ChunkManagerBase.chunkQuery");
-                                      span.tag("chunkId", chunk.id());
-                                      try {
-                                        concurrentQueries.acquire();
-                                        return chunk.query(query);
-                                      } finally {
-                                        concurrentQueries.release();
-                                        span.finish();
-                                      }
-                                    }))))
+                .map(chunk ->
+                    Pair.of(
+                        chunk.id(),
+                        scope.fork(
+                            currentTraceContext.wrap(() -> {
+                              ScopedSpan span =
+                                  Tracing.currentTracer()
+                                      .startScopedSpan("ChunkManagerBase.chunkQuery");
+                              span.tag("chunkId", chunk.id());
+                              try {
+                                concurrentQueries.acquire();
+                                return chunk.query(query);
+                              } finally {
+                                concurrentQueries.release();
+                                span.finish();
+                              }
+                            }))))
                 .toList();
         try {
           scope.joinUntil(Instant.now().plusSeconds(queryTimeout.toSeconds()));
@@ -117,60 +115,58 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
         List<String> softFailedChunkIds = new ArrayList<>();
         List<SearchResult<T>> searchResults =
             chunkSubtasks.stream()
-                .map(
-                    chunkIdSubTaskPair -> {
-                      String chunkId = chunkIdSubTaskPair.getKey();
-                      StructuredTaskScope.Subtask<SearchResult<T>> searchResultSubtask =
-                          chunkIdSubTaskPair.getValue();
-                      try {
-                        if (searchResultSubtask
-                            .state()
-                            .equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
-                          return searchResultSubtask.get();
-                        } else if (searchResultSubtask
-                            .state()
-                            .equals(StructuredTaskScope.Subtask.State.FAILED)) {
-                          Throwable throwable = searchResultSubtask.exception();
-                          if (throwable instanceof OutOfMemoryError) {
-                            LOG.error(
-                                "OutOfMemoryError in chunk query - terminating process", throwable);
-                            new RuntimeHalterImpl().handleFatal(throwable);
-                          } else if (throwable instanceof IllegalArgumentException) {
-                            // We catch IllegalArgumentException ( and any other exception that
-                            // represents a parse failure ) and instead of returning an empty
-                            // result we throw back an error to the user
-                            softFailedChunkIds.add(chunkId);
-                            throw new IllegalArgumentException(throwable);
-                          }
-                          LOG.warn("Chunk Query Exception", throwable);
-                        }
-                        // else UNAVAILABLE (ie, timedout), return 0 snapshots
-                        hardFailedChunkIds.add(chunkId);
-                        SearchResult<T> hardError = (SearchResult<T>) SearchResult.error().clone();
-                        hardError.setHardFailedChunkIds(hardFailedChunkIds);
-                        hardError.setSoftFailedChunkIds(softFailedChunkIds);
-                        return hardError;
-                      } catch (OutOfMemoryError oom) {
-                        LOG.error("OutOfMemoryError in chunk query - terminating process", oom);
-                        new RuntimeHalterImpl().handleFatal(oom);
-                        throw oom;
-                      } catch (Exception err) {
-                        if (err instanceof IllegalArgumentException) {
-                          throw err;
-                        }
-
-                        // Only log the exception message as warn, and not the entire trace
-                        // as this can cause performance issues if significant amounts of
-                        // invalid queries are received
-                        // return 1 snapshot, still searchable but user-side error cause
-                        LOG.warn("Chunk Query Exception: {}", err.getMessage());
-                        SearchResult<T> softError =
-                            (SearchResult<T>) SearchResult.soft_error().clone();
-                        softError.setSoftFailedChunkIds(softFailedChunkIds);
-                        softError.setHardFailedChunkIds(hardFailedChunkIds);
-                        return softError;
+                .map(chunkIdSubTaskPair -> {
+                  String chunkId = chunkIdSubTaskPair.getKey();
+                  StructuredTaskScope.Subtask<SearchResult<T>> searchResultSubtask =
+                      chunkIdSubTaskPair.getValue();
+                  try {
+                    if (searchResultSubtask
+                        .state()
+                        .equals(StructuredTaskScope.Subtask.State.SUCCESS)) {
+                      return searchResultSubtask.get();
+                    } else if (searchResultSubtask
+                        .state()
+                        .equals(StructuredTaskScope.Subtask.State.FAILED)) {
+                      Throwable throwable = searchResultSubtask.exception();
+                      if (throwable instanceof OutOfMemoryError) {
+                        LOG.error(
+                            "OutOfMemoryError in chunk query - terminating process", throwable);
+                        new RuntimeHalterImpl().handleFatal(throwable);
+                      } else if (throwable instanceof IllegalArgumentException) {
+                        // We catch IllegalArgumentException ( and any other exception that
+                        // represents a parse failure ) and instead of returning an empty
+                        // result we throw back an error to the user
+                        softFailedChunkIds.add(chunkId);
+                        throw new IllegalArgumentException(throwable);
                       }
-                    })
+                      LOG.warn("Chunk Query Exception", throwable);
+                    }
+                    // else UNAVAILABLE (ie, timedout), return 0 snapshots
+                    hardFailedChunkIds.add(chunkId);
+                    SearchResult<T> hardError = (SearchResult<T>) SearchResult.error().clone();
+                    hardError.setHardFailedChunkIds(hardFailedChunkIds);
+                    hardError.setSoftFailedChunkIds(softFailedChunkIds);
+                    return hardError;
+                  } catch (OutOfMemoryError oom) {
+                    LOG.error("OutOfMemoryError in chunk query - terminating process", oom);
+                    new RuntimeHalterImpl().handleFatal(oom);
+                    throw oom;
+                  } catch (Exception err) {
+                    if (err instanceof IllegalArgumentException) {
+                      throw err;
+                    }
+
+                    // Only log the exception message as warn, and not the entire trace
+                    // as this can cause performance issues if significant amounts of
+                    // invalid queries are received
+                    // return 1 snapshot, still searchable but user-side error cause
+                    LOG.warn("Chunk Query Exception: {}", err.getMessage());
+                    SearchResult<T> softError = (SearchResult<T>) SearchResult.soft_error().clone();
+                    softError.setSoftFailedChunkIds(softFailedChunkIds);
+                    softError.setHardFailedChunkIds(hardFailedChunkIds);
+                    return softError;
+                  }
+                })
                 .toList();
 
         // check if all results are null, and if so return an error to the user

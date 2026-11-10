@@ -134,12 +134,11 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
       if (!request.getDryRun()) {
         // add to the etcd store if it doesn't already exist there
-        existingDatasetMetadata.forEach(
-            dataset -> {
-              if (!datasetMetadataStore.hasEtcdOnlySync(dataset.getName())) {
-                datasetMetadataStore.createEtcdOnlySync(dataset);
-              }
-            });
+        existingDatasetMetadata.forEach(dataset -> {
+          if (!datasetMetadataStore.hasEtcdOnlySync(dataset.getName())) {
+            datasetMetadataStore.createEtcdOnlySync(dataset);
+          }
+        });
 
         // delete from ZK only (deleteZkOnlySync checks if the store exists already)
         datasetMetadataStore.listSync().forEach(datasetMetadataStore::deleteZkOnlySync);
@@ -156,12 +155,11 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
         responseObserver.onCompleted();
       } else {
         List<DatasetMetadata> dataToMigrate = new ArrayList<>();
-        existingDatasetMetadata.forEach(
-            dataset -> {
-              if (!datasetMetadataStore.hasEtcdOnlySync(dataset.getName())) {
-                dataToMigrate.add(dataset);
-              }
-            });
+        existingDatasetMetadata.forEach(dataset -> {
+          if (!datasetMetadataStore.hasEtcdOnlySync(dataset.getName())) {
+            dataToMigrate.add(dataset);
+          }
+        });
 
         responseObserver.onNext(
             ManagerApi.MigrateZKDatasetMetadataStoreToEtcdResponse.newBuilder()
@@ -358,11 +356,11 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
             Sets.newHashSet(snapshotIds),
             Sets.newHashSet(
                 snapshotMetadataList.stream()
-                    .map((snapshot) -> snapshot.snapshotId)
+                    .map(snapshot -> snapshot.snapshotId)
                     .collect(Collectors.toList())));
 
     return snapshotMetadataList.stream()
-        .filter((snapshot) -> matchingSnapshots.contains(snapshot.snapshotId))
+        .filter(snapshot -> matchingSnapshots.contains(snapshot.snapshotId))
         .collect(Collectors.toList());
   }
 
@@ -394,16 +392,14 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
     Optional<DatasetPartitionMetadata> previousActiveDatasetPartition =
         existingPartitions.stream()
-            .filter(
-                datasetPartitionMetadata ->
-                    datasetPartitionMetadata.getEndTimeEpochMs() == MAX_TIME)
+            .filter(datasetPartitionMetadata ->
+                datasetPartitionMetadata.getEndTimeEpochMs() == MAX_TIME)
             .findFirst();
 
     List<DatasetPartitionMetadata> remainingDatasetPartitions =
         existingPartitions.stream()
-            .filter(
-                datasetPartitionMetadata ->
-                    datasetPartitionMetadata.getEndTimeEpochMs() != MAX_TIME)
+            .filter(datasetPartitionMetadata ->
+                datasetPartitionMetadata.getEndTimeEpochMs() != MAX_TIME)
             .collect(Collectors.toList());
 
     // todo - consider adding some padding to this value; this may complicate

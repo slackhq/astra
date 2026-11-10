@@ -197,13 +197,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         source =
             wireMessage.getSource().keySet().stream()
                 .filter(sourceFieldFilter::appliesToField)
-                .collect(Collectors.toMap((key) -> key, (key) -> wireMessage.getSource().get(key)));
+                .collect(Collectors.toMap(key -> key, key -> wireMessage.getSource().get(key)));
       } else if (sourceFieldFilter != null
           && sourceFieldFilter.getFilterType() == SourceFieldFilter.FilterType.EXCLUDE) {
         source =
             wireMessage.getSource().keySet().stream()
-                .filter((key) -> !sourceFieldFilter.appliesToField(key))
-                .collect(Collectors.toMap((key) -> key, (key) -> wireMessage.getSource().get(key)));
+                .filter(key -> !sourceFieldFilter.appliesToField(key))
+                .collect(Collectors.toMap(key -> key, key -> wireMessage.getSource().get(key)));
       }
 
       return new LogMessage(

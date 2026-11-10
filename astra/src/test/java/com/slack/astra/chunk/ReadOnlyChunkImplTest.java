@@ -195,25 +195,24 @@ public class ReadOnlyChunkImplTest {
     // ignoreExceptions is workaround for https://github.com/aws/aws-sdk-java-v2/issues/3658
     await()
         .ignoreExceptions()
-        .until(
-            () -> {
-              Path dataDirectory =
-                  Path.of(
-                      String.format(
-                          "%s/astra-chunk-%s",
-                          AstraConfig.getCacheConfig().getDataDirectory(), assignmentId));
+        .until(() -> {
+          Path dataDirectory =
+              Path.of(
+                  String.format(
+                      "%s/astra-chunk-%s",
+                      AstraConfig.getCacheConfig().getDataDirectory(), assignmentId));
 
-              if (java.nio.file.Files.isDirectory(dataDirectory)) {
-                FileUtils.cleanDirectory(dataDirectory.toFile());
-              }
-              readOnlyChunk.downloadChunkData();
+          if (java.nio.file.Files.isDirectory(dataDirectory)) {
+            FileUtils.cleanDirectory(dataDirectory.toFile());
+          }
+          readOnlyChunk.downloadChunkData();
 
-              return cacheNodeAssignmentStore.getSync(
-                          readOnlyChunk.getCacheNodeAssignment().cacheNodeId,
-                          readOnlyChunk.getCacheNodeAssignment().assignmentId)
-                      .state
-                  == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;
-            });
+          return cacheNodeAssignmentStore.getSync(
+                      readOnlyChunk.getCacheNodeAssignment().cacheNodeId,
+                      readOnlyChunk.getCacheNodeAssignment().assignmentId)
+                  .state
+              == Metadata.CacheNodeAssignment.CacheNodeAssignmentState.LIVE;
+        });
 
     SearchResult<LogMessage> logMessageSearchResult =
         readOnlyChunk.query(

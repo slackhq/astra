@@ -395,10 +395,9 @@ public class EtcdPartitioningMetadataStoreTest {
     List<TestPartitionedMetadata> items = store.listSync();
     List<TestPartitionedMetadata> filteredItems =
         items.stream()
-            .filter(
-                item ->
-                    item.getName().equals("testCacheInitialization1")
-                        || item.getName().equals("testCacheInitialization2"))
+            .filter(item ->
+                item.getName().equals("testCacheInitialization1")
+                    || item.getName().equals("testCacheInitialization2"))
             .toList();
     assertThat(filteredItems).hasSize(2);
 
@@ -437,10 +436,9 @@ public class EtcdPartitioningMetadataStoreTest {
       List<TestPartitionedMetadata> cachedItems = newStore.listSync();
       List<TestPartitionedMetadata> testItems =
           cachedItems.stream()
-              .filter(
-                  item ->
-                      item.getName().equals("testCacheInitialization1")
-                          || item.getName().equals("testCacheInitialization2"))
+              .filter(item ->
+                  item.getName().equals("testCacheInitialization1")
+                      || item.getName().equals("testCacheInitialization2"))
               .toList();
 
       assertThat(testItems).hasSize(2);

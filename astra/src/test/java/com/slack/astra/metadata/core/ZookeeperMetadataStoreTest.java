@@ -137,14 +137,13 @@ public class ZookeeperMetadataStoreTest {
       await().until(() -> Objects.equals(store.getSync(metadata1.name).getValue(), updatedValue));
 
       await()
-          .until(
-              () ->
-                  store.listSync().stream()
-                      .filter(instance -> instance.name.equals("foo"))
-                      .findFirst()
-                      .get()
-                      .getValue()
-                      .equals(updatedValue));
+          .until(() ->
+              store.listSync().stream()
+                  .filter(instance -> instance.name.equals("foo"))
+                  .findFirst()
+                  .get()
+                  .getValue()
+                  .equals(updatedValue));
 
       // delete a node by object reference, and ensure that list and cache both reflect the change
       store.deleteSync(metadata2);
@@ -202,18 +201,17 @@ public class ZookeeperMetadataStoreTest {
       store.createSync(metadata1);
 
       await()
-          .until(
-              () -> {
-                List<TestMetadata> metadata = AstraMetadataTestUtils.listSyncUncached(store);
-                return metadata.contains(metadata1) && metadata.size() == 1;
-              });
+          .until(() -> {
+            List<TestMetadata> metadata = AstraMetadataTestUtils.listSyncUncached(store);
+            return metadata.contains(metadata1) && metadata.size() == 1;
+          });
 
       // verify exceptions are thrown attempting to use cached methods
       assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(store::listSync);
       assertThatExceptionOfType(UnsupportedOperationException.class)
-          .isThrownBy(() -> store.addListener((metadata) -> {}));
+          .isThrownBy(() -> store.addListener(metadata -> {}));
       assertThatExceptionOfType(UnsupportedOperationException.class)
-          .isThrownBy(() -> store.removeListener((metadata) -> {}));
+          .isThrownBy(() -> store.removeListener(metadata -> {}));
     }
   }
 
@@ -303,7 +301,7 @@ public class ZookeeperMetadataStoreTest {
     try (ZookeeperMetadataStore<TestMetadata> store = new TestMetadataStoreZookeeper()) {
       AtomicInteger counter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<TestMetadata> listener =
-          (testMetadata) -> counter.incrementAndGet();
+          testMetadata -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);
@@ -344,7 +342,7 @@ public class ZookeeperMetadataStoreTest {
     try (ZookeeperMetadataStore<TestMetadata> store = new TestMetadataStoreZookeeper()) {
       AtomicInteger counter = new AtomicInteger(0);
       AstraMetadataStoreChangeListener<TestMetadata> listener =
-          (testMetadata) -> counter.incrementAndGet();
+          testMetadata -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);

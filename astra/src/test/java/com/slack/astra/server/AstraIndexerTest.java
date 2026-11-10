@@ -698,15 +698,13 @@ public class AstraIndexerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     if (rolloversCompleted > 0) {
       await()
-          .until(
-              () ->
-                  getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)
-                      == rolloversCompleted);
+          .until(() ->
+              getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)
+                  == rolloversCompleted);
       await()
-          .until(
-              () ->
-                  getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)
-                      == rolloversCompleted);
+          .until(() ->
+              getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)
+                  == rolloversCompleted);
       assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     }
     assertThat(getCount(AstraKafkaConsumer.RECORDS_RECEIVED_COUNTER, metricsRegistry))

@@ -132,50 +132,41 @@ class HpaMetricPublisherServiceTest {
 
     await().until(() -> hpaMetricMetadataStore.listSync().size() == 1);
     await()
-        .until(
-            () ->
-                meterRegistry.getMeters().stream()
-                        .filter(
-                            meter ->
-                                meter.getId().getName().contains("astra_zk")
-                                    || List.of("foo", "bar", "baz")
-                                        .contains(meter.getId().getName()))
-                        .toList()
-                        .size()
-                    == 10);
+        .until(() ->
+            meterRegistry.getMeters().stream()
+                    .filter(meter ->
+                        meter.getId().getName().contains("astra_zk")
+                            || List.of("foo", "bar", "baz").contains(meter.getId().getName()))
+                    .toList()
+                    .size()
+                == 10);
 
     hpaMetricMetadataStore.createSync(
         new HpaMetricMetadata("bar", Metadata.HpaMetricMetadata.NodeRole.INDEX, 1.0));
 
     await().until(() -> hpaMetricMetadataStore.listSync().size() == 2);
     await()
-        .until(
-            () ->
-                meterRegistry.getMeters().stream()
-                        .filter(
-                            meter ->
-                                meter.getId().getName().contains("astra_zk")
-                                    || List.of("foo", "bar", "baz")
-                                        .contains(meter.getId().getName()))
-                        .toList()
-                        .size()
-                    == 10);
+        .until(() ->
+            meterRegistry.getMeters().stream()
+                    .filter(meter ->
+                        meter.getId().getName().contains("astra_zk")
+                            || List.of("foo", "bar", "baz").contains(meter.getId().getName()))
+                    .toList()
+                    .size()
+                == 10);
 
     hpaMetricMetadataStore.createSync(
         new HpaMetricMetadata("baz", Metadata.HpaMetricMetadata.NodeRole.CACHE, 0.0));
 
     await().until(() -> hpaMetricMetadataStore.listSync().size() == 3);
     await()
-        .until(
-            () ->
-                meterRegistry.getMeters().stream()
-                        .filter(
-                            meter ->
-                                meter.getId().getName().contains("astra_zk")
-                                    || List.of("foo", "bar", "baz")
-                                        .contains(meter.getId().getName()))
-                        .toList()
-                        .size()
-                    == 11);
+        .until(() ->
+            meterRegistry.getMeters().stream()
+                    .filter(meter ->
+                        meter.getId().getName().contains("astra_zk")
+                            || List.of("foo", "bar", "baz").contains(meter.getId().getName()))
+                    .toList()
+                    .size()
+                == 11);
   }
 }

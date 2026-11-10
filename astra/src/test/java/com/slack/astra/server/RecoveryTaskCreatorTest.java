@@ -258,10 +258,9 @@ public class RecoveryTaskCreatorTest {
       List<SnapshotMetadata> expectedSnapshots) {
     actualSnapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
     await()
-        .until(
-            () ->
-                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)
-                    .containsAll(actualSnapshots));
+        .until(() ->
+            AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)
+                .containsAll(actualSnapshots));
 
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
@@ -637,38 +636,34 @@ public class RecoveryTaskCreatorTest {
   @Test
   public void testInit() {
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryTaskCreator(
-                    snapshotMetadataStore,
-                    recoveryTaskStore,
-                    partitionId,
-                    0,
-                    TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
-                    meterRegistry));
+        .isThrownBy(() ->
+            new RecoveryTaskCreator(
+                snapshotMetadataStore,
+                recoveryTaskStore,
+                partitionId,
+                0,
+                TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+                meterRegistry));
 
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryTaskCreator(
-                    snapshotMetadataStore,
-                    recoveryTaskStore,
-                    "",
-                    100,
-                    TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
-                    meterRegistry));
+        .isThrownBy(() ->
+            new RecoveryTaskCreator(
+                snapshotMetadataStore,
+                recoveryTaskStore,
+                "",
+                100,
+                TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+                meterRegistry));
 
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryTaskCreator(
-                    snapshotMetadataStore, recoveryTaskStore, partitionId, 100, 0, meterRegistry));
+        .isThrownBy(() ->
+            new RecoveryTaskCreator(
+                snapshotMetadataStore, recoveryTaskStore, partitionId, 100, 0, meterRegistry));
 
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryTaskCreator(
-                    snapshotMetadataStore, recoveryTaskStore, partitionId, 100, -1, meterRegistry));
+        .isThrownBy(() ->
+            new RecoveryTaskCreator(
+                snapshotMetadataStore, recoveryTaskStore, partitionId, 100, -1, meterRegistry));
   }
 
   @Test
@@ -1029,12 +1024,11 @@ public class RecoveryTaskCreatorTest {
             recoveryTaskName + "21", "2", recoveryStartOffset * 4 + 1, 50000, createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask21);
     await()
-        .until(
-            () ->
-                recoveryTaskStore
-                    .listSync()
-                    .containsAll(
-                        List.of(recoveryTask1, recoveryTask11, recoveryTask2, recoveryTask21)));
+        .until(() ->
+            recoveryTaskStore
+                .listSync()
+                .containsAll(
+                    List.of(recoveryTask1, recoveryTask11, recoveryTask2, recoveryTask21)));
 
     final long currentHeadOffset = 4000;
     assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset, 0, indexerConfig))
@@ -1078,10 +1072,8 @@ public class RecoveryTaskCreatorTest {
         new SnapshotMetadata(name, startTime, endTime, maxOffset, partitionId, 100);
     snapshotMetadataStore.createSync(partition1);
     await()
-        .until(
-            () ->
-                AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore)
-                    .contains(partition1));
+        .until(() ->
+            AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore).contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore),
@@ -1148,11 +1140,10 @@ public class RecoveryTaskCreatorTest {
             name + "2", startTime, ChunkInfo.MAX_FUTURE_TIME, maxOffset * 5, "2", 0);
     snapshotMetadataStore.createSync(livePartition2);
     await()
-        .until(
-            () ->
-                snapshotMetadataStore
-                    .listSync()
-                    .containsAll(List.of(livePartition1, livePartition11, livePartition2)));
+        .until(() ->
+            snapshotMetadataStore
+                .listSync()
+                .containsAll(List.of(livePartition1, livePartition11, livePartition2)));
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition2);
     assertThat(recoveryTaskCreator.determineStartingOffset(250, 0, indexerConfig)).isEqualTo(201);
@@ -1169,11 +1160,10 @@ public class RecoveryTaskCreatorTest {
         new SnapshotMetadata(name + "3", startTime, endTime, maxOffset * 3, "2", 0);
     snapshotMetadataStore.createSync(partition2);
     await()
-        .until(
-            () ->
-                snapshotMetadataStore
-                    .listSync()
-                    .containsAll(List.of(livePartition1, livePartition11, partition2)));
+        .until(() ->
+            snapshotMetadataStore
+                .listSync()
+                .containsAll(List.of(livePartition1, livePartition11, partition2)));
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
     assertThat(recoveryTaskCreator.determineStartingOffset(250, 0, indexerConfig)).isEqualTo(201);
@@ -1241,11 +1231,10 @@ public class RecoveryTaskCreatorTest {
 
     AtomicReference<List<RecoveryTaskMetadata>> recoveryTasks = new AtomicReference<>();
     await()
-        .until(
-            () -> {
-              recoveryTasks.set(recoveryTaskStore.listSync());
-              return recoveryTasks.get().size() == 1;
-            });
+        .until(() -> {
+          recoveryTasks.set(recoveryTaskStore.listSync());
+          return recoveryTasks.get().size() == 1;
+        });
     RecoveryTaskMetadata recoveryTask1 = recoveryTasks.get().get(0);
     assertThat(recoveryTask1.startOffset).isEqualTo(201);
     assertThat(recoveryTask1.endOffset).isEqualTo(1249);
@@ -1265,11 +1254,10 @@ public class RecoveryTaskCreatorTest {
             name + "live1", startTime, ChunkInfo.MAX_FUTURE_TIME, maxOffset, partitionId, 0);
     snapshotMetadataStore.createSync(livePartition1);
     await()
-        .until(
-            () ->
-                snapshotMetadataStore
-                    .listSync()
-                    .containsAll(List.of(partition1, partition11, livePartition1)));
+        .until(() ->
+            snapshotMetadataStore
+                .listSync()
+                .containsAll(List.of(partition1, partition11, livePartition1)));
     assertThat(AstraMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .containsExactly(recoveryTask1);
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -1299,11 +1287,8 @@ public class RecoveryTaskCreatorTest {
             name + "live11", startTime, ChunkInfo.MAX_FUTURE_TIME, maxOffset, partitionId, 0);
     snapshotMetadataStore.createSync(livePartition11);
     await()
-        .until(
-            () ->
-                snapshotMetadataStore
-                    .listSync()
-                    .containsAll(List.of(livePartition1, livePartition11)));
+        .until(() ->
+            snapshotMetadataStore.listSync().containsAll(List.of(livePartition1, livePartition11)));
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition11);
     assertThat(recoveryTaskCreator.determineStartingOffset(1500, 0, indexerConfig)).isEqualTo(1450);
@@ -1338,11 +1323,10 @@ public class RecoveryTaskCreatorTest {
             name + "2", startTime, ChunkInfo.MAX_FUTURE_TIME, maxOffset * 5, "2", 0);
     snapshotMetadataStore.createSync(livePartition2);
     await()
-        .until(
-            () ->
-                snapshotMetadataStore
-                    .listSync()
-                    .containsAll(List.of(livePartition1, livePartition11, livePartition2)));
+        .until(() ->
+            snapshotMetadataStore
+                .listSync()
+                .containsAll(List.of(livePartition1, livePartition11, livePartition2)));
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition2);
     assertThat(recoveryTaskCreator.determineStartingOffset(1660, 0, indexerConfig)).isEqualTo(1650);
@@ -1376,11 +1360,10 @@ public class RecoveryTaskCreatorTest {
         new SnapshotMetadata(name + "3", startTime, endTime, maxOffset * 3, "2", 100);
     snapshotMetadataStore.createSync(partition2);
     await()
-        .until(
-            () ->
-                snapshotMetadataStore
-                    .listSync()
-                    .containsAll(List.of(livePartition1, livePartition11, livePartition2)));
+        .until(() ->
+            snapshotMetadataStore
+                .listSync()
+                .containsAll(List.of(livePartition1, livePartition11, livePartition2)));
     assertThat(AstraMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
     final RecoveryTaskMetadata recoveryTaskPartition2 =

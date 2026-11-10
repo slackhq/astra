@@ -404,23 +404,22 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     try {
       store
           .sizeAsync()
-          .thenAcceptAsync(
-              (remaining) -> {
-                if (remaining == 0) {
-                  LOG.info("Closing unused store for deleted partition: {}", partition);
-                  closePartitionStore(partition, store);
-                } else {
-                  // The watch fires one DELETE event per key under the store folder, so this
-                  // branch is hit on every single-node deletion from a partition that still has
-                  // other members (the common case for busy partitions like LIVE). That is normal
-                  // - only the emptied-partition case above is noteworthy - so keep this at DEBUG
-                  // to avoid flooding logs on high-churn partitions.
-                  LOG.debug(
-                      "Deletion event on partition {}, but store still has {} cached elements. Keeping store active.",
-                      partition,
-                      remaining);
-                }
-              });
+          .thenAcceptAsync(remaining -> {
+            if (remaining == 0) {
+              LOG.info("Closing unused store for deleted partition: {}", partition);
+              closePartitionStore(partition, store);
+            } else {
+              // The watch fires one DELETE event per key under the store folder, so this
+              // branch is hit on every single-node deletion from a partition that still has
+              // other members (the common case for busy partitions like LIVE). That is normal
+              // - only the emptied-partition case above is noteworthy - so keep this at DEBUG
+              // to avoid flooding logs on high-churn partitions.
+              LOG.debug(
+                  "Deletion event on partition {}, but store still has {} cached elements. Keeping store active.",
+                  partition,
+                  remaining);
+            }
+          });
     } catch (Exception e) {
       LOG.error("Error checking partition store for deletion: {}", partition, e);
       closePartitionStore(partition, store);
@@ -555,12 +554,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     }
 
     return CompletableFuture.allOf(completionStages.toArray(new CompletableFuture[0]))
-        .thenApply(
-            _ ->
-                completionStages.stream()
-                    .map(f -> f.toCompletableFuture().join())
-                    .flatMap(List::stream)
-                    .collect(Collectors.toList()));
+        .thenApply(_ ->
+            completionStages.stream()
+                .map(f -> f.toCompletableFuture().join())
+                .flatMap(List::stream)
+                .collect(Collectors.toList()));
   }
 
   public List<T> listSync() {
@@ -652,12 +650,11 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
       throws InterruptedException, ExecutionException, TimeoutException {
     List<CompletableFuture<EtcdRangePaginator.PaginatedRange>> probes =
         partitionFilters.stream()
-            .map(
-                partition ->
-                    EtcdRangePaginator.firstKeyAsync(
-                        etcdClient.getKVClient(),
-                        ByteSequence.from(storeFolderPrefix + partition, StandardCharsets.UTF_8),
-                        operationsTimeoutMs))
+            .map(partition ->
+                EtcdRangePaginator.firstKeyAsync(
+                    etcdClient.getKVClient(),
+                    ByteSequence.from(storeFolderPrefix + partition, StandardCharsets.UTF_8),
+                    operationsTimeoutMs))
             .toList();
 
     // Each probe carries its own timeout, so getting them in turn is already bounded.
@@ -744,7 +741,7 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     EtcdMetadataStore<T> store =
         metadataStoreMap.computeIfAbsent(
             partition,
-            (p1) -> {
+            p1 -> {
               String path = String.format("%s/%s", storeFolder, p1);
               LOG.debug(
                   "Creating new etcd metadata store for partition - {}, at path - {}",
@@ -843,11 +840,10 @@ public class EtcdPartitioningMetadataStore<T extends AstraPartitionedMetadata>
     LOG.info("Initializing caches for {} partitioned stores", metadataStoreMap.size());
 
     // Initialize cache for each metadata store
-    metadataStoreMap.forEach(
-        (partition, store) -> {
-          LOG.debug("Initializing cache for partition {}", partition);
-          store.awaitCacheInitialized();
-        });
+    metadataStoreMap.forEach((partition, store) -> {
+      LOG.debug("Initializing cache for partition {}", partition);
+      store.awaitCacheInitialized();
+    });
 
     LOG.info("Completed cache initialization for {} partitioned stores", metadataStoreMap.size());
   }

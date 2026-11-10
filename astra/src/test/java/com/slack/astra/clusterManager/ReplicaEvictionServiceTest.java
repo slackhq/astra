@@ -153,11 +153,10 @@ public class ReplicaEvictionServiceTest {
             .build();
 
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                new ReplicaEvictionService(
-                        cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
-                    .scheduler());
+        .isThrownBy(() ->
+            new ReplicaEvictionService(
+                    cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
+                .scheduler());
   }
 
   @Test
@@ -328,13 +327,11 @@ public class ReplicaEvictionServiceTest {
 
     assertThat(replicaMetadataStore.listSync()).containsExactly(replicaMetadata);
     await()
-        .until(
-            () ->
-                cacheSlotMetadataStore.listSync().stream()
-                    .allMatch(
-                        cacheSlot ->
-                            cacheSlot.cacheSlotState.equals(
-                                Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
+        .until(() ->
+            cacheSlotMetadataStore.listSync().stream()
+                .allMatch(cacheSlot ->
+                    cacheSlot.cacheSlotState.equals(
+                        Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
 
     CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.listSync().get(0);
     assertThat(updatedCacheSlot.updatedTimeEpochMs)
@@ -550,13 +547,11 @@ public class ReplicaEvictionServiceTest {
     assertThat(replicaMetadataStore.listSync()).containsExactly(replicaMetadata);
 
     await()
-        .until(
-            () ->
-                cacheSlotMetadataStore.listSync().stream()
-                    .allMatch(
-                        cacheSlot ->
-                            cacheSlot.cacheSlotState.equals(
-                                Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
+        .until(() ->
+            cacheSlotMetadataStore.listSync().stream()
+                .allMatch(cacheSlot ->
+                    cacheSlot.cacheSlotState.equals(
+                        Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
 
     CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.listSync().get(0);
     assertThat(updatedCacheSlot.updatedTimeEpochMs)
@@ -648,25 +643,21 @@ public class ReplicaEvictionServiceTest {
 
     assertThat(replicaMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(replicas);
     await()
-        .until(
-            () ->
-                cacheSlotMetadataStore.listSync().stream()
-                        .filter(
-                            cacheSlotMetadata ->
-                                cacheSlotMetadata.cacheSlotState.equals(
-                                    Metadata.CacheSlotMetadata.CacheSlotState.LIVE))
-                        .count()
-                    == 1);
+        .until(() ->
+            cacheSlotMetadataStore.listSync().stream()
+                    .filter(cacheSlotMetadata ->
+                        cacheSlotMetadata.cacheSlotState.equals(
+                            Metadata.CacheSlotMetadata.CacheSlotState.LIVE))
+                    .count()
+                == 1);
     await()
-        .until(
-            () ->
-                cacheSlotMetadataStore.listSync().stream()
-                        .filter(
-                            cacheSlotMetadata ->
-                                cacheSlotMetadata.cacheSlotState.equals(
-                                    Metadata.CacheSlotMetadata.CacheSlotState.EVICT))
-                        .count()
-                    == 1);
+        .until(() ->
+            cacheSlotMetadataStore.listSync().stream()
+                    .filter(cacheSlotMetadata ->
+                        cacheSlotMetadata.cacheSlotState.equals(
+                            Metadata.CacheSlotMetadata.CacheSlotState.EVICT))
+                    .count()
+                == 1);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(2);
 
     assertThat(
@@ -688,15 +679,13 @@ public class ReplicaEvictionServiceTest {
 
     assertThat(replicaMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(replicas);
     await()
-        .until(
-            () ->
-                cacheSlotMetadataStore.listSync().stream()
-                        .filter(
-                            cacheSlotMetadata ->
-                                cacheSlotMetadata.cacheSlotState.equals(
-                                    Metadata.CacheSlotMetadata.CacheSlotState.EVICT))
-                        .count()
-                    == 2);
+        .until(() ->
+            cacheSlotMetadataStore.listSync().stream()
+                    .filter(cacheSlotMetadata ->
+                        cacheSlotMetadata.cacheSlotState.equals(
+                            Metadata.CacheSlotMetadata.CacheSlotState.EVICT))
+                    .count()
+                == 2);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(2);
 
     assertThat(
@@ -815,21 +804,18 @@ public class ReplicaEvictionServiceTest {
     replicaEvictionService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     await()
-        .until(
-            () ->
-                MetricsUtil.getTimerCount(
-                        ReplicaEvictionService.REPLICA_MARK_EVICT_TIMER, meterRegistry)
-                    == 1);
+        .until(() ->
+            MetricsUtil.getTimerCount(
+                    ReplicaEvictionService.REPLICA_MARK_EVICT_TIMER, meterRegistry)
+                == 1);
     await()
-        .until(
-            () ->
-                cacheSlotMetadataStore.listSync().stream()
-                        .filter(
-                            cacheSlotMetadata ->
-                                cacheSlotMetadata.cacheSlotState.equals(
-                                    Metadata.CacheSlotMetadata.CacheSlotState.EVICT))
-                        .count()
-                    == 2);
+        .until(() ->
+            cacheSlotMetadataStore.listSync().stream()
+                    .filter(cacheSlotMetadata ->
+                        cacheSlotMetadata.cacheSlotState.equals(
+                            Metadata.CacheSlotMetadata.CacheSlotState.EVICT))
+                    .count()
+                == 2);
 
     assertThat(replicaMetadataStore.listSync())
         .containsExactlyInAnyOrder(
@@ -844,9 +830,8 @@ public class ReplicaEvictionServiceTest {
     @SuppressWarnings("OptionalGetWithoutIsPresent")
     CacheSlotMetadata updatedCacheSlot =
         cacheSlotMetadataStore.listSync().stream()
-            .filter(
-                cacheSlotMetadata ->
-                    Objects.equals(cacheSlotMetadata.name, cacheSlotReplicaExpiredOne.name))
+            .filter(cacheSlotMetadata ->
+                Objects.equals(cacheSlotMetadata.name, cacheSlotReplicaExpiredOne.name))
             .findFirst()
             .get();
     assertThat(updatedCacheSlot.replicaId).isEqualTo(cacheSlotReplicaExpiredOne.replicaId);

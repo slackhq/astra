@@ -342,50 +342,44 @@ public class LuceneIndexStoreImpl implements LogStore {
 
   @Override
   public void commit() {
-    commitsTimer.record(
-        () -> {
-          LOG.debug("Indexer starting commit for: " + indexDirectory.getDirectory().toString());
-          try {
-            syncCommit();
-            LOG.debug("Indexer finished commit for: " + indexDirectory.getDirectory().toString());
-          } catch (IOException e) {
-            LOG.error("Indexer failed commit for: " + indexDirectory.getDirectory().toString());
-            handleNonFatal(e);
-          }
-        });
+    commitsTimer.record(() -> {
+      LOG.debug("Indexer starting commit for: " + indexDirectory.getDirectory().toString());
+      try {
+        syncCommit();
+        LOG.debug("Indexer finished commit for: " + indexDirectory.getDirectory().toString());
+      } catch (IOException e) {
+        LOG.error("Indexer failed commit for: " + indexDirectory.getDirectory().toString());
+        handleNonFatal(e);
+      }
+    });
   }
 
   @Override
   public void refresh() {
-    refreshesTimer.record(
-        () -> {
-          LOG.debug("Indexer starting refresh for: " + indexDirectory.getDirectory().toString());
-          try {
-            syncRefresh();
-            LOG.debug("Indexer finished refresh for: " + indexDirectory.getDirectory().toString());
-          } catch (IOException e) {
-            LOG.error("Indexer failed refresh for: " + indexDirectory.getDirectory().toString());
-            handleNonFatal(e);
-          }
-        });
+    refreshesTimer.record(() -> {
+      LOG.debug("Indexer starting refresh for: " + indexDirectory.getDirectory().toString());
+      try {
+        syncRefresh();
+        LOG.debug("Indexer finished refresh for: " + indexDirectory.getDirectory().toString());
+      } catch (IOException e) {
+        LOG.error("Indexer failed refresh for: " + indexDirectory.getDirectory().toString());
+        handleNonFatal(e);
+      }
+    });
   }
 
   @Override
   public void finalMerge() {
-    finalMergesTimer.record(
-        () -> {
-          LOG.debug(
-              "Indexer starting final merge for: " + indexDirectory.getDirectory().toString());
-          try {
-            syncFinalMerge();
-            LOG.debug(
-                "Indexer finished final merge for: " + indexDirectory.getDirectory().toString());
-          } catch (IOException e) {
-            LOG.error(
-                "Indexer failed final merge for: " + indexDirectory.getDirectory().toString());
-            handleNonFatal(e);
-          }
-        });
+    finalMergesTimer.record(() -> {
+      LOG.debug("Indexer starting final merge for: " + indexDirectory.getDirectory().toString());
+      try {
+        syncFinalMerge();
+        LOG.debug("Indexer finished final merge for: " + indexDirectory.getDirectory().toString());
+      } catch (IOException e) {
+        LOG.error("Indexer failed final merge for: " + indexDirectory.getDirectory().toString());
+        handleNonFatal(e);
+      }
+    });
   }
 
   @Override

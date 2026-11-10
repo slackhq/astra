@@ -53,10 +53,8 @@ public class BulkApiRequestParserTest {
     assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(4);
     assertThat(
             indexDocs.get("test").get(0).getTagsList().stream()
-                .filter(
-                    keyValue ->
-                        keyValue.getKey().equals("service_name")
-                            && keyValue.getVStr().equals("test"))
+                .filter(keyValue ->
+                    keyValue.getKey().equals("service_name") && keyValue.getVStr().equals("test"))
                 .count())
         .isEqualTo(1);
     assertThat(indexDocs.get("test").get(0).getTimestamp()).isEqualTo(4739680479544123L);
@@ -82,10 +80,8 @@ public class BulkApiRequestParserTest {
     assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(4);
     assertThat(
             indexDocs.get("test").get(0).getTagsList().stream()
-                .filter(
-                    keyValue ->
-                        keyValue.getKey().equals("service_name")
-                            && keyValue.getVStr().equals("test"))
+                .filter(keyValue ->
+                    keyValue.getKey().equals("service_name") && keyValue.getVStr().equals("test"))
                 .count())
         .isEqualTo(1);
     assertThat(indexDocs.get("test").get(0).getTimestamp()).isEqualTo(4739680479544000L);
@@ -107,10 +103,8 @@ public class BulkApiRequestParserTest {
     assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(1);
     assertThat(
             indexDocs.get("test").get(0).getTagsList().stream()
-                .filter(
-                    keyValue ->
-                        keyValue.getKey().equals("service_name")
-                            && keyValue.getVStr().equals("test"))
+                .filter(keyValue ->
+                    keyValue.getKey().equals("service_name") && keyValue.getVStr().equals("test"))
                 .count())
         .isEqualTo(1);
   }
@@ -131,10 +125,8 @@ public class BulkApiRequestParserTest {
     assertThat(indexDocs.get("test").get(0).getTagsList().size()).isEqualTo(1);
     assertThat(
             indexDocs.get("test").get(0).getTagsList().stream()
-                .filter(
-                    keyValue ->
-                        keyValue.getKey().equals("service_name")
-                            && keyValue.getVStr().equals("test"))
+                .filter(keyValue ->
+                    keyValue.getKey().equals("service_name") && keyValue.getVStr().equals("test"))
                 .count())
         .isEqualTo(1);
   }
@@ -173,10 +165,9 @@ public class BulkApiRequestParserTest {
     assertThat(indexDocs.get("index_name").get(0).getTagsList().size()).isEqualTo(4);
     assertThat(
             indexDocs.get("index_name").get(0).getTagsList().stream()
-                .filter(
-                    keyValue ->
-                        keyValue.getKey().equals("service_name")
-                            && keyValue.getVStr().equals("index_name"))
+                .filter(keyValue ->
+                    keyValue.getKey().equals("service_name")
+                        && keyValue.getVStr().equals("index_name"))
                 .count())
         .isEqualTo(1);
   }
@@ -203,20 +194,16 @@ public class BulkApiRequestParserTest {
     assertThat(indexDoc1.getTagsList().size()).isEqualTo(2);
     assertThat(
             indexDoc1.getTagsList().stream()
-                .filter(
-                    keyValue ->
-                        keyValue.getKey().equals("service_name")
-                            && keyValue.getVStr().equals("test1"))
+                .filter(keyValue ->
+                    keyValue.getKey().equals("service_name") && keyValue.getVStr().equals("test1"))
                 .count())
         .isEqualTo(1);
 
     assertThat(indexDoc3.getTagsList().size()).isEqualTo(2);
     assertThat(
             indexDoc3.getTagsList().stream()
-                .filter(
-                    keyValue ->
-                        keyValue.getKey().equals("service_name")
-                            && keyValue.getVStr().equals("test3"))
+                .filter(keyValue ->
+                    keyValue.getKey().equals("service_name") && keyValue.getVStr().equals("test3"))
                 .count())
         .isEqualTo(1);
   }
@@ -468,9 +455,9 @@ public class BulkApiRequestParserTest {
 
     String request =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "allowed" : "val1", "unknown" : "val2", "service_name" : "svc" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "allowed" : "val1", "unknown" : "val2", "service_name" : "svc" }
+        """;
     Map<String, List<Trace.Span>> docs =
         BulkApiRequestParser.parseRequest(
             request.getBytes(StandardCharsets.UTF_8),
@@ -496,9 +483,9 @@ public class BulkApiRequestParserTest {
 
     String request =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "allowed" : "val1", "unknown" : "val2" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "allowed" : "val1", "unknown" : "val2" }
+        """;
     Map<String, List<Trace.Span>> docs =
         BulkApiRequestParser.parseRequest(
             request.getBytes(StandardCharsets.UTF_8),
@@ -524,9 +511,9 @@ public class BulkApiRequestParserTest {
 
     String request =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "unknown1" : "val1", "unknown2" : "val2", "service_name" : "svc" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "unknown1" : "val1", "unknown2" : "val2", "service_name" : "svc" }
+        """;
     Map<String, List<Trace.Span>> docs =
         BulkApiRequestParser.parseRequest(
             request.getBytes(StandardCharsets.UTF_8),
@@ -545,9 +532,9 @@ public class BulkApiRequestParserTest {
 
     String request =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "field1" : "val1", "service_name" : "svc" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "field1" : "val1", "service_name" : "svc" }
+        """;
     Map<String, List<Trace.Span>> docs =
         BulkApiRequestParser.parseRequest(
             request.getBytes(StandardCharsets.UTF_8),
@@ -575,9 +562,9 @@ public class BulkApiRequestParserTest {
     // count has value "hello" which can't parse as INTEGER, message is fine as TEXT
     String request =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "count" : "hello", "message" : "valid text" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "count" : "hello", "message" : "valid text" }
+        """;
     Map<String, List<Trace.Span>> docs =
         BulkApiRequestParser.parseRequest(
             request.getBytes(StandardCharsets.UTF_8),

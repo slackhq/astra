@@ -209,14 +209,13 @@ class BulkIngestKafkaProducerTest {
 
     // need a consumer thread for reading synchronous queue
     Thread.ofVirtual()
-        .start(
-            () -> {
-              try {
-                response.set(request.getResponse());
-              } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-              }
-            });
+        .start(() -> {
+          try {
+            response.set(request.getResponse());
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+        });
 
     await().until(() -> response.get() != null);
     assertThat(
@@ -233,14 +232,13 @@ class BulkIngestKafkaProducerTest {
 
     // need a consumer thread for reading synchronous queue
     Thread.ofVirtual()
-        .start(
-            () -> {
-              try {
-                responseOk.set(requestOk.getResponse());
-              } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-              }
-            });
+        .start(() -> {
+          try {
+            responseOk.set(requestOk.getResponse());
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+        });
 
     await().until(() -> responseOk.get() != null);
     assertThat(responseOk.get().totalDocs()).isEqualTo(1);
@@ -271,15 +269,14 @@ class BulkIngestKafkaProducerTest {
 
     BulkIngestRequest request1 = new BulkIngestRequest(indexDocs);
     Thread.ofVirtual()
-        .start(
-            () -> {
-              try {
-                // because of the synchronous queue, we need someone consuming the response before
-                // we attempt to set it
-                request1.getResponse();
-              } catch (InterruptedException ignored) {
-              }
-            });
+        .start(() -> {
+          try {
+            // because of the synchronous queue, we need someone consuming the response before
+            // we attempt to set it
+            request1.getResponse();
+          } catch (InterruptedException ignored) {
+          }
+        });
     BulkIngestResponse responseObj =
         (BulkIngestResponse)
             bulkIngestKafkaProducer.produceDocuments(List.of(request1)).values().toArray()[0];
@@ -289,22 +286,20 @@ class BulkIngestKafkaProducerTest {
 
     // todo - this pretty consistently times out waiting to evaluate true
     await()
-        .until(
-            () -> {
-              @SuppressWarnings("OptionalGetWithoutIsPresent")
-              long partitionOffset =
-                  (Long)
-                      kafkaConsumer
-                          .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
-                          .values()
-                          .stream()
-                          .findFirst()
-                          .get();
-              LOG.debug(
-                  "Current partitionOffset - {}. expecting offset to be less than 5",
-                  partitionOffset);
-              return partitionOffset > 0 && partitionOffset < 5;
-            });
+        .until(() -> {
+          @SuppressWarnings("OptionalGetWithoutIsPresent")
+          long partitionOffset =
+              (Long)
+                  kafkaConsumer
+                      .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
+                      .values()
+                      .stream()
+                      .findFirst()
+                      .get();
+          LOG.debug(
+              "Current partitionOffset - {}. expecting offset to be less than 5", partitionOffset);
+          return partitionOffset > 0 && partitionOffset < 5;
+        });
 
     ConsumerRecords<String, byte[]> records =
         kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
@@ -331,15 +326,14 @@ class BulkIngestKafkaProducerTest {
 
     BulkIngestRequest request2 = new BulkIngestRequest(indexDocs);
     Thread.ofVirtual()
-        .start(
-            () -> {
-              try {
-                // because of the synchronous queue, we need someone consuming the response before
-                // we attempt to set it
-                request2.getResponse();
-              } catch (InterruptedException ignored) {
-              }
-            });
+        .start(() -> {
+          try {
+            // because of the synchronous queue, we need someone consuming the response before
+            // we attempt to set it
+            request2.getResponse();
+          } catch (InterruptedException ignored) {
+          }
+        });
     responseObj =
         (BulkIngestResponse)
             bulkIngestKafkaProducer.produceDocuments(List.of(request2)).values().toArray()[0];
@@ -352,10 +346,8 @@ class BulkIngestKafkaProducerTest {
     records = kafkaConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
 
     assertThat(records.count()).isEqualTo(5);
-    records.forEach(
-        record ->
-            LOG.info(
-                "Trace= + " + TraceSpanParserSilenceError(record.value()).getId().toStringUtf8()));
+    records.forEach(record ->
+        LOG.info("Trace= + " + TraceSpanParserSilenceError(record.value()).getId().toStringUtf8()));
 
     // close the kafka consumer used in the test
     kafkaConsumer.close();
@@ -379,23 +371,22 @@ class BulkIngestKafkaProducerTest {
 
   public void validateOffset(KafkaConsumer kafkaConsumer, long expectedOffset) {
     await()
-        .until(
-            () -> {
-              @SuppressWarnings("OptionalGetWithoutIsPresent")
-              long partitionOffset =
-                  (Long)
-                      kafkaConsumer
-                          .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
-                          .values()
-                          .stream()
-                          .findFirst()
-                          .get();
-              LOG.debug(
-                  "Current partitionOffset - {}. expecting offset to be - {}",
-                  partitionOffset,
-                  expectedOffset);
-              return partitionOffset == expectedOffset;
-            });
+        .until(() -> {
+          @SuppressWarnings("OptionalGetWithoutIsPresent")
+          long partitionOffset =
+              (Long)
+                  kafkaConsumer
+                      .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
+                      .values()
+                      .stream()
+                      .findFirst()
+                      .get();
+          LOG.debug(
+              "Current partitionOffset - {}. expecting offset to be - {}",
+              partitionOffset,
+              expectedOffset);
+          return partitionOffset == expectedOffset;
+        });
   }
 
   private static Trace.Span TraceSpanParserSilenceError(byte[] data) {

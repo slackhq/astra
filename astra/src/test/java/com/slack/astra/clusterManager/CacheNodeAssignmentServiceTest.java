@@ -314,11 +314,9 @@ public class CacheNodeAssignmentServiceTest {
 
     await()
         .timeout(20, TimeUnit.SECONDS)
-        .until(
-            () ->
-                filterAssignmentsByState(
-                        Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT)
-                    == 6);
+        .until(() ->
+            filterAssignmentsByState(Metadata.CacheNodeAssignment.CacheNodeAssignmentState.EVICT)
+                == 6);
   }
 
   @Test

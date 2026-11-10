@@ -593,13 +593,12 @@ public class IndexingChunkManagerTest {
     // Inserting a message from a different kafka partition fails
     Trace.Span messageWithInvalidTopic = SpanUtil.makeSpan(103);
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                chunkManager.addMessage(
-                    messageWithInvalidTopic,
-                    messageWithInvalidTopic.toString().length(),
-                    "differentKafkaTopic",
-                    lowerOffset + 1));
+        .isThrownBy(() ->
+            chunkManager.addMessage(
+                messageWithInvalidTopic,
+                messageWithInvalidTopic.toString().length(),
+                "differentKafkaTopic",
+                lowerOffset + 1));
   }
 
   private void testChunkManagerSearch(
@@ -1092,10 +1091,9 @@ public class IndexingChunkManagerTest {
     // Close the log searcher on chunks.
     chunkManager
         .getChunkList()
-        .forEach(
-            chunk ->
-                ((ReadWriteChunk<LogMessage>) chunk)
-                    .setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
+        .forEach(chunk ->
+            ((ReadWriteChunk<LogMessage>) chunk)
+                .setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
 
     testChunkManagerSearch(chunkManager, "Message1", 0, 0, 0, 3);
     testChunkManagerSearch(chunkManager, "Message11", 0, 0, 0, 3);
@@ -1104,10 +1102,9 @@ public class IndexingChunkManagerTest {
     // Query interface throws search exceptions.
     chunkManager
         .getChunkList()
-        .forEach(
-            chunk ->
-                ((ReadWriteChunk<LogMessage>) chunk)
-                    .setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
+        .forEach(chunk ->
+            ((ReadWriteChunk<LogMessage>) chunk)
+                .setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
 
     Throwable throwable =
         catchThrowable(() -> searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME));
@@ -1680,16 +1677,15 @@ public class IndexingChunkManagerTest {
         await()
             .until(
                 () -> getValue(LIVE_MESSAGES_INDEXED, metricsRegistry),
-                (value) -> value == finalActualMessagesGauge);
+                value -> value == finalActualMessagesGauge);
         final int finalActualBytesGauge = actualBytesGauge;
         await()
             .until(
                 () -> getValue(LIVE_BYTES_INDEXED, metricsRegistry),
-                (value) -> value == finalActualBytesGauge);
+                value -> value == finalActualBytesGauge);
       } else { // Gauge is reset on roll over
-        await()
-            .until(() -> getValue(LIVE_MESSAGES_INDEXED, metricsRegistry), (value) -> value == 0);
-        await().until(() -> getValue(LIVE_BYTES_INDEXED, metricsRegistry), (value) -> value == 0);
+        await().until(() -> getValue(LIVE_MESSAGES_INDEXED, metricsRegistry), value -> value == 0);
+        await().until(() -> getValue(LIVE_BYTES_INDEXED, metricsRegistry), value -> value == 0);
       }
     }
   }
@@ -1736,11 +1732,10 @@ public class IndexingChunkManagerTest {
     Chunk<LogMessage> mockTimeoutChunk = mock(Chunk.class);
     when(mockTimeoutChunk.id()).thenReturn("timeout");
     when(mockTimeoutChunk.query(any()))
-        .thenAnswer(
-            inv -> {
-              Thread.sleep(1_000); // ensure it's still running when joinUntil returns
-              return mock(SearchResult.class);
-            });
+        .thenAnswer(inv -> {
+          Thread.sleep(1_000); // ensure it's still running when joinUntil returns
+          return mock(SearchResult.class);
+        });
     chunkManager.chunkMap.put("timeout", mockTimeoutChunk);
 
     SearchQuery searchQuery =

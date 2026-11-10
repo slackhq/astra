@@ -66,7 +66,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
   private ScheduledFuture<?> pendingTask;
 
   private final AstraMetadataStoreChangeListener<SnapshotMetadata> snapshotListener =
-      (snapshotMetadata) -> runOneIteration();
+      snapshotMetadata -> runOneIteration();
 
   public ReplicaCreationService(
       ReplicaMetadataStore replicaMetadataStore,
@@ -173,36 +173,34 @@ public class ReplicaCreationService extends AbstractScheduledService {
           snapshotMetadataStore.listSync().stream()
               // only attempt to create replicas for snapshots that have not expired, not live, and
               // do not already exist
-              .filter(
-                  snapshotMetadata ->
-                      snapshotMetadata.endTimeEpochMs > snapshotExpiration
-                          && !snapshotMetadata.isLive()
-                          && !existingReplicas.contains(snapshotMetadata.snapshotId))
-              .map(
-                  (snapshotMetadata) -> {
-                    // todo - consider refactoring this to return a completable future //
-                    // instead
-                    ListenableFuture<?> future =
-                        JdkFutureAdapters.listenInPoolThread(
-                            replicaMetadataStore
-                                .createAsync(
-                                    replicaMetadataFromSnapshotId(
-                                        snapshotMetadata.snapshotId,
-                                        replicaSet,
-                                        Instant.ofEpochMilli(snapshotMetadata.endTimeEpochMs)
-                                            .plus(
-                                                managerConfig
-                                                    .getReplicaCreationServiceConfig()
-                                                    .getReplicaLifespanMins(),
-                                                ChronoUnit.MINUTES),
-                                        false))
-                                .toCompletableFuture());
-                    addCallback(
-                        future,
-                        successCountingCallback(successCounter),
-                        MoreExecutors.directExecutor());
-                    return future;
-                  })
+              .filter(snapshotMetadata ->
+                  snapshotMetadata.endTimeEpochMs > snapshotExpiration
+                      && !snapshotMetadata.isLive()
+                      && !existingReplicas.contains(snapshotMetadata.snapshotId))
+              .map(snapshotMetadata -> {
+                // todo - consider refactoring this to return a completable future //
+                // instead
+                ListenableFuture<?> future =
+                    JdkFutureAdapters.listenInPoolThread(
+                        replicaMetadataStore
+                            .createAsync(
+                                replicaMetadataFromSnapshotId(
+                                    snapshotMetadata.snapshotId,
+                                    replicaSet,
+                                    Instant.ofEpochMilli(snapshotMetadata.endTimeEpochMs)
+                                        .plus(
+                                            managerConfig
+                                                .getReplicaCreationServiceConfig()
+                                                .getReplicaLifespanMins(),
+                                            ChronoUnit.MINUTES),
+                                    false))
+                            .toCompletableFuture());
+                addCallback(
+                    future,
+                    successCountingCallback(successCounter),
+                    MoreExecutors.directExecutor());
+                return future;
+              })
               .collect(Collectors.toUnmodifiableList());
 
       ListenableFuture<?> futureList = Futures.successfulAsList(createdReplicaMetadataList);

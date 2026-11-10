@@ -42,12 +42,12 @@ public class ReplicaMetadataSerializerTest {
     // this can likely be removed after this code has shipped to production
     String emptyExpirationAndRestore =
         """
-                    {
-                        "name": "name",
-                        "snapshotId": "snapshotId",
-                        "createdTimeEpochMs": "1639677020380"
-                    }
-                    """;
+        {
+            "name": "name",
+            "snapshotId": "snapshotId",
+            "createdTimeEpochMs": "1639677020380"
+        }
+        """;
     ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpirationAndRestore);
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo("name");

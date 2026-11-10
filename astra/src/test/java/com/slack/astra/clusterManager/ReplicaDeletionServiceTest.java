@@ -156,15 +156,14 @@ public class ReplicaDeletionServiceTest {
             .build();
 
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                new ReplicaDeletionService(
-                        cacheSlotMetadataStore,
-                        replicaMetadataStore,
-                        cacheNodeMetadataStore,
-                        managerConfig,
-                        meterRegistry)
-                    .scheduler());
+        .isThrownBy(() ->
+            new ReplicaDeletionService(
+                    cacheSlotMetadataStore,
+                    replicaMetadataStore,
+                    cacheNodeMetadataStore,
+                    managerConfig,
+                    meterRegistry)
+                .scheduler());
   }
 
   @Test

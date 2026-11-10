@@ -205,11 +205,10 @@ public class BulkIngestApiTest {
 
     // Need to wait until the rate limit has been loaded
     await()
-        .until(
-            () ->
-                MetricsUtil.getTimerCount(
-                        DatasetRateLimitingService.RATE_LIMIT_RELOAD_TIMER, meterRegistry)
-                    > timerCount);
+        .until(() ->
+            MetricsUtil.getTimerCount(
+                    DatasetRateLimitingService.RATE_LIMIT_RELOAD_TIMER, meterRegistry)
+                > timerCount);
   }
 
   @AfterEach
@@ -272,9 +271,9 @@ public class BulkIngestApiTest {
 
     String request1 =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "field1" : "value1" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "field1" : "value1" }
+        """;
     // use the way we calculate the throughput in the rate limiter to get the exact bytes
     Map<String, List<Trace.Span>> docs =
         BulkApiRequestParser.parseRequest(
@@ -322,11 +321,11 @@ public class BulkIngestApiTest {
     // test with multiple indexes
     String request2 =
         """
-            { "index": {"_index": "testindex1", "_id": "1"} }
-            { "field1" : "value1" }
-            { "index": {"_index": "testindex2", "_id": "1"} }
-            { "field1" : "value1" }
-            """;
+        { "index": {"_index": "testindex1", "_id": "1"} }
+        { "field1" : "value1" }
+        { "index": {"_index": "testindex2", "_id": "1"} }
+        { "field1" : "value1" }
+        """;
     response = bulkApi.addDocument(request2).aggregate().join();
     assertThat(response.status().isSuccess()).isEqualTo(false);
     assertThat(response.status().code()).isEqualTo(INTERNAL_SERVER_ERROR.code());
@@ -375,11 +374,11 @@ public class BulkIngestApiTest {
 
     String request1 =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "field1" : "value1" },
-            { "index": {"_index": "testindex", "_id": "2"} }
-            { "field1" : "value2" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "field1" : "value1" },
+        { "index": {"_index": "testindex", "_id": "2"} }
+        { "field1" : "value2" }
+        """;
     updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
@@ -401,13 +400,11 @@ public class BulkIngestApiTest {
 
     assertThat(records.count()).isEqualTo(2);
     assertThat(records)
-        .anyMatch(
-            record ->
-                TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("1"));
+        .anyMatch(record ->
+            TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("1"));
     assertThat(records)
-        .anyMatch(
-            record ->
-                TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("2"));
+        .anyMatch(record ->
+            TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("2"));
 
     // close the kafka consumer used in the test
     kafkaConsumer.close();
@@ -431,11 +428,11 @@ public class BulkIngestApiTest {
 
     String request1 =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "field1" : "value1" },
-            { "index": {"_index": "testindex", "_id": "2"} }
-            { "field1" : "value2" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "field1" : "value1" },
+        { "index": {"_index": "testindex", "_id": "2"} }
+        { "field1" : "value2" }
+        """;
     updateDatasetThroughput(request1.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
@@ -455,13 +452,11 @@ public class BulkIngestApiTest {
 
     assertThat(records.count()).isEqualTo(2);
     assertThat(records)
-        .anyMatch(
-            record ->
-                TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("1"));
+        .anyMatch(record ->
+            TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("1"));
     assertThat(records)
-        .anyMatch(
-            record ->
-                TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("2"));
+        .anyMatch(record ->
+            TraceSpanParserSilenceError(record.value()).getId().toStringUtf8().equals("2"));
 
     // close the kafka consumer used in the test
     kafkaConsumer.close();
@@ -496,9 +491,9 @@ public class BulkIngestApiTest {
     // Send a document with field1 (in schema) and field2 (not in schema)
     String request =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "field1" : "value1", "field2" : "value2" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "field1" : "value1", "field2" : "value2" }
+        """;
     updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
@@ -545,9 +540,9 @@ public class BulkIngestApiTest {
 
     String request =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "field1" : "value1", "field2" : "value2", "field3" : "value3" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "field1" : "value1", "field2" : "value2", "field3" : "value3" }
+        """;
     updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
@@ -596,9 +591,9 @@ public class BulkIngestApiTest {
 
     String request =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "field1" : "value1", "field2" : "value2" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "field1" : "value1", "field2" : "value2" }
+        """;
     updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
@@ -652,9 +647,9 @@ public class BulkIngestApiTest {
     // count has "hello" which can't parse as INTEGER
     String request =
         """
-            { "index": {"_index": "testindex", "_id": "1"} }
-            { "count" : "hello", "message" : "valid text" }
-            """;
+        { "index": {"_index": "testindex", "_id": "1"} }
+        { "count" : "hello", "message" : "valid text" }
+        """;
     updateDatasetThroughput(request.getBytes(StandardCharsets.UTF_8).length);
 
     KafkaConsumer kafkaConsumer = getTestKafkaConsumer();
@@ -678,23 +673,22 @@ public class BulkIngestApiTest {
 
   public void validateOffset(KafkaConsumer kafkaConsumer, long expectedOffset) {
     await()
-        .until(
-            () -> {
-              @SuppressWarnings("OptionalGetWithoutIsPresent")
-              long partitionOffset =
-                  (Long)
-                      kafkaConsumer
-                          .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
-                          .values()
-                          .stream()
-                          .findFirst()
-                          .get();
-              LOG.debug(
-                  "Current partitionOffset - {}. expecting offset to be - {}",
-                  partitionOffset,
-                  expectedOffset);
-              return partitionOffset == expectedOffset;
-            });
+        .until(() -> {
+          @SuppressWarnings("OptionalGetWithoutIsPresent")
+          long partitionOffset =
+              (Long)
+                  kafkaConsumer
+                      .endOffsets(List.of(new TopicPartition(DOWNSTREAM_TOPIC, 0)))
+                      .values()
+                      .stream()
+                      .findFirst()
+                      .get();
+          LOG.debug(
+              "Current partitionOffset - {}. expecting offset to be - {}",
+              partitionOffset,
+              expectedOffset);
+          return partitionOffset == expectedOffset;
+        });
   }
 
   private static Trace.Span TraceSpanParserSilenceError(byte[] data) {

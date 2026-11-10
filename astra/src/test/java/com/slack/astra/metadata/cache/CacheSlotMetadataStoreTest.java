@@ -131,11 +131,10 @@ public class CacheSlotMetadataStoreTest {
         .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.LIVE)
         .get(1, TimeUnit.SECONDS);
     await()
-        .until(
-            () ->
-                store.listSync().size() == 1
-                    && AstraMetadataTestUtils.listSyncUncached(store).get(0).cacheSlotState
-                        == CacheSlotState.LIVE);
+        .until(() ->
+            store.listSync().size() == 1
+                && AstraMetadataTestUtils.listSyncUncached(store).get(0).cacheSlotState
+                    == CacheSlotState.LIVE);
     final CacheSlotMetadata liveNode = store.getSync(hostname, name);
     assertThat(liveNode.name).isEqualTo(name);
     assertThat(liveNode.cacheSlotState).isEqualTo(CacheSlotState.LIVE);
@@ -146,10 +145,9 @@ public class CacheSlotMetadataStoreTest {
         .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.EVICT)
         .get(1, TimeUnit.SECONDS);
     await()
-        .until(
-            () ->
-                store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.EVICT);
+        .until(() ->
+            store.listSync().size() == 1
+                && store.listSync().get(0).cacheSlotState == CacheSlotState.EVICT);
     final CacheSlotMetadata evictNode = store.getSync(hostname, name);
     assertThat(evictNode.name).isEqualTo(name);
     assertThat(evictNode.cacheSlotState).isEqualTo(CacheSlotState.EVICT);
@@ -160,10 +158,9 @@ public class CacheSlotMetadataStoreTest {
         .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.FREE)
         .get(1, TimeUnit.SECONDS);
     await()
-        .until(
-            () ->
-                store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.FREE);
+        .until(() ->
+            store.listSync().size() == 1
+                && store.listSync().get(0).cacheSlotState == CacheSlotState.FREE);
     final CacheSlotMetadata freeNode = store.getSync(hostname, name);
     assertThat(freeNode.name).isEqualTo(name);
     assertThat(freeNode.cacheSlotState).isEqualTo(CacheSlotState.FREE);
@@ -172,11 +169,10 @@ public class CacheSlotMetadataStoreTest {
 
     // Only non-free states can be set.
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                store
-                    .updateNonFreeCacheSlotState(freeNode, CacheSlotState.ASSIGNED)
-                    .get(1, TimeUnit.SECONDS));
+        .isThrownBy(() ->
+            store
+                .updateNonFreeCacheSlotState(freeNode, CacheSlotState.ASSIGNED)
+                .get(1, TimeUnit.SECONDS));
   }
 
   @Test
@@ -204,11 +200,10 @@ public class CacheSlotMetadataStoreTest {
         .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.LIVE)
         .get(1, TimeUnit.SECONDS);
     await()
-        .until(
-            () ->
-                store.listSync().size() == 1
-                    && AstraMetadataTestUtils.listSyncUncached(store).get(0).cacheSlotState
-                        == CacheSlotState.LIVE);
+        .until(() ->
+            store.listSync().size() == 1
+                && AstraMetadataTestUtils.listSyncUncached(store).get(0).cacheSlotState
+                    == CacheSlotState.LIVE);
     final CacheSlotMetadata liveNode = store.getSync(hostname, name);
     assertThat(liveNode.name).isEqualTo(name);
     assertThat(liveNode.cacheSlotState).isEqualTo(CacheSlotState.LIVE);
@@ -217,10 +212,9 @@ public class CacheSlotMetadataStoreTest {
 
     store.updateNonFreeCacheSlotState(liveNode, CacheSlotState.EVICT).get(1, TimeUnit.SECONDS);
     await()
-        .until(
-            () ->
-                store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.EVICT);
+        .until(() ->
+            store.listSync().size() == 1
+                && store.listSync().get(0).cacheSlotState == CacheSlotState.EVICT);
     final CacheSlotMetadata evictNode = store.getSync(hostname, name);
     assertThat(evictNode.name).isEqualTo(name);
     assertThat(evictNode.cacheSlotState).isEqualTo(CacheSlotState.EVICT);
@@ -229,10 +223,9 @@ public class CacheSlotMetadataStoreTest {
 
     store.updateNonFreeCacheSlotState(evictNode, CacheSlotState.FREE).get(1, TimeUnit.SECONDS);
     await()
-        .until(
-            () ->
-                store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.FREE);
+        .until(() ->
+            store.listSync().size() == 1
+                && store.listSync().get(0).cacheSlotState == CacheSlotState.FREE);
     final CacheSlotMetadata freeNode = store.getSync(hostname, name);
     assertThat(freeNode.name).isEqualTo(name);
     assertThat(freeNode.cacheSlotState).isEqualTo(CacheSlotState.FREE);
@@ -241,11 +234,10 @@ public class CacheSlotMetadataStoreTest {
 
     // Only non-free states can be set.
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                store
-                    .updateNonFreeCacheSlotState(freeNode, CacheSlotState.ASSIGNED)
-                    .get(1, TimeUnit.SECONDS));
+        .isThrownBy(() ->
+            store
+                .updateNonFreeCacheSlotState(freeNode, CacheSlotState.ASSIGNED)
+                .get(1, TimeUnit.SECONDS));
   }
 
   @Test
@@ -274,10 +266,9 @@ public class CacheSlotMetadataStoreTest {
         .updateCacheSlotStateStateWithReplicaId(cacheSlotMetadata, cacheSlotState, "")
         .get(1, TimeUnit.SECONDS);
     await()
-        .until(
-            () ->
-                store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == cacheSlotState);
+        .until(() ->
+            store.listSync().size() == 1
+                && store.listSync().get(0).cacheSlotState == cacheSlotState);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(store).size()).isEqualTo(1);
     final CacheSlotMetadata freeNode = store.getSync(hostname, name);
@@ -292,10 +283,9 @@ public class CacheSlotMetadataStoreTest {
             cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED, replicaId)
         .get(1, TimeUnit.SECONDS);
     await()
-        .until(
-            () ->
-                store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.ASSIGNED);
+        .until(() ->
+            store.listSync().size() == 1
+                && store.listSync().get(0).cacheSlotState == CacheSlotState.ASSIGNED);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(store).size()).isEqualTo(1);
     CacheSlotMetadata assignedNode = store.getSync(hostname, name);
@@ -310,10 +300,9 @@ public class CacheSlotMetadataStoreTest {
             cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.EVICT, replicaId)
         .get(1, TimeUnit.SECONDS);
     await()
-        .until(
-            () ->
-                store.listSync().size() == 1
-                    && store.listSync().get(0).cacheSlotState == CacheSlotState.EVICT);
+        .until(() ->
+            store.listSync().size() == 1
+                && store.listSync().get(0).cacheSlotState == CacheSlotState.EVICT);
 
     assertThat(AstraMetadataTestUtils.listSyncUncached(store).size()).isEqualTo(1);
     CacheSlotMetadata evictedNode = store.getSync(hostname, name);

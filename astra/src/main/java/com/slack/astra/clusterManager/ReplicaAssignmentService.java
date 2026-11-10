@@ -79,9 +79,9 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
   private ScheduledFuture<?> pendingTask;
 
   private final AstraMetadataStoreChangeListener<CacheSlotMetadata> cacheSlotListener =
-      (cacheSlotMetadata) -> runOneIteration();
+      cacheSlotMetadata -> runOneIteration();
   private final AstraMetadataStoreChangeListener<ReplicaMetadata> replicaListener =
-      (replicaMetadata) -> runOneIteration();
+      replicaMetadata -> runOneIteration();
 
   public ReplicaAssignmentService(
       CacheSlotMetadataStore cacheSlotMetadataStore,
@@ -171,11 +171,10 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
 
       List<CacheSlotMetadata> availableCacheSlots =
           cacheSlotMetadataStore.listSync().stream()
-              .filter(
-                  cacheSlotMetadata ->
-                      cacheSlotMetadata.cacheSlotState.equals(
-                              Metadata.CacheSlotMetadata.CacheSlotState.FREE)
-                          && cacheSlotMetadata.replicaSet.equals(replicaSet))
+              .filter(cacheSlotMetadata ->
+                  cacheSlotMetadata.cacheSlotState.equals(
+                          Metadata.CacheSlotMetadata.CacheSlotState.FREE)
+                      && cacheSlotMetadata.replicaSet.equals(replicaSet))
               .toList();
 
       // only allow N pending assignments per host at once
@@ -185,28 +184,24 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
               .collect(Collectors.groupingBy(CacheSlotMetadata::getHostname))
               .values()
               .stream()
-              .flatMap(
-                  (cacheSlotsPerHost) -> {
-                    int currentlyAssignedOrLoading =
-                        cacheSlotsPerHost.stream()
-                            .filter(
-                                cacheSlotMetadata ->
-                                    cacheSlotMetadata.cacheSlotState.equals(
-                                            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)
-                                        || cacheSlotMetadata.cacheSlotState.equals(
-                                            Metadata.CacheSlotMetadata.CacheSlotState.LOADING))
-                            .toList()
-                            .size();
+              .flatMap(cacheSlotsPerHost -> {
+                int currentlyAssignedOrLoading =
+                    cacheSlotsPerHost.stream()
+                        .filter(cacheSlotMetadata ->
+                            cacheSlotMetadata.cacheSlotState.equals(
+                                    Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)
+                                || cacheSlotMetadata.cacheSlotState.equals(
+                                    Metadata.CacheSlotMetadata.CacheSlotState.LOADING))
+                        .toList()
+                        .size();
 
-                    return cacheSlotsPerHost.stream()
-                        .filter(
-                            cacheSlotMetadata ->
-                                cacheSlotMetadata.cacheSlotState.equals(
-                                    Metadata.CacheSlotMetadata.CacheSlotState.FREE))
-                        .limit(
-                            Math.max(
-                                0, maxConcurrentAssignmentsPerNode - currentlyAssignedOrLoading));
-                  })
+                return cacheSlotsPerHost.stream()
+                    .filter(cacheSlotMetadata ->
+                        cacheSlotMetadata.cacheSlotState.equals(
+                            Metadata.CacheSlotMetadata.CacheSlotState.FREE))
+                    .limit(
+                        Math.max(0, maxConcurrentAssignmentsPerNode - currentlyAssignedOrLoading));
+              })
               .collect(Collectors.toList());
 
       // Force a shuffle of the assignable slots, to reduce the chance of a single cache node
@@ -216,10 +211,9 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
 
       Set<String> assignedReplicaIds =
           cacheSlotMetadataStore.listSync().stream()
-              .filter(
-                  cacheSlotMetadata ->
-                      !cacheSlotMetadata.replicaId.isEmpty()
-                          && cacheSlotMetadata.replicaSet.equals(replicaSet))
+              .filter(cacheSlotMetadata ->
+                  !cacheSlotMetadata.replicaId.isEmpty()
+                      && cacheSlotMetadata.replicaSet.equals(replicaSet))
               .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
               .collect(Collectors.toUnmodifiableSet());
 
@@ -227,11 +221,10 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
       List<String> replicaIdsToAssign =
           replicaMetadataStore.listSync().stream()
               // only assign replicas that are not expired, and not already assigned
-              .filter(
-                  replicaMetadata ->
-                      replicaMetadata.expireAfterEpochMs > nowMilli
-                          && !assignedReplicaIds.contains(replicaMetadata.name)
-                          && replicaMetadata.getReplicaSet().equals(replicaSet))
+              .filter(replicaMetadata ->
+                  replicaMetadata.expireAfterEpochMs > nowMilli
+                      && !assignedReplicaIds.contains(replicaMetadata.name)
+                      && replicaMetadata.getReplicaSet().equals(replicaSet))
               // sort the list by the newest replicas first, in case we run out of available slots
               .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs).reversed())
               .map(replicaMetadata -> replicaMetadata.name)

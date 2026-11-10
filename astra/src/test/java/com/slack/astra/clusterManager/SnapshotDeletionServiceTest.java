@@ -181,14 +181,13 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                new SnapshotDeletionService(
-                    replicaMetadataStore,
-                    snapshotMetadataStore,
-                    blobStore,
-                    managerConfig,
-                    meterRegistry));
+        .isThrownBy(() ->
+            new SnapshotDeletionService(
+                replicaMetadataStore,
+                snapshotMetadataStore,
+                blobStore,
+                managerConfig,
+                meterRegistry));
   }
 
   @Test
@@ -879,21 +878,17 @@ public class SnapshotDeletionServiceTest {
     verify(blobStore, times(1)).delete(eq(chunkId));
 
     await()
-        .until(
-            () ->
-                MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry)
-                    == 1);
+        .until(() ->
+            MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry)
+                == 1);
     await()
-        .until(
-            () ->
-                MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_FAILED, meterRegistry)
-                    == 0);
+        .until(() ->
+            MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_FAILED, meterRegistry)
+                == 0);
     await()
-        .until(
-            () ->
-                MetricsUtil.getTimerCount(
-                        SnapshotDeletionService.SNAPSHOT_DELETE_TIMER, meterRegistry)
-                    == 1);
+        .until(() ->
+            MetricsUtil.getTimerCount(SnapshotDeletionService.SNAPSHOT_DELETE_TIMER, meterRegistry)
+                == 1);
 
     snapshotDeletionService.stopAsync();
     snapshotDeletionService.awaitTerminated(DEFAULT_START_STOP_DURATION);

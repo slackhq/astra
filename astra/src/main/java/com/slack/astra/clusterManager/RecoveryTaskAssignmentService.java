@@ -69,9 +69,9 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
   private ScheduledFuture<?> pendingTask;
 
   private final AstraMetadataStoreChangeListener<RecoveryNodeMetadata> recoveryNodeListener =
-      (recoveryNodeMetadata) -> runOneIteration();
+      recoveryNodeMetadata -> runOneIteration();
   private final AstraMetadataStoreChangeListener<RecoveryTaskMetadata> recoveryTaskListener =
-      (recoveryTaskListener) -> runOneIteration();
+      recoveryTaskListener -> runOneIteration();
 
   public RecoveryTaskAssignmentService(
       RecoveryTaskMetadataStore recoveryTaskMetadataStore,
@@ -147,7 +147,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
     Set<String> recoveryTasksAlreadyAssigned =
         recoveryNodeMetadataStore.listSync().stream()
             .map(recoveryNodeMetadata -> recoveryNodeMetadata.recoveryTaskName)
-            .filter((recoveryTaskName) -> !recoveryTaskName.isEmpty())
+            .filter(recoveryTaskName -> !recoveryTaskName.isEmpty())
             .collect(Collectors.toUnmodifiableSet());
 
     List<RecoveryTaskMetadata> recoveryTasksThatNeedAssignment =
@@ -163,10 +163,9 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
 
     List<RecoveryNodeMetadata> availableRecoveryNodes =
         recoveryNodeMetadataStore.listSync().stream()
-            .filter(
-                recoveryNodeMetadata ->
-                    recoveryNodeMetadata.recoveryNodeState.equals(
-                        Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE))
+            .filter(recoveryNodeMetadata ->
+                recoveryNodeMetadata.recoveryNodeState.equals(
+                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE))
             .collect(Collectors.toUnmodifiableList());
 
     if (recoveryTasksThatNeedAssignment.size() > availableRecoveryNodes.size()) {
