@@ -40,9 +40,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -268,7 +271,9 @@ public class BulkIngestApiTest {
             meterRegistry,
             400,
             Schema.IngestSchema.newBuilder().build(),
-            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC,
+            0,
+            false);
 
     String request1 =
         """
@@ -342,7 +347,9 @@ public class BulkIngestApiTest {
             meterRegistry,
             TOO_MANY_REQUESTS.code(),
             ReservedFields.addPredefinedFields(Schema.IngestSchema.getDefaultInstance()),
-            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC,
+            0,
+            false);
     httpResponse = bulkApi2.addDocument(request1).aggregate().join();
     assertThat(httpResponse.status().isSuccess()).isEqualTo(false);
     assertThat(httpResponse.status().code()).isEqualTo(TOO_MANY_REQUESTS.code());
@@ -371,7 +378,9 @@ public class BulkIngestApiTest {
             meterRegistry,
             400,
             Schema.IngestSchema.newBuilder().build(),
-            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC,
+            0,
+            false);
 
     String request1 =
         """
@@ -427,7 +436,9 @@ public class BulkIngestApiTest {
             meterRegistry,
             400,
             Schema.IngestSchema.newBuilder().build(),
-            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC,
+            0,
+            false);
 
     String request1 =
         """
@@ -491,7 +502,9 @@ public class BulkIngestApiTest {
             meterRegistry,
             400,
             schema,
-            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN,
+            0,
+            false);
 
     // Send a document with field1 (in schema) and field2 (not in schema)
     String request =
@@ -541,7 +554,9 @@ public class BulkIngestApiTest {
             meterRegistry,
             400,
             ReservedFields.addPredefinedFields(Schema.IngestSchema.getDefaultInstance()),
-            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC);
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC,
+            0,
+            false);
 
     String request =
         """
@@ -592,7 +607,9 @@ public class BulkIngestApiTest {
             meterRegistry,
             400,
             schema,
-            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN,
+            0,
+            false);
 
     String request =
         """
@@ -647,7 +664,9 @@ public class BulkIngestApiTest {
             meterRegistry,
             400,
             schema,
-            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN);
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DROP_UNKNOWN,
+            0,
+            false);
 
     // count has "hello" which can't parse as INTEGER
     String request =
@@ -674,6 +693,162 @@ public class BulkIngestApiTest {
     assertThat(tagKeys).doesNotContain("count", "failed_count");
 
     kafkaConsumer.close();
+  }
+
+  @Test
+  public void testInflightRequestBytesLimit() throws Exception {
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1" }
+            """;
+    long requestBytes = request.getBytes(StandardCharsets.UTF_8).length;
+    // high enough that the dataset rate limiter never interferes
+    updateDatasetThroughput(1_000_000);
+
+    record Case(
+        String name,
+        long cap,
+        boolean dryRun,
+        int inflightBefore,
+        boolean expectRejected,
+        double expectedRejectedCount,
+        double expectedDryRunCount) {}
+
+    List<Case> cases =
+        List.of(
+            new Case("cap disabled", 0, false, 3, false, 0, 0),
+            new Case("under cap", requestBytes * 4, false, 3, false, 0, 0),
+            new Case("over cap", requestBytes * 3 / 2, false, 1, true, 1, 0),
+            new Case("over cap, dry run", requestBytes * 3 / 2, true, 1, false, 0, 1),
+            new Case("lone request larger than cap", requestBytes / 2, false, 0, false, 0, 0),
+            new Case("larger than cap, others in flight", requestBytes / 2, false, 1, true, 1, 0));
+
+    for (Case c : cases) {
+      MeterRegistry caseRegistry = new SimpleMeterRegistry();
+      // Not started yet, so admitted requests stay in flight until the producer runs
+      BulkIngestKafkaProducer producer =
+          new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, caseRegistry);
+      BulkIngestApi api =
+          new BulkIngestApi(
+              producer,
+              datasetRateLimitingService,
+              caseRegistry,
+              400,
+              Schema.IngestSchema.newBuilder().build(),
+              AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC,
+              c.cap(),
+              c.dryRun());
+
+      List<CompletableFuture<AggregatedHttpResponse>> admitted = new ArrayList<>();
+      for (int i = 0; i < c.inflightBefore(); i++) {
+        admitted.add(api.addDocument(request).aggregate());
+      }
+      CompletableFuture<AggregatedHttpResponse> probe = api.addDocument(request).aggregate();
+
+      if (c.expectRejected()) {
+        AggregatedHttpResponse response = probe.get(10, TimeUnit.SECONDS);
+        assertThat(response.status().code()).as(c.name()).isEqualTo(TOO_MANY_REQUESTS.code());
+        assertThat(JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class).errorMsg())
+            .as(c.name())
+            .isEqualTo("too many in-flight bytes");
+      } else {
+        admitted.add(probe);
+      }
+      assertThat(inflightGauge(caseRegistry, BulkIngestApi.BULK_INGEST_INFLIGHT_BYTES))
+          .as(c.name())
+          .isEqualTo(requestBytes * admitted.size());
+      assertThat(inflightGauge(caseRegistry, BulkIngestApi.BULK_INGEST_INFLIGHT_REQUESTS))
+          .as(c.name())
+          .isEqualTo(admitted.size());
+      assertThat(inflightLimitExceeded(caseRegistry, "rejected"))
+          .as(c.name())
+          .isEqualTo(c.expectedRejectedCount());
+      assertThat(inflightLimitExceeded(caseRegistry, "dry_run"))
+          .as(c.name())
+          .isEqualTo(c.expectedDryRunCount());
+
+      // Draining the queue completes every admitted request and releases its bytes
+      producer.startAsync();
+      producer.awaitRunning(DEFAULT_START_STOP_DURATION);
+      for (CompletableFuture<AggregatedHttpResponse> response : admitted) {
+        assertThat(response.get(10, TimeUnit.SECONDS).status().code())
+            .as(c.name())
+            .isEqualTo(OK.code());
+      }
+      assertThat(inflightGauge(caseRegistry, BulkIngestApi.BULK_INGEST_INFLIGHT_BYTES))
+          .as(c.name())
+          .isZero();
+      assertThat(inflightGauge(caseRegistry, BulkIngestApi.BULK_INGEST_INFLIGHT_REQUESTS))
+          .as(c.name())
+          .isZero();
+
+      producer.stopAsync();
+      producer.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      caseRegistry.close();
+    }
+  }
+
+  @Test
+  public void testProducerFailureCompletesRequest() throws Exception {
+    // A dataset with no active partition makes the producer throw while picking a partition
+    double timerCount =
+        MetricsUtil.getTimerCount(
+            DatasetRateLimitingService.RATE_LIMIT_RELOAD_TIMER, meterRegistry);
+    datasetMetadataStore.updateSync(
+        new DatasetMetadata(
+            INDEX_NAME,
+            "owner",
+            1_000_000,
+            List.of(new DatasetPartitionMetadata(1, 2, List.of("0"))),
+            INDEX_NAME));
+    await()
+        .until(
+            () ->
+                MetricsUtil.getTimerCount(
+                        DatasetRateLimitingService.RATE_LIMIT_RELOAD_TIMER, meterRegistry)
+                    > timerCount);
+
+    bulkIngestKafkaProducer =
+        new BulkIngestKafkaProducer(datasetMetadataStore, preprocessorConfig, meterRegistry);
+    bulkIngestKafkaProducer.startAsync();
+    bulkIngestKafkaProducer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    bulkApi =
+        new BulkIngestApi(
+            bulkIngestKafkaProducer,
+            datasetRateLimitingService,
+            meterRegistry,
+            400,
+            Schema.IngestSchema.newBuilder().build(),
+            AstraConfigs.SchemaMode.SCHEMA_MODE_DYNAMIC,
+            0,
+            false);
+
+    String request =
+        """
+            { "index": {"_index": "testindex", "_id": "1"} }
+            { "field1" : "value1" }
+            """;
+    // Previously the caller blocked forever when the batch failed
+    AggregatedHttpResponse response =
+        bulkApi.addDocument(request).aggregate().get(10, TimeUnit.SECONDS);
+    BulkIngestResponse responseObj =
+        JsonUtil.read(response.contentUtf8(), BulkIngestResponse.class);
+    assertThat(responseObj.totalDocs()).isZero();
+    assertThat(responseObj.failedDocs()).isEqualTo(1);
+    assertThat(inflightGauge(meterRegistry, BulkIngestApi.BULK_INGEST_INFLIGHT_BYTES)).isZero();
+  }
+
+  private static double inflightGauge(MeterRegistry registry, String name) {
+    return registry.get(name).gauge().value();
+  }
+
+  private static double inflightLimitExceeded(MeterRegistry registry, String action) {
+    return registry
+        .get(BulkIngestApi.BULK_INGEST_INFLIGHT_LIMIT_EXCEEDED)
+        .tag("action", action)
+        .counter()
+        .count();
   }
 
   public void validateOffset(KafkaConsumer kafkaConsumer, long expectedOffset) {

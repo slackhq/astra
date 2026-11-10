@@ -298,6 +298,8 @@ public class AstraConfigTest {
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isEqualTo(1);
     assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
     assertThat(preprocessorConfig.getRateLimitExceededErrorCode()).isEqualTo(400);
+    assertThat(preprocessorConfig.getMaxInflightRequestBytes()).isZero();
+    assertThat(preprocessorConfig.getMaxInflightRequestBytesDryRun()).isFalse();
     assertThat(preprocessorConfig.getSchemaFile()).isEqualTo("schema/test_schema.yaml");
 
     final AstraConfigs.KafkaConfig preprocessorKafkaConfig =
@@ -495,6 +497,8 @@ public class AstraConfigTest {
     assertThat(preprocessorKafkaConfig.getKafkaTopic()).isEqualTo("test-topic");
 
     assertThat(preprocessorConfig.getRateLimitExceededErrorCode()).isEqualTo(429);
+    assertThat(preprocessorConfig.getMaxInflightRequestBytes()).isEqualTo(1073741824L);
+    assertThat(preprocessorConfig.getMaxInflightRequestBytesDryRun()).isTrue();
     assertThat(preprocessorConfig.getSchemaFile()).isEqualTo("schema/test_schema.yaml");
 
     final AstraConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();

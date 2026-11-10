@@ -1,6 +1,7 @@
 package com.slack.astra.bulkIngestApi;
 
 import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
+import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
@@ -16,6 +17,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +32,12 @@ public class BulkIngestApi {
   private static final Logger LOG = LoggerFactory.getLogger(BulkIngestApi.class);
 
   public static final String SCHEMA_ENFORCEMENT_FLAG = "astra.schema.enforcement.enabled";
+
+  public static final String BULK_INGEST_INFLIGHT_BYTES = "astra_preprocessor_inflight_bytes";
+  public static final String BULK_INGEST_INFLIGHT_REQUESTS = "astra_preprocessor_inflight_requests";
+  public static final String BULK_INGEST_INFLIGHT_LIMIT_EXCEEDED =
+      "astra_preprocessor_inflight_limit_exceeded";
+  private static final long INFLIGHT_LIMIT_LOG_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
 
   private final BulkIngestKafkaProducer bulkIngestKafkaProducer;
   private final DatasetRateLimitingService datasetRateLimitingService;
@@ -45,13 +55,26 @@ public class BulkIngestApi {
 
   private final Counter bulkIngestErrorCounter;
 
+  // Raw request bytes admitted but not yet completed. Tracked even when the cap is disabled so the
+  // gauge can be used to size it.
+  private final long maxInflightRequestBytes;
+  private final boolean maxInflightRequestBytesDryRun;
+  private final AtomicLong inflightBytes = new AtomicLong();
+  private final AtomicInteger inflightRequests = new AtomicInteger();
+  private final Counter inflightRejectedCounter;
+  private final Counter inflightDryRunCounter;
+  private final AtomicLong inflightExceededSinceLastLog = new AtomicLong();
+  private final AtomicLong inflightLastLogMs = new AtomicLong();
+
   public BulkIngestApi(
       BulkIngestKafkaProducer bulkIngestKafkaProducer,
       DatasetRateLimitingService datasetRateLimitingService,
       MeterRegistry meterRegistry,
       int rateLimitExceededErrorCode,
       Schema.IngestSchema schema,
-      AstraConfigs.SchemaMode schemaMode) {
+      AstraConfigs.SchemaMode schemaMode,
+      long maxInflightRequestBytes,
+      boolean maxInflightRequestBytesDryRun) {
 
     this.bulkIngestKafkaProducer = bulkIngestKafkaProducer;
     this.datasetRateLimitingService = datasetRateLimitingService;
@@ -67,6 +90,15 @@ public class BulkIngestApi {
       this.rateLimitExceededErrorCode = rateLimitExceededErrorCode;
     }
     this.bulkIngestErrorCounter = meterRegistry.counter(BULK_INGEST_ERROR);
+
+    this.maxInflightRequestBytes = maxInflightRequestBytes;
+    this.maxInflightRequestBytesDryRun = maxInflightRequestBytesDryRun;
+    meterRegistry.gauge(BULK_INGEST_INFLIGHT_BYTES, inflightBytes);
+    meterRegistry.gauge(BULK_INGEST_INFLIGHT_REQUESTS, inflightRequests);
+    this.inflightRejectedCounter =
+        meterRegistry.counter(BULK_INGEST_INFLIGHT_LIMIT_EXCEEDED, "action", "rejected");
+    this.inflightDryRunCounter =
+        meterRegistry.counter(BULK_INGEST_INFLIGHT_LIMIT_EXCEEDED, "action", "dry_run");
   }
 
   @Post("/_bulk")
@@ -77,8 +109,22 @@ public class BulkIngestApi {
     Timer.Sample sample = Timer.start(meterRegistry);
     future.thenRun(() -> sample.stop(bulkIngestTimer));
 
+    byte[] bulkRequestBytes = bulkRequest.getBytes(StandardCharsets.UTF_8);
+    final long requestBytes = bulkRequestBytes.length;
+    if (!tryAdmitInflight(requestBytes)) {
+      BulkIngestResponse response = new BulkIngestResponse(0, 0, "too many in-flight bytes");
+      future.complete(HttpResponse.ofJson(TOO_MANY_REQUESTS, response));
+      return HttpResponse.of(future);
+    }
+    // Released when the work finishes, not when the client times out, as the docs stay in memory
+    // until the producer is done with them
+    future.whenComplete(
+        (_, _) -> {
+          inflightBytes.addAndGet(-requestBytes);
+          inflightRequests.decrementAndGet();
+        });
+
     try {
-      byte[] bulkRequestBytes = bulkRequest.getBytes(StandardCharsets.UTF_8);
       incomingByteTotal.increment(bulkRequestBytes.length);
       Map<String, List<Trace.Span>> docs = Map.of();
       try {
@@ -128,7 +174,9 @@ public class BulkIngestApi {
                   BulkIngestResponse response =
                       bulkIngestKafkaProducer.submitRequest(finalDocs).getResponse();
                   future.complete(HttpResponse.ofJson(response));
-                } catch (InterruptedException e) {
+                } catch (Exception e) {
+                  // Any exception must still complete the future, or the client hangs until it
+                  // times out and the in-flight bytes are never released
                   LOG.error("Request failed ", e);
                   bulkIngestErrorCounter.increment();
                   future.complete(
@@ -144,5 +192,53 @@ public class BulkIngestApi {
     }
 
     return HttpResponse.of(future);
+  }
+
+  /**
+   * Reserves the request's bytes against the in-flight cap. Returns false if the request should be
+   * rejected. Bytes are added optimistically and rolled back on rejection, so concurrent requests
+   * near the cap may be rejected slightly early; that errs on the side of protecting the heap.
+   */
+  private boolean tryAdmitInflight(long requestBytes) {
+    long inflight = inflightBytes.addAndGet(requestBytes);
+    // A request larger than the whole cap is still admitted when nothing else is in flight, so it
+    // can't be rejected forever
+    if (maxInflightRequestBytes <= 0
+        || inflight <= maxInflightRequestBytes
+        || inflight == requestBytes) {
+      inflightRequests.incrementAndGet();
+      return true;
+    }
+
+    if (maxInflightRequestBytesDryRun) {
+      inflightDryRunCounter.increment();
+      logInflightLimitExceeded(inflight);
+      inflightRequests.incrementAndGet();
+      return true;
+    }
+
+    inflightBytes.addAndGet(-requestBytes);
+    inflightRejectedCounter.increment();
+    logInflightLimitExceeded(inflight);
+    return false;
+  }
+
+  // Logs at most once per interval: this fires under memory pressure, where logging every request
+  // would add to the problem
+  private void logInflightLimitExceeded(long inflight) {
+    inflightExceededSinceLastLog.incrementAndGet();
+    long now = System.currentTimeMillis();
+    long last = inflightLastLogMs.get();
+    if (now - last < INFLIGHT_LIMIT_LOG_INTERVAL_MS
+        || !inflightLastLogMs.compareAndSet(last, now)) {
+      return;
+    }
+    LOG.warn(
+        "{} {} bulk requests over the in-flight limit since last report: inflightBytes={},"
+            + " maxInflightRequestBytes={}",
+        maxInflightRequestBytesDryRun ? "Dry run, would have rejected" : "Rejected",
+        inflightExceededSinceLastLog.getAndSet(0),
+        inflight,
+        maxInflightRequestBytes);
   }
 }
