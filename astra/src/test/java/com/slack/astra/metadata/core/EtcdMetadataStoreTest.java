@@ -583,74 +583,76 @@ public class EtcdMetadataStoreTest {
     }
   }
 
+  /**
+   * etcd expiring the shared lease deletes every ephemeral key at once. The store must grant a new
+   * lease and re-create the keys it owns rather than halt, and the new lease must keep renewing.
+   */
   @Test
-  public void testEphemeralLeaseRenewalFailureHandling() throws Exception {
-    // This test verifies that the retry logic is properly implemented
-    // We can't easily test the fatal error case in a unit test since it would exit the JVM
-    // But we can test the retry configuration and logic path
+  public void revokedLeaseIsRegrantedAndOwnedEphemeralNodesRecreated() throws Exception {
+    AtomicInteger fatal = new AtomicInteger();
+    EtcdMetadataStore.setFatalErrorHandler(error -> fatal.incrementAndGet());
 
-    // Create a config with minimal retries and timeouts for faster testing
-    AstraConfigs.EtcdConfig failureConfig =
-        AstraConfigs.EtcdConfig.newBuilder()
-            .addAllEndpoints(etcdCluster.clientEndpoints().stream().map(Object::toString).toList())
-            .setConnectionTimeoutMs(5000)
-            .setKeepaliveTimeoutMs(3000)
-            .setOperationsMaxRetries(3)
-            .setOperationsTimeoutMs(500) // Very short timeout to potentially trigger retries
-            .setRetryDelayMs(50) // Short delay between retries
-            .setNamespace("test")
-            .setEphemeralNodeTtlMs(1000) // Short TTL
-            .setEphemeralNodeMaxRetries(1) // Only 1 retry attempt
-            .setRetryTotalDurationMs(5000)
-            .setMaxRetryDelayMs(1000)
-            .setInitialRetryIntervalMs(100)
-            .setListPageSize(10000)
-            .build();
-
-    // Create client for failure test
-    ClientBuilder clientBuilder =
+    Client ownClient =
         Client.builder()
             .endpoints(
-                etcdCluster.clientEndpoints().stream()
-                    .map(Object::toString)
-                    .toArray(String[]::new));
-
-    if (!failureConfig.getNamespace().isEmpty()) {
-      clientBuilder.namespace(
-          io.etcd.jetcd.ByteSequence.from(failureConfig.getNamespace(), StandardCharsets.UTF_8));
-    }
-
-    Client failureClient = clientBuilder.build();
-    MeterRegistry failureMeterRegistry = new SimpleMeterRegistry();
-
-    EtcdMetadataStore<TestMetadata> failureStore = null;
+                etcdCluster.clientEndpoints().stream().map(Object::toString).toArray(String[]::new))
+            .namespace(ByteSequence.from("test", StandardCharsets.UTF_8))
+            .build();
+    MeterRegistry ownRegistry = new SimpleMeterRegistry();
+    EtcdMetadataStore<TestMetadata> ephemeralStore =
+        new EtcdMetadataStore<>(
+            "/lease-recovery",
+            etcdConfig,
+            false,
+            ownRegistry,
+            serializer,
+            EtcdCreateMode.EPHEMERAL,
+            ownClient);
     try {
-      // Create ephemeral store with failure-prone configuration
-      failureStore =
-          new EtcdMetadataStore<>(
-              "/failure-test",
-              failureConfig,
-              true,
-              failureMeterRegistry,
-              serializer,
-              EtcdCreateMode.EPHEMERAL,
-              failureClient);
+      ephemeralStore.createSync(new TestMetadata("kept", "v1"));
+      ephemeralStore.createSync(new TestMetadata("updated", "v1"));
+      ephemeralStore.createSync(new TestMetadata("deleted", "v1"));
+      ephemeralStore.updateSync(new TestMetadata("updated", "v2"));
+      ephemeralStore.deleteSync("deleted");
+      long oldLeaseId = ephemeralStore.sharedLeaseId();
+      assertThat(oldLeaseId).isPositive();
 
-      // Create an ephemeral node
-      TestMetadata ephemeralNode = new TestMetadata("failure1", "failureData");
-      failureStore.createSync(ephemeralNode);
+      // Expire the lease the way etcd would: every key on it is gone and the keep-alive is told
+      // the lease no longer exists.
+      ownClient.getLeaseClient().revoke(oldLeaseId).get(5, TimeUnit.SECONDS);
+      assertThat(ephemeralStore.listSyncUncached()).isEmpty();
 
-      // Verify the node exists initially
-      assertThat(failureStore.hasSync("failure1")).isTrue();
+      await()
+          .atMost(15, TimeUnit.SECONDS)
+          .until(() -> ephemeralStore.sharedLeaseId() != oldLeaseId);
+      await()
+          .atMost(5, TimeUnit.SECONDS)
+          .untilAsserted(
+              () ->
+                  assertThat(ephemeralStore.listSyncUncached())
+                      .containsExactlyInAnyOrder(
+                          new TestMetadata("kept", "v1"), new TestMetadata("updated", "v2")));
+      assertThat(ownRegistry.get("astra_etcd_lease_recovered").counter().count()).isEqualTo(1.0);
 
-      TimeUnit.MILLISECONDS.sleep(800);
+      // The replacement lease is being kept alive: the keys outlive its TTL.
+      TimeUnit.MILLISECONDS.sleep(etcdConfig.getEphemeralNodeTtlMs() + 1000);
+      assertThat(ephemeralStore.listSyncUncached()).hasSize(2);
 
+      // Writes after recovery land on the new lease and are tracked for the next recovery.
+      ephemeralStore.createSync(new TestMetadata("later", "v1"));
+      long secondLeaseId = ephemeralStore.sharedLeaseId();
+      ownClient.getLeaseClient().revoke(secondLeaseId).get(5, TimeUnit.SECONDS);
+      await()
+          .atMost(15, TimeUnit.SECONDS)
+          .untilAsserted(() -> assertThat(ephemeralStore.listSyncUncached()).hasSize(3));
+      assertThat(ownRegistry.get("astra_etcd_lease_recovered").counter().count()).isEqualTo(2.0);
+
+      assertThat(fatal.get()).isZero();
     } finally {
-      if (failureStore != null) {
-        failureStore.close();
-      }
-      failureClient.close();
-      failureMeterRegistry.close();
+      EtcdMetadataStore.resetFatalErrorHandler();
+      ephemeralStore.close();
+      ownClient.close();
+      ownRegistry.close();
     }
   }
 
