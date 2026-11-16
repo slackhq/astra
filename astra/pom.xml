@@ -32,7 +32,7 @@
         <aws.sdk.version>2.57.10</aws.sdk.version>
         <error.prone.version>2.52.0</error.prone.version>
         <junit.jupiter.version>6.1.3</junit.jupiter.version>
-        <jetcd.version>0.8.7</jetcd.version>
+        <jetcd.version>0.8.8</jetcd.version>
     </properties>
 
     <repositories>
