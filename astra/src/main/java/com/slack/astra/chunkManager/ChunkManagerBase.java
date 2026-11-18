@@ -54,6 +54,14 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     concurrentQueries = new Semaphore(semaphoreCount, true);
   }
 
+  /**
+   * Narrows the chunks matching a query to the ones to search. Chunk managers that key chunkMap by
+   * chunk id can't hold the same chunk twice, so the default searches every match.
+   */
+  protected List<Chunk<T>> chunksToSearch(List<Chunk<T>> matchingChunks) {
+    return matchingChunks;
+  }
+
   /*
    * Query the chunks in the time range, aggregate the results per aggregation policy and return the results.
    * We aggregate locally and then the query aggregator will aggregate again.
@@ -74,6 +82,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
               .filter(c -> query.chunkIds.contains(c.id()))
               .collect(Collectors.toList());
     }
+    chunksMatchingQuery = chunksToSearch(chunksMatchingQuery);
 
     // Shuffle the chunks to query. The chunkList is ordered, meaning if you had multiple concurrent
     // queries that need to search the same N chunks, they would all attempt to search the same
